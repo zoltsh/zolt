@@ -7,9 +7,10 @@ import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.build.classpath.LockfileClasspathPackageConverter;
 import sh.zolt.build.lockfile.VerifiedArtifactIndex;
 import sh.zolt.build.packaging.PackageResult;
-import sh.zolt.build.packaging.PackageService;
 import sh.zolt.build.springboot.SpringBootAotNativeInputs;
 import sh.zolt.build.springboot.SpringBootAotOutputEvidenceService;
+import sh.zolt.doctor.JdkChecker;
+import sh.zolt.doctor.JdkDetector;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.NativeSettings;
@@ -28,7 +29,7 @@ import java.util.Optional;
 public final class NativeBuildService {
     private static final List<String> SERIOUS_WARNING_TERMS = List.of("warning", "unsupported", "error");
 
-    private final PackageService packageService;
+    private final NativePackageCompiler packageCompiler;
     private final ZoltLockfileReader lockfileReader;
     private final ClasspathBuilder classpathBuilder;
     private final NativeImageRunner nativeImageRunner;
@@ -39,18 +40,18 @@ public final class NativeBuildService {
 
     public NativeBuildService(BuildProvenanceSource provenanceSource) {
         this(
-                new PackageService(provenanceSource),
+                new NativePackageCompiler(provenanceSource),
                 new ZoltLockfileReader(),
                 new ClasspathBuilder(),
                 new NativeImageRunner());
     }
 
     NativeBuildService(
-            PackageService packageService,
+            NativePackageCompiler packageCompiler,
             ZoltLockfileReader lockfileReader,
             ClasspathBuilder classpathBuilder,
             NativeImageRunner nativeImageRunner) {
-        this.packageService = packageService;
+        this.packageCompiler = packageCompiler;
         this.lockfileReader = lockfileReader;
         this.classpathBuilder = classpathBuilder;
         this.nativeImageRunner = nativeImageRunner;
@@ -93,6 +94,24 @@ public final class NativeBuildService {
             Path nativeImageExecutable,
             Runnable progress,
             VerifiedArtifactIndex artifactIndex) {
+        return buildNative(
+                projectDirectory,
+                config,
+                cacheRoot,
+                nativeImageExecutable,
+                progress,
+                artifactIndex,
+                new JdkDetector());
+    }
+
+    public NativeBuildResult buildNative(
+            Path projectDirectory,
+            ProjectConfig config,
+            Path cacheRoot,
+            Path nativeImageExecutable,
+            Runnable progress,
+            VerifiedArtifactIndex artifactIndex,
+            JdkChecker jdkChecker) {
         NativeFrameworkPolicy.rejectUnsupported(config);
         nativeMainClass(config);
         preflightNativeImageExecutable(projectDirectory, nativeImageExecutable);
@@ -103,12 +122,13 @@ public final class NativeBuildService {
                 nativeImageExecutable);
         ProjectConfig packageConfig = NativePackagePolicy.packageConfig(config);
         var packageFilter = NativePackagePolicy.classpathFilter(config);
-        PackageResult packageResult = packageService.packageJar(
+        PackageResult packageResult = packageCompiler.packageJar(
                 projectDirectory,
                 config,
                 packageConfig,
                 cacheRoot,
-                artifactIndex);
+                artifactIndex,
+                jdkChecker);
         ZoltLockfile lockfile = lockfileReader.read(ProjectLockfile.in(projectDirectory));
         ClasspathSet classpaths = classpathBuilder.build(LockfileClasspathPackageConverter.classpathPackages(
                         lockfile,

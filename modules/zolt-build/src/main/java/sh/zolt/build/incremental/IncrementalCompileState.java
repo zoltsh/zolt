@@ -15,6 +15,7 @@ public record IncrementalCompileState(
         Path outputDirectory,
         Path generatedSourcesDirectory,
         String compilerSettingsHash,
+        String compilerIdentity,
         String buildFingerprintSha256,
         String publicAbiDigest,
         String packagePrivateAbiDigest,
@@ -53,6 +54,7 @@ public record IncrementalCompileState(
                 outputDirectory,
                 generatedSourcesDirectory,
                 compilerSettingsHash,
+                "unspecified",
                 buildFingerprintSha256,
                 "",
                 "",
@@ -78,14 +80,17 @@ public record IncrementalCompileState(
         compilerSettingsHash = requireText(
                 compilerSettingsHash,
                 "Incremental compile state compiler settings hash is required.");
+        compilerIdentity = requireText(
+                compilerIdentity,
+                "Incremental compile state compiler identity is required.");
         buildFingerprintSha256 = requireText(
                 buildFingerprintSha256,
                 "Incremental compile state build fingerprint hash is required.");
         fallbackReasons = sortedStrings(fallbackReasons);
         sourceRoots = sortedStrings(sourceRoots);
         generatedSourceRoots = sortedStrings(generatedSourceRoots);
-        compileClasspath = sortedEntries(compileClasspath);
-        processorClasspath = sortedEntries(processorClasspath);
+        compileClasspath = orderedEntries(compileClasspath);
+        processorClasspath = orderedEntries(processorClasspath);
         sources = sortedSources(sources);
         classes = sortedClasses(classes);
         reverseDependencies = sortedReverseDependencies(reverseDependencies);
@@ -224,13 +229,11 @@ public record IncrementalCompileState(
         return Collections.unmodifiableMap(sorted);
     }
 
-    private static List<ClasspathEntry> sortedEntries(List<ClasspathEntry> entries) {
+    private static List<ClasspathEntry> orderedEntries(List<ClasspathEntry> entries) {
         if (entries == null || entries.isEmpty()) {
             return List.of();
         }
-        return entries.stream()
-                .sorted(Comparator.comparing(entry -> entry.path().toString()))
-                .toList();
+        return List.copyOf(entries);
     }
 
     private static List<SourceRecord> sortedSources(List<SourceRecord> sources) {

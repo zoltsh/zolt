@@ -293,6 +293,14 @@ public final class JavaToolchainStatusService {
                         Optional.of(locked.resolvedVersion()),
                         Optional.of(locked.request().version()),
                         Optional.of(locked.resolvedDistribution().id())),
+                Optional.of("managed|sha256="
+                        + locked.artifactSha256()
+                        + "|platform="
+                        + locked.platform().id()
+                        + "|distribution="
+                        + locked.resolvedDistribution().id()
+                        + "|version="
+                        + locked.resolvedVersion()),
                 locked.request(),
                 List.of(),
                 List.of("Lock entry: " + locked.id() + " for " + locked.platform().id()));
@@ -327,6 +335,7 @@ public final class JavaToolchainStatusService {
                 resolved.jar(),
                 resolved.nativeImage(),
                 resolved.runtime(),
+                resolved.compilerIdentity(),
                 resolved.request(),
                 resolved.problems(),
                 notes);

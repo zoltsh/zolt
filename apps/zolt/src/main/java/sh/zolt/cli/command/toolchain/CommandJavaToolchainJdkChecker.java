@@ -150,12 +150,34 @@ public final class CommandJavaToolchainJdkChecker implements JdkChecker {
                 resolved.javac().map(CommandJavaToolchainJdkChecker::absolute),
                 resolved.jar().map(CommandJavaToolchainJdkChecker::absolute),
                 runtimeVersion(resolved),
+                compilerIdentity(resolved),
                 requiredVersion);
     }
 
     private static Optional<String> runtimeVersion(ResolvedJavaToolchain resolved) {
         Optional<String> featureVersion = resolved.runtime().featureVersion();
         return featureVersion.isPresent() ? featureVersion : resolved.runtime().version();
+    }
+
+    private Optional<String> compilerIdentity(ResolvedJavaToolchain resolved) {
+        if (resolved.compilerIdentity().isPresent()) {
+            return resolved.compilerIdentity();
+        }
+        String identity = resolved.source().label()
+                + "|version="
+                + resolved.runtime().version().orElse("missing")
+                + "|vendor="
+                + resolved.runtime().vendor().orElse("missing")
+                + "|distribution="
+                + resolved.request().distributionLabel()
+                + "|platform="
+                + platform.id()
+                + "|javac="
+                + resolved.javac()
+                        .map(CommandJavaToolchainJdkChecker::absolute)
+                        .map(Path::toString)
+                        .orElse("missing");
+        return Optional.of(identity);
     }
 
     private static Path absolute(Path path) {

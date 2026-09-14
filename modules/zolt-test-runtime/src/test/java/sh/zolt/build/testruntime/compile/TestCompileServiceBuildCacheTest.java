@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.build.cache.BuildCacheService;
 import sh.zolt.build.cache.BuildCacheSettings;
+import sh.zolt.doctor.JdkStatus;
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectConfigs;
@@ -55,6 +56,36 @@ final class TestCompileServiceBuildCacheTest {
                 "restored test output carries no incremental state (v1 tradeoff)");
     }
 
+    @Test
+    void sameMajorCompilerChangeInvalidatesWarmTestOutputAndCacheRestore() throws IOException {
+        BuildCacheService cache = BuildCacheService.create(
+                new BuildCacheSettings(true, cacheHome.resolve("compiler-cache"), 0L), "test-version");
+        TestCompileService firstCompiler = new TestCompileService(required -> compiler("same-major-a", required))
+                .withBuildCache(cache);
+        TestCompileService secondCompiler = new TestCompileService(required -> compiler("same-major-b", required))
+                .withBuildCache(cache);
+        writeLockfile("version = 7\n");
+        source("src/main/java/com/example/Main.java", "package com.example; public final class Main {}\n");
+        source("src/test/java/com/example/MainTest.java",
+                "package com.example; public final class MainTest { public String go() { return new Main().toString(); } }\n");
+
+        assertFalse(firstCompiler.compileTests(projectDir, config(), projectDir.resolve("cache"))
+                .testCompilationSkipped());
+        assertTrue(firstCompiler.compileTests(projectDir, config(), projectDir.resolve("cache"))
+                .testCompilationSkipped());
+
+        TestCompileResult switched = secondCompiler.compileTests(projectDir, config(), projectDir.resolve("cache"));
+        assertFalse(switched.testCompilationSkipped());
+        assertFalse(switched.buildResult().mainCompilationRestored());
+        assertEquals("full", switched.testCompilationMode());
+        assertEquals("compiler-identity-changed", switched.testIncrementalFallbackReason());
+
+        wipeTarget();
+        TestCompileResult restored = firstCompiler.compileTests(projectDir, config(), projectDir.resolve("cache"));
+        assertTrue(restored.buildResult().mainCompilationRestored());
+        assertEquals("restored", restored.testCompilationMode());
+    }
+
     private Path testClassFile() {
         return projectDir.resolve("target/test-classes/com/example/MainTest.class");
     }
@@ -98,5 +129,18 @@ final class TestCompileServiceBuildCacheTest {
             return parts[1];
         }
         return parts[0];
+    }
+
+    private static JdkStatus compiler(String identity, String requiredVersion) {
+        Path javaHome = Path.of(System.getProperty("java.home")).toAbsolutePath().normalize();
+        String executableSuffix = System.getProperty("os.name", "").startsWith("Windows") ? ".exe" : "";
+        return new JdkStatus(
+                Optional.of(javaHome),
+                Optional.of(javaHome.resolve("bin/java" + executableSuffix)),
+                Optional.of(javaHome.resolve("bin/javac" + executableSuffix)),
+                Optional.of(javaHome.resolve("bin/jar" + executableSuffix)),
+                Optional.of(currentJavaMajorVersion()),
+                Optional.of(identity),
+                requiredVersion);
     }
 }

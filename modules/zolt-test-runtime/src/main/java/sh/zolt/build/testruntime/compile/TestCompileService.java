@@ -231,8 +231,9 @@ public final class TestCompileService {
         Path generatedSourcesDirectory = GeneratedSourcesDirectory.test(
                 projectDirectory, config.compilerSettings().generatedTestSources());
         Path lockfilePath = context.lockfilePath();
+        BuildFingerprintService compilerFingerprints = buildFingerprintService.forCompiler(jdkStatus);
         long fingerprintCheckStarted = System.nanoTime();
-        BuildFingerprintCheck fingerprintCheck = buildFingerprintService.checkTestCompileCurrent(
+        BuildFingerprintCheck fingerprintCheck = compilerFingerprints.checkTestCompileCurrent(
                 projectDirectory,
                 config,
                 lockfilePath,
@@ -276,7 +277,7 @@ public final class TestCompileService {
         long fingerprintWriteNanos = 0L;
         if (!compileSkipped || !fingerprintCheck.reason().isBlank()) {
             long fingerprintWriteStarted = System.nanoTime();
-            buildFingerprintService.writeTestCompileFingerprint(
+            compilerFingerprints.writeTestCompileFingerprint(
                     projectDirectory,
                     config,
                     lockfilePath,

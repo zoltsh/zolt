@@ -52,6 +52,10 @@ public final class BuildService {
         this(new JdkDetector(), resolveService);
     }
 
+    public static BuildService withProvenance(BuildProvenanceSource provenanceSource) {
+        return new BuildService(new JdkDetector(), new ResolveService(), provenanceSource);
+    }
+
     public BuildService(ResolveService resolveService, BuildProvenanceSource provenanceSource) {
         this(new JdkDetector(), resolveService, provenanceSource);
     }
@@ -243,8 +247,9 @@ public final class BuildService {
         Path generatedSourcesDirectory =
                 GeneratedSourcesDirectory.main(projectDirectory, config.compilerSettings().generatedSources());
         Path lockfilePath = context.lockfilePath();
+        BuildFingerprintService compilerFingerprints = buildFingerprintService.forCompiler(jdkStatus);
         long fingerprintCheckStarted = System.nanoTime();
-        BuildFingerprintCheck fingerprintCheck = buildFingerprintService.checkMainCompileCurrent(
+        BuildFingerprintCheck fingerprintCheck = compilerFingerprints.checkMainCompileCurrent(
                 projectDirectory,
                 config,
                 lockfilePath,
@@ -294,7 +299,7 @@ public final class BuildService {
         String buildCacheOutcome = "";
         if (!compileSkipped || !fingerprintCheck.reason().isBlank()) {
             long fingerprintWriteStarted = System.nanoTime();
-            buildFingerprintService.writeMainCompileFingerprint(
+            compilerFingerprints.writeMainCompileFingerprint(
                     projectDirectory,
                     config,
                     lockfilePath,

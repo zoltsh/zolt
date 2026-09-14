@@ -21,10 +21,23 @@ import java.util.Optional;
  * scopes.
  */
 final class BuildFingerprintEngine {
+    private final String compilerIdentity;
     private final BuildFingerprintContent content = new BuildFingerprintContent();
     private final BuildFingerprintComparison comparison = new BuildFingerprintComparison();
     private final BuildFingerprintExpectedClasses expectedClasses = new BuildFingerprintExpectedClasses();
     private final BuildFingerprintStateStore stateStore = new BuildFingerprintStateStore();
+
+    BuildFingerprintEngine() {
+        this("unspecified");
+    }
+
+    private BuildFingerprintEngine(String compilerIdentity) {
+        this.compilerIdentity = compilerIdentity;
+    }
+
+    BuildFingerprintEngine forCompiler(String identity) {
+        return new BuildFingerprintEngine(identity);
+    }
 
     String inputsFingerprintSha256(
             Path projectDirectory,
@@ -58,7 +71,8 @@ final class BuildFingerprintEngine {
                 generatedSourcesDirectory,
                 null,
                 null,
-                true);
+                true,
+                compilerIdentity);
         return BuildFingerprintInputs.inputsSha256(fingerprint);
     }
 
@@ -94,7 +108,8 @@ final class BuildFingerprintEngine {
                 outputDirectoryName,
                 generatedSourcesDirectory,
                 fileName,
-                true);
+                true,
+                compilerIdentity);
     }
 
     BuildFingerprintCheck checkEvidenceCurrent(
@@ -129,7 +144,8 @@ final class BuildFingerprintEngine {
                 outputDirectoryName,
                 generatedSourcesDirectory,
                 fileName,
-                false);
+                false,
+                null);
     }
 
     private BuildFingerprintCheck checkCurrent(
@@ -148,7 +164,8 @@ final class BuildFingerprintEngine {
             String outputDirectoryName,
             Path generatedSourcesDirectory,
             String fileName,
-            boolean compilationOnly) {
+            boolean compilationOnly,
+            String requestedCompilerIdentity) {
         Path fingerprintPath = stateStore.fingerprintPath(outputDirectory, fileName);
         if (!Files.isRegularFile(fingerprintPath)) {
             return BuildFingerprintCheck.miss("missing-fingerprint");
@@ -161,6 +178,9 @@ final class BuildFingerprintEngine {
         }
         try {
             String existing = Files.readString(fingerprintPath);
+            String effectiveCompilerIdentity = requestedCompilerIdentity == null
+                    ? storedCompilerIdentity(existing)
+                    : requestedCompilerIdentity;
             List<Path> missingExpectedClasses = expectedClasses.missing(
                     projectDirectory.toAbsolutePath().normalize(),
                     existing);
@@ -187,7 +207,9 @@ final class BuildFingerprintEngine {
                         outputDirectoryName,
                         generatedSourcesDirectory,
                         state.orElseThrow(),
-                        null);
+                        null,
+                        false,
+                        effectiveCompilerIdentity);
                 return compare(existing, current, compilationOnly);
             }
             String current = content.fingerprint(
@@ -206,7 +228,9 @@ final class BuildFingerprintEngine {
                     outputDirectoryName,
                     generatedSourcesDirectory,
                     null,
-                    null);
+                    null,
+                    false,
+                    effectiveCompilerIdentity);
             return compare(existing, current, compilationOnly);
         } catch (IOException exception) {
             throw new BuildException(
@@ -260,7 +284,9 @@ final class BuildFingerprintEngine {
                     outputDirectoryName,
                     generatedSourcesDirectory,
                     cachedState,
-                    state);
+                    state,
+                    false,
+                    compilerIdentity);
             Files.writeString(fingerprintPath, fingerprint, StandardCharsets.UTF_8);
             stateStore.writeState(fingerprintPath, fingerprint, state);
         } catch (IOException exception) {
@@ -286,5 +312,13 @@ final class BuildFingerprintEngine {
         return normalized.startsWith(projectRoot)
                 ? projectRoot.relativize(normalized).toString().replace('\\', '/')
                 : normalized.toString().replace('\\', '/');
+    }
+
+    private static String storedCompilerIdentity(String fingerprint) {
+        return fingerprint.lines()
+                .filter(line -> line.startsWith("compilerIdentity="))
+                .map(line -> line.substring("compilerIdentity=".length()))
+                .findFirst()
+                .orElse("missing-from-stored-fingerprint");
     }
 }

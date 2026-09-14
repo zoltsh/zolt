@@ -1,5 +1,6 @@
 package sh.zolt.build.nativeimage;
 
+import sh.zolt.build.BuildService;
 import sh.zolt.build.classpath.ClasspathBuilder;
 import sh.zolt.build.packaging.PackageService;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
@@ -10,6 +11,7 @@ import sh.zolt.project.PackageSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectConfigs;
 import sh.zolt.project.ProjectMetadata;
+import sh.zolt.provenance.BuildProvenanceSource;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -29,7 +31,7 @@ abstract class NativeBuildServiceTestSupport {
 
     protected NativeBuildService service(NativeImageRunner.ProcessRunner processRunner) {
         return new NativeBuildService(
-                new PackageService(),
+                packageCompiler(),
                 new ZoltLockfileReader(),
                 new ClasspathBuilder(),
                 new NativeImageRunner(":", processRunner));
@@ -37,10 +39,16 @@ abstract class NativeBuildServiceTestSupport {
 
     protected NativeBuildService serviceLauncher(NativeImageRunner.ProcessLauncher processLauncher) {
         return new NativeBuildService(
-                new PackageService(),
+                packageCompiler(),
                 new ZoltLockfileReader(),
                 new ClasspathBuilder(),
                 new NativeImageRunner(":", processLauncher));
+    }
+
+    private static NativePackageCompiler packageCompiler() {
+        return new NativePackageCompiler(
+                new BuildService(),
+                new PackageService(BuildProvenanceSource.empty()));
     }
 
     protected void writeRuntimeLockfile() throws IOException {

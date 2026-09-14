@@ -52,7 +52,7 @@ final class MainBuildCacheGate {
         if (!BuildCacheModulePolicy.cacheable(config)) {
             return Attempt.uncacheable();
         }
-        String inputsSha = buildFingerprintService.mainInputsFingerprintSha256(
+        String inputsSha = buildFingerprintService.forCompiler(jdkStatus).mainInputsFingerprintSha256(
                 projectDirectory, config, lockfilePath, sources, classpaths, outputDirectory, generatedSourcesDirectory);
         BuildCacheKey key = BuildCacheKey.of(BuildCacheScope.MAIN, inputsSha, BuildCacheJdkIdentity.of(jdkStatus));
         return Attempt.active(key, buildCacheService.restore(key, outputDirectory));

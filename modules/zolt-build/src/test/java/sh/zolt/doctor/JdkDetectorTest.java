@@ -2,6 +2,7 @@ package sh.zolt.doctor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -78,6 +79,42 @@ final class JdkDetectorTest {
 
         assertTrue(status.ok());
         assertEquals(1, processReads[0]);
+    }
+
+    @Test
+    void compilerIdentityDistinguishesSameMajorReleaseFiles() throws IOException {
+        Path firstHome = jdk("first", "21.0.10", "Vendor One");
+        Path secondHome = jdk("second", "21.0.11", "Vendor Two");
+
+        JdkStatus first = detector(
+                        Map.of("JAVA_HOME", firstHome.toString()),
+                        java -> Optional.empty())
+                .detect("21");
+        JdkStatus second = detector(
+                        Map.of("JAVA_HOME", secondHome.toString()),
+                        java -> Optional.empty())
+                .detect("21");
+
+        assertEquals(first.version(), second.version());
+        assertNotEquals(first.effectiveCompilerIdentity(), second.effectiveCompilerIdentity());
+    }
+
+    @Test
+    void compilerIdentityIncludesProcessVersionWhenReleaseVersionIsMissing() throws IOException {
+        Path firstHome = jdk("first", null, "Same Vendor");
+        Path secondHome = jdk("second", null, "Same Vendor");
+
+        JdkStatus first = detector(
+                        Map.of("JAVA_HOME", firstHome.toString()),
+                        java -> Optional.of("openjdk version \"21.0.10\""))
+                .detect("21");
+        JdkStatus second = detector(
+                        Map.of("JAVA_HOME", secondHome.toString()),
+                        java -> Optional.of("openjdk version \"21.0.11\""))
+                .detect("21");
+
+        assertEquals(first.version(), second.version());
+        assertNotEquals(first.effectiveCompilerIdentity(), second.effectiveCompilerIdentity());
     }
 
     @Test
@@ -247,5 +284,15 @@ final class JdkDetectorTest {
         Files.writeString(tool, "");
         tool.toFile().setExecutable(true);
         return tool;
+    }
+
+    private Path jdk(String name, String version, String implementor) throws IOException {
+        Path javaHome = tempDir.resolve(name);
+        tool(javaHome, "java");
+        tool(javaHome, "javac");
+        tool(javaHome, "jar");
+        String versionLine = version == null ? "" : "JAVA_VERSION=\"" + version + "\"\n";
+        Files.writeString(javaHome.resolve("release"), versionLine + "IMPLEMENTOR=\"" + implementor + "\"\n");
+        return javaHome;
     }
 }

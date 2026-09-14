@@ -28,7 +28,11 @@ final class IncrementalCompileStateCodecTest {
                 project.resolve("target/classes"),
                 project.resolve("target/generated/sources/annotations"),
                 "compiler-hash",
+                "compiler-identity",
                 "fingerprint-hash",
+                "",
+                "",
+                "",
                 List.of("processor-classpath"),
                 List.of("src/main/java"),
                 List.of("target/generated/sources/openapi"),
@@ -72,6 +76,37 @@ final class IncrementalCompileStateCodecTest {
         assertTrue(formatted.contains("publicAbiDigest=" + state.publicAbiDigest()));
         assertTrue(formatted.contains("packagePrivateAbiDigest=" + state.packagePrivateAbiDigest()));
         assertTrue(formatted.contains("outputManifestDigest=" + state.outputManifestDigest()));
+        assertEquals("compiler-identity", parsed.compilerIdentity());
+    }
+
+    @Test
+    void statePreservesClasspathPrecedence() {
+        Path project = Path.of("/workspace/demo");
+        IncrementalCompileState.ClasspathEntry first = new IncrementalCompileState.ClasspathEntry(
+                project.resolve("lib/z-first.jar"), 42L, 123L, "hash-first");
+        IncrementalCompileState.ClasspathEntry second = new IncrementalCompileState.ClasspathEntry(
+                project.resolve("lib/a-second.jar"), 84L, 456L, "hash-second");
+        IncrementalCompileState state = new IncrementalCompileState(
+                "main",
+                project,
+                project.resolve("target/classes"),
+                project.resolve("target/generated/sources/annotations"),
+                "compiler-hash",
+                "fingerprint-hash",
+                List.of(),
+                List.of("src/main/java"),
+                List.of(),
+                List.of(first, second),
+                List.of(second, first),
+                List.of(),
+                List.of(),
+                Map.of(),
+                true);
+
+        IncrementalCompileState parsed = codec.parse(codec.format(state)).orElseThrow();
+
+        assertEquals(List.of(first, second), parsed.compileClasspath());
+        assertEquals(List.of(second, first), parsed.processorClasspath());
     }
 
     @Test
@@ -126,6 +161,7 @@ final class IncrementalCompileStateCodecTest {
     @Test
     void rejectsUnsupportedOrCorruptState() {
         assertTrue(codec.parse("version=999\n").isEmpty());
+        assertTrue(codec.parse("version=5\n").isEmpty());
         assertTrue(codec.parse("""
                 version=1
                 scope=main

@@ -45,7 +45,7 @@ final class TestCompileCacheGate {
                 || !BuildCacheModulePolicy.cacheable(config)) {
             return null;
         }
-        String inputsSha = fingerprints.testInputsFingerprintSha256(
+        String inputsSha = fingerprints.forCompiler(jdkStatus).testInputsFingerprintSha256(
                 projectDirectory,
                 config,
                 lockfilePath,

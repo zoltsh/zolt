@@ -6,6 +6,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Function;
@@ -54,6 +57,7 @@ public final class JdkDetector implements JdkChecker {
                 detected.javac(),
                 detected.jar(),
                 detected.version(),
+                detected.compilerIdentity(),
                 requiredVersion);
     }
 
@@ -68,10 +72,10 @@ public final class JdkDetector implements JdkChecker {
                 Optional<Path> java = findTool("java", javaHome);
                 Optional<Path> javac = findTool("javac", javaHome);
                 Optional<Path> jar = findTool("jar", javaHome);
-                Optional<String> version = java
-                        .flatMap(this::readVersion)
-                        .flatMap(JdkDetector::majorVersion);
-                toolchain = new Toolchain(javaHome, java, javac, jar, version);
+                Optional<String> rawVersion = java.flatMap(this::readVersion);
+                Optional<String> version = rawVersion.flatMap(JdkDetector::majorVersion);
+                Optional<String> compilerIdentity = java.flatMap(path -> compilerIdentity(path, javac, rawVersion));
+                toolchain = new Toolchain(javaHome, java, javac, jar, version, compilerIdentity);
             }
             return toolchain;
         }
@@ -83,22 +87,43 @@ public final class JdkDetector implements JdkChecker {
                 .or(() -> versionReader.read(java));
     }
 
+    private Optional<String> compilerIdentity(
+            Path java,
+            Optional<Path> javac,
+            Optional<String> rawVersion) {
+        Optional<String> release = javaHome(java).flatMap(JdkDetector::readReleaseContent);
+        if (release.isEmpty() && rawVersion.isEmpty()) {
+            return Optional.empty();
+        }
+        String material = "release=" + release.orElse("missing")
+                + "\nruntimeVersion=" + rawVersion.orElse("missing")
+                + "\njavac="
+                + javac.map(path -> path.toAbsolutePath().normalize().toString()).orElse("missing");
+        return Optional.of("ambient-runtime-sha256:" + sha256(material));
+    }
+
     private static Optional<Path> javaHome(Path java) {
         Path bin = java.toAbsolutePath().normalize().getParent();
         return bin == null ? Optional.empty() : Optional.ofNullable(bin.getParent());
     }
 
     static Optional<String> readReleaseVersion(Path javaHome) {
+        return readReleaseContent(javaHome)
+                .stream()
+                .flatMap(String::lines)
+                    .filter(line -> line.startsWith(RELEASE_VERSION_PREFIX))
+                    .map(line -> unquote(line.substring(RELEASE_VERSION_PREFIX.length()).strip()))
+                    .filter(value -> !value.isBlank())
+                    .findFirst();
+    }
+
+    private static Optional<String> readReleaseContent(Path javaHome) {
         Path release = javaHome.resolve("release");
         if (!Files.isRegularFile(release)) {
             return Optional.empty();
         }
         try {
-            return Files.readAllLines(release, StandardCharsets.UTF_8).stream()
-                    .filter(line -> line.startsWith(RELEASE_VERSION_PREFIX))
-                    .map(line -> unquote(line.substring(RELEASE_VERSION_PREFIX.length()).strip()))
-                    .filter(value -> !value.isBlank())
-                    .findFirst();
+            return Optional.of(Files.readString(release, StandardCharsets.UTF_8));
         } catch (IOException exception) {
             return Optional.empty();
         }
@@ -192,6 +217,15 @@ public final class JdkDetector implements JdkChecker {
         }
     }
 
+    private static String sha256(String value) {
+        try {
+            return HexFormat.of().formatHex(
+                    MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is unavailable.", exception);
+        }
+    }
+
     @FunctionalInterface
     interface ToolVersionReader {
         Optional<String> read(Path java);
@@ -202,13 +236,15 @@ public final class JdkDetector implements JdkChecker {
             Optional<Path> java,
             Optional<Path> javac,
             Optional<Path> jar,
-            Optional<String> version) {
+            Optional<String> version,
+            Optional<String> compilerIdentity) {
         private Toolchain {
             javaHome = javaHome == null ? Optional.empty() : javaHome;
             java = java == null ? Optional.empty() : java;
             javac = javac == null ? Optional.empty() : javac;
             jar = jar == null ? Optional.empty() : jar;
             version = version == null ? Optional.empty() : version;
+            compilerIdentity = compilerIdentity == null ? Optional.empty() : compilerIdentity;
         }
     }
 }

@@ -82,7 +82,8 @@ public final class MainCompileSourceExecutor {
                 classpaths.processor(),
                 outputDirectory,
                 generatedSourcesDirectory,
-                fingerprintMissReason);
+                fingerprintMissReason,
+                jdkStatus);
         if (plan.incremental()) {
             return withPlatformApiWarning(
                     incrementalCompile(

@@ -20,11 +20,12 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 final class BuildFingerprintContent {
-    private static final String VERSION = "1";
+    private static final String VERSION = "2";
     private static final List<String> OUTPUT_DIRECTORY_NAMES = List.of("build", "target");
 
     private final BuildFingerprintExpectedClasses expectedClasses = new BuildFingerprintExpectedClasses();
     private final BuildFingerprintFileHasher fileHasher = new BuildFingerprintFileHasher();
+    private final BuildFingerprintClasspathContent classpathContent = new BuildFingerprintClasspathContent();
 
     String fingerprint(
             Path projectDirectory,
@@ -60,7 +61,8 @@ final class BuildFingerprintContent {
                 generatedSourcesDirectory,
                 cachedState,
                 collectedState,
-                false);
+                false,
+                "unspecified");
     }
 
     String fingerprint(
@@ -81,18 +83,61 @@ final class BuildFingerprintContent {
             BuildFingerprintState cachedState,
             Map<Path, BuildFingerprintCachedFileHash> collectedState,
             boolean cacheKeyMode) {
+        return fingerprint(
+                projectDirectory,
+                config,
+                lockfilePath,
+                sourceRoots,
+                resourceRoots,
+                resourceRootKey,
+                sources,
+                generatedSteps,
+                generatedProducerFingerprints,
+                compileClasspath,
+                processorClasspath,
+                outputDirectory,
+                outputDirectoryName,
+                generatedSourcesDirectory,
+                cachedState,
+                collectedState,
+                cacheKeyMode,
+                "unspecified");
+    }
+
+    String fingerprint(
+            Path projectDirectory,
+            ProjectConfig config,
+            Path lockfilePath,
+            List<String> sourceRoots,
+            List<String> resourceRoots,
+            String resourceRootKey,
+            List<Path> sources,
+            List<GeneratedSourceStep> generatedSteps,
+            List<GeneratedSourceProducerFingerprint> generatedProducerFingerprints,
+            Classpath compileClasspath,
+            Classpath processorClasspath,
+            Path outputDirectory,
+            String outputDirectoryName,
+            Path generatedSourcesDirectory,
+            BuildFingerprintState cachedState,
+            Map<Path, BuildFingerprintCachedFileHash> collectedState,
+            boolean cacheKeyMode,
+            String compilerIdentity) {
         Path projectRoot = projectDirectory.toAbsolutePath().normalize();
         StringBuilder content = new StringBuilder();
         line(content, "version", VERSION);
         line(content, "projectJava", config.project().java());
+        line(content, "compilerIdentity", compilerIdentity);
         line(content, "zoltToml", fileHasher.fileHash(projectRoot.resolve("zolt.toml"), cachedState, collectedState));
         line(content, "lockfile", fileHasher.fileHash(lockfilePath, cachedState, collectedState));
         section(content, "sourceRoots", sourceRoots.stream().map(BuildFingerprintContent::normalize).toList());
         line(content, "outputDirectory", normalize(outputDirectoryName));
         line(content, "generatedSourcesDirectory", fileHasher.relative(projectRoot, generatedSourcesDirectory));
         line(content, "compilerSettings", config.compilerSettings().toString());
-        section(content, "compileClasspath", classpathEntries(compileClasspath, cachedState, collectedState, cacheKeyMode));
-        section(content, "processorClasspath", processorClasspathEntries(processorClasspath, cachedState, collectedState, cacheKeyMode));
+        orderedSection(content, "compileClasspath", classpathContent.compileEntries(
+                compileClasspath, cachedState, collectedState, cacheKeyMode));
+        orderedSection(content, "processorClasspath", classpathContent.processorEntries(
+                processorClasspath, cachedState, collectedState, cacheKeyMode));
         section(content, "sources", fileEntries(projectRoot, sources, cachedState, collectedState));
         section(content, "generatedProducerFingerprints", generatedProducerEntries(generatedProducerFingerprints));
         section(content, "generatedSourceInputs", generatedSourceInputEntries(projectRoot, generatedSteps, cachedState, collectedState));
@@ -119,53 +164,6 @@ final class BuildFingerprintContent {
                         + fingerprint.kind().configValue()
                         + "|"
                         + fingerprint.fingerprint())
-                .toList();
-    }
-
-    private List<String> classpathEntries(
-            Classpath classpath,
-            BuildFingerprintState cachedState,
-            Map<Path, BuildFingerprintCachedFileHash> collectedState,
-            boolean cacheKeyMode) {
-        if (cacheKeyMode) {
-            // Content-only, path-free entries: two builds with the same compiled dependencies key
-            // identically regardless of where those artifacts live (machine, checkout) or whether a
-            // dependency output was compiled or restored. Sorted by content so order does not matter,
-            // which the skip-gate fingerprint already disregards (it sorts entries too).
-            return classpath.entries().stream()
-                    .map(path -> path.toAbsolutePath().normalize())
-                    .map(path -> fileHasher.classpathKeyHash(path, cachedState, collectedState))
-                    .sorted()
-                    .toList();
-        }
-        return classpath.entries().stream()
-                .map(path -> path.toAbsolutePath().normalize())
-                .sorted()
-                .map(path -> path + "|" + fileHasher.classpathHash(path, cachedState, collectedState))
-                .toList();
-    }
-
-    /**
-     * The processor path is hashed by content, never by ABI.
-     *
-     * <p>A compile classpath entry that is a workspace output is summarised by its ABI, because javac
-     * reads only signatures from a dependency and an unchanged ABI cannot change what it compiles. A
-     * processor is not read, it is <em>run</em>: an edit confined to a method body leaves the ABI
-     * identical and changes every source the processor emits. Hashing the compiled bytes is what makes
-     * a processor edit reach the members whose sources it generates.
-     */
-    private List<String> processorClasspathEntries(
-            Classpath classpath,
-            BuildFingerprintState cachedState,
-            Map<Path, BuildFingerprintCachedFileHash> collectedState,
-            boolean cacheKeyMode) {
-        if (cacheKeyMode) {
-            return classpathEntries(classpath, cachedState, collectedState, true);
-        }
-        return classpath.entries().stream()
-                .map(path -> path.toAbsolutePath().normalize())
-                .sorted()
-                .map(path -> path + "|" + fileHasher.classpathKeyHash(path, cachedState, collectedState))
                 .toList();
     }
 
@@ -292,6 +290,11 @@ final class BuildFingerprintContent {
     private static void section(StringBuilder content, String name, List<String> entries) {
         content.append('[').append(name).append(']').append('\n');
         entries.stream().sorted(Comparator.naturalOrder()).forEach(entry -> content.append(entry).append('\n'));
+    }
+
+    private static void orderedSection(StringBuilder content, String name, List<String> entries) {
+        content.append('[').append(name).append(']').append('\n');
+        entries.forEach(entry -> content.append(entry).append('\n'));
     }
 
     private static void line(StringBuilder content, String name, String value) {

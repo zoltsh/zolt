@@ -55,6 +55,10 @@ final class JavaToolchainStatusServiceTest {
         assertEquals(Optional.of(store.javaHome(locked)), status.resolved().javaHome());
         assertEquals(Optional.of(store.java(locked)), status.resolved().java());
         assertEquals(Optional.of(store.nativeImage(locked).orElseThrow()), status.resolved().nativeImage());
+        assertEquals(
+                Optional.of("managed|sha256=" + "0".repeat(64)
+                        + "|platform=linux-x64|distribution=graalvm-community|version=21"),
+                status.resolved().compilerIdentity());
     }
 
     @Test

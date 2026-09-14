@@ -2,6 +2,7 @@ package sh.zolt.build.fingerprint;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -9,6 +10,7 @@ import sh.zolt.build.BuildException;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.classpath.Classpath;
 import sh.zolt.classpath.ClasspathSet;
+import sh.zolt.doctor.JdkStatus;
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.GeneratedSourceKind;
 import sh.zolt.project.GeneratedSourceStep;
@@ -190,6 +192,53 @@ final class BuildFingerprintServiceTest {
     }
 
     @Test
+    void compilerIdentityInvalidatesNoOpAndCacheInputFingerprints() throws IOException {
+        Files.writeString(projectDir.resolve("zolt.toml"), "[project]\nname = \"demo\"\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
+        Path source = write("src/main/java/com/example/Main.java", "package com.example; final class Main {}\n");
+        write("target/classes/com/example/Main.class", "class");
+        SourceDiscoveryResult sources = new SourceDiscoveryResult(List.of(source), List.of());
+        ClasspathSet classpaths = emptyClasspaths();
+        Path output = projectDir.resolve("target/classes");
+        Path generated = projectDir.resolve("target/generated/sources/annotations");
+        BuildFingerprintService first = service.forCompiler(compiler("same-major-a"));
+        BuildFingerprintService second = service.forCompiler(compiler("same-major-b"));
+
+        first.writeMainCompileFingerprint(
+                projectDir,
+                config(),
+                projectDir.resolve("zolt.lock"),
+                sources,
+                classpaths,
+                output,
+                generated);
+
+        assertTrue(first.checkMainCompileCurrent(
+                projectDir,
+                config(),
+                projectDir.resolve("zolt.lock"),
+                sources,
+                classpaths,
+                output,
+                generated).current());
+        BuildFingerprintCheck changed = second.checkMainCompileCurrent(
+                projectDir,
+                config(),
+                projectDir.resolve("zolt.lock"),
+                sources,
+                classpaths,
+                output,
+                generated);
+        assertFalse(changed.current());
+        assertEquals("fingerprint-mismatch:compilerIdentity", changed.reason());
+        assertNotEquals(
+                first.mainInputsFingerprintSha256(
+                        projectDir, config(), projectDir.resolve("zolt.lock"), sources, classpaths, output, generated),
+                second.mainInputsFingerprintSha256(
+                        projectDir, config(), projectDir.resolve("zolt.lock"), sources, classpaths, output, generated));
+    }
+
+    @Test
     void refreshesChangedFilesWithoutDroppingCurrentCachedHashes() throws IOException {
         Files.writeString(projectDir.resolve("zolt.toml"), "[project]\nname = \"demo\"\n");
         Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
@@ -259,6 +308,17 @@ final class BuildFingerprintServiceTest {
     private static ClasspathSet emptyClasspaths() {
         Classpath empty = new Classpath(List.of());
         return new ClasspathSet(empty, empty, empty, empty, empty, empty);
+    }
+
+    private static JdkStatus compiler(String identity) {
+        return new JdkStatus(
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of("21"),
+                Optional.of(identity),
+                "21");
     }
 
     private Path write(String relativePath, String content) throws IOException {

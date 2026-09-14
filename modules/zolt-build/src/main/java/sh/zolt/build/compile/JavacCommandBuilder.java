@@ -33,10 +33,10 @@ final class JavacCommandBuilder {
             command.add(options.encoding());
         }
         List<Path> modulePathEntries = sortedModulePath(options);
-        List<Path> classpathEntries = classpathWithoutModulePath(sortedEntries(classpath), modulePathEntries);
+        List<Path> classpathEntries = classpathWithoutModulePath(orderedEntries(classpath), modulePathEntries);
         addPath(command, "-classpath", classpathEntries);
         addPath(command, "--module-path", modulePathEntries);
-        List<Path> processorClasspathEntries = sortedEntries(processorClasspath);
+        List<Path> processorClasspathEntries = orderedEntries(processorClasspath);
         if (processorClasspathEntries.isEmpty()) {
             command.add("-proc:none");
         } else {
@@ -51,13 +51,12 @@ final class JavacCommandBuilder {
         return List.copyOf(command);
     }
 
-    static List<Path> sortedEntries(Classpath classpath) {
+    static List<Path> orderedEntries(Classpath classpath) {
         if (classpath == null) {
             return List.of();
         }
         return classpath.entries().stream()
                 .map(Path::normalize)
-                .sorted(Comparator.naturalOrder())
                 .toList();
     }
 

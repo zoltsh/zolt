@@ -4,6 +4,7 @@ import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.build.generatedsource.GeneratedSourceProducerFingerprint;
 import sh.zolt.classpath.Classpath;
 import sh.zolt.classpath.ClasspathSet;
+import sh.zolt.doctor.JdkStatus;
 import sh.zolt.project.ProjectConfig;
 import java.nio.file.Path;
 import java.util.List;
@@ -11,7 +12,20 @@ import java.util.List;
 public final class BuildFingerprintService {
     private static final String MAIN_FILE_NAME = ".zolt-build-main.fingerprint";
     private static final String TEST_FILE_NAME = ".zolt-build-test.fingerprint";
-    private final BuildFingerprintEngine engine = new BuildFingerprintEngine();
+    private final BuildFingerprintEngine engine;
+
+    public BuildFingerprintService() {
+        this(new BuildFingerprintEngine());
+    }
+
+    public BuildFingerprintService forCompiler(JdkStatus jdkStatus) {
+        return new BuildFingerprintService(
+                engine.forCompiler(jdkStatus.effectiveCompilerIdentity()));
+    }
+
+    private BuildFingerprintService(BuildFingerprintEngine engine) {
+        this.engine = engine;
+    }
 
     public boolean isMainCompileCurrent(
             Path projectDirectory,
@@ -243,12 +257,7 @@ public final class BuildFingerprintService {
                 TEST_FILE_NAME);
     }
 
-    /**
-     * The inputs-only fingerprint SHA-256 for the main compile scope: the content component of a
-     * build-output cache key. Computed from the same input sections the skip-gate hashes, minus the
-     * {@code [expectedClasses]} output section. Stable across the compile it keys (inputs do not change
-     * while javac runs), so the value taken before a compile matches the one implied after it.
-     */
+    /** Inputs-only main compile fingerprint used as the content component of a build-cache key. */
     public String mainInputsFingerprintSha256(
             Path projectDirectory,
             ProjectConfig config,
@@ -274,13 +283,7 @@ public final class BuildFingerprintService {
                 generatedSourcesDirectory);
     }
 
-    /**
-     * Reads the canonical inputs-only fingerprint that produced the current main output.
-     *
-     * <p>Package evidence combines this compiler-owned identity with a live source/resource check,
-     * so it reuses the exact build fingerprint model while still detecting edits made after the last
-     * compile.
-     */
+    /** Reads the canonical inputs-only fingerprint that produced the current main output. */
     public String storedMainInputsFingerprintSha256(Path outputDirectory) {
         return StoredBuildFingerprintInputs.read(
                 outputDirectory,
@@ -289,12 +292,7 @@ public final class BuildFingerprintService {
                 "zolt build");
     }
 
-    /**
-     * Reads the canonical inputs-only fingerprint that produced the current test output.
-     *
-     * <p>Tests-JAR packaging uses this compiler-owned identity together with the live canonical test
-     * check so stale test bytecode can never be blessed by fresh package evidence.
-     */
+    /** Reads the canonical inputs-only fingerprint that produced the current test output. */
     public String storedTestInputsFingerprintSha256(Path outputDirectory) {
         return StoredBuildFingerprintInputs.read(
                 outputDirectory,

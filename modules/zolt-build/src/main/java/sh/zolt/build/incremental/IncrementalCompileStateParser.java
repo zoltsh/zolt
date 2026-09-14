@@ -46,6 +46,9 @@ final class IncrementalCompileStateParser {
                 fields.generatedSourcesDirectory = pathValue(line, "generatedSourcesDirectory=");
             } else if (line.startsWith("compilerSettingsHash=")) {
                 fields.compilerSettingsHash = line.substring("compilerSettingsHash=".length());
+            } else if (line.startsWith("compilerIdentity=")) {
+                fields.compilerIdentity = IncrementalCompileStateEncoding.decode(
+                        line.substring("compilerIdentity=".length()));
             } else if (line.startsWith("buildFingerprintSha256=")) {
                 fields.buildFingerprintSha256 = line.substring("buildFingerprintSha256=".length());
             } else if (line.startsWith("publicAbiDigest=")) {
@@ -69,6 +72,7 @@ final class IncrementalCompileStateParser {
                 fields.outputDirectory,
                 fields.generatedSourcesDirectory,
                 fields.compilerSettingsHash,
+                fields.compilerIdentity,
                 fields.buildFingerprintSha256,
                 fields.publicAbiDigest,
                 fields.packagePrivateAbiDigest,
@@ -177,6 +181,7 @@ final class IncrementalCompileStateParser {
         private Path outputDirectory;
         private Path generatedSourcesDirectory;
         private String compilerSettingsHash;
+        private String compilerIdentity;
         private String buildFingerprintSha256;
         private String publicAbiDigest;
         private String packagePrivateAbiDigest;

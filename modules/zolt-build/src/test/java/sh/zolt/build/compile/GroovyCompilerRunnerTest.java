@@ -31,7 +31,7 @@ final class GroovyCompilerRunnerTest {
         List<String> command = commands.getFirst();
         assertEquals("/jdk/bin/java", command.get(0));
         assertEquals("-cp", command.get(1));
-        assertEquals("cache/groovy.jar:target/test-classes", command.get(2));
+        assertEquals("target/test-classes:cache/groovy.jar", command.get(2));
         assertTrue(command.contains("org.codehaus.groovy.tools.FileSystemCompiler"));
         assertTrue(command.contains("-d"));
         assertTrue(command.contains("target/test-classes"));

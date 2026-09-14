@@ -81,7 +81,7 @@ final class JavacRunnerTest {
                 "-d",
                 tempDir.resolve("target/classes").toString(),
                 "-classpath",
-                "alpha.jar:zeta.jar",
+                "zeta.jar:alpha.jar",
                 "-proc:none",
                 source.normalize().toString()), commands.getFirst());
     }
@@ -109,9 +109,9 @@ final class JavacRunnerTest {
                 "-d",
                 tempDir.resolve("target/classes").toString(),
                 "-classpath",
-                "alpha.jar:zeta.jar",
+                "zeta.jar:alpha.jar",
                 "-processorpath",
-                "processor-a.jar:processor-z.jar:alpha.jar:zeta.jar",
+                "processor-z.jar:processor-a.jar:zeta.jar:alpha.jar",
                 "-s",
                 generatedSources.toString(),
                 source.normalize().toString()), commands.getFirst());
@@ -218,7 +218,7 @@ final class JavacRunnerTest {
                 "-d",
                 tempDir.resolve("target/classes").toString(),
                 "-classpath",
-                "alpha.jar:zeta.jar",
+                "zeta.jar:alpha.jar",
                 "-proc:none",
                 source.normalize().toString()), command);
     }

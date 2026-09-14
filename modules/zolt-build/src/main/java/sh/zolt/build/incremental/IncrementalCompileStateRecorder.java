@@ -187,7 +187,11 @@ public final class IncrementalCompileStateRecorder {
                         outputDirectory,
                         generatedSourcesDirectory,
                         hashText(config.compilerSettings().toString()),
+                        IncrementalCompileStateFingerprint.compilerIdentity(fingerprintPath),
                         hash(fingerprintPath),
+                        "",
+                        "",
+                        "",
                         stateFallbackReasons,
                         sourceRoots.stream().map(path -> relative(projectRoot, path)).toList(),
                         generatedSteps.stream().map(GeneratedSourceStep::output).sorted().toList(),
@@ -304,7 +308,6 @@ public final class IncrementalCompileStateRecorder {
         previousEntries.forEach(entry -> previous.put(entry.path(), entry));
         return classpath.entries().stream()
                 .map(path -> path.toAbsolutePath().normalize())
-                .sorted()
                 .map(path -> IncrementalCompileInputHasher.classpathEntry(path, previous.get(path)))
                 .toList();
     }

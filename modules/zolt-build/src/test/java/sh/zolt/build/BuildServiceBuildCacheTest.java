@@ -8,6 +8,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import sh.zolt.build.cache.BuildCacheService;
 import sh.zolt.build.cache.BuildCacheSettings;
 import sh.zolt.project.BuildSettings;
+import sh.zolt.project.CompilerSettings;
+import sh.zolt.doctor.JdkStatus;
+import sh.zolt.project.NativeSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectConfigs;
 import sh.zolt.project.ProjectMetadata;
@@ -18,6 +21,7 @@ import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -108,6 +112,41 @@ final class BuildServiceBuildCacheTest {
         assertEquals("", result.mainBuildCacheOutcome());
     }
 
+    @Test
+    void sameMajorCompilerChangeInvalidatesWarmOutputAndCacheRestore() throws IOException {
+        assertCompilerChangeInvalidatesReuse(config());
+    }
+
+    @Test
+    void sameMajorCompilerChangeInvalidatesHostPlatformApiOutput() throws IOException {
+        assertCompilerChangeInvalidatesReuse(hostPlatformConfig());
+    }
+
+    private void assertCompilerChangeInvalidatesReuse(ProjectConfig projectConfig) throws IOException {
+        BuildCacheService cache = BuildCacheService.create(
+                new BuildCacheSettings(true, cacheHome.resolve("compiler-cache"), 0L),
+                "test-version");
+        BuildService firstCompiler = new BuildService()
+                .withJdkChecker(required -> compiler("same-major-a", required))
+                .withBuildCache(cache);
+        BuildService secondCompiler = new BuildService()
+                .withJdkChecker(required -> compiler("same-major-b", required))
+                .withBuildCache(cache);
+        writeProject("hello");
+
+        assertFalse(firstCompiler.build(projectDir, projectConfig, artifactCache()).mainCompilationSkipped());
+        assertTrue(firstCompiler.build(projectDir, projectConfig, artifactCache()).mainCompilationSkipped());
+
+        BuildResult switched = secondCompiler.build(projectDir, projectConfig, artifactCache());
+        assertFalse(switched.mainCompilationSkipped());
+        assertFalse(switched.mainCompilationRestored(), "a distinct compiler must miss the first compiler's cache key");
+        assertEquals("compiler-identity-changed", switched.mainIncrementalFallbackReason());
+
+        wipeTarget();
+        BuildResult restored = firstCompiler.build(projectDir, projectConfig, artifactCache());
+        assertTrue(restored.mainCompilationRestored(), "the original compiler keeps its distinct cached output");
+    }
+
     private BuildService cacheEnabledService() {
         BuildCacheSettings settings = new BuildCacheSettings(true, cacheHome.resolve("build-cache"), 0L);
         return new BuildService().withBuildCache(BuildCacheService.create(settings, "test-version"));
@@ -171,6 +210,48 @@ final class BuildServiceBuildCacheTest {
                 Map.of(),
                 Map.of(),
                 BuildSettings.defaults());
+    }
+
+    private static ProjectConfig hostPlatformConfig() {
+        ProjectConfig base = config();
+        CompilerSettings defaults = base.compilerSettings();
+        CompilerSettings host = new CompilerSettings(
+                defaults.generatedSources(),
+                defaults.generatedTestSources(),
+                defaults.release(),
+                defaults.encoding(),
+                defaults.args(),
+                defaults.testArgs(),
+                CompilerSettings.PLATFORM_API_HOST,
+                "");
+        return ProjectConfigs.withDependencySections(
+                base.project(),
+                base.repositories(),
+                base.platforms(),
+                base.dependencies(),
+                Set.of(),
+                base.testDependencies(),
+                Set.of(),
+                base.annotationProcessors(),
+                Set.of(),
+                base.testAnnotationProcessors(),
+                Set.of(),
+                base.build(),
+                NativeSettings.defaults(),
+                host);
+    }
+
+    private static JdkStatus compiler(String identity, String requiredVersion) {
+        Path javaHome = Path.of(System.getProperty("java.home")).toAbsolutePath().normalize();
+        String executableSuffix = System.getProperty("os.name", "").startsWith("Windows") ? ".exe" : "";
+        return new JdkStatus(
+                Optional.of(javaHome),
+                Optional.of(javaHome.resolve("bin/java" + executableSuffix)),
+                Optional.of(javaHome.resolve("bin/javac" + executableSuffix)),
+                Optional.of(javaHome.resolve("bin/jar" + executableSuffix)),
+                Optional.of(currentJavaMajorVersion()),
+                Optional.of(identity),
+                requiredVersion);
     }
 
     private static String currentJavaMajorVersion() {

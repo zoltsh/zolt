@@ -72,7 +72,8 @@ final class TestCompileSourceExecutor {
                 testCompileClasspath,
                 classpaths.testProcessor(),
                 outputDirectory,
-                generatedSourcesDirectory);
+                generatedSourcesDirectory,
+                jdkStatus);
         if (plan.incremental()) {
             return withPlatformApiWarning(
                     incrementalCompile(

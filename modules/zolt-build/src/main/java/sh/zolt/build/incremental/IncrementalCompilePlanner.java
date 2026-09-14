@@ -5,6 +5,7 @@ import static sh.zolt.build.incremental.IncrementalCompileInputHasher.hash;
 import sh.zolt.build.abi.ClassFileAbiReader;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.classpath.Classpath;
+import sh.zolt.doctor.JdkStatus;
 import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.ProjectConfig;
 import java.nio.file.Path;
@@ -51,7 +52,8 @@ public final class IncrementalCompilePlanner {
                 processorClasspath,
                 outputDirectory,
                 generatedSourcesDirectory,
-                "non-source-input-changed");
+                "non-source-input-changed",
+                null);
     }
 
     public IncrementalCompilePlan planMain(
@@ -62,7 +64,8 @@ public final class IncrementalCompilePlanner {
             Classpath processorClasspath,
             Path outputDirectory,
             Path generatedSourcesDirectory,
-            String noSourceFallbackReason) {
+            String noSourceFallbackReason,
+            JdkStatus jdkStatus) {
         return plan(
                 "main",
                 projectDirectory,
@@ -76,7 +79,8 @@ public final class IncrementalCompilePlanner {
                 generatedSourcesDirectory,
                 IncrementalCompileState.mainStatePath(outputDirectory),
                 List.of(),
-                noSourceFallbackReason);
+                noSourceFallbackReason,
+                compilerIdentity(jdkStatus));
     }
 
     public IncrementalCompilePlan planTest(
@@ -86,7 +90,8 @@ public final class IncrementalCompilePlanner {
             Classpath compileClasspath,
             Classpath processorClasspath,
             Path outputDirectory,
-            Path generatedSourcesDirectory) {
+            Path generatedSourcesDirectory,
+            JdkStatus jdkStatus) {
         List<String> fallbackReasons = new ArrayList<>();
         if (!sources.groovyTestSources().isEmpty()) {
             fallbackReasons.add("groovy-test-sources");
@@ -104,7 +109,8 @@ public final class IncrementalCompilePlanner {
                 generatedSourcesDirectory,
                 IncrementalCompileState.testStatePath(outputDirectory),
                 fallbackReasons,
-                "non-source-input-changed");
+                "non-source-input-changed",
+                compilerIdentity(jdkStatus));
     }
 
     private IncrementalCompilePlan plan(
@@ -120,7 +126,8 @@ public final class IncrementalCompilePlanner {
             Path generatedSourcesDirectory,
             Path statePath,
             List<String> additionalFallbackReasons,
-            String noSourceFallbackReason) {
+            String noSourceFallbackReason,
+            String compilerIdentity) {
         return planResolved(
                 scope,
                 projectDirectory,
@@ -134,7 +141,8 @@ public final class IncrementalCompilePlanner {
                 generatedSourcesDirectory,
                 statePath,
                 additionalFallbackReasons,
-                noSourceFallbackReason)
+                noSourceFallbackReason,
+                compilerIdentity)
                 .withCaptureProcessorAttribution(processorClassifier.isolating(processorClasspath));
     }
 
@@ -151,7 +159,8 @@ public final class IncrementalCompilePlanner {
             Path generatedSourcesDirectory,
             Path statePath,
             List<String> additionalFallbackReasons,
-            String noSourceFallbackReason) {
+            String noSourceFallbackReason,
+            String compilerIdentity) {
         String processorFallback = processorClassifier.fallbackReason(processorClasspath);
         if (!processorFallback.isEmpty()) {
             return IncrementalCompilePlan.full(processorFallback);
@@ -173,6 +182,7 @@ public final class IncrementalCompilePlanner {
                 scope,
                 projectRoot,
                 config,
+                compilerIdentity,
                 configuredSourceRoots,
                 generatedSteps,
                 compileClasspath,
@@ -231,6 +241,10 @@ public final class IncrementalCompilePlanner {
 
     private static String normalizeNoSourceFallbackReason(String reason) {
         return reason == null || reason.isBlank() ? "non-source-input-changed" : reason;
+    }
+
+    private static String compilerIdentity(JdkStatus jdkStatus) {
+        return jdkStatus == null ? "unspecified" : jdkStatus.effectiveCompilerIdentity();
     }
 
     public IncrementalCompileWaveResult validateAndCompileDependents(
