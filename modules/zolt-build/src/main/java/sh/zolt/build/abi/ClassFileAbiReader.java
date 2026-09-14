@@ -32,8 +32,10 @@ public final class ClassFileAbiReader {
             "PermittedSubclasses",
             "Record",
             "RuntimeInvisibleAnnotations",
+            "RuntimeInvisibleParameterAnnotations",
             "RuntimeInvisibleTypeAnnotations",
             "RuntimeVisibleAnnotations",
+            "RuntimeVisibleParameterAnnotations",
             "RuntimeVisibleTypeAnnotations",
             "Signature");
 
@@ -76,10 +78,11 @@ public final class ClassFileAbiReader {
             Optional<String> superName = superIndex == 0
                     ? Optional.empty()
                     : Optional.of(constantPool.className(superIndex));
+            String classContentHash = sha256(bytes);
             List<String> interfaces = readInterfaces(input, constantPool);
-            List<MemberAbi> fields = readMembers(input, constantPool, "field");
-            List<MemberAbi> methods = readMembers(input, constantPool, "method");
-            ClassAttributes classAttributes = readClassAttributes(input, constantPool);
+            List<MemberAbi> fields = readMembers(input, constantPool, classContentHash, "field");
+            List<MemberAbi> methods = readMembers(input, constantPool, classContentHash, "method");
+            ClassAttributes classAttributes = readClassAttributes(input, constantPool, classContentHash);
 
             Set<String> referencedClasses = new LinkedHashSet<>(constantPool.referencedClasses());
             fields.forEach(field -> field.addReferences(referencedClasses));
@@ -144,6 +147,7 @@ public final class ClassFileAbiReader {
     private static List<MemberAbi> readMembers(
             DataInputStream input,
             ClassFileConstantPool constantPool,
+            String classContentHash,
             String kind) throws IOException {
         int count = input.readUnsignedShort();
         List<MemberAbi> members = new ArrayList<>();
@@ -151,7 +155,7 @@ public final class ClassFileAbiReader {
             int accessFlags = input.readUnsignedShort();
             String name = constantPool.utf8(input.readUnsignedShort());
             String descriptor = constantPool.utf8(input.readUnsignedShort());
-            List<String> attributes = readCompileRelevantAttributes(input, constantPool);
+            List<String> attributes = readCompileRelevantAttributes(input, constantPool, classContentHash);
             members.add(new MemberAbi(kind, accessFlags, name, descriptor, attributes));
         }
         return members;
@@ -159,7 +163,8 @@ public final class ClassFileAbiReader {
 
     private static ClassAttributes readClassAttributes(
             DataInputStream input,
-            ClassFileConstantPool constantPool) throws IOException {
+            ClassFileConstantPool constantPool,
+            String classContentHash) throws IOException {
         int count = input.readUnsignedShort();
         List<String> attributes = new ArrayList<>();
         Optional<String> sourceFileName = Optional.empty();
@@ -171,7 +176,7 @@ public final class ClassFileAbiReader {
                     sourceFileName = Optional.of(constantPool.utf8(attributeInput.readUnsignedShort()));
                 }
             } else if (COMPILE_RELEVANT_ATTRIBUTES.contains(name)) {
-                attributes.add(name + "=" + sha256(bytes));
+                attributes.add(conservativeAttribute(name, classContentHash));
             }
         }
         return new ClassAttributes(
@@ -181,7 +186,8 @@ public final class ClassFileAbiReader {
 
     private static List<String> readCompileRelevantAttributes(
             DataInputStream input,
-            ClassFileConstantPool constantPool) throws IOException {
+            ClassFileConstantPool constantPool,
+            String classContentHash) throws IOException {
         int count = input.readUnsignedShort();
         List<String> attributes = new ArrayList<>();
         for (int index = 0; index < count; index++) {
@@ -192,10 +198,22 @@ public final class ClassFileAbiReader {
                     attributes.add(name + "=" + constantPool.constantValue(attributeInput.readUnsignedShort()));
                 }
             } else if (COMPILE_RELEVANT_ATTRIBUTES.contains(name)) {
-                attributes.add(name + "=" + sha256(bytes));
+                attributes.add(conservativeAttribute(name, classContentHash));
             }
         }
         return attributes.stream().sorted().toList();
+    }
+
+    /**
+     * Fences an attribute whose payload still contains unresolved constant-pool indexes.
+     *
+     * <p>Hashing that payload directly is unsound: an index can stay fixed while the constant it names
+     * changes. Until the attribute has a complete semantic decoder, the whole class digest is the safe
+     * representation. This may cause a false miss after an implementation-only edit, but cannot cause
+     * a false cache hit or downstream compile skip.
+     */
+    private static String conservativeAttribute(String name, String classContentHash) {
+        return name + "=class-content:" + classContentHash;
     }
 
     private static boolean isPrivate(int accessFlags) {

@@ -1,7 +1,9 @@
 package sh.zolt.build;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import sh.zolt.build.clean.CleanService;
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectConfigs;
@@ -151,6 +153,54 @@ final class BuildServiceIncrementalMainAbiTest {
         assertEquals("incremental", result.mainCompilationMode());
         assertEquals("", result.mainIncrementalFallbackReason());
         assertEquals(2, result.sourceCount());
+    }
+
+    @Test
+    void genericReturnChangeFailsBothIncrementalAndCleanCompilation() throws IOException {
+        writeLockfile("version = 7\n");
+        Path apiSource = source("src/main/java/com/example/api/Api.java", """
+                package com.example.api;
+
+                import java.util.List;
+
+                public final class Api {
+                    public List<String> values() {
+                        return List.of();
+                    }
+                }
+                """);
+        source("src/main/java/com/example/app/UseApi.java", """
+                package com.example.app;
+
+                import com.example.api.Api;
+
+                public final class UseApi {
+                    public String first(Api api) {
+                        return api.values().getFirst();
+                    }
+                }
+                """);
+        buildService.build(projectDir, config(), projectDir.resolve("cache"));
+        Files.writeString(apiSource, """
+                package com.example.api;
+
+                import java.util.List;
+
+                public final class Api {
+                    public List<Integer> values() {
+                        return List.of();
+                    }
+                }
+                """);
+
+        assertThrows(
+                JavacException.class,
+                () -> buildService.build(projectDir, config(), projectDir.resolve("cache")));
+
+        new CleanService().clean(projectDir, config());
+        assertThrows(
+                JavacException.class,
+                () -> buildService.build(projectDir, config(), projectDir.resolve("cache")));
     }
 
     private static ProjectConfig config() {

@@ -197,6 +197,89 @@ final class ClassFileAbiReaderTest {
     }
 
     @Test
+    void abiChangesWhenGenericSignatureKeepsItsConstantPoolIndex() throws IOException {
+        assertCompileAbiChanges(
+                """
+                package com.example;
+                import java.util.List;
+                public class Api {
+                    public List<String> values() { return null; }
+                }
+                """,
+                """
+                package com.example;
+                import java.util.List;
+                public class Api {
+                    public List<Integer> values() { return null; }
+                }
+                """);
+    }
+
+    @Test
+    void abiChangesWhenExceptionTypeKeepsItsConstantPoolIndex() throws IOException {
+        assertCompileAbiChanges(
+                """
+                package com.example;
+                import java.io.IOException;
+                public class Api {
+                    public void call() throws IOException { }
+                }
+                """,
+                """
+                package com.example;
+                import java.sql.SQLException;
+                public class Api {
+                    public void call() throws SQLException { }
+                }
+                """);
+    }
+
+    @Test
+    void abiChangesWhenAnnotationValueKeepsItsConstantPoolIndex() throws IOException {
+        assertCompileAbiChanges(
+                annotatedMethodApi("before"),
+                annotatedMethodApi("after!"));
+    }
+
+    @Test
+    void abiChangesWhenParameterAnnotationValueKeepsItsConstantPoolIndex() throws IOException {
+        assertCompileAbiChanges(
+                parameterAnnotatedApi("before"),
+                parameterAnnotatedApi("after!"));
+    }
+
+    @Test
+    void abiChangesWhenAnnotationDefaultKeepsItsConstantPoolIndex() throws IOException {
+        assertCompileAbiChanges(
+                """
+                package com.example;
+                public @interface Api {
+                    String value() default "before";
+                }
+                """,
+                """
+                package com.example;
+                public @interface Api {
+                    String value() default "after!";
+                }
+                """);
+    }
+
+    @Test
+    void readsOneCharacterDefaultPackageClassNames() throws IOException {
+        Path a = source("single-a/A.java", "public class A {}\n");
+        Path i = source("single-i/I.java", "public class I {}\n");
+        Path packaged = source("single-packaged/p/A.java", "package p; public class A {}\n");
+
+        assertEquals("A", reader.read(compileTo(a, tempDir.resolve("single-a/classes")).resolve("A.class")).binaryName());
+        assertEquals("I", reader.read(compileTo(i, tempDir.resolve("single-i/classes")).resolve("I.class")).binaryName());
+        assertEquals(
+                "p.A",
+                reader.read(compileTo(packaged, tempDir.resolve("single-packaged/classes")).resolve("p/A.class"))
+                        .binaryName());
+    }
+
+    @Test
     void readsRecordsEnumsAndNestedClasses() throws IOException {
         Path source = source("src/main/java/com/example/Shapes.java", """
                 package com.example;
@@ -214,6 +297,49 @@ final class ClassFileAbiReaderTest {
 
         assertEquals("com.example.Shapes$Point", reader.read(output.resolve("com/example/Shapes$Point.class")).binaryName());
         assertEquals("com.example.Shapes$Kind", reader.read(output.resolve("com/example/Shapes$Kind.class")).binaryName());
+    }
+
+    private void assertCompileAbiChanges(String before, String after) throws IOException {
+        Path source = source("semantic/src/main/java/com/example/Api.java", before);
+        ClassFileAbi first = reader.read(compileTo(source, tempDir.resolve("semantic/first"))
+                .resolve("com/example/Api.class"));
+        Files.writeString(source, after);
+        ClassFileAbi second = reader.read(compileTo(source, tempDir.resolve("semantic/second"))
+                .resolve("com/example/Api.class"));
+
+        assertNotEquals(first.abiHash(), second.abiHash());
+        assertNotEquals(first.packagePrivateAbiHash(), second.packagePrivateAbiHash());
+    }
+
+    private static String annotatedMethodApi(String value) {
+        return """
+                package com.example;
+                import java.lang.annotation.Retention;
+                import java.lang.annotation.RetentionPolicy;
+                @Retention(RetentionPolicy.RUNTIME)
+                @interface Marker {
+                    String value();
+                }
+                public class Api {
+                    @Marker("%s")
+                    public void call(String value) { }
+                }
+                """.formatted(value);
+    }
+
+    private static String parameterAnnotatedApi(String value) {
+        return """
+                package com.example;
+                import java.lang.annotation.Retention;
+                import java.lang.annotation.RetentionPolicy;
+                @Retention(RetentionPolicy.RUNTIME)
+                @interface Marker {
+                    String value();
+                }
+                public class Api {
+                    public void call(@Marker("%s") String value) { }
+                }
+                """.formatted(value);
     }
 
     private Path compile(Path source) {

@@ -53,7 +53,7 @@ final class ClassFileConstantPool {
     String className(int index) {
         Object entry = entries[index];
         if (entry instanceof ClassInfo classInfo) {
-            return normalizeClassName(utf8(classInfo.nameIndex()));
+            return normalizeClassInfoName(utf8(classInfo.nameIndex()));
         }
         throw new BuildException("Invalid class file constant pool class reference `" + index + "`.");
     }
@@ -82,7 +82,7 @@ final class ClassFileConstantPool {
         Set<String> classes = new LinkedHashSet<>();
         for (Object entry : entries) {
             if (entry instanceof ClassInfo classInfo) {
-                classes.add(normalizeClassName(utf8(classInfo.nameIndex())));
+                classes.add(normalizeClassInfoName(utf8(classInfo.nameIndex())));
             } else if (entry instanceof String value) {
                 addDescriptorReferences(value, classes);
             }
@@ -110,18 +110,22 @@ final class ClassFileConstantPool {
         }
     }
 
+    private static String normalizeClassInfoName(String internalName) {
+        if (!internalName.startsWith("[")) {
+            return normalizeClassName(internalName);
+        }
+        String descriptor = internalName;
+        while (descriptor.startsWith("[")) {
+            descriptor = descriptor.substring(1);
+        }
+        if (descriptor.startsWith("L") && descriptor.endsWith(";")) {
+            return normalizeClassName(descriptor.substring(1, descriptor.length() - 1));
+        }
+        return "";
+    }
+
     private static String normalizeClassName(String internalName) {
-        String name = internalName;
-        while (name.startsWith("[")) {
-            name = name.substring(1);
-        }
-        if (name.startsWith("L") && name.endsWith(";")) {
-            name = name.substring(1, name.length() - 1);
-        }
-        if (name.length() == 1) {
-            return "";
-        }
-        return name.replace('/', '.');
+        return internalName.replace('/', '.');
     }
 
     private record ClassInfo(int nameIndex) {

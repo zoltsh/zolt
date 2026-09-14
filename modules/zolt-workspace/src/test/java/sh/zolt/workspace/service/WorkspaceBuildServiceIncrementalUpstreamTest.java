@@ -1,12 +1,16 @@
 package sh.zolt.workspace.service;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.build.JavacException;
+import sh.zolt.workspace.clean.WorkspaceCleanService;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -185,6 +189,67 @@ final class WorkspaceBuildServiceIncrementalUpstreamTest {
         assertFalse(skippedByMember.get("modules/core"));
         assertTrue(skippedByMember.get("modules/util"));
         assertFalse(skippedByMember.get("apps/api"));
+    }
+
+    @Test
+    void genericProviderChangeFailsIncrementalAndCleanWorkspaceBuilds() throws IOException {
+        workspace("""
+                [workspace]
+                name = "acme-platform"
+
+                [workspace.members]
+                include = ["modules/core", "apps/api"]
+                """);
+        member("modules/core", "core", "");
+        Path coreSource = tempDir.resolve("modules/core/src/main/java/com/acme/core/Core.java");
+        source("modules/core/src/main/java/com/acme/core/Core.java", """
+                package com.acme.core;
+
+                import java.util.List;
+
+                public final class Core {
+                    public List<String> values() {
+                        return List.of();
+                    }
+                }
+                """);
+        member("apps/api", "api", """
+
+                [dependencies]
+                "com.acme:core" = { workspace = true }
+                """);
+        source("apps/api/src/main/java/com/acme/api/Api.java", """
+                package com.acme.api;
+
+                import com.acme.core.Core;
+
+                public final class Api {
+                    public String first(Core core) {
+                        return core.values().getFirst();
+                    }
+                }
+                """);
+        service.build(tempDir.resolve("apps/api"), tempDir.resolve("cache"), false);
+        Files.writeString(coreSource, """
+                package com.acme.core;
+
+                import java.util.List;
+
+                public final class Core {
+                    public List<Integer> values() {
+                        return List.of();
+                    }
+                }
+                """);
+
+        assertThrows(
+                JavacException.class,
+                () -> service.build(tempDir.resolve("apps/api"), tempDir.resolve("cache"), false));
+
+        new WorkspaceCleanService().clean(tempDir, new WorkspaceSelectionRequest(true, List.of()));
+        assertThrows(
+                JavacException.class,
+                () -> service.build(tempDir.resolve("apps/api"), tempDir.resolve("cache"), false));
     }
 
     private void workspace(String content) throws IOException {

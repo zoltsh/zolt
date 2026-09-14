@@ -18,7 +18,7 @@ final class ClassFileConstantPoolTest {
     void normalizesClassNamesAndReferencedClassesDeterministically() throws IOException {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         try (DataOutputStream output = new DataOutputStream(bytes)) {
-            output.writeShort(7);
+            output.writeShort(14);
             output.writeByte(1);
             output.writeUTF("com/example/Beta");
             output.writeByte(7);
@@ -31,14 +31,39 @@ final class ClassFileConstantPoolTest {
             output.writeShort(4);
             output.writeByte(1);
             output.writeUTF("I");
+            output.writeByte(7);
+            output.writeShort(6);
+            output.writeByte(1);
+            output.writeUTF("[I");
+            output.writeByte(7);
+            output.writeShort(8);
+            output.writeByte(1);
+            output.writeUTF("[LA;");
+            output.writeByte(7);
+            output.writeShort(10);
+            output.writeByte(1);
+            output.writeUTF("p/Outer$Inner");
+            output.writeByte(7);
+            output.writeShort(12);
         }
 
         ClassFileConstantPool constantPool = ClassFileConstantPool.read(input(bytes));
 
         assertEquals("com.example.Beta", constantPool.className(2));
         assertEquals("com.example.Array", constantPool.className(5));
+        assertEquals("I", constantPool.className(7));
+        assertEquals("", constantPool.className(9));
+        assertEquals("A", constantPool.className(11));
+        assertEquals("p.Outer$Inner", constantPool.className(13));
         assertEquals(
-                List.of("com.example.Alpha", "com.example.Array", "com.example.Beta", "java.util.List"),
+                List.of(
+                        "A",
+                        "I",
+                        "com.example.Alpha",
+                        "com.example.Array",
+                        "com.example.Beta",
+                        "java.util.List",
+                        "p.Outer$Inner"),
                 constantPool.referencedClasses());
     }
 
