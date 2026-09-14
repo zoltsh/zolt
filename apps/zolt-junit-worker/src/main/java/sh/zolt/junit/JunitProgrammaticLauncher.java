@@ -280,7 +280,10 @@ final class JunitProgrammaticLauncher {
                     .getMethod("printFailuresTo", PrintWriter.class)
                     .invoke(summary, new PrintWriter(out, true));
         }
-        return found == 0 ? 2 : failed == 0 && aborted == 0 ? 0 : 1;
+        if (totalFailures > 0 || aborted > 0) {
+            return 1;
+        }
+        return found == 0 ? 2 : 0;
     }
 
     private Class<?> load(String name) throws ClassNotFoundException {
