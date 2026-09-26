@@ -111,6 +111,9 @@ final class ClassFileConstantPool {
     }
 
     private static String normalizeClassName(String internalName) {
+        if (!internalName.startsWith("[")) {
+            return internalName.replace('/', '.');
+        }
         String name = internalName;
         while (name.startsWith("[")) {
             name = name.substring(1);
@@ -118,7 +121,7 @@ final class ClassFileConstantPool {
         if (name.startsWith("L") && name.endsWith(";")) {
             name = name.substring(1, name.length() - 1);
         }
-        if (name.length() == 1) {
+        if (name.length() == 1 && "BCDFIJSZV".indexOf(name.charAt(0)) >= 0) {
             return "";
         }
         return name.replace('/', '.');

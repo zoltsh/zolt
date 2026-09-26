@@ -16,6 +16,7 @@ final class JunitLauncherClasspath {
     List<Path> launcherClasspath(List<Path> runnerClasspath) {
         List<Path> launcherClasspath = new ArrayList<>();
         boolean hasStandaloneConsole = runnerClasspath.stream().anyMatch(JunitLauncherClasspath::isStandaloneConsoleJar);
+        boolean hasJbossLogManager = runnerClasspath.stream().anyMatch(JunitLauncherClasspath::isJbossLogManagerJar);
         for (Path entry : runnerClasspath) {
             if (hasStandaloneConsole) {
                 if (isStandaloneConsoleJar(entry) || isJbossLogManagerJar(entry)) {
@@ -25,6 +26,14 @@ final class JunitLauncherClasspath {
                     || isJunitPlatformSupportJar(entry)
                     || isJbossLogManagerJar(entry)) {
                 launcherClasspath.add(entry);
+            }
+        }
+        // The logging manager can initialize before the console creates its test class loader.
+        if (hasJbossLogManager) {
+            for (Path entry : runnerClasspath) {
+                if (!launcherClasspath.contains(entry)) {
+                    launcherClasspath.add(entry);
+                }
             }
         }
         return List.copyOf(launcherClasspath);

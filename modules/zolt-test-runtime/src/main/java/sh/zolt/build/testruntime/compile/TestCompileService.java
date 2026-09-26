@@ -13,6 +13,7 @@ import sh.zolt.build.BuildService;
 import sh.zolt.build.cache.BuildCacheKey;
 import sh.zolt.build.cache.BuildCacheRestoreResult;
 import sh.zolt.build.cache.BuildCacheService;
+import sh.zolt.build.compile.EffectiveCompilerIdentity;
 import sh.zolt.build.compile.GroovyCompilerRunner;
 import sh.zolt.build.compile.JavacRunner;
 import sh.zolt.build.fingerprint.BuildFingerprintCheck;
@@ -218,6 +219,7 @@ public final class TestCompileService {
         if (!jdkStatus.ok()) {
             throw new BuildException("JDK check failed. " + String.join(" ", jdkStatus.problems()));
         }
+        String compilerIdentity = EffectiveCompilerIdentity.of(jdkStatus);
 
         List<Path> testCompileEntries = new ArrayList<>();
         testCompileEntries.add(buildResult.outputDirectory());
@@ -235,6 +237,7 @@ public final class TestCompileService {
         BuildFingerprintCheck fingerprintCheck = buildFingerprintService.checkTestCompileCurrent(
                 projectDirectory,
                 config,
+                compilerIdentity,
                 lockfilePath,
                 sources,
                 generatedProducerFingerprints,
@@ -251,7 +254,7 @@ public final class TestCompileService {
         BuildCacheKey cacheKey = cacheGate.key(
                 compileSkipped, projectDirectory, config, lockfilePath, sources,
                 generatedProducerFingerprints, testCompileClasspath, classpaths.testProcessor(),
-                outputDirectory, generatedSourcesDirectory, jdkStatus);
+                outputDirectory, generatedSourcesDirectory, compilerIdentity);
         boolean restored = false;
         if (cacheKey != null) {
             BuildCacheRestoreResult restore = buildCacheService.restore(cacheKey, outputDirectory);
@@ -279,6 +282,7 @@ public final class TestCompileService {
             buildFingerprintService.writeTestCompileFingerprint(
                     projectDirectory,
                     config,
+                    compilerIdentity,
                     lockfilePath,
                     sources,
                     generatedProducerFingerprintService
@@ -303,6 +307,7 @@ public final class TestCompileService {
                             classpaths.testProcessor(),
                             outputDirectory,
                             generatedSourcesDirectory,
+                            compilerIdentity,
                             compileAttempt.attribution(),
                             compileAttempt.compiledSources());
                     if (cacheKey != null) {

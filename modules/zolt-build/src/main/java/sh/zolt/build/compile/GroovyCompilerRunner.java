@@ -9,7 +9,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.StringJoiner;
 
@@ -64,7 +63,7 @@ public final class GroovyCompilerRunner {
             List<Path> sources,
             Classpath classpath,
             Path outputDirectory) {
-        List<Path> classpathEntries = sortedEntries(classpath);
+        List<Path> classpathEntries = orderedEntries(classpath);
         List<String> command = new ArrayList<>();
         command.add(javaExecutable.toString());
         command.add("-cp");
@@ -82,13 +81,12 @@ public final class GroovyCompilerRunner {
         return List.copyOf(command);
     }
 
-    private static List<Path> sortedEntries(Classpath classpath) {
+    private static List<Path> orderedEntries(Classpath classpath) {
         if (classpath == null) {
             return List.of();
         }
         return classpath.entries().stream()
                 .map(Path::normalize)
-                .sorted(Comparator.naturalOrder())
                 .toList();
     }
 

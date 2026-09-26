@@ -3,7 +3,6 @@ package sh.zolt.build.compile;
 import sh.zolt.classpath.Classpath;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.StringJoiner;
@@ -32,11 +31,11 @@ final class JavacCommandBuilder {
             command.add("-encoding");
             command.add(options.encoding());
         }
-        List<Path> modulePathEntries = sortedModulePath(options);
-        List<Path> classpathEntries = classpathWithoutModulePath(sortedEntries(classpath), modulePathEntries);
+        List<Path> modulePathEntries = orderedModulePath(options);
+        List<Path> classpathEntries = classpathWithoutModulePath(orderedEntries(classpath), modulePathEntries);
         addPath(command, "-classpath", classpathEntries);
         addPath(command, "--module-path", modulePathEntries);
-        List<Path> processorClasspathEntries = sortedEntries(processorClasspath);
+        List<Path> processorClasspathEntries = orderedEntries(processorClasspath);
         if (processorClasspathEntries.isEmpty()) {
             command.add("-proc:none");
         } else {
@@ -51,13 +50,12 @@ final class JavacCommandBuilder {
         return List.copyOf(command);
     }
 
-    static List<Path> sortedEntries(Classpath classpath) {
+    static List<Path> orderedEntries(Classpath classpath) {
         if (classpath == null) {
             return List.of();
         }
         return classpath.entries().stream()
                 .map(Path::normalize)
-                .sorted(Comparator.naturalOrder())
                 .toList();
     }
 
@@ -88,11 +86,10 @@ final class JavacCommandBuilder {
         command.add(joined.toString());
     }
 
-    private static List<Path> sortedModulePath(JavacOptions options) {
+    private static List<Path> orderedModulePath(JavacOptions options) {
         return options.modulePath().stream()
                 .map(Path::normalize)
                 .distinct()
-                .sorted(Comparator.naturalOrder())
                 .toList();
     }
 

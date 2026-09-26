@@ -2,6 +2,7 @@ package sh.zolt.doctor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -31,7 +32,7 @@ final class JdkDetectorTest {
 
         assertTrue(status.ok());
         assertEquals(javaHome, status.javaHome().orElseThrow());
-        assertEquals("21", status.version().orElseThrow());
+        assertEquals("21.0.2", status.version().orElseThrow());
     }
 
     @Test
@@ -55,8 +56,26 @@ final class JdkDetectorTest {
         JdkStatus status = detector.detect("21");
 
         assertTrue(status.ok());
-        assertEquals("21", status.version().orElseThrow());
+        assertEquals("21.0.8", status.version().orElseThrow());
         assertEquals(0, processReads[0]);
+    }
+
+    @Test
+    void compilerIdentityDistinguishesSameVersionDistributionChangesInPlace() throws IOException {
+        Path javaHome = tempDir.resolve("jdk");
+        tool(javaHome, "java");
+        tool(javaHome, "javac");
+        tool(javaHome, "jar");
+        Path release = javaHome.resolve("release");
+        Files.writeString(release, "IMPLEMENTOR=\"First\"\nJAVA_VERSION=\"21.0.8\"\n");
+        JdkStatus first = detector(Map.of("JAVA_HOME", javaHome.toString()), java -> Optional.empty())
+                .detect("21");
+        Files.writeString(release, "IMPLEMENTOR=\"Second\"\nJAVA_VERSION=\"21.0.8\"\n");
+        JdkStatus second = detector(Map.of("JAVA_HOME", javaHome.toString()), java -> Optional.empty())
+                .detect("21");
+
+        assertEquals(first.version(), second.version());
+        assertNotEquals(first.compilerIdentity(), second.compilerIdentity());
     }
 
     @Test
@@ -143,7 +162,7 @@ final class JdkDetectorTest {
 
         assertFalse(status.ok());
         assertTrue(status.problems().contains(
-                "Java version mismatch. zolt.toml requires 21 or newer but detected 17. Install Java 21 or newer, set JAVA_HOME to a suitable JDK, or update [project].java."));
+                "Java version mismatch. zolt.toml requires 21 or newer but detected 17.0.10. Install Java 21 or newer, set JAVA_HOME to a suitable JDK, or update [project].java."));
     }
 
     @Test
@@ -206,7 +225,7 @@ final class JdkDetectorTest {
         assertTrue(first.ok());
         assertTrue(second.ok());
         assertEquals(1, versionReads[0]);
-        assertEquals("21", second.version().orElseThrow());
+        assertEquals("21.0.2", second.version().orElseThrow());
     }
 
     @Test

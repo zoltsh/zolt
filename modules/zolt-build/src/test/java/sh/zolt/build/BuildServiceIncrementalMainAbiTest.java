@@ -1,16 +1,21 @@
 package sh.zolt.build;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectConfigs;
 import sh.zolt.project.ProjectMetadata;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -153,6 +158,54 @@ final class BuildServiceIncrementalMainAbiTest {
         assertEquals(2, result.sourceCount());
     }
 
+    @Test
+    void genericProviderChangeMakesIncrementalAndCleanBuildsFailEquivalently() throws IOException {
+        writeLockfile("version = 7\n");
+        Path apiSource = source("src/main/java/com/example/Api.java", """
+                package com.example;
+
+                import java.util.List;
+
+                public final class Api {
+                    public List<String> values() {
+                        return List.of();
+                    }
+                }
+                """);
+        source("src/main/java/com/example/Consumer.java", """
+                package com.example;
+
+                public final class Consumer {
+                    public String call(Api api) {
+                        return api.values().get(0);
+                    }
+                }
+                """);
+        buildService.build(projectDir, config(), projectDir.resolve("cache"));
+        Files.writeString(apiSource, """
+                package com.example;
+
+                import java.util.List;
+
+                public final class Api {
+                    public List<Integer> values() {
+                        return List.of();
+                    }
+                }
+                """);
+
+        JavacException incremental = assertThrows(
+                JavacException.class,
+                () -> buildService.build(projectDir, config(), projectDir.resolve("cache")));
+        wipeTarget();
+        JavacException clean = assertThrows(
+                JavacException.class,
+                () -> buildService.build(projectDir, config(), projectDir.resolve("cache")));
+
+        assertTrue(incremental.getMessage().contains("Integer cannot be converted to String"), incremental.getMessage());
+        assertTrue(clean.getMessage().contains("Integer cannot be converted to String"), clean.getMessage());
+    }
+
     private static ProjectConfig config() {
         return ProjectConfigs.withDirectDependencies(
                 new ProjectMetadata(
@@ -176,6 +229,19 @@ final class BuildServiceIncrementalMainAbiTest {
 
     private void writeLockfile(String content) throws IOException {
         Files.writeString(projectDir.resolve("zolt.lock"), content);
+    }
+
+    private void wipeTarget() throws IOException {
+        Path target = projectDir.resolve("target");
+        try (Stream<Path> paths = Files.walk(target)) {
+            paths.sorted(Comparator.reverseOrder()).forEach(path -> {
+                try {
+                    Files.delete(path);
+                } catch (IOException exception) {
+                    throw new UncheckedIOException(exception);
+                }
+            });
+        }
     }
 
     private static String currentJavaMajorVersion() {

@@ -1,6 +1,8 @@
 package sh.zolt.build.nativeimage;
 
 import sh.zolt.lockfile.ProjectLockfile;
+import sh.zolt.build.BuildResultWithClasspaths;
+import sh.zolt.build.BuildService;
 import sh.zolt.build.NativeImageException;
 import sh.zolt.build.classpath.ClasspathBuilder;
 import sh.zolt.classpath.ClasspathSet;
@@ -10,6 +12,7 @@ import sh.zolt.build.packaging.PackageResult;
 import sh.zolt.build.packaging.PackageService;
 import sh.zolt.build.springboot.SpringBootAotNativeInputs;
 import sh.zolt.build.springboot.SpringBootAotOutputEvidenceService;
+import sh.zolt.doctor.JdkChecker;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.NativeSettings;
@@ -29,6 +32,7 @@ public final class NativeBuildService {
     private static final List<String> SERIOUS_WARNING_TERMS = List.of("warning", "unsupported", "error");
 
     private final PackageService packageService;
+    private final BuildService buildService;
     private final ZoltLockfileReader lockfileReader;
     private final ClasspathBuilder classpathBuilder;
     private final NativeImageRunner nativeImageRunner;
@@ -40,6 +44,7 @@ public final class NativeBuildService {
     public NativeBuildService(BuildProvenanceSource provenanceSource) {
         this(
                 new PackageService(provenanceSource),
+                new BuildService(provenanceSource),
                 new ZoltLockfileReader(),
                 new ClasspathBuilder(),
                 new NativeImageRunner());
@@ -50,10 +55,29 @@ public final class NativeBuildService {
             ZoltLockfileReader lockfileReader,
             ClasspathBuilder classpathBuilder,
             NativeImageRunner nativeImageRunner) {
+        this(packageService, new BuildService(), lockfileReader, classpathBuilder, nativeImageRunner);
+    }
+
+    private NativeBuildService(
+            PackageService packageService,
+            BuildService buildService,
+            ZoltLockfileReader lockfileReader,
+            ClasspathBuilder classpathBuilder,
+            NativeImageRunner nativeImageRunner) {
         this.packageService = packageService;
+        this.buildService = buildService;
         this.lockfileReader = lockfileReader;
         this.classpathBuilder = classpathBuilder;
         this.nativeImageRunner = nativeImageRunner;
+    }
+
+    public NativeBuildService withJdkChecker(JdkChecker jdkChecker) {
+        return new NativeBuildService(
+                packageService,
+                buildService.withJdkChecker(jdkChecker),
+                lockfileReader,
+                classpathBuilder,
+                nativeImageRunner);
     }
 
     public NativeBuildResult buildNative(
@@ -103,12 +127,15 @@ public final class NativeBuildService {
                 nativeImageExecutable);
         ProjectConfig packageConfig = NativePackagePolicy.packageConfig(config);
         var packageFilter = NativePackagePolicy.classpathFilter(config);
-        PackageResult packageResult = packageService.packageJar(
+        packageService.preparePackageToolingIfNeeded(projectDirectory, packageConfig, cacheRoot);
+        BuildResultWithClasspaths buildResult = buildService.buildWithClasspaths(
                 projectDirectory,
                 config,
-                packageConfig,
                 cacheRoot,
+                false,
                 artifactIndex);
+        PackageResult packageResult = packageService.packageJar(
+                projectDirectory, packageConfig, buildResult, cacheRoot);
         ZoltLockfile lockfile = lockfileReader.read(ProjectLockfile.in(projectDirectory));
         ClasspathSet classpaths = classpathBuilder.build(LockfileClasspathPackageConverter.classpathPackages(
                         lockfile,

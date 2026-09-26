@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 final class BuildFingerprintServiceTest {
+    private static final String COMPILER_IDENTITY = "test-compiler";
     private final BuildFingerprintService service = new BuildFingerprintService();
 
     @TempDir
@@ -49,6 +50,7 @@ final class BuildFingerprintServiceTest {
                 () -> service.writeMainCompileFingerprint(
                         projectDir,
                         config,
+                        COMPILER_IDENTITY,
                         projectDir.resolve("zolt.lock"),
                         new SourceDiscoveryResult(List.of(), List.of()),
                         emptyClasspaths(),
@@ -78,6 +80,7 @@ final class BuildFingerprintServiceTest {
                 () -> service.writeMainCompileFingerprint(
                         projectDir,
                         config,
+                        COMPILER_IDENTITY,
                         projectDir.resolve("zolt.lock"),
                         new SourceDiscoveryResult(List.of(), List.of()),
                         emptyClasspaths(),
@@ -120,6 +123,7 @@ final class BuildFingerprintServiceTest {
         service.writeTestCompileFingerprint(
                 projectDir,
                 config,
+                COMPILER_IDENTITY,
                 projectDir.resolve("zolt.lock"),
                 sources,
                 List.of(),
@@ -134,6 +138,7 @@ final class BuildFingerprintServiceTest {
         assertTrue(service.isTestCompileCurrent(
                 projectDir,
                 config,
+                COMPILER_IDENTITY,
                 projectDir.resolve("zolt.lock"),
                 sources,
                 List.of(),
@@ -147,6 +152,7 @@ final class BuildFingerprintServiceTest {
         assertFalse(service.isTestCompileCurrent(
                 projectDir,
                 config,
+                COMPILER_IDENTITY,
                 projectDir.resolve("zolt.lock"),
                 sources,
                 List.of(),
@@ -169,6 +175,7 @@ final class BuildFingerprintServiceTest {
         service.writeMainCompileFingerprint(
                 projectDir,
                 config,
+                COMPILER_IDENTITY,
                 projectDir.resolve("zolt.lock"),
                 sources,
                 emptyClasspaths(),
@@ -179,6 +186,7 @@ final class BuildFingerprintServiceTest {
         BuildFingerprintCheck check = service.checkMainCompileCurrent(
                 projectDir,
                 config,
+                COMPILER_IDENTITY,
                 projectDir.resolve("zolt.lock"),
                 sources,
                 emptyClasspaths(),
@@ -207,6 +215,7 @@ final class BuildFingerprintServiceTest {
         service.writeMainCompileFingerprint(
                 projectDir,
                 config,
+                COMPILER_IDENTITY,
                 projectDir.resolve("zolt.lock"),
                 sources,
                 classpaths,
@@ -216,6 +225,7 @@ final class BuildFingerprintServiceTest {
         assertFalse(service.isMainCompileCurrent(
                 projectDir,
                 config,
+                COMPILER_IDENTITY,
                 projectDir.resolve("zolt.lock"),
                 sources,
                 classpaths,
@@ -225,6 +235,7 @@ final class BuildFingerprintServiceTest {
         service.writeMainCompileFingerprint(
                 projectDir,
                 config,
+                COMPILER_IDENTITY,
                 projectDir.resolve("zolt.lock"),
                 sources,
                 classpaths,
@@ -240,6 +251,7 @@ final class BuildFingerprintServiceTest {
         assertTrue(service.isMainCompileCurrent(
                 projectDir,
                 config,
+                COMPILER_IDENTITY,
                 projectDir.resolve("zolt.lock"),
                 sources,
                 classpaths,

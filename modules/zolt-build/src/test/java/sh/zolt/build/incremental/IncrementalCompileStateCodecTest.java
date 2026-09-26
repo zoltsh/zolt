@@ -32,8 +32,11 @@ final class IncrementalCompileStateCodecTest {
                 List.of("processor-classpath"),
                 List.of("src/main/java"),
                 List.of("target/generated/sources/openapi"),
-                List.of(new IncrementalCompileState.ClasspathEntry(
-                        project.resolve("lib/b.jar"), 42L, 123L, "hash-b")),
+                List.of(
+                        new IncrementalCompileState.ClasspathEntry(
+                                project.resolve("lib/b.jar"), 42L, 123L, "hash-b"),
+                        new IncrementalCompileState.ClasspathEntry(
+                                project.resolve("lib/a.jar"), 21L, 122L, "hash-a")),
                 List.of(new IncrementalCompileState.ClasspathEntry(
                         project.resolve("processor/a.jar"), 84L, 456L, "hash-a")),
                 List.of(new IncrementalCompileState.SourceRecord(
@@ -69,6 +72,11 @@ final class IncrementalCompileStateCodecTest {
 
         assertEquals(state, parsed);
         assertEquals(formatted, codec.format(parsed));
+        assertEquals(
+                List.of(project.resolve("lib/b.jar"), project.resolve("lib/a.jar")),
+                parsed.compileClasspath().stream()
+                        .map(IncrementalCompileState.ClasspathEntry::path)
+                        .toList());
         assertTrue(formatted.contains("publicAbiDigest=" + state.publicAbiDigest()));
         assertTrue(formatted.contains("packagePrivateAbiDigest=" + state.packagePrivateAbiDigest()));
         assertTrue(formatted.contains("outputManifestDigest=" + state.outputManifestDigest()));

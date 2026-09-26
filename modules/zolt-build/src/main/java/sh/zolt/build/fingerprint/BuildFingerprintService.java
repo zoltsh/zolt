@@ -16,6 +16,7 @@ public final class BuildFingerprintService {
     public boolean isMainCompileCurrent(
             Path projectDirectory,
             ProjectConfig config,
+            String compilerIdentity,
             Path lockfilePath,
             SourceDiscoveryResult sources,
             ClasspathSet classpaths,
@@ -24,6 +25,7 @@ public final class BuildFingerprintService {
         return checkMainCompileCurrent(
                 projectDirectory,
                 config,
+                compilerIdentity,
                 lockfilePath,
                 sources,
                 classpaths,
@@ -34,6 +36,7 @@ public final class BuildFingerprintService {
     public BuildFingerprintCheck checkMainCompileCurrent(
             Path projectDirectory,
             ProjectConfig config,
+            String compilerIdentity,
             Path lockfilePath,
             SourceDiscoveryResult sources,
             ClasspathSet classpaths,
@@ -42,6 +45,7 @@ public final class BuildFingerprintService {
         return engine.checkCompileCurrent(
                 projectDirectory,
                 config,
+                compilerIdentity,
                 lockfilePath,
                 BuildFingerprintSourceRoots.main(config.build()),
                 config.build().resourceRoots(),
@@ -60,6 +64,7 @@ public final class BuildFingerprintService {
     public void writeMainCompileFingerprint(
             Path projectDirectory,
             ProjectConfig config,
+            String compilerIdentity,
             Path lockfilePath,
             SourceDiscoveryResult sources,
             ClasspathSet classpaths,
@@ -68,6 +73,7 @@ public final class BuildFingerprintService {
         engine.writeCompileFingerprint(
                 projectDirectory,
                 config,
+                compilerIdentity,
                 lockfilePath,
                 BuildFingerprintSourceRoots.main(config.build()),
                 config.build().resourceRoots(),
@@ -86,6 +92,7 @@ public final class BuildFingerprintService {
     public boolean isTestCompileCurrent(
             Path projectDirectory,
             ProjectConfig config,
+            String compilerIdentity,
             Path lockfilePath,
             SourceDiscoveryResult sources,
             Classpath compileClasspath,
@@ -93,7 +100,7 @@ public final class BuildFingerprintService {
             Path outputDirectory,
             Path generatedSourcesDirectory) {
         return isTestCompileCurrent(
-                projectDirectory, config, lockfilePath, sources, List.of(),
+                projectDirectory, config, compilerIdentity, lockfilePath, sources, List.of(),
                 compileClasspath, processorClasspath, outputDirectory,
                 generatedSourcesDirectory);
     }
@@ -101,6 +108,7 @@ public final class BuildFingerprintService {
     public boolean isTestCompileCurrent(
             Path projectDirectory,
             ProjectConfig config,
+            String compilerIdentity,
             Path lockfilePath,
             SourceDiscoveryResult sources,
             List<GeneratedSourceProducerFingerprint>
@@ -112,6 +120,7 @@ public final class BuildFingerprintService {
         return checkTestCompileCurrent(
                 projectDirectory,
                 config,
+                compilerIdentity,
                 lockfilePath,
                 sources,
                 generatedProducerFingerprints,
@@ -124,6 +133,7 @@ public final class BuildFingerprintService {
     public BuildFingerprintCheck checkTestCompileCurrent(
             Path projectDirectory,
             ProjectConfig config,
+            String compilerIdentity,
             Path lockfilePath,
             SourceDiscoveryResult sources,
             Classpath compileClasspath,
@@ -131,7 +141,7 @@ public final class BuildFingerprintService {
             Path outputDirectory,
             Path generatedSourcesDirectory) {
         return checkTestCompileCurrent(
-                projectDirectory, config, lockfilePath, sources, List.of(),
+                projectDirectory, config, compilerIdentity, lockfilePath, sources, List.of(),
                 compileClasspath, processorClasspath, outputDirectory,
                 generatedSourcesDirectory);
     }
@@ -139,6 +149,7 @@ public final class BuildFingerprintService {
     public BuildFingerprintCheck checkTestCompileCurrent(
             Path projectDirectory,
             ProjectConfig config,
+            String compilerIdentity,
             Path lockfilePath,
             SourceDiscoveryResult sources,
             List<GeneratedSourceProducerFingerprint>
@@ -150,6 +161,7 @@ public final class BuildFingerprintService {
         return engine.checkCompileCurrent(
                 projectDirectory,
                 config,
+                compilerIdentity,
                 lockfilePath,
                 BuildFingerprintSourceRoots.test(config.build()),
                 config.build().testResourceRoots(),
@@ -202,6 +214,7 @@ public final class BuildFingerprintService {
     public void writeTestCompileFingerprint(
             Path projectDirectory,
             ProjectConfig config,
+            String compilerIdentity,
             Path lockfilePath,
             SourceDiscoveryResult sources,
             Classpath compileClasspath,
@@ -209,7 +222,7 @@ public final class BuildFingerprintService {
             Path outputDirectory,
             Path generatedSourcesDirectory) {
         writeTestCompileFingerprint(
-                projectDirectory, config, lockfilePath, sources, List.of(),
+                projectDirectory, config, compilerIdentity, lockfilePath, sources, List.of(),
                 compileClasspath, processorClasspath, outputDirectory,
                 generatedSourcesDirectory);
     }
@@ -217,6 +230,7 @@ public final class BuildFingerprintService {
     public void writeTestCompileFingerprint(
             Path projectDirectory,
             ProjectConfig config,
+            String compilerIdentity,
             Path lockfilePath,
             SourceDiscoveryResult sources,
             List<GeneratedSourceProducerFingerprint>
@@ -228,6 +242,7 @@ public final class BuildFingerprintService {
         engine.writeCompileFingerprint(
                 projectDirectory,
                 config,
+                compilerIdentity,
                 lockfilePath,
                 BuildFingerprintSourceRoots.test(config.build()),
                 config.build().testResourceRoots(),
@@ -252,6 +267,7 @@ public final class BuildFingerprintService {
     public String mainInputsFingerprintSha256(
             Path projectDirectory,
             ProjectConfig config,
+            String compilerIdentity,
             Path lockfilePath,
             SourceDiscoveryResult sources,
             ClasspathSet classpaths,
@@ -260,6 +276,7 @@ public final class BuildFingerprintService {
         return engine.inputsFingerprintSha256(
                 projectDirectory,
                 config,
+                compilerIdentity,
                 lockfilePath,
                 BuildFingerprintSourceRoots.main(config.build()),
                 config.build().resourceRoots(),
@@ -282,11 +299,7 @@ public final class BuildFingerprintService {
      * compile.
      */
     public String storedMainInputsFingerprintSha256(Path outputDirectory) {
-        return StoredBuildFingerprintInputs.read(
-                outputDirectory,
-                MAIN_FILE_NAME,
-                "main",
-                "zolt build");
+        return StoredBuildFingerprintInputs.read(outputDirectory, MAIN_FILE_NAME, "main", "zolt build");
     }
 
     /**
@@ -296,32 +309,14 @@ public final class BuildFingerprintService {
      * check so stale test bytecode can never be blessed by fresh package evidence.
      */
     public String storedTestInputsFingerprintSha256(Path outputDirectory) {
-        return StoredBuildFingerprintInputs.read(
-                outputDirectory,
-                TEST_FILE_NAME,
-                "test",
-                "zolt test");
+        return StoredBuildFingerprintInputs.read(outputDirectory, TEST_FILE_NAME, "test", "zolt test");
     }
 
     /** The inputs-only fingerprint SHA-256 for the test compile scope. See {@link #mainInputsFingerprintSha256}. */
     public String testInputsFingerprintSha256(
             Path projectDirectory,
             ProjectConfig config,
-            Path lockfilePath,
-            SourceDiscoveryResult sources,
-            Classpath compileClasspath,
-            Classpath processorClasspath,
-            Path outputDirectory,
-            Path generatedSourcesDirectory) {
-        return testInputsFingerprintSha256(
-                projectDirectory, config, lockfilePath, sources, List.of(),
-                compileClasspath, processorClasspath, outputDirectory,
-                generatedSourcesDirectory);
-    }
-
-    public String testInputsFingerprintSha256(
-            Path projectDirectory,
-            ProjectConfig config,
+            String compilerIdentity,
             Path lockfilePath,
             SourceDiscoveryResult sources,
             List<GeneratedSourceProducerFingerprint>
@@ -333,6 +328,7 @@ public final class BuildFingerprintService {
         return engine.inputsFingerprintSha256(
                 projectDirectory,
                 config,
+                compilerIdentity,
                 lockfilePath,
                 BuildFingerprintSourceRoots.test(config.build()),
                 config.build().testResourceRoots(),

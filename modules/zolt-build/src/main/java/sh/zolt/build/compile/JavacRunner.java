@@ -116,7 +116,7 @@ public final class JavacRunner {
             boolean captureAttribution) {
         JavacOptions effectiveOptions = options == null ? JavacOptions.empty() : options;
         List<Path> sortedSources = sources.stream().map(Path::normalize).sorted().toList();
-        Path effectiveGeneratedSourcesDirectory = JavacCommandBuilder.sortedEntries(processorClasspath).isEmpty()
+        Path effectiveGeneratedSourcesDirectory = JavacCommandBuilder.orderedEntries(processorClasspath).isEmpty()
                 ? null
                 : generatedSourcesDirectory;
         try {
@@ -163,7 +163,7 @@ public final class JavacRunner {
             JavacOptions options,
             boolean captureAttribution) {
         boolean noJvmArgs = options.arguments().stream().noneMatch(argument -> argument.startsWith("-J"));
-        if (JavacCommandBuilder.sortedEntries(processorClasspath).isEmpty()) {
+        if (JavacCommandBuilder.orderedEntries(processorClasspath).isEmpty()) {
             if (canRunInProcess(javac) && noJvmArgs) {
                 return inProcessRunner.run(arguments);
             }

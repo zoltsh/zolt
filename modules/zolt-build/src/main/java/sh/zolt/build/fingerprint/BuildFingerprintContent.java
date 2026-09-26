@@ -20,7 +20,7 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 final class BuildFingerprintContent {
-    private static final String VERSION = "1";
+    private static final String VERSION = "2";
     private static final List<String> OUTPUT_DIRECTORY_NAMES = List.of("build", "target");
 
     private final BuildFingerprintExpectedClasses expectedClasses = new BuildFingerprintExpectedClasses();
@@ -29,6 +29,7 @@ final class BuildFingerprintContent {
     String fingerprint(
             Path projectDirectory,
             ProjectConfig config,
+            String compilerIdentity,
             Path lockfilePath,
             List<String> sourceRoots,
             List<String> resourceRoots,
@@ -46,6 +47,7 @@ final class BuildFingerprintContent {
         return fingerprint(
                 projectDirectory,
                 config,
+                compilerIdentity,
                 lockfilePath,
                 sourceRoots,
                 resourceRoots,
@@ -66,6 +68,7 @@ final class BuildFingerprintContent {
     String fingerprint(
             Path projectDirectory,
             ProjectConfig config,
+            String compilerIdentity,
             Path lockfilePath,
             List<String> sourceRoots,
             List<String> resourceRoots,
@@ -85,14 +88,17 @@ final class BuildFingerprintContent {
         StringBuilder content = new StringBuilder();
         line(content, "version", VERSION);
         line(content, "projectJava", config.project().java());
+        line(content, "compilerIdentity", compilerIdentity);
         line(content, "zoltToml", fileHasher.fileHash(projectRoot.resolve("zolt.toml"), cachedState, collectedState));
         line(content, "lockfile", fileHasher.fileHash(lockfilePath, cachedState, collectedState));
         section(content, "sourceRoots", sourceRoots.stream().map(BuildFingerprintContent::normalize).toList());
         line(content, "outputDirectory", normalize(outputDirectoryName));
         line(content, "generatedSourcesDirectory", fileHasher.relative(projectRoot, generatedSourcesDirectory));
         line(content, "compilerSettings", config.compilerSettings().toString());
-        section(content, "compileClasspath", classpathEntries(compileClasspath, cachedState, collectedState, cacheKeyMode));
-        section(content, "processorClasspath", processorClasspathEntries(processorClasspath, cachedState, collectedState, cacheKeyMode));
+        orderedSection(content, "compileClasspath", classpathEntries(
+                compileClasspath, cachedState, collectedState, cacheKeyMode));
+        orderedSection(content, "processorClasspath", processorClasspathEntries(
+                processorClasspath, cachedState, collectedState, cacheKeyMode));
         section(content, "sources", fileEntries(projectRoot, sources, cachedState, collectedState));
         section(content, "generatedProducerFingerprints", generatedProducerEntries(generatedProducerFingerprints));
         section(content, "generatedSourceInputs", generatedSourceInputEntries(projectRoot, generatedSteps, cachedState, collectedState));
@@ -128,19 +134,15 @@ final class BuildFingerprintContent {
             Map<Path, BuildFingerprintCachedFileHash> collectedState,
             boolean cacheKeyMode) {
         if (cacheKeyMode) {
-            // Content-only, path-free entries: two builds with the same compiled dependencies key
-            // identically regardless of where those artifacts live (machine, checkout) or whether a
-            // dependency output was compiled or restored. Sorted by content so order does not matter,
-            // which the skip-gate fingerprint already disregards (it sorts entries too).
+            // Content-only, path-free entries retain lookup precedence while remaining relocatable
+            // across machines and checkouts.
             return classpath.entries().stream()
                     .map(path -> path.toAbsolutePath().normalize())
                     .map(path -> fileHasher.classpathKeyHash(path, cachedState, collectedState))
-                    .sorted()
                     .toList();
         }
         return classpath.entries().stream()
                 .map(path -> path.toAbsolutePath().normalize())
-                .sorted()
                 .map(path -> path + "|" + fileHasher.classpathHash(path, cachedState, collectedState))
                 .toList();
     }
@@ -164,7 +166,6 @@ final class BuildFingerprintContent {
         }
         return classpath.entries().stream()
                 .map(path -> path.toAbsolutePath().normalize())
-                .sorted()
                 .map(path -> path + "|" + fileHasher.classpathKeyHash(path, cachedState, collectedState))
                 .toList();
     }
@@ -292,6 +293,11 @@ final class BuildFingerprintContent {
     private static void section(StringBuilder content, String name, List<String> entries) {
         content.append('[').append(name).append(']').append('\n');
         entries.stream().sorted(Comparator.naturalOrder()).forEach(entry -> content.append(entry).append('\n'));
+    }
+
+    private static void orderedSection(StringBuilder content, String name, List<String> entries) {
+        content.append('[').append(name).append(']').append('\n');
+        entries.forEach(entry -> content.append(entry).append('\n'));
     }
 
     private static void line(StringBuilder content, String name, String value) {

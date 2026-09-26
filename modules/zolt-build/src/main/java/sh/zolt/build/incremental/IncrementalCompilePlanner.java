@@ -63,6 +63,28 @@ public final class IncrementalCompilePlanner {
             Path outputDirectory,
             Path generatedSourcesDirectory,
             String noSourceFallbackReason) {
+        return planMain(
+                projectDirectory,
+                config,
+                sources,
+                compileClasspath,
+                processorClasspath,
+                outputDirectory,
+                generatedSourcesDirectory,
+                "unspecified",
+                noSourceFallbackReason);
+    }
+
+    public IncrementalCompilePlan planMain(
+            Path projectDirectory,
+            ProjectConfig config,
+            List<Path> sources,
+            Classpath compileClasspath,
+            Classpath processorClasspath,
+            Path outputDirectory,
+            Path generatedSourcesDirectory,
+            String compilerIdentity,
+            String noSourceFallbackReason) {
         return plan(
                 "main",
                 projectDirectory,
@@ -75,6 +97,7 @@ public final class IncrementalCompilePlanner {
                 outputDirectory,
                 generatedSourcesDirectory,
                 IncrementalCompileState.mainStatePath(outputDirectory),
+                compilerIdentity,
                 List.of(),
                 noSourceFallbackReason);
     }
@@ -87,6 +110,26 @@ public final class IncrementalCompilePlanner {
             Classpath processorClasspath,
             Path outputDirectory,
             Path generatedSourcesDirectory) {
+        return planTest(
+                projectDirectory,
+                config,
+                sources,
+                compileClasspath,
+                processorClasspath,
+                outputDirectory,
+                generatedSourcesDirectory,
+                "unspecified");
+    }
+
+    public IncrementalCompilePlan planTest(
+            Path projectDirectory,
+            ProjectConfig config,
+            SourceDiscoveryResult sources,
+            Classpath compileClasspath,
+            Classpath processorClasspath,
+            Path outputDirectory,
+            Path generatedSourcesDirectory,
+            String compilerIdentity) {
         List<String> fallbackReasons = new ArrayList<>();
         if (!sources.groovyTestSources().isEmpty()) {
             fallbackReasons.add("groovy-test-sources");
@@ -103,6 +146,7 @@ public final class IncrementalCompilePlanner {
                 outputDirectory,
                 generatedSourcesDirectory,
                 IncrementalCompileState.testStatePath(outputDirectory),
+                compilerIdentity,
                 fallbackReasons,
                 "non-source-input-changed");
     }
@@ -119,6 +163,7 @@ public final class IncrementalCompilePlanner {
             Path outputDirectory,
             Path generatedSourcesDirectory,
             Path statePath,
+            String compilerIdentity,
             List<String> additionalFallbackReasons,
             String noSourceFallbackReason) {
         return planResolved(
@@ -133,6 +178,7 @@ public final class IncrementalCompilePlanner {
                 outputDirectory,
                 generatedSourcesDirectory,
                 statePath,
+                compilerIdentity,
                 additionalFallbackReasons,
                 noSourceFallbackReason)
                 .withCaptureProcessorAttribution(processorClassifier.isolating(processorClasspath));
@@ -150,6 +196,7 @@ public final class IncrementalCompilePlanner {
             Path outputDirectory,
             Path generatedSourcesDirectory,
             Path statePath,
+            String compilerIdentity,
             List<String> additionalFallbackReasons,
             String noSourceFallbackReason) {
         String processorFallback = processorClassifier.fallbackReason(processorClasspath);
@@ -173,6 +220,7 @@ public final class IncrementalCompilePlanner {
                 scope,
                 projectRoot,
                 config,
+                compilerIdentity,
                 configuredSourceRoots,
                 generatedSteps,
                 compileClasspath,

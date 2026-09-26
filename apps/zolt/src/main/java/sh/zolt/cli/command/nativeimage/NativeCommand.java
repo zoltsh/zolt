@@ -143,13 +143,20 @@ public final class NativeCommand implements Runnable {
                     false,
                     "zolt native");
             progress.start("Building native image");
-            NativeBuildResult result = nativeBuildService.buildNative(
-                    projectRoot,
-                    config,
-                    cacheRoot,
-                    resolvedNativeImage(context, config),
-                    nativeImageProgress(progress),
-                    artifactIndex);
+            NativeBuildResult result = nativeBuildService.withJdkChecker(CommandJavaToolchainJdkChecker.forCommand(
+                            context.projectRoot(),
+                            context.lockRoot(),
+                            config,
+                            toolchainTarget,
+                            toolchainInstallRoot,
+                            "native"))
+                    .buildNative(
+                            projectRoot,
+                            config,
+                            cacheRoot,
+                            resolvedNativeImage(context, config),
+                            nativeImageProgress(progress),
+                            artifactIndex);
             CommandHumanOutput output = CommandHumanOutput.of(spec);
             if (result.packageResult().buildResult().resolvedLockfile()) {
                 output.success("Resolved dependencies because zolt.lock was missing");

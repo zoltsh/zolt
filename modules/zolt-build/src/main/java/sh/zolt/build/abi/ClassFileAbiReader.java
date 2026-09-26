@@ -32,8 +32,10 @@ public final class ClassFileAbiReader {
             "PermittedSubclasses",
             "Record",
             "RuntimeInvisibleAnnotations",
+            "RuntimeInvisibleParameterAnnotations",
             "RuntimeInvisibleTypeAnnotations",
             "RuntimeVisibleAnnotations",
+            "RuntimeVisibleParameterAnnotations",
             "RuntimeVisibleTypeAnnotations",
             "Signature");
 
@@ -119,6 +121,15 @@ public final class ClassFileAbiReader {
                         packagePrivateAbi.add(member.line());
                     });
 
+            boolean requiresContentFallback = classAttributes.requiresContentFallback()
+                    || fields.stream().anyMatch(MemberAbi::requiresContentFallback)
+                    || methods.stream().anyMatch(MemberAbi::requiresContentFallback);
+            if (requiresContentFallback) {
+                String contentLine = "classContentFallback|" + sha256(bytes);
+                publicAbi.add(contentLine);
+                packagePrivateAbi.add(contentLine);
+            }
+
             return new ParsedClass(
                     binaryName,
                     classAttributes.sourceFileName(),
@@ -151,8 +162,14 @@ public final class ClassFileAbiReader {
             int accessFlags = input.readUnsignedShort();
             String name = constantPool.utf8(input.readUnsignedShort());
             String descriptor = constantPool.utf8(input.readUnsignedShort());
-            List<String> attributes = readCompileRelevantAttributes(input, constantPool);
-            members.add(new MemberAbi(kind, accessFlags, name, descriptor, attributes));
+            CompileRelevantAttributes attributes = readCompileRelevantAttributes(input, constantPool);
+            members.add(new MemberAbi(
+                    kind,
+                    accessFlags,
+                    name,
+                    descriptor,
+                    attributes.values(),
+                    attributes.requiresContentFallback()));
         }
         return members;
     }
@@ -163,6 +180,7 @@ public final class ClassFileAbiReader {
         int count = input.readUnsignedShort();
         List<String> attributes = new ArrayList<>();
         Optional<String> sourceFileName = Optional.empty();
+        boolean requiresContentFallback = false;
         for (int index = 0; index < count; index++) {
             String name = constantPool.utf8(input.readUnsignedShort());
             byte[] bytes = input.readNBytes(input.readInt());
@@ -172,18 +190,21 @@ public final class ClassFileAbiReader {
                 }
             } else if (COMPILE_RELEVANT_ATTRIBUTES.contains(name)) {
                 attributes.add(name + "=" + sha256(bytes));
+                requiresContentFallback |= !"Deprecated".equals(name);
             }
         }
         return new ClassAttributes(
                 sourceFileName,
-                attributes.stream().sorted().toList());
+                attributes.stream().sorted().toList(),
+                requiresContentFallback);
     }
 
-    private static List<String> readCompileRelevantAttributes(
+    private static CompileRelevantAttributes readCompileRelevantAttributes(
             DataInputStream input,
             ClassFileConstantPool constantPool) throws IOException {
         int count = input.readUnsignedShort();
         List<String> attributes = new ArrayList<>();
+        boolean requiresContentFallback = false;
         for (int index = 0; index < count; index++) {
             String name = constantPool.utf8(input.readUnsignedShort());
             byte[] bytes = input.readNBytes(input.readInt());
@@ -193,9 +214,12 @@ public final class ClassFileAbiReader {
                 }
             } else if (COMPILE_RELEVANT_ATTRIBUTES.contains(name)) {
                 attributes.add(name + "=" + sha256(bytes));
+                requiresContentFallback |= !"Deprecated".equals(name);
             }
         }
-        return attributes.stream().sorted().toList();
+        return new CompileRelevantAttributes(
+                attributes.stream().sorted().toList(),
+                requiresContentFallback);
     }
 
     private static boolean isPrivate(int accessFlags) {
@@ -232,7 +256,13 @@ public final class ClassFileAbiReader {
 
     private record ClassAttributes(
             Optional<String> sourceFileName,
-            List<String> compileRelevant) {
+            List<String> compileRelevant,
+            boolean requiresContentFallback) {
+    }
+
+    private record CompileRelevantAttributes(
+            List<String> values,
+            boolean requiresContentFallback) {
     }
 
     private record MemberAbi(
@@ -240,7 +270,8 @@ public final class ClassFileAbiReader {
             int accessFlags,
             String name,
             String descriptor,
-            List<String> attributes) {
+            List<String> attributes,
+            boolean requiresContentFallback) {
         String line() {
             return kind + "|" + accessFlags + "|" + name + "|" + descriptor + "|" + String.join(",", attributes);
         }

@@ -9,6 +9,7 @@ final class IncrementalCompileStateFormatter {
         encodedLine(content, "outputDirectory", state.outputDirectory().toString());
         encodedLine(content, "generatedSourcesDirectory", state.generatedSourcesDirectory().toString());
         line(content, "compilerSettingsHash", state.compilerSettingsHash());
+        line(content, "compilerIdentity", state.compilerIdentity());
         line(content, "buildFingerprintSha256", state.buildFingerprintSha256());
         line(content, "publicAbiDigest", state.publicAbiDigest());
         line(content, "packagePrivateAbiDigest", state.packagePrivateAbiDigest());

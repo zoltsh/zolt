@@ -1,7 +1,6 @@
 package sh.zolt.build;
 
 import sh.zolt.classpath.ClasspathSet;
-import sh.zolt.build.cache.BuildCacheJdkIdentity;
 import sh.zolt.build.cache.BuildCacheKey;
 import sh.zolt.build.cache.BuildCacheModulePolicy;
 import sh.zolt.build.cache.BuildCacheRestoreResult;
@@ -10,7 +9,6 @@ import sh.zolt.build.cache.BuildCacheService;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.build.fingerprint.BuildFingerprintService;
 import sh.zolt.build.incremental.IncrementalCompileState;
-import sh.zolt.doctor.JdkStatus;
 import sh.zolt.project.ProjectConfig;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -40,7 +38,7 @@ final class MainBuildCacheGate {
             ClasspathSet classpaths,
             Path outputDirectory,
             Path generatedSourcesDirectory,
-            JdkStatus jdkStatus) {
+            String compilerIdentity) {
         if (compileSkipped || !buildCacheService.enabled()) {
             return Attempt.inactive();
         }
@@ -53,8 +51,9 @@ final class MainBuildCacheGate {
             return Attempt.uncacheable();
         }
         String inputsSha = buildFingerprintService.mainInputsFingerprintSha256(
-                projectDirectory, config, lockfilePath, sources, classpaths, outputDirectory, generatedSourcesDirectory);
-        BuildCacheKey key = BuildCacheKey.of(BuildCacheScope.MAIN, inputsSha, BuildCacheJdkIdentity.of(jdkStatus));
+                projectDirectory, config, compilerIdentity, lockfilePath, sources,
+                classpaths, outputDirectory, generatedSourcesDirectory);
+        BuildCacheKey key = BuildCacheKey.of(BuildCacheScope.MAIN, inputsSha, compilerIdentity);
         return Attempt.active(key, buildCacheService.restore(key, outputDirectory));
     }
 

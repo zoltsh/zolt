@@ -4,6 +4,7 @@ import sh.zolt.build.classpath.ClasspathBuilder;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.build.cache.BuildCacheService;
+import sh.zolt.build.compile.EffectiveCompilerIdentity;
 import sh.zolt.build.compile.MainCompileSourceExecutor;
 import sh.zolt.build.discovery.SourceDiscoverer;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
@@ -47,15 +48,15 @@ public final class BuildService {
     public BuildService() {
         this(new JdkDetector());
     }
-
     public BuildService(ResolveService resolveService) {
         this(new JdkDetector(), resolveService);
     }
-
     public BuildService(ResolveService resolveService, BuildProvenanceSource provenanceSource) {
         this(new JdkDetector(), resolveService, provenanceSource);
     }
-
+    public BuildService(BuildProvenanceSource provenanceSource) {
+        this(new JdkDetector(), new ResolveService(), provenanceSource);
+    }
     public BuildService(JdkChecker jdkDetector) {
         this(jdkDetector, new ResolveService());
     }
@@ -238,6 +239,7 @@ public final class BuildService {
         if (!jdkStatus.ok()) {
             throw BuildException.actionable("JDK check failed.", String.join(" ", jdkStatus.problems()));
         }
+        String compilerIdentity = EffectiveCompilerIdentity.of(jdkStatus);
 
         Path outputDirectory = projectDirectory.resolve(config.build().output());
         Path generatedSourcesDirectory =
@@ -247,6 +249,7 @@ public final class BuildService {
         BuildFingerprintCheck fingerprintCheck = buildFingerprintService.checkMainCompileCurrent(
                 projectDirectory,
                 config,
+                compilerIdentity,
                 lockfilePath,
                 sources,
                 classpaths,
@@ -268,7 +271,7 @@ public final class BuildService {
                 classpaths,
                 outputDirectory,
                 generatedSourcesDirectory,
-                jdkStatus);
+                compilerIdentity);
         boolean restored = cacheAttempt.restored();
         boolean runJavac = !compileSkipped && !restored;
 
@@ -297,6 +300,7 @@ public final class BuildService {
             buildFingerprintService.writeMainCompileFingerprint(
                     projectDirectory,
                     config,
+                    compilerIdentity,
                     lockfilePath,
                     sources,
                     classpaths,
@@ -315,6 +319,7 @@ public final class BuildService {
                             classpaths,
                             outputDirectory,
                             generatedSourcesDirectory,
+                            compilerIdentity,
                             javacResult.attribution(),
                             javacResult.compiledSources());
                     buildCacheOutcome = mainBuildCacheGate.store(cacheAttempt, outputDirectory);

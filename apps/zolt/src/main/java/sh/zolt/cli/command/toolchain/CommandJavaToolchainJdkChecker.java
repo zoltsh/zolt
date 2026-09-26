@@ -6,11 +6,15 @@ import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.toolchain.JavaToolchainRequest;
 import sh.zolt.toolchain.JavaToolchainEnvironment;
 import sh.zolt.toolchain.JavaToolchainExecutionService;
+import sh.zolt.toolchain.jvm.JavaToolchainSource;
 import sh.zolt.toolchain.jvm.ResolvedJavaToolchain;
 import sh.zolt.toolchain.lock.LockedJavaToolchain;
 import sh.zolt.toolchain.platform.HostPlatform;
 import sh.zolt.toolchain.store.ToolchainStore;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Base64;
 import java.util.Optional;
 
 public final class CommandJavaToolchainJdkChecker implements JdkChecker {
@@ -150,12 +154,79 @@ public final class CommandJavaToolchainJdkChecker implements JdkChecker {
                 resolved.javac().map(CommandJavaToolchainJdkChecker::absolute),
                 resolved.jar().map(CommandJavaToolchainJdkChecker::absolute),
                 runtimeVersion(resolved),
+                Optional.of(compilerIdentity(resolved)),
                 requiredVersion);
     }
 
     private static Optional<String> runtimeVersion(ResolvedJavaToolchain resolved) {
-        Optional<String> featureVersion = resolved.runtime().featureVersion();
-        return featureVersion.isPresent() ? featureVersion : resolved.runtime().version();
+        Optional<String> version = resolved.runtime().version();
+        return version.isPresent() ? version : resolved.runtime().featureVersion();
+    }
+
+    private String compilerIdentity(ResolvedJavaToolchain resolved) {
+        if (resolved.source() == JavaToolchainSource.MANAGED
+                && resolved.artifactSha256().isPresent()) {
+            return String.join(
+                    "\n",
+                    "source=managed",
+                    "artifact=sha256:" + resolved.artifactSha256().orElseThrow(),
+                    "version=" + resolved.runtime().version().orElse("unknown"),
+                    "vendor=" + resolved.runtime().vendor().orElse("unknown"),
+                    "platform=" + platform.id());
+        }
+        Path javaHome = resolved.javaHome()
+                .map(CommandJavaToolchainJdkChecker::absolute)
+                .orElse(null);
+        Path javac = resolved.javac()
+                .map(CommandJavaToolchainJdkChecker::absolute)
+                .orElse(null);
+        return String.join(
+                "\n",
+                "source=ambient",
+                "version=" + resolved.runtime().version().orElse("unknown"),
+                "vendor=" + resolved.runtime().vendor().orElse("unknown"),
+                "platform=" + platform.id(),
+                "javaHome=" + (javaHome == null ? "missing" : javaHome),
+                "javac=" + (javac == null ? "missing" : javac),
+                "javacSize=" + fileSize(javac),
+                "javacModified=" + lastModified(javac),
+                "release=" + releaseIdentity(javaHome));
+    }
+
+    private static String releaseIdentity(Path javaHome) {
+        if (javaHome == null) {
+            return "missing";
+        }
+        try {
+            Path release = javaHome.resolve("release");
+            return Files.isRegularFile(release)
+                    ? Base64.getEncoder().encodeToString(Files.readAllBytes(release))
+                    : "missing";
+        } catch (IOException exception) {
+            return "unreadable";
+        }
+    }
+
+    private static long fileSize(Path path) {
+        if (path == null) {
+            return -1L;
+        }
+        try {
+            return Files.size(path);
+        } catch (IOException exception) {
+            return -1L;
+        }
+    }
+
+    private static long lastModified(Path path) {
+        if (path == null) {
+            return -1L;
+        }
+        try {
+            return Files.getLastModifiedTime(path).toMillis();
+        } catch (IOException exception) {
+            return -1L;
+        }
     }
 
     private static Path absolute(Path path) {

@@ -115,10 +115,77 @@ final class BuildFingerprintContentTest {
         assertNotEquals(first, differentJava);
     }
 
+    @Test
+    void fingerprintPreservesCompileAndProcessorClasspathOrder() throws IOException {
+        Files.writeString(projectDir.resolve("zolt.toml"), "[project]\nname = \"demo\"\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
+        Path first = write("deps/first.jar", "first");
+        Path second = write("deps/second.jar", "second");
+        Classpath forward = new Classpath(List.of(first, second));
+        Classpath reversed = new Classpath(List.of(second, first));
+
+        assertNotEquals(
+                fingerprint(config(List.of()), List.of(), forward, new Classpath(List.of()), false),
+                fingerprint(config(List.of()), List.of(), reversed, new Classpath(List.of()), false));
+        assertNotEquals(
+                fingerprint(config(List.of()), List.of(), forward, new Classpath(List.of()), true),
+                fingerprint(config(List.of()), List.of(), reversed, new Classpath(List.of()), true));
+        assertNotEquals(
+                fingerprint(config(List.of()), List.of(), new Classpath(List.of()), forward, false),
+                fingerprint(config(List.of()), List.of(), new Classpath(List.of()), reversed, false));
+    }
+
+    @Test
+    void fingerprintTracksTheEffectiveCompilerIdentity() throws IOException {
+        Files.writeString(projectDir.resolve("zolt.toml"), "[project]\nname = \"demo\"\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
+
+        String first = fingerprint(config(List.of()), List.of(), "compiler-21.0.1");
+        String second = fingerprint(config(List.of()), List.of(), "compiler-21.0.2");
+
+        assertNotEquals(first, second);
+    }
+
     private String fingerprint(ProjectConfig config, List<Path> sources) {
+        return fingerprint(config, sources, "test-compiler");
+    }
+
+    private String fingerprint(ProjectConfig config, List<Path> sources, String compilerIdentity) {
+        return fingerprint(
+                config,
+                sources,
+                new Classpath(List.of()),
+                new Classpath(List.of()),
+                compilerIdentity,
+                false);
+    }
+
+    private String fingerprint(
+            ProjectConfig config,
+            List<Path> sources,
+            Classpath compileClasspath,
+            Classpath processorClasspath,
+            boolean cacheKeyMode) {
+        return fingerprint(
+                config,
+                sources,
+                compileClasspath,
+                processorClasspath,
+                "test-compiler",
+                cacheKeyMode);
+    }
+
+    private String fingerprint(
+            ProjectConfig config,
+            List<Path> sources,
+            Classpath compileClasspath,
+            Classpath processorClasspath,
+            String compilerIdentity,
+            boolean cacheKeyMode) {
         return content.fingerprint(
                 projectDir,
                 config,
+                compilerIdentity,
                 projectDir.resolve("zolt.lock"),
                 List.of("src/main/java"),
                 config.build().resourceRoots(),
@@ -126,13 +193,14 @@ final class BuildFingerprintContentTest {
                 sources,
                 config.build().generatedMainSources(),
                 List.of(),
-                new Classpath(List.of()),
-                new Classpath(List.of()),
+                compileClasspath,
+                processorClasspath,
                 projectDir.resolve("target/classes"),
                 config.build().output(),
                 projectDir.resolve("target/generated/sources/annotations"),
                 null,
-                null);
+                null,
+                cacheKeyMode);
     }
 
     private Path write(String relativePath, String text) throws IOException {

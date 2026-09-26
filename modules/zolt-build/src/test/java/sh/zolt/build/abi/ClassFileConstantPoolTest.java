@@ -43,6 +43,32 @@ final class ClassFileConstantPoolTest {
     }
 
     @Test
+    void distinguishesOneCharacterClassNamesFromPrimitiveArrayDescriptors() throws IOException {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (DataOutputStream output = new DataOutputStream(bytes)) {
+            output.writeShort(7);
+            output.writeByte(1);
+            output.writeUTF("A");
+            output.writeByte(7);
+            output.writeShort(1);
+            output.writeByte(1);
+            output.writeUTF("I");
+            output.writeByte(7);
+            output.writeShort(3);
+            output.writeByte(1);
+            output.writeUTF("[I");
+            output.writeByte(7);
+            output.writeShort(5);
+        }
+
+        ClassFileConstantPool constantPool = ClassFileConstantPool.read(input(bytes));
+
+        assertEquals("A", constantPool.className(2));
+        assertEquals("I", constantPool.className(4));
+        assertEquals("", constantPool.className(6));
+    }
+
+    @Test
     void reportsUnsupportedConstantPoolTags() throws IOException {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         try (DataOutputStream output = new DataOutputStream(bytes)) {

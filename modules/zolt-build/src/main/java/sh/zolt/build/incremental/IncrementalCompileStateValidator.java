@@ -19,6 +19,7 @@ final class IncrementalCompileStateValidator {
             String scope,
             Path projectRoot,
             ProjectConfig config,
+            String compilerIdentity,
             List<String> configuredSourceRoots,
             List<GeneratedSourceStep> generatedSteps,
             Classpath compileClasspath,
@@ -34,6 +35,9 @@ final class IncrementalCompileStateValidator {
         }
         if (!state.compilerSettingsHash().equals(hashText(config.compilerSettings().toString()))) {
             return "compiler-settings-changed";
+        }
+        if (!state.compilerIdentity().equals(compilerIdentity)) {
+            return "compiler-identity-changed";
         }
         if (!state.sourceRoots().equals(sourceRoots(projectRoot, configuredSourceRoots, generatedSteps))) {
             return "source-roots-changed";
@@ -102,7 +106,6 @@ final class IncrementalCompileStateValidator {
             Classpath classpath) {
         List<Path> currentPaths = classpath.entries().stream()
                 .map(path -> path.toAbsolutePath().normalize())
-                .sorted()
                 .toList();
         if (!recorded.stream().map(IncrementalCompileState.ClasspathEntry::path).toList().equals(currentPaths)) {
             return false;

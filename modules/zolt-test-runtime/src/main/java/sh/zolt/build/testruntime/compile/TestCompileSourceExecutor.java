@@ -2,6 +2,7 @@ package sh.zolt.build.testruntime.compile;
 
 import sh.zolt.build.CompileDiagnostics;
 import sh.zolt.build.compile.CompilerPlatformApi;
+import sh.zolt.build.compile.EffectiveCompilerIdentity;
 import sh.zolt.build.compile.GroovyCompilerRunner;
 import sh.zolt.build.JavacException;
 import sh.zolt.build.compile.IncrementalJavacExecution;
@@ -72,7 +73,8 @@ final class TestCompileSourceExecutor {
                 testCompileClasspath,
                 classpaths.testProcessor(),
                 outputDirectory,
-                generatedSourcesDirectory);
+                generatedSourcesDirectory,
+                EffectiveCompilerIdentity.of(jdkStatus));
         if (plan.incremental()) {
             return withPlatformApiWarning(
                     incrementalCompile(

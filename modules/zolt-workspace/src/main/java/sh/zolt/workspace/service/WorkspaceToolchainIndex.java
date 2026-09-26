@@ -1,6 +1,7 @@
 package sh.zolt.workspace.service;
 
 import sh.zolt.build.BuildException;
+import sh.zolt.build.compile.EffectiveCompilerIdentity;
 import sh.zolt.doctor.JdkChecker;
 import sh.zolt.doctor.JdkStatus;
 import java.nio.file.Path;
@@ -44,16 +45,8 @@ final class WorkspaceToolchainIndex {
         requireUsable(member, status);
         rememberCompiler(status);
         return toolchain.configuredIdentity()
-                + "|javaHome="
-                + path(status.javaHome())
-                + "|java="
-                + path(status.java())
-                + "|javac="
-                + path(status.javac())
-                + "|jar="
-                + path(status.jar())
-                + "|runtime="
-                + status.version().orElse("missing")
+                + "|effectiveCompiler="
+                + EffectiveCompilerIdentity.of(status)
                 + "|required="
                 + status.requiredVersion();
     }
@@ -145,14 +138,10 @@ final class WorkspaceToolchainIndex {
      * pipeline — and the clean-member finalization before it — performed has to happen here or not at
      * all for that member.
      *
-     * <p>The identity this class returns happens to contain every field {@link JdkStatus#ok()} reads
-     * (the three tool paths, the detected version, the required version), so a toolchain that went
-     * from usable to unusable also moves the identity and would be caught as a toolchain change. That
-     * makes this check redundant <em>today</em> — and it is kept anyway, because the redundancy is an
-     * accident of what the identity string happens to spell rather than something either side
-     * promises. Shortening the identity would silently turn "we always notice" into "we notice by
-     * luck". The status is already resolved and cached by the time we get here, so the guarantee
-     * costs one comparison; the alternative costs a member built against a JDK nobody checked.
+     * <p>The effective compiler identity describes compiler selection, not whether all required tools
+     * are currently usable. The status is already resolved and cached by the time we get here, so
+     * keeping the explicit readiness check costs one comparison and prevents a clean member from
+     * bypassing toolchain validation.
      */
     private static void requireUsable(WorkspaceMember member, JdkStatus status) {
         if (status.ok()) {
@@ -164,11 +153,6 @@ final class WorkspaceToolchainIndex {
                         + member.path()
                         + "`: "
                         + String.join(" ", status.problems()));
-    }
-
-    private static String path(Optional<Path> path) {
-        return path.map(value -> value.toAbsolutePath().normalize().toString())
-                .orElse("missing");
     }
 
     private record Toolchain(
