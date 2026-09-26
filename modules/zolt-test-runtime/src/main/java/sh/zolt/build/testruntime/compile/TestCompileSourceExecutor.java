@@ -1,6 +1,7 @@
 package sh.zolt.build.testruntime.compile;
 
 import sh.zolt.build.CompileDiagnostics;
+import sh.zolt.build.compile.CompileOutputCleaner;
 import sh.zolt.build.compile.CompilerPlatformApi;
 import sh.zolt.build.compile.EffectiveCompilerIdentity;
 import sh.zolt.build.compile.GroovyCompilerRunner;
@@ -78,6 +79,8 @@ final class TestCompileSourceExecutor {
         if (plan.incremental()) {
             return withPlatformApiWarning(
                     incrementalCompile(
+                            projectDirectory,
+                            config,
                             jdkStatus,
                             sources,
                             testCompileClasspath,
@@ -90,9 +93,10 @@ final class TestCompileSourceExecutor {
                     platformApiWarning);
         }
         incrementalCompileStateRecorder.deleteTestState(outputDirectory);
-        IncrementalJavacExecution.deleteOutputs(plan.outputsToDelete());
         return withPlatformApiWarning(
                 fullTestCompile(
+                        projectDirectory,
+                        config,
                         jdkStatus,
                         sources,
                         testCompileClasspath,
@@ -126,6 +130,8 @@ final class TestCompileSourceExecutor {
     }
 
     private Attempt incrementalCompile(
+            Path projectDirectory,
+            ProjectConfig config,
             JdkStatus jdkStatus,
             SourceDiscoveryResult sources,
             Classpath testCompileClasspath,
@@ -148,6 +154,8 @@ final class TestCompileSourceExecutor {
         } catch (JavacException exception) {
             incrementalCompileStateRecorder.deleteTestState(outputDirectory);
             return fullTestCompile(
+                    projectDirectory,
+                    config,
                     jdkStatus,
                     sources,
                     testCompileClasspath,
@@ -164,12 +172,24 @@ final class TestCompileSourceExecutor {
         GeneratedOutputAttribution attribution = execution.attribution();
         if (waves.hasFallback()) {
             return fullTestFallback(
-                    jdkStatus, sources, testCompileClasspath, groovyCompileClasspath, outputDirectory,
+                    projectDirectory,
+                    config,
+                    jdkStatus,
+                    sources,
+                    testCompileClasspath,
+                    groovyCompileClasspath,
+                    outputDirectory,
                     generatedSourcesDirectory, classpaths, options, plan, waves.validation().fallbackReason());
         }
         if (attribution.present() && attribution.unattributed()) {
             return fullTestFallback(
-                    jdkStatus, sources, testCompileClasspath, groovyCompileClasspath, outputDirectory,
+                    projectDirectory,
+                    config,
+                    jdkStatus,
+                    sources,
+                    testCompileClasspath,
+                    groovyCompileClasspath,
+                    outputDirectory,
                     generatedSourcesDirectory, classpaths, options, plan, "processor-unattributed-output");
         }
         JavacResult combined = new JavacResult(
@@ -187,6 +207,8 @@ final class TestCompileSourceExecutor {
     }
 
     private Attempt fullTestFallback(
+            Path projectDirectory,
+            ProjectConfig config,
             JdkStatus jdkStatus,
             SourceDiscoveryResult sources,
             Classpath testCompileClasspath,
@@ -198,8 +220,9 @@ final class TestCompileSourceExecutor {
             IncrementalCompilePlan plan,
             String fallbackReason) {
         incrementalCompileStateRecorder.deleteTestState(outputDirectory);
-        IncrementalJavacExecution.deleteOutputs(plan.outputsToDelete());
         return fullTestCompile(
+                projectDirectory,
+                config,
                 jdkStatus,
                 sources,
                 testCompileClasspath,
@@ -214,6 +237,8 @@ final class TestCompileSourceExecutor {
     }
 
     private Attempt fullTestCompile(
+            Path projectDirectory,
+            ProjectConfig config,
             JdkStatus jdkStatus,
             SourceDiscoveryResult sources,
             Classpath testCompileClasspath,
@@ -225,6 +250,8 @@ final class TestCompileSourceExecutor {
             String fallbackReason,
             CompileDiagnostics diagnostics,
             boolean captureAttribution) {
+        CompileOutputCleaner.resetTest(
+                projectDirectory, config, outputDirectory, generatedSourcesDirectory);
         JavacResult javacResult = javacRunner.compile(
                 jdkStatus.javac().orElseThrow(),
                 sources.testSources(),

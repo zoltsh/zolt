@@ -169,6 +169,41 @@ final class TestCompileServiceIncrementalStateTest {
         assertTrue(Files.exists(projectDir.resolve("target/test-classes/com/example/MainTest.class")));
     }
 
+    @Test
+    void missingStateFullCompileRemovesNestedClassesAndGeneratedSources() throws IOException {
+        writeLockfile("version = 7\n");
+        source("src/main/java/com/example/Main.java", "package com.example; public final class Main {}\n");
+        Path testSource = source("src/test/java/com/example/MainTest.java", """
+                package com.example;
+
+                public final class MainTest {
+                    static final class Removed {
+                    }
+                }
+                """);
+        testCompileService.compileTests(projectDir, config(), projectDir.resolve("cache"));
+        Path staleNested = projectDir.resolve("target/test-classes/com/example/MainTest$Removed.class");
+        Path staleGenerated = projectDir.resolve("target/generated/test-sources/annotations/stale/Generated.java");
+        assertTrue(Files.exists(staleNested));
+        Files.createDirectories(staleGenerated.getParent());
+        Files.writeString(staleGenerated, "package stale; class Generated {}\n");
+        Files.delete(projectDir.resolve("target/test-classes/.zolt-incremental-test.state"));
+        Files.writeString(testSource, """
+                package com.example;
+
+                public final class MainTest {
+                }
+                """);
+
+        TestCompileResult result =
+                testCompileService.compileTests(projectDir, config(), projectDir.resolve("cache"));
+
+        assertEquals("full", result.testCompilationMode());
+        assertEquals("missing-state", result.testIncrementalFallbackReason());
+        assertFalse(Files.exists(staleNested));
+        assertFalse(Files.exists(staleGenerated));
+    }
+
     private static ProjectConfig config() {
         return ProjectConfigs.withDirectDependencies(
                 new ProjectMetadata("demo", "0.1.0", "com.example", currentJavaMajorVersion(), Optional.of("com.example.Main")),

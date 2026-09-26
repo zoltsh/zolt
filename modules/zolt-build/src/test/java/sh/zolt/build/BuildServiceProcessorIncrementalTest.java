@@ -69,6 +69,15 @@ final class BuildServiceProcessorIncrementalTest {
     @Test
     void editingUnannotatedSourcePreservesUntouchedGeneratedOutputs() throws Exception {
         setUpProject(AnnotationProcessorFixture.attributingProcessorJar(projectDir.resolve("processor-work")));
+        source("src/main/java/com/example/Plain.java", """
+                package com.example;
+
+                public final class Plain {
+                    public static int version() {
+                        return 1;
+                    }
+                }
+                """);
 
         assertEquals("full", buildService.build(projectDir, config(), cache()).mainCompilationMode());
         Path widgetMeta = generatedSource("Widget");

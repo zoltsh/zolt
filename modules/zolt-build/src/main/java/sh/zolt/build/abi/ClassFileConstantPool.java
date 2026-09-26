@@ -92,22 +92,11 @@ final class ClassFileConstantPool {
     }
 
     static void addDescriptorReferences(String value, Set<String> referencedClasses) {
-        int index = 0;
-        while (index < value.length()) {
-            int start = value.indexOf('L', index);
-            if (start < 0) {
-                return;
-            }
-            int end = value.indexOf(';', start);
-            if (end < 0) {
-                return;
-            }
-            String candidate = value.substring(start + 1, end);
-            if (!candidate.isBlank() && candidate.indexOf(' ') < 0) {
-                referencedClasses.add(normalizeClassName(candidate));
-            }
-            index = end + 1;
-        }
+        ClassFileSignatureReferences.add(value, referencedClasses);
+    }
+
+    static boolean addSignatureReferences(String value, Set<String> referencedClasses) {
+        return ClassFileSignatureReferences.add(value, referencedClasses);
     }
 
     private static String normalizeClassName(String internalName) {

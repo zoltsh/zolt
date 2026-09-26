@@ -133,6 +133,7 @@ final class IncrementalCompileStateCodecTest {
 
     @Test
     void rejectsUnsupportedOrCorruptState() {
+        assertTrue(codec.parse("version=6\n").isEmpty());
         assertTrue(codec.parse("version=999\n").isEmpty());
         assertTrue(codec.parse("""
                 version=1

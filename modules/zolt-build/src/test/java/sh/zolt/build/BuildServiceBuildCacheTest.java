@@ -16,6 +16,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -97,6 +98,37 @@ final class BuildServiceBuildCacheTest {
     }
 
     @Test
+    void fullCompileAfterCacheRestoreRemovesDeletedSourceOutputLikeCleanBuild() throws IOException {
+        BuildService service = cacheEnabledService();
+        writeProject("hello");
+        Path obsoleteSource = projectDir.resolve("src/main/java/com/example/Obsolete.java");
+        source("src/main/java/com/example/Obsolete.java", """
+                package com.example;
+
+                public final class Obsolete {
+                }
+                """);
+        service.build(projectDir, config(), artifactCache());
+        wipeTarget();
+        assertTrue(service.build(projectDir, config(), artifactCache()).mainCompilationRestored());
+        assertTrue(Files.exists(projectDir.resolve("target/classes/com/example/Obsolete.class")));
+        Files.delete(obsoleteSource);
+
+        BuildResult rebuilt = service.build(projectDir, config(), artifactCache());
+
+        assertEquals("full", rebuilt.mainCompilationMode());
+        assertEquals("missing-state", rebuilt.mainIncrementalFallbackReason());
+        assertFalse(Files.exists(projectDir.resolve("target/classes/com/example/Obsolete.class")));
+        List<String> rebuiltClasses = classFiles();
+
+        wipeTarget();
+        BuildService cleanService = new BuildService().withBuildCache(BuildCacheService.disabled());
+        cleanService.build(projectDir, config(), artifactCache());
+
+        assertEquals(classFiles(), rebuiltClasses);
+    }
+
+    @Test
     void disabledCacheNeverRestores() throws IOException {
         BuildService service = new BuildService().withBuildCache(BuildCacheService.disabled());
         writeProject("hello");
@@ -140,6 +172,18 @@ final class BuildServiceBuildCacheTest {
 
     private Path artifactCache() {
         return projectDir.resolve("cache");
+    }
+
+    private List<String> classFiles() throws IOException {
+        Path output = projectDir.resolve("target/classes");
+        try (Stream<Path> paths = Files.walk(output)) {
+            return paths.filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().endsWith(".class"))
+                    .map(output::relativize)
+                    .map(Path::toString)
+                    .sorted()
+                    .toList();
+        }
     }
 
     private void wipeTarget() throws IOException {

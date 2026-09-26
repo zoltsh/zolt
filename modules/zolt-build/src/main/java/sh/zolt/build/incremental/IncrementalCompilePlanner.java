@@ -265,6 +265,17 @@ public final class IncrementalCompilePlanner {
                 changedPreviousRecords.add(previous);
             }
         }
+        if (addedSourceCount > 0) {
+            // A newly declared type can change simple-name resolution in an unchanged source even though
+            // no previous bytecode dependency edge could name it (for example, by shadowing a wildcard
+            // import). Recompile the whole scope until the state model records name-lookup dependencies.
+            return IncrementalCompilePlan.full(
+                    "source-added",
+                    List.of(),
+                    addedSourceCount,
+                    changedPreviousRecords.size(),
+                    0);
+        }
         if (dirtySources.isEmpty()) {
             return IncrementalCompilePlan.full(normalizeNoSourceFallbackReason(noSourceFallbackReason));
         }

@@ -87,6 +87,8 @@ public final class MainCompileSourceExecutor {
         if (plan.incremental()) {
             return withPlatformApiWarning(
                     incrementalCompile(
+                            projectDirectory,
+                            config,
                             jdkStatus,
                             sources,
                             classpaths,
@@ -97,9 +99,10 @@ public final class MainCompileSourceExecutor {
                     platformApiWarning);
         }
         incrementalCompileStateRecorder.deleteMainState(outputDirectory);
-        IncrementalJavacExecution.deleteOutputs(plan.outputsToDelete());
         return withPlatformApiWarning(
                 fullCompile(
+                        projectDirectory,
+                        config,
                         jdkStatus,
                         sources,
                         classpaths,
@@ -129,6 +132,8 @@ public final class MainCompileSourceExecutor {
     }
 
     private Attempt incrementalCompile(
+            Path projectDirectory,
+            ProjectConfig config,
             JdkStatus jdkStatus,
             SourceDiscoveryResult sources,
             ClasspathSet classpaths,
@@ -149,6 +154,8 @@ public final class MainCompileSourceExecutor {
         } catch (JavacException exception) {
             incrementalCompileStateRecorder.deleteMainState(outputDirectory);
             return fullCompile(
+                    projectDirectory,
+                    config,
                     jdkStatus,
                     sources,
                     classpaths,
@@ -163,12 +170,24 @@ public final class MainCompileSourceExecutor {
         GeneratedOutputAttribution attribution = execution.attribution();
         if (waves.hasFallback()) {
             return fullFallback(
-                    jdkStatus, sources, classpaths, outputDirectory, generatedSourcesDirectory,
+                    projectDirectory,
+                    config,
+                    jdkStatus,
+                    sources,
+                    classpaths,
+                    outputDirectory,
+                    generatedSourcesDirectory,
                     options, plan, waves.validation().fallbackReason());
         }
         if (attribution.present() && attribution.unattributed()) {
             return fullFallback(
-                    jdkStatus, sources, classpaths, outputDirectory, generatedSourcesDirectory,
+                    projectDirectory,
+                    config,
+                    jdkStatus,
+                    sources,
+                    classpaths,
+                    outputDirectory,
+                    generatedSourcesDirectory,
                     options, plan, "processor-unattributed-output");
         }
         JavacResult combined = new JavacResult(
@@ -186,6 +205,8 @@ public final class MainCompileSourceExecutor {
     }
 
     private Attempt fullFallback(
+            Path projectDirectory,
+            ProjectConfig config,
             JdkStatus jdkStatus,
             SourceDiscoveryResult sources,
             ClasspathSet classpaths,
@@ -195,8 +216,9 @@ public final class MainCompileSourceExecutor {
             IncrementalCompilePlan plan,
             String fallbackReason) {
         incrementalCompileStateRecorder.deleteMainState(outputDirectory);
-        IncrementalJavacExecution.deleteOutputs(plan.outputsToDelete());
         return fullCompile(
+                projectDirectory,
+                config,
                 jdkStatus,
                 sources,
                 classpaths,
@@ -209,6 +231,8 @@ public final class MainCompileSourceExecutor {
     }
 
     private Attempt fullCompile(
+            Path projectDirectory,
+            ProjectConfig config,
             JdkStatus jdkStatus,
             SourceDiscoveryResult sources,
             ClasspathSet classpaths,
@@ -218,6 +242,8 @@ public final class MainCompileSourceExecutor {
             String fallbackReason,
             CompileDiagnostics diagnostics,
             boolean captureAttribution) {
+        CompileOutputCleaner.resetMain(
+                projectDirectory, config, outputDirectory, generatedSourcesDirectory);
         JavacResult result = javacRunner.compile(
                 jdkStatus.javac().orElseThrow(),
                 sources.mainSources(),

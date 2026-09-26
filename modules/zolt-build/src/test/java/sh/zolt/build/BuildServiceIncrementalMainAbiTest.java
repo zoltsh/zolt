@@ -206,6 +206,54 @@ final class BuildServiceIncrementalMainAbiTest {
         assertTrue(clean.getMessage().contains("Integer cannot be converted to String"), clean.getMessage());
     }
 
+    @Test
+    void genericTypeArgumentChangeRecompilesItsConsumer() throws IOException {
+        writeLockfile("version = 7\n");
+        source("src/main/java/p/Bound.java", """
+                package p;
+
+                public class Bound {
+                }
+                """);
+        Path token = source("src/main/java/p/Token.java", """
+                package p;
+
+                public class Token extends Bound {
+                }
+                """);
+        source("src/main/java/p/Box.java", """
+                package p;
+
+                public class Box<T extends Bound> {
+                }
+                """);
+        source("src/main/java/p/Consumer.java", """
+                package p;
+
+                public class Consumer {
+                    Box<Token> value;
+                }
+                """);
+        buildService.build(projectDir, config(), projectDir.resolve("cache"));
+        Files.writeString(token, """
+                package p;
+
+                public class Token {
+                }
+                """);
+
+        JavacException incremental = assertThrows(
+                JavacException.class,
+                () -> buildService.build(projectDir, config(), projectDir.resolve("cache")));
+        wipeTarget();
+        JavacException clean = assertThrows(
+                JavacException.class,
+                () -> buildService.build(projectDir, config(), projectDir.resolve("cache")));
+
+        assertTrue(incremental.getMessage().contains("not within bounds"), incremental.getMessage());
+        assertTrue(clean.getMessage().contains("not within bounds"), clean.getMessage());
+    }
+
     private static ProjectConfig config() {
         return ProjectConfigs.withDirectDependencies(
                 new ProjectMetadata(
