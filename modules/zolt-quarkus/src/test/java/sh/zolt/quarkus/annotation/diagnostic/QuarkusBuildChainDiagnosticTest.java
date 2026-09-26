@@ -3,16 +3,11 @@ package sh.zolt.quarkus.annotation.diagnostic;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import sh.zolt.quarkus.testsupport.QuarkusTestRuntimeClasspath;
-
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.List;
 import org.junit.jupiter.api.Test;
 
 final class QuarkusBuildChainDiagnosticTest {
@@ -87,8 +82,8 @@ final class QuarkusBuildChainDiagnosticTest {
         QuarkusBuildChainDiagnostic diagnostic = diagnostic(out);
         try (URLClassLoader runtimeLoader = new URLClassLoader(
                 new URL[] {
-                        quarkusJar("quarkus-junit"),
-                        quarkusJar("quarkus-builder")
+                        jarContaining("io.quarkus.test.junit.TestBuildChainFunction"),
+                        jarContaining("io.quarkus.builder.BuildChainBuilder")
                 },
                 ClassLoader.getPlatformClassLoader())) {
 
@@ -110,24 +105,18 @@ final class QuarkusBuildChainDiagnosticTest {
         return out.toString(StandardCharsets.UTF_8);
     }
 
-    private static URL quarkusJar(String artifactId) {
-        String relativeJar = "io/quarkus/" + artifactId + "/3.33.2/" + artifactId + "-3.33.2.jar";
-        List<Path> jars = QuarkusTestRuntimeClasspath.existingRepoCacheJars(repoRoot(), List.of(relativeJar));
-        if (jars.isEmpty()) {
-            throw new AssertionError("Could not locate " + relativeJar + " in any candidate artifact cache.");
-        }
-        return QuarkusTestRuntimeClasspath.url(jars.get(0));
-    }
-
-    private static Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.exists(current.resolve("zolt.lock"))
-                    && Files.exists(current.resolve("modules/zolt-quarkus"))) {
-                return current;
+    private static URL jarContaining(String className) {
+        try {
+            Class<?> type = Class.forName(
+                    className,
+                    false,
+                    QuarkusBuildChainDiagnosticTest.class.getClassLoader());
+            if (type.getProtectionDomain().getCodeSource() == null) {
+                throw new AssertionError("Class has no code source: " + className);
             }
-            current = current.getParent();
+            return type.getProtectionDomain().getCodeSource().getLocation();
+        } catch (ClassNotFoundException exception) {
+            throw new AssertionError("Could not locate test runtime class: " + className, exception);
         }
-        throw new AssertionError("Could not locate Zolt repository root.");
     }
 }
