@@ -1,24 +1,19 @@
 package sh.zolt.build.compile;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import sh.zolt.build.BuildException;
+import sh.zolt.project.BuildMetadataSettings;
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.CompilerSettings;
-import sh.zolt.project.ExecGenerationSettings;
-import sh.zolt.project.ExecToolSettings;
-import sh.zolt.project.GeneratedSourceKind;
-import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.NativeSettings;
-import sh.zolt.project.OpenApiGenerationSettings;
-import sh.zolt.project.ProducesLane;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectConfigs;
 import sh.zolt.project.ProjectMetadata;
-import sh.zolt.project.ProtobufGenerationSettings;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -34,6 +29,74 @@ final class CompileOutputLayoutValidatorTest {
     private Path projectDir;
 
     @Test
+    void mainOutputCannotOwnProjectLockfile() throws IOException {
+        Path lockfile = projectDir.resolve("zolt.lock");
+        Files.writeString(lockfile, "sentinel\n");
+        BuildSettings build = new BuildSettings(
+                "src/main/java",
+                "src/test/java",
+                "target",
+                "zolt.lock",
+                "target/test-classes");
+        ProjectConfig config = config(build, CompilerSettings.defaults());
+
+        BuildException exception = assertThrows(
+                BuildException.class,
+                () -> CompileOutputCleaner.resetMain(
+                        projectDir,
+                        config,
+                        lockfile,
+                        projectDir.resolve(config.compilerSettings().generatedSources())));
+
+        assertTrue(exception.getMessage().contains("project lockfile"), exception.getMessage());
+        assertEquals("sentinel\n", Files.readString(lockfile));
+    }
+
+    @Test
+    void mainGeneratedOutputCannotOwnProjectLockfile() throws IOException {
+        Path lockfile = projectDir.resolve("zolt.lock");
+        Files.writeString(lockfile, "sentinel\n");
+        ProjectConfig config = config(
+                BuildSettings.defaults(),
+                new CompilerSettings("zolt.lock", "target/generated/test-sources/annotations"));
+
+        BuildException exception = assertThrows(
+                BuildException.class,
+                () -> CompileOutputCleaner.resetMain(
+                        projectDir,
+                        config,
+                        projectDir.resolve(config.build().output()),
+                        lockfile));
+
+        assertTrue(exception.getMessage().contains("project lockfile"), exception.getMessage());
+        assertEquals("sentinel\n", Files.readString(lockfile));
+    }
+
+    @Test
+    void testOutputCannotOwnProjectLockfile() throws IOException {
+        Path lockfile = projectDir.resolve("zolt.lock");
+        Files.writeString(lockfile, "sentinel\n");
+        BuildSettings build = new BuildSettings(
+                "src/main/java",
+                "src/test/java",
+                "target",
+                "target/classes",
+                "zolt.lock");
+        ProjectConfig config = config(build, CompilerSettings.defaults());
+
+        BuildException exception = assertThrows(
+                BuildException.class,
+                () -> CompileOutputCleaner.resetTest(
+                        projectDir,
+                        config,
+                        lockfile,
+                        projectDir.resolve(config.compilerSettings().generatedTestSources())));
+
+        assertTrue(exception.getMessage().contains("project lockfile"), exception.getMessage());
+        assertEquals("sentinel\n", Files.readString(lockfile));
+    }
+
+    @Test
     void generatedOutputCannotContainMainSourceRoot() throws IOException {
         Files.createDirectories(projectDir.resolve("src/main/java"));
         ProjectConfig config = config(
@@ -46,6 +109,98 @@ final class CompileOutputLayoutValidatorTest {
 
         assertTrue(exception.getMessage().contains("[compiler.generated].main"), exception.getMessage());
         assertTrue(exception.getMessage().contains("[build].sources[0]"), exception.getMessage());
+    }
+
+    @Test
+    void mainOutputCannotBeNestedInsideMainSourceRoot() throws IOException {
+        Path source = projectDir.resolve("src/main/java/compiled/p/Main.java");
+        Files.createDirectories(source.getParent());
+        Files.writeString(source, "package p; public final class Main {}\n");
+        BuildSettings build = new BuildSettings(
+                "src/main/java",
+                "src/test/java",
+                "target",
+                "src/main/java/compiled",
+                "target/test-classes");
+
+        BuildException exception = assertThrows(
+                BuildException.class,
+                () -> CompileOutputCleaner.resetMain(
+                        projectDir,
+                        config(build, CompilerSettings.defaults()),
+                        projectDir.resolve(build.output()),
+                        projectDir.resolve(CompilerSettings.defaults().generatedSources())));
+
+        assertTrue(exception.getMessage().contains("[build.output].main"), exception.getMessage());
+        assertTrue(exception.getMessage().contains("[build].sources[0]"), exception.getMessage());
+        assertTrue(exception.getMessage().contains("is nested within protected project input"), exception.getMessage());
+        assertEquals("package p; public final class Main {}\n", Files.readString(source));
+    }
+
+    @Test
+    void mainGeneratedOutputCannotBeNestedInsideMainResourceRoot() throws IOException {
+        Files.createDirectories(projectDir.resolve("src/main/resources"));
+        BuildSettings build = buildWithResources(
+                "target/classes",
+                "target/test-classes",
+                List.of("src/main/resources"),
+                List.of("src/test/resources"));
+        CompilerSettings compiler = new CompilerSettings(
+                "src/main/resources/annotations",
+                "target/generated/test-sources/annotations");
+
+        BuildException exception = assertThrows(
+                BuildException.class,
+                () -> CompileOutputLayoutValidator.validateMain(projectDir, config(build, compiler)));
+
+        assertTrue(exception.getMessage().contains("[compiler.generated].main"), exception.getMessage());
+        assertTrue(exception.getMessage().contains("[resources].main[0]"), exception.getMessage());
+    }
+
+    @Test
+    void testOutputCannotBeNestedInsideTestSourceRoot() throws IOException {
+        Files.createDirectories(projectDir.resolve("src/test/java"));
+        BuildSettings build = new BuildSettings(
+                "src/main/java",
+                "src/test/java",
+                "target",
+                "target/classes",
+                "src/test/java/compiled");
+
+        BuildException exception = assertThrows(
+                BuildException.class,
+                () -> CompileOutputLayoutValidator.validateTest(
+                        projectDir, config(build, CompilerSettings.defaults())));
+
+        assertTrue(exception.getMessage().contains("[build.output].test"), exception.getMessage());
+        assertTrue(exception.getMessage().contains("[test.sources].java[0]"), exception.getMessage());
+    }
+
+    @Test
+    void testGeneratedOutputCannotBeNestedInsideTestResourceRoot() throws IOException {
+        Path resource = projectDir.resolve("src/test/resources/annotations/application.properties");
+        Files.createDirectories(resource.getParent());
+        Files.writeString(resource, "sentinel=true\n");
+        BuildSettings build = buildWithResources(
+                "target/classes",
+                "target/test-classes",
+                List.of("src/main/resources"),
+                List.of("src/test/resources"));
+        CompilerSettings compiler = new CompilerSettings(
+                "target/generated/sources/annotations",
+                "src/test/resources/annotations");
+
+        BuildException exception = assertThrows(
+                BuildException.class,
+                () -> CompileOutputCleaner.resetTest(
+                        projectDir,
+                        config(build, compiler),
+                        projectDir.resolve(build.testOutput()),
+                        projectDir.resolve(compiler.generatedTestSources())));
+
+        assertTrue(exception.getMessage().contains("[compiler.generated].test"), exception.getMessage());
+        assertTrue(exception.getMessage().contains("[resources].test[0]"), exception.getMessage());
+        assertEquals("sentinel=true\n", Files.readString(resource));
     }
 
     @Test
@@ -93,6 +248,102 @@ final class CompileOutputLayoutValidatorTest {
     }
 
     @Test
+    void symlinkedMainOutputDescendantOfSourceRootIsRejected() throws IOException {
+        Path sourceRoot = projectDir.resolve("src/main/java");
+        Files.createDirectories(sourceRoot);
+        Path outputAlias = projectDir.resolve("classes-link");
+        createSymlink(outputAlias, sourceRoot);
+        BuildSettings build = new BuildSettings(
+                "src/main/java",
+                "src/test/java",
+                "target",
+                "classes-link/compiled",
+                "target/test-classes");
+
+        BuildException exception = assertThrows(
+                BuildException.class,
+                () -> CompileOutputLayoutValidator.validateMain(
+                        projectDir, config(build, CompilerSettings.defaults())));
+
+        assertTrue(exception.getMessage().contains("is nested within protected project input"), exception.getMessage());
+    }
+
+    @Test
+    void symlinkedTestGeneratedOutputDescendantOfResourceRootIsRejected() throws IOException {
+        Path resourceRoot = projectDir.resolve("src/test/resources");
+        Files.createDirectories(resourceRoot);
+        Path outputAlias = projectDir.resolve("test-resources-link");
+        createSymlink(outputAlias, resourceRoot);
+        BuildSettings build = buildWithResources(
+                "target/classes",
+                "target/test-classes",
+                List.of("src/main/resources"),
+                List.of("src/test/resources"));
+        CompilerSettings compiler = new CompilerSettings(
+                "target/generated/sources/annotations",
+                "test-resources-link/annotations");
+
+        BuildException exception = assertThrows(
+                BuildException.class,
+                () -> CompileOutputLayoutValidator.validateTest(projectDir, config(build, compiler)));
+
+        assertTrue(exception.getMessage().contains("is nested within protected project input"), exception.getMessage());
+    }
+
+    @Test
+    void symlinkedOutputRootCannotClaimAuthoredProjectRootSubtree() throws IOException {
+        Path source = projectDir.resolve("src/main/java/classes/p/Main.java");
+        Files.createDirectories(source.getParent());
+        Files.writeString(source, "package p; public final class Main {}\n");
+        createSymlink(projectDir.resolve("target"), projectDir.resolve("src/main/java"));
+        BuildSettings build = new BuildSettings(
+                ".",
+                "src/test/java",
+                "target",
+                "target/classes",
+                "target/test-classes");
+        ProjectConfig config = config(build, CompilerSettings.defaults());
+
+        BuildException exception = assertThrows(
+                BuildException.class,
+                () -> CompileOutputCleaner.resetMain(
+                        projectDir,
+                        config,
+                        projectDir.resolve(build.output()),
+                        projectDir.resolve(config.compilerSettings().generatedSources())));
+
+        assertTrue(exception.getMessage().contains("[build].sources[0]"), exception.getMessage());
+        assertTrue(exception.getMessage().contains("is nested within protected project input"), exception.getMessage());
+        assertEquals("package p; public final class Main {}\n", Files.readString(source));
+    }
+
+    @Test
+    void sourceRootAliasToProjectRootDoesNotReceiveCatchAllOwnership() throws IOException {
+        Path source = projectDir.resolve("target/classes/p/Main.java");
+        Files.createDirectories(source.getParent());
+        Files.writeString(source, "package p; public final class Main {}\n");
+        createSymlink(projectDir.resolve("project-view"), projectDir);
+        BuildSettings build = new BuildSettings(
+                "project-view",
+                "src/test/java",
+                "target",
+                "target/classes",
+                "target/test-classes");
+        ProjectConfig config = config(build, CompilerSettings.defaults());
+
+        BuildException exception = assertThrows(
+                BuildException.class,
+                () -> CompileOutputCleaner.resetMain(
+                        projectDir,
+                        config,
+                        projectDir.resolve(build.output()),
+                        projectDir.resolve(config.compilerSettings().generatedSources())));
+
+        assertTrue(exception.getMessage().contains("[build].sources[0]"), exception.getMessage());
+        assertEquals("package p; public final class Main {}\n", Files.readString(source));
+    }
+
+    @Test
     void projectRootSourceMayContainConventionalOutput() {
         BuildSettings build = new BuildSettings(
                 ".",
@@ -103,95 +354,17 @@ final class CompileOutputLayoutValidatorTest {
 
         assertDoesNotThrow(() -> CompileOutputLayoutValidator.validateMain(
                 projectDir, config(build, CompilerSettings.defaults())));
-    }
-
-    @Test
-    void postCompileClassInputDoesNotMakeFreshCompileOutputUnsafe() {
-        BuildSettings build = BuildSettings.defaults().withGeneratedSources(
-                List.of(projectExecStep(List.of("target/classes"))),
-                List.of());
-
-        assertDoesNotThrow(() -> CompileOutputLayoutValidator.validateMain(
+        assertDoesNotThrow(() -> CompileOutputLayoutValidator.validateTest(
                 projectDir, config(build, CompilerSettings.defaults())));
     }
 
     @Test
-    void postCompileNonClassInputRemainsProtected() {
+    void projectRootSourceDoesNotExemptOutputOutsideDeclaredOutputRoot() {
         BuildSettings build = new BuildSettings(
-                        "src/main/java",
-                        "src/test/java",
-                        "target",
-                        "out/main",
-                        "out/test")
-                .withGeneratedSources(
-                        List.of(projectExecStep(List.of("out/main", "config/template.txt"))),
-                        List.of());
-        CompilerSettings compiler = new CompilerSettings("config", "target/generated/test-sources/annotations");
-
-        BuildException exception = assertThrows(
-                BuildException.class,
-                () -> CompileOutputLayoutValidator.validateMain(
-                        projectDir, config(build, compiler)));
-
-        assertTrue(exception.getMessage().contains("[generated.main.post].inputs[1]"), exception.getMessage());
-    }
-
-    @Test
-    void projectRunnerMayConsumeCustomMainOutput() {
-        BuildSettings build = new BuildSettings(
-                        "src/main/java",
-                        "src/test/java",
-                        "target",
-                        "out/main",
-                        "out/test")
-                .withGeneratedSources(
-                        List.of(projectExecStep(List.of("out/main"))),
-                        List.of());
-
-        assertDoesNotThrow(() -> CompileOutputLayoutValidator.validateMain(
-                projectDir, config(build, CompilerSettings.defaults())));
-    }
-
-    @Test
-    void openApiConfigAndTemplateInputsAreProtected() {
-        GeneratedSourceStep step = openApiStep("config/openapi.json", "templates");
-        BuildSettings configOutput = new BuildSettings(
-                        "src/main/java",
-                        "src/test/java",
-                        "target",
-                        "config",
-                        "target/test-classes")
-                .withGeneratedSources(List.of(step), List.of());
-        BuildSettings templateOutput = new BuildSettings(
-                        "src/main/java",
-                        "src/test/java",
-                        "target",
-                        "templates",
-                        "target/test-classes")
-                .withGeneratedSources(List.of(step), List.of());
-
-        BuildException configException = assertThrows(
-                BuildException.class,
-                () -> CompileOutputLayoutValidator.validateMain(
-                        projectDir, config(configOutput, CompilerSettings.defaults())));
-        BuildException templateException = assertThrows(
-                BuildException.class,
-                () -> CompileOutputLayoutValidator.validateMain(
-                        projectDir, config(templateOutput, CompilerSettings.defaults())));
-
-        assertTrue(configException.getMessage().contains("[generated.main.api].config"), configException.getMessage());
-        assertTrue(
-                templateException.getMessage().contains("[generated.main.api].templateDir"),
-                templateException.getMessage());
-    }
-
-    @Test
-    void mainOutputCannotOverlapIntegrationTestOutput() {
-        BuildSettings build = new BuildSettings(
-                "src/main/java",
+                ".",
                 "src/test/java",
                 "target",
-                "target/integration-test-classes",
+                "compiled/main",
                 "target/test-classes");
 
         BuildException exception = assertThrows(
@@ -199,93 +372,33 @@ final class CompileOutputLayoutValidatorTest {
                 () -> CompileOutputLayoutValidator.validateMain(
                         projectDir, config(build, CompilerSettings.defaults())));
 
-        assertTrue(exception.getMessage().contains("[build.output].integration"), exception.getMessage());
+        assertTrue(exception.getMessage().contains("[build].sources[0]"), exception.getMessage());
     }
 
-    @Test
-    void projectedIntegrationScopeMayUseItsOwnOutput() {
-        BuildSettings build = BuildSettings.defaults().asIntegrationTestBuild();
-
-        assertDoesNotThrow(() -> CompileOutputLayoutValidator.validateTest(
-                projectDir, config(build, CompilerSettings.defaults())));
-    }
-
-    @Test
-    void originalIntegrationSettingsRejectOverlapBeforeProjection() {
-        BuildSettings original = BuildSettings.defaults().withIntegrationTestSettings(
-                "target/test-classes/integration",
-                List.of("src/integration-test/java"),
-                List.of("src/integration-test/resources"));
-
-        BuildException exception = assertThrows(
-                BuildException.class,
-                () -> CompileOutputLayoutValidator.validateTest(
-                        projectDir, config(original, CompilerSettings.defaults())));
-
-        assertTrue(exception.getMessage().contains("[build.output].integration"), exception.getMessage());
-    }
-
-    @Test
-    void distinctIntegrationSettingsAndTheirProjectionAreSafe() {
-        BuildSettings original = BuildSettings.defaults();
-
-        assertDoesNotThrow(() -> CompileOutputLayoutValidator.validateTest(
-                projectDir, config(original, CompilerSettings.defaults())));
-        assertDoesNotThrow(() -> CompileOutputLayoutValidator.validateTest(
-                projectDir,
-                config(original.asIntegrationTestBuild(), CompilerSettings.defaults())));
-    }
-
-    private static GeneratedSourceStep projectExecStep(List<String> inputs) {
-        ExecGenerationSettings exec = new ExecGenerationSettings(
-                "project",
-                ExecToolSettings.project("p.Generator"),
+    private static BuildSettings buildWithResources(
+            String mainOutput,
+            String testOutput,
+            List<String> mainResources,
+            List<String> testResources) {
+        return new BuildSettings(
+                "src/main/java",
+                "src/test/java",
+                "target",
+                mainOutput,
+                testOutput,
+                List.of("src/test/java"),
                 List.of(),
-                ProducesLane.RESOURCES,
-                Optional.empty(),
-                Map.of(),
-                "content");
-        return new GeneratedSourceStep(
-                "post",
-                GeneratedSourceKind.EXEC,
-                "java",
-                "target/generated/resources/post",
-                inputs,
-                true,
-                true,
-                OpenApiGenerationSettings.empty(),
-                ProtobufGenerationSettings.empty(),
-                exec);
+                mainResources,
+                testResources,
+                BuildMetadataSettings.defaults());
     }
 
-    private static GeneratedSourceStep openApiStep(String config, String templateDir) {
-        OpenApiGenerationSettings openApi = new OpenApiGenerationSettings(
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.of(config),
-                Optional.of(templateDir),
-                Optional.empty(),
-                Map.of(),
-                Map.of(),
-                Map.of(),
-                Map.of(),
-                Map.of(),
-                Map.of());
-        return new GeneratedSourceStep(
-                "api",
-                GeneratedSourceKind.OPENAPI,
-                "java",
-                "target/generated/sources/openapi",
-                List.of("spec/api.yaml"),
-                true,
-                true,
-                openApi);
+    private static void createSymlink(Path link, Path target) throws IOException {
+        try {
+            Files.createSymbolicLink(link, target);
+        } catch (UnsupportedOperationException | IOException exception) {
+            assumeTrue(false, "symbolic links are unavailable: " + exception.getMessage());
+        }
     }
 
     private static ProjectConfig config(BuildSettings build, CompilerSettings compiler) {

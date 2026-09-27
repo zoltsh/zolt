@@ -1,6 +1,8 @@
 package sh.zolt.build.clean;
 
+import sh.zolt.build.BuildException;
 import sh.zolt.build.CleanException;
+import sh.zolt.build.compile.CompileOutputLayoutValidator;
 import sh.zolt.framework.FrameworkCleanTargets;
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.CompilerSettings;
@@ -37,6 +39,7 @@ public final class CleanService {
     public CleanResult clean(Path projectDirectory, BuildSettings settings, CompilerSettings compilerSettings) {
         Path projectRoot = projectDirectory.toAbsolutePath().normalize();
         Set<Path> targets = cleanTargets(projectRoot, settings, compilerSettings);
+        validateCleanTargets(projectRoot, settings, targets);
         return cleanTargets(targets);
     }
 
@@ -44,6 +47,7 @@ public final class CleanService {
         Path projectRoot = projectDirectory.toAbsolutePath().normalize();
         Set<Path> targets = cleanTargets(projectRoot, config.build(), config.compilerSettings());
         targets.addAll(frameworkCleanTargets.cleanTargets(projectRoot, config));
+        validateCleanTargets(projectRoot, config.build(), targets);
         return cleanTargets(targets);
     }
 
@@ -62,6 +66,10 @@ public final class CleanService {
     private static Set<Path> cleanTargets(Path projectRoot, BuildSettings settings, CompilerSettings compilerSettings) {
         Path output = safeProjectPath(projectRoot, "[build.output].main", settings.output());
         Path testOutput = safeProjectPath(projectRoot, "[build.output].test", settings.testOutput());
+        Path integrationTestOutput = safeProjectPath(
+                projectRoot,
+                "[build.output].integration",
+                settings.integrationTestOutput());
         Path generatedSources = safeProjectPath(
                 projectRoot,
                 "[compiler.generated].main",
@@ -72,14 +80,15 @@ public final class CleanService {
                 compilerSettings.generatedTestSources());
         Path sharedParent = sharedOutputParent(output, testOutput).orElse(null);
         Set<Path> targets = new LinkedHashSet<>();
-        Set<Path> protectedGeneratedRoots = protectedGeneratedRoots(projectRoot, settings);
-        if (sharedParent != null && isBuildOutputParent(sharedParent) && protectedGeneratedRoots.stream()
-                .noneMatch(path -> path.startsWith(sharedParent))) {
+        if (sharedParent != null
+                && isBuildOutputParent(sharedParent)
+                && !cleanTargetContainsProtectedInput(projectRoot, settings, sharedParent)) {
             targets.add(sharedParent);
         } else {
             targets.add(output);
             targets.add(testOutput);
         }
+        targets.add(integrationTestOutput);
         targets.add(generatedSources);
         targets.add(generatedTestSources);
         settings.generatedMainSources().stream()
@@ -93,17 +102,23 @@ public final class CleanService {
         return targets;
     }
 
-    private static Set<Path> protectedGeneratedRoots(Path projectRoot, BuildSettings settings) {
-        Set<Path> roots = new LinkedHashSet<>();
-        settings.generatedMainSources().stream()
-                .filter(step -> !step.clean())
-                .map(step -> safeProjectPath(projectRoot, "[generated.main." + step.id() + "].output", step.output()))
-                .forEach(roots::add);
-        settings.generatedTestSources().stream()
-                .filter(step -> !step.clean())
-                .map(step -> safeProjectPath(projectRoot, "[generated.test." + step.id() + "].output", step.output()))
-                .forEach(roots::add);
-        return roots;
+    private static boolean cleanTargetContainsProtectedInput(
+            Path projectRoot,
+            BuildSettings settings,
+            Path target) {
+        try {
+            return CompileOutputLayoutValidator.cleanTargetContainsProtectedInput(projectRoot, settings, target);
+        } catch (BuildException exception) {
+            throw new CleanException(exception.getMessage(), exception);
+        }
+    }
+
+    private static void validateCleanTargets(Path projectRoot, BuildSettings settings, Set<Path> targets) {
+        try {
+            CompileOutputLayoutValidator.validateCleanTargets(projectRoot, settings, targets);
+        } catch (BuildException exception) {
+            throw new CleanException(exception.getMessage(), exception);
+        }
     }
 
     private static Optional<Path> sharedOutputParent(Path output, Path testOutput) {

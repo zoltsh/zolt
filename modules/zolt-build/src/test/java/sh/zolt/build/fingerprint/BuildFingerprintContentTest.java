@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.build.BuildException;
+import sh.zolt.build.CompilationSemantics;
 import sh.zolt.classpath.Classpath;
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.GeneratedSourceKind;
@@ -49,7 +50,7 @@ final class BuildFingerprintContentTest {
         String second = fingerprint(config, List.of(alpha, beta));
 
         assertEquals(first, second);
-        assertTrue(first.startsWith("version=3\n"));
+        assertTrue(first.startsWith("version=" + CompilationSemantics.VERSION + "\n"));
         assertTrue(first.contains("[resources]\n"));
         assertTrue(first.contains("src/main/resources/application.properties|"));
         assertTrue(first.contains("[generatedSourceInputs]\napi/openapi.yaml|"));

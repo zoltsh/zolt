@@ -68,7 +68,8 @@ final class BuildServiceConservativeCompilationTest {
         source(projectDir, "src/main/java/p/Main.java", "package p; public final class Main {}\n");
         buildService.build(projectDir, config(), projectDir.resolve("cache"));
         Path fingerprint = projectDir.resolve("target/classes/.zolt-build-main.fingerprint");
-        String oldFingerprint = Files.readString(fingerprint).replaceFirst("version=3", "version=2");
+        String oldFingerprint = Files.readString(fingerprint)
+                .replaceFirst("version=" + CompilationSemantics.VERSION, "version=2");
         Files.writeString(fingerprint, oldFingerprint);
         Path fingerprintState = fingerprint.resolveSibling(fingerprint.getFileName() + ".state");
         String oldState = Files.readString(fingerprintState).replaceFirst(
@@ -84,7 +85,8 @@ final class BuildServiceConservativeCompilationTest {
         assertEquals("full", result.mainCompilationMode());
         assertEquals("fingerprint-mismatch:version", result.mainIncrementalFallbackReason());
         assertFalse(Files.exists(staleOutput));
-        assertTrue(Files.readString(fingerprint).startsWith("version=3\n"));
+        assertTrue(Files.readString(fingerprint)
+                .startsWith("version=" + CompilationSemantics.VERSION + "\n"));
     }
 
     @Test

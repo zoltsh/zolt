@@ -1,6 +1,7 @@
 package sh.zolt.build.fingerprint;
 
 import sh.zolt.build.BuildException;
+import sh.zolt.build.CompilationSemantics;
 import sh.zolt.build.generatedsource.ExecStepClassification;
 import sh.zolt.build.generatedsource.GeneratedSourceProducerFingerprint;
 import sh.zolt.classpath.Classpath;
@@ -20,10 +21,6 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 final class BuildFingerprintContent {
-    // Version 3 establishes conservative full-scope recompilation as the stable source-change
-    // strategy. Invalidating v2 is required so outputs made stale by the former selective default
-    // cannot pass the no-op gate without first receiving a cleaned full compile.
-    private static final String VERSION = "3";
     private static final List<String> OUTPUT_DIRECTORY_NAMES = List.of("build", "target");
 
     private final BuildFingerprintExpectedClasses expectedClasses = new BuildFingerprintExpectedClasses();
@@ -89,7 +86,7 @@ final class BuildFingerprintContent {
             boolean cacheKeyMode) {
         Path projectRoot = projectDirectory.toAbsolutePath().normalize();
         StringBuilder content = new StringBuilder();
-        line(content, "version", VERSION);
+        line(content, "version", CompilationSemantics.VERSION);
         line(content, "projectJava", config.project().java());
         line(content, "compilerIdentity", compilerIdentity);
         line(content, "zoltToml", fileHasher.fileHash(projectRoot.resolve("zolt.toml"), cachedState, collectedState));

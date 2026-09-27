@@ -22,7 +22,7 @@ final class WorkspaceStateCodecTest {
 
         assertEquals(state, decoded);
         assertEquals(encoded, codec.format(decoded));
-        assertTrue(encoded.startsWith("version=4\nchecksum="));
+        assertTrue(encoded.startsWith("version=5\nchecksum="));
     }
 
     @Test
@@ -32,19 +32,20 @@ final class WorkspaceStateCodecTest {
 
         String corrupt = encoded.substring(0, encoded.length() - 2) + "X\n";
         assertTrue(codec.parse(corrupt).isEmpty());
-        assertTrue(codec.parse(encoded.replace("version=4", "version=1")).isEmpty());
-        assertTrue(codec.parse(encoded.replace("version=4", "version=999")).isEmpty());
+        assertTrue(codec.parse(encoded.replace("version=5", "version=1")).isEmpty());
+        assertTrue(codec.parse(encoded.replace("version=5", "version=999")).isEmpty());
         assertTrue(codec.parse("not-state").isEmpty());
     }
 
     @Test
-    void preAbiFixWorkspaceStatesFailClosed() {
+    void stateWithoutCompilationSemanticsTokenFailsClosed() {
         WorkspaceState state = new WorkspaceState(
                 Map.of("modules/core", memberState("core")),
                 fileState("modules/core/src/main/java/Core.java"));
         String encoded = codec.format(state);
 
-        assertTrue(codec.parse(encoded.replace("version=4", "version=3")).isEmpty());
+        assertTrue(codec.parse(encoded.replace("version=5", "version=4")).isEmpty());
+        assertTrue(codec.parse(encoded.replace("version=5", "version=3")).isEmpty());
         assertTrue(codec.parse(version2(encoded)).isEmpty());
     }
 

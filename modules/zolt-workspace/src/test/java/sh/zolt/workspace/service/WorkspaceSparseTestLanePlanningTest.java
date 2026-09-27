@@ -6,12 +6,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.member;
 import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.source;
 import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.workspace;
+import sh.zolt.build.CompilationSemantics;
+import sh.zolt.workspace.state.WorkspaceStateStore;
 import sh.zolt.workspace.test.WorkspaceTestCompileResult;
 import sh.zolt.workspace.test.WorkspaceTestService;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -77,6 +81,29 @@ final class WorkspaceSparseTestLanePlanningTest {
         assertEquals(0, result.metrics().classpathCalculations());
         assertEquals(0, result.metrics().testClasspathCalculations());
         assertEquals(2, result.compiled().testCompilationSkippedCount());
+    }
+
+    @Test
+    void olderWorkspaceStateCannotBypassTestCompilationSemanticsUpgrade() throws IOException {
+        compile();
+        Path state = new WorkspaceStateStore().path(tempDir);
+        Path fingerprint = tempDir.resolve(
+                "apps/a/target/test-classes/.zolt-build-test.fingerprint");
+        Path testClass = tempDir.resolve(
+                "apps/a/target/test-classes/com/example/a/AppATest.class");
+        byte[] stale = "stale pre-upgrade test class".getBytes(StandardCharsets.UTF_8);
+
+        replaceVersion(state, "4");
+        replaceVersion(fingerprint, "2");
+        Files.write(testClass, stale);
+
+        Compilation result = compile();
+
+        assertFalse(skipped(result).get("apps/a"));
+        assertFalse(Arrays.equals(stale, Files.readAllBytes(testClass)));
+        assertTrue(Files.readString(state).startsWith("version=5\nchecksum="));
+        assertTrue(Files.readString(fingerprint)
+                .startsWith("version=" + CompilationSemantics.VERSION + "\n"));
     }
 
     @Test
@@ -184,6 +211,12 @@ final class WorkspaceSparseTestLanePlanningTest {
         WorkspaceBuildResult build = service.buildTestCompileInputs(plan, cacheRoot);
         WorkspaceTestCompileResult compiled = service.compileTests(plan, build);
         return new Compilation(plan.executionContext().metrics(), compiled);
+    }
+
+    private static void replaceVersion(Path path, String version) throws IOException {
+        String content = Files.readString(path);
+        int lineBreak = content.indexOf('\n');
+        Files.writeString(path, "version=" + version + content.substring(lineBreak));
     }
 
     private record Compilation(

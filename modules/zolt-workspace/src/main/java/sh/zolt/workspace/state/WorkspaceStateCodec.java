@@ -9,16 +9,17 @@ import java.util.Optional;
 /**
  * Reads and writes {@code .zolt/workspace-state-v1}.
  *
- * <p>Version 4 invalidates the earlier member ABI digests after the class-file ABI representation was
- * made conservative for constant-pool-backed attributes. Versions 2 and 3 are intentionally not
- * migrated: carrying their digests forward could let an unsound dependency ABI decision survive the
- * reader fix.
+ * <p>Version 5 invalidates version 4 compile keys after the shared compilation-semantics token was
+ * added to workspace main and test keys. Version 4 could otherwise declare a member clean before
+ * the canonical build fingerprint had a chance to reject output produced under older compilation
+ * semantics. Earlier versions are likewise intentionally not migrated because they can carry ABI or
+ * compile-reuse decisions that are no longer sound.
  *
  * <p>Anything older, corrupt, or unrecognised parses to empty and is treated as no state at all.
  */
 public final class WorkspaceStateCodec {
-    private static final String VERSION = "4";
-    private static final List<String> READABLE_VERSIONS = List.of("4");
+    private static final String VERSION = "5";
+    private static final List<String> READABLE_VERSIONS = List.of("5");
     private static final String MEMBER_TAG = "member";
     /** Version 2 wrote twelve digests per member; version 3 appends two more. */
     private static final int MINIMUM_MEMBER_FIELDS = 14;
