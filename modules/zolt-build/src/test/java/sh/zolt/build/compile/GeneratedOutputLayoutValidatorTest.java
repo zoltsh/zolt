@@ -81,6 +81,70 @@ final class GeneratedOutputLayoutValidatorTest {
     }
 
     @Test
+    void execStepMayConsumeAnotherExecStepOutput() {
+        GeneratedSourceStep stage = projectExecStep(
+                "stage", "target/generated/exec/stage", List.of("src/main/exec/seed.txt"));
+        GeneratedSourceStep bundle = projectExecStep(
+                "bundle",
+                "target/generated/exec/resource",
+                List.of(
+                        "target/generated/exec/stage",
+                        "target/generated/exec/stage/staged.txt",
+                        "target/generated/exec/stage/**/*.txt"));
+        BuildSettings build = BuildSettings.defaults().withGeneratedSources(
+                List.of(stage, bundle),
+                List.of());
+
+        assertDoesNotThrow(() -> CompileOutputLayoutValidator.validateMain(
+                projectDir, config(build, CompilerSettings.defaults())));
+    }
+
+    @Test
+    void execStepCannotConsumeItsOwnOutput() {
+        GeneratedSourceStep stage = projectExecStep(
+                "stage", "target/generated/exec/stage", List.of("target/generated/exec/stage/seed.txt"));
+        BuildSettings build = BuildSettings.defaults().withGeneratedSources(List.of(stage), List.of());
+
+        BuildException exception = assertThrows(
+                BuildException.class,
+                () -> CompileOutputLayoutValidator.validateMain(
+                        projectDir, config(build, CompilerSettings.defaults())));
+
+        assertTrue(exception.getMessage().contains("[generated.main.stage].output"), exception.getMessage());
+        assertTrue(exception.getMessage().contains("[generated.main.stage].inputs[0]"), exception.getMessage());
+    }
+
+    @Test
+    void execInputGlobAboveAnotherOutputRemainsProtected() {
+        GeneratedSourceStep stage = projectExecStep(
+                "stage", "target/generated/exec/stage", List.of("src/main/exec/seed.txt"));
+        GeneratedSourceStep bundle = projectExecStep(
+                "bundle", "target/generated/exec/resource", List.of("target/generated/exec/**/*.txt"));
+        BuildSettings build = BuildSettings.defaults().withGeneratedSources(List.of(stage, bundle), List.of());
+
+        BuildException exception = assertThrows(
+                BuildException.class,
+                () -> CompileOutputLayoutValidator.validateMain(
+                        projectDir, config(build, CompilerSettings.defaults())));
+
+        assertTrue(exception.getMessage().contains("[generated.main.bundle].inputs[0]"), exception.getMessage());
+    }
+
+    @Test
+    void rootExecInputGlobDoesNotReceiveProjectSourceCarveout() {
+        GeneratedSourceStep step = projectExecStep(
+                "bundle", "target/generated/exec/resource", List.of("**/*.txt"));
+        BuildSettings build = BuildSettings.defaults().withGeneratedSources(List.of(step), List.of());
+
+        BuildException exception = assertThrows(
+                BuildException.class,
+                () -> CompileOutputLayoutValidator.validateMain(
+                        projectDir, config(build, CompilerSettings.defaults())));
+
+        assertTrue(exception.getMessage().contains("[generated.main.bundle].inputs[0]"), exception.getMessage());
+    }
+
+    @Test
     void openApiConfigAndTemplateInputsAreProtected() {
         GeneratedSourceStep step = openApiStep("config/openapi.json", "templates");
         BuildSettings configOutput = new BuildSettings(
@@ -203,6 +267,10 @@ final class GeneratedOutputLayoutValidatorTest {
     }
 
     private static GeneratedSourceStep projectExecStep(String output, List<String> inputs) {
+        return projectExecStep("post", output, inputs);
+    }
+
+    private static GeneratedSourceStep projectExecStep(String id, String output, List<String> inputs) {
         ExecGenerationSettings exec = new ExecGenerationSettings(
                 "project",
                 ExecToolSettings.project("p.Generator"),
@@ -212,7 +280,7 @@ final class GeneratedOutputLayoutValidatorTest {
                 Map.of(),
                 "content");
         return new GeneratedSourceStep(
-                "post",
+                id,
                 GeneratedSourceKind.EXEC,
                 "java",
                 output,

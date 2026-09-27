@@ -167,7 +167,9 @@ public final class CompileOutputLayoutValidator {
         Path normalizedRoot = root.toAbsolutePath().normalize();
         Path normalizedInput = input.path().toAbsolutePath().normalize();
         Path normalizedOutputRoot = outputRoot.path().toAbsolutePath().normalize();
-        if (!normalizedInput.equals(normalizedRoot) || !normalizedOutputRoot.startsWith(normalizedRoot)) {
+        if (!input.allowsOutputRootSubtree()
+                || !normalizedInput.equals(normalizedRoot)
+                || !normalizedOutputRoot.startsWith(normalizedRoot)) {
             return false;
         }
         Path comparableRoot = comparable(normalizedRoot);
@@ -185,11 +187,12 @@ public final class CompileOutputLayoutValidator {
             BuildSettings build,
             boolean cleanLayout) {
         List<ConfiguredPath> paths = new ArrayList<>();
-        paths.add(new ConfiguredPath("project manifest", "zolt.toml", root.resolve("zolt.toml")));
+        paths.add(new ConfiguredPath("project manifest", "zolt.toml", root.resolve("zolt.toml"), false));
         paths.add(new ConfiguredPath(
                 "project lockfile",
                 ProjectLockfile.NAME,
-                root.resolve(ProjectLockfile.NAME)));
+                root.resolve(ProjectLockfile.NAME),
+                false));
         addInputs(paths, root, "[build].sources", build.sourceRoots());
         addInputs(paths, root, "[test.sources].java", build.testSources());
         addInputs(paths, root, "[test.sources].groovy", build.groovyTestSources());
@@ -209,7 +212,7 @@ public final class CompileOutputLayoutValidator {
             List<String> configuredPaths) {
         for (int index = 0; index < configuredPaths.size(); index++) {
             String configured = configuredPaths.get(index);
-            paths.add(input(root, key + "[" + index + "]", configured));
+            paths.add(input(root, key + "[" + index + "]", configured, true));
         }
     }
 
@@ -224,9 +227,9 @@ public final class CompileOutputLayoutValidator {
             String prefix = "[generated." + scope + "." + step.id() + "]";
             if (step.kind() == GeneratedSourceKind.OPENAPI) {
                 step.openApi().config().ifPresent(configured ->
-                        paths.add(input(root, prefix + ".config", configured)));
+                        paths.add(input(root, prefix + ".config", configured, false)));
                 step.openApi().templateDir().ifPresent(configured ->
-                        paths.add(input(root, prefix + ".templateDir", configured)));
+                        paths.add(input(root, prefix + ".templateDir", configured, false)));
             }
             boolean postCompile = step.kind() == GeneratedSourceKind.EXEC
                     && ExecStepClassification.isPostCompile(step, root, build);
@@ -241,7 +244,9 @@ public final class CompileOutputLayoutValidator {
                     // step runs. Other declared inputs remain protected from cleanup.
                     continue;
                 }
-                paths.add(input(root, prefix + ".inputs[" + index + "]", input));
+                ConfiguredPath configuredInput = input(root, prefix + ".inputs[" + index + "]", input, false);
+                GeneratedOutputOwnership.protectedInput(root, scope, step, input, steps, configuredInput)
+                        .ifPresent(paths::add);
             }
         }
     }
@@ -275,9 +280,10 @@ public final class CompileOutputLayoutValidator {
                 || comparableSecond.startsWith(comparableFirst);
     }
 
-    private static ConfiguredPath input(Path root, String key, String configured) {
+    private static ConfiguredPath input(Path root, String key, String configured, boolean allowsOutputRootSubtree) {
         try {
-            return new ConfiguredPath(key, configured, ProjectPaths.input(root, key, configured));
+            return new ConfiguredPath(
+                    key, configured, ProjectPaths.input(root, key, configured), allowsOutputRootSubtree);
         } catch (ProjectPathException exception) {
             throw new BuildException(exception.getMessage(), exception);
         }
@@ -285,7 +291,7 @@ public final class CompileOutputLayoutValidator {
 
     private static ConfiguredPath output(Path root, String key, String configured) {
         try {
-            return new ConfiguredPath(key, configured, ProjectPaths.output(root, key, configured));
+            return new ConfiguredPath(key, configured, ProjectPaths.output(root, key, configured), false);
         } catch (ProjectPathException exception) {
             throw new BuildException(exception.getMessage(), exception);
         }
@@ -304,7 +310,7 @@ public final class CompileOutputLayoutValidator {
                             + "` is not a project-owned subtree under " + normalizedRoot + ".");
         }
         String configured = normalizedRoot.relativize(normalizedTarget).toString().replace('\\', '/');
-        return new ConfiguredPath("clean target", configured, normalizedTarget);
+        return new ConfiguredPath("clean target", configured, normalizedTarget, false);
     }
 
     /**
@@ -339,8 +345,5 @@ public final class CompileOutputLayoutValidator {
                 "Unsafe " + operation + " output layout: " + output.key() + " path `" + output.configured()
                         + "` " + relationship + " " + protectedPath.key() + " path `"
                         + protectedPath.configured() + "`. Choose distinct output and input directories.");
-    }
-
-    private record ConfiguredPath(String key, String configured, Path path) {
     }
 }

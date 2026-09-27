@@ -16,7 +16,7 @@ import java.util.stream.Stream;
  * Expands an exec step's declared input (a literal path or a glob) into the concrete project-relative
  * files Zolt fingerprints. Zolt owns glob expansion; the tool never sees an unexpanded pattern.
  */
-final class ExecInputExpander {
+public final class ExecInputExpander {
     private ExecInputExpander() {
     }
 
@@ -65,7 +65,7 @@ final class ExecInputExpander {
      * The non-glob leading directory of an input, used only for ordering-edge and target/classes
      * detection (so a glob input can still be located relative to another step's output).
      */
-    static String literalBase(String input) {
+    public static String literalBase(String input) {
         int glob = -1;
         for (int index = 0; index < input.length(); index++) {
             char character = input.charAt(index);

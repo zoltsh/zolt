@@ -135,6 +135,41 @@ final class CleanServiceOutputTest extends CleanServiceTestSupport {
     }
 
     @Test
+    void deletesChainedExecOutputsWithoutDeletingAuthoredInputs() throws IOException {
+        Path script = projectDir.resolve("scripts/stage.sh");
+        Path seed = projectDir.resolve("src/main/exec/seed.txt");
+        file("scripts/stage.sh");
+        file("src/main/exec/seed.txt");
+        file("target/generated/exec/stage/staged.txt");
+        file("target/generated/exec/resource/generated.properties");
+        GeneratedSourceStep stage = new GeneratedSourceStep(
+                "stage",
+                GeneratedSourceKind.EXEC,
+                "java",
+                "target/generated/exec/stage",
+                List.of("scripts/stage.sh", "src/main/exec/seed.txt"),
+                true,
+                true);
+        GeneratedSourceStep bundle = new GeneratedSourceStep(
+                "bundle",
+                GeneratedSourceKind.EXEC,
+                "java",
+                "target/generated/exec/resource",
+                List.of("scripts/stage.sh", "target/generated/exec/stage"),
+                true,
+                true);
+        BuildSettings settings = BuildSettings.defaults().withGeneratedSources(
+                List.of(stage, bundle),
+                List.of());
+
+        cleanService.clean(projectDir, settings);
+
+        assertFalse(Files.exists(projectDir.resolve("target")));
+        assertEquals("x", Files.readString(script));
+        assertEquals("x", Files.readString(seed));
+    }
+
+    @Test
     void deletesQuarkusOutputsWhenFrameworkIsEnabled() throws IOException {
         file("out/main/Main.class");
         file("out-test/test/MainTest.class");
