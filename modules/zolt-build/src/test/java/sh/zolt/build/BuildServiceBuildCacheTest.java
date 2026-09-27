@@ -74,7 +74,7 @@ final class BuildServiceBuildCacheTest {
     }
 
     @Test
-    void editingAfterRestoreForcesOneFullRecompileThenIncrementalTakesOver() throws IOException {
+    void editsAfterRestoreAndWarmStateUseConservativeFullCompilation() throws IOException {
         BuildService service = cacheEnabledService();
         writeProject("hello");
         service.build(projectDir, config(), artifactCache());
@@ -90,11 +90,13 @@ final class BuildServiceBuildCacheTest {
         assertEquals("missing-state", afterEdit.mainIncrementalFallbackReason());
         assertTrue(Files.exists(incrementalStateFile()), "the full recompile re-establishes incremental state");
 
-        // Second edit: warm incremental state is present, so incremental compilation drives the build.
+        // Warm ownership state does not make the bytecode dependency graph complete. Stable builds keep
+        // recompiling the full scope when a source changes.
         writeProject("edited-two");
-        BuildResult incremental = service.build(projectDir, config(), artifactCache());
-        assertFalse(incremental.mainCompilationRestored());
-        assertEquals("incremental", incremental.mainCompilationMode());
+        BuildResult conservative = service.build(projectDir, config(), artifactCache());
+        assertFalse(conservative.mainCompilationRestored());
+        assertEquals("full", conservative.mainCompilationMode());
+        assertEquals("source-changed", conservative.mainIncrementalFallbackReason());
     }
 
     @Test

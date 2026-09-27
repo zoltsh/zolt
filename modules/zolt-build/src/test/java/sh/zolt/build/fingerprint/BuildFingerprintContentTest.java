@@ -49,6 +49,7 @@ final class BuildFingerprintContentTest {
         String second = fingerprint(config, List.of(alpha, beta));
 
         assertEquals(first, second);
+        assertTrue(first.startsWith("version=3\n"));
         assertTrue(first.contains("[resources]\n"));
         assertTrue(first.contains("src/main/resources/application.properties|"));
         assertTrue(first.contains("[generatedSourceInputs]\napi/openapi.yaml|"));

@@ -21,18 +21,34 @@ public final class IncrementalCompilePlanner {
     private final IncrementalCompileStateValidator stateValidator;
     private final IncrementalCompileAbiValidator abiValidator;
     private final IncrementalAnnotationProcessorClassifier processorClassifier;
+    private final boolean selectiveCompilation;
 
     public IncrementalCompilePlanner() {
-        this(new IncrementalCompileStateCodec(), new ClassFileAbiReader());
+        this(new IncrementalCompileStateCodec(), new ClassFileAbiReader(), false);
+    }
+
+    /**
+     * Returns the bytecode-dependency selective planner for internal experiments and its dedicated
+     * regression suite. Production construction deliberately uses the conservative planner until the
+     * dependency model includes source-only and name-lookup dependencies.
+     */
+    public static IncrementalCompilePlanner experimentalSelective() {
+        return new IncrementalCompilePlanner(new IncrementalCompileStateCodec(), new ClassFileAbiReader(), true);
     }
 
     IncrementalCompilePlanner(
             IncrementalCompileStateCodec codec,
             ClassFileAbiReader abiReader) {
+        this(codec, abiReader, false);
+    }
+
+    private IncrementalCompilePlanner(
+            IncrementalCompileStateCodec codec, ClassFileAbiReader abiReader, boolean selectiveCompilation) {
         this.codec = codec;
         this.stateValidator = new IncrementalCompileStateValidator();
         this.abiValidator = new IncrementalCompileAbiValidator(abiReader);
         this.processorClassifier = new IncrementalAnnotationProcessorClassifier();
+        this.selectiveCompilation = selectiveCompilation;
     }
 
     public IncrementalCompilePlan planMain(
@@ -278,6 +294,18 @@ public final class IncrementalCompilePlanner {
         }
         if (dirtySources.isEmpty()) {
             return IncrementalCompilePlan.full(normalizeNoSourceFallbackReason(noSourceFallbackReason));
+        }
+        if (!selectiveCompilation) {
+            // Compiled classes cannot represent every dependency javac observes. In particular, a new
+            // top-level type in an existing file can alter simple-name lookup, and SOURCE-retention
+            // annotations disappear from the consumer class. Until source attribution records those
+            // edges, recompiling the whole affected scope is the stable correctness-first behavior.
+            return IncrementalCompilePlan.full(
+                    "source-changed",
+                    List.of(),
+                    0,
+                    changedPreviousRecords.size(),
+                    0);
         }
         return IncrementalCompilePlan.incremental(
                 dirtySources,

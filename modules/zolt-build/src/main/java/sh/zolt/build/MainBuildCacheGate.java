@@ -43,8 +43,8 @@ final class MainBuildCacheGate {
             return Attempt.inactive();
         }
         if (Files.exists(IncrementalCompileState.mainStatePath(outputDirectory))) {
-            // Warm incremental state present: the incremental compiler is already the fast path. The
-            // build cache serves cold/clean/CI builds; consulting it under warm state only adds overhead.
+            // Warm local ownership state keeps this on the local compile path. The build cache serves
+            // cold/clean/CI builds; consulting it under warm state only adds lookup and archive overhead.
             return Attempt.inactive();
         }
         if (!BuildCacheModulePolicy.cacheable(config)) {

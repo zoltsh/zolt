@@ -79,6 +79,9 @@ final class BuildServiceIncrementalMainStateTest {
                     public static String message() {
                         return "hello";
                     }
+
+                    static final class Removed {
+                    }
                 }
                 """);
         buildService.build(projectDir, config(), projectDir.resolve("cache"));
@@ -96,6 +99,12 @@ final class BuildServiceIncrementalMainStateTest {
                 () -> buildService.build(projectDir, config(), projectDir.resolve("cache")));
 
         assertFalse(Files.exists(projectDir.resolve("target/classes/.zolt-incremental-main.state")));
+        Path staleClass = projectDir.resolve("target/classes/stale/Partial.class");
+        Path staleGenerated = projectDir.resolve("target/generated/sources/annotations/stale/Partial.java");
+        Files.createDirectories(staleClass.getParent());
+        Files.createDirectories(staleGenerated.getParent());
+        Files.write(staleClass, new byte[] {1, 2, 3});
+        Files.writeString(staleGenerated, "package stale; class Partial {}\n");
         Files.writeString(mainSource, """
                 package com.example;
 
@@ -110,6 +119,9 @@ final class BuildServiceIncrementalMainStateTest {
 
         assertEquals("full", result.mainCompilationMode());
         assertEquals("missing-state", result.mainIncrementalFallbackReason());
+        assertFalse(Files.exists(projectDir.resolve("target/classes/com/example/Main$Removed.class")));
+        assertFalse(Files.exists(staleClass));
+        assertFalse(Files.exists(staleGenerated));
     }
 
     @Test

@@ -30,6 +30,7 @@ public final class CompileOutputCleaner {
             ProjectConfig config,
             Path outputDirectory,
             Path generatedSourcesDirectory) {
+        CompileOutputLayoutValidator.validateMain(projectDirectory, config);
         reset(
                 projectDirectory,
                 new OwnedDirectory("[build.output].main", config.build().output(), outputDirectory),
@@ -44,6 +45,7 @@ public final class CompileOutputCleaner {
             ProjectConfig config,
             Path outputDirectory,
             Path generatedSourcesDirectory) {
+        CompileOutputLayoutValidator.validateTest(projectDirectory, config);
         reset(
                 projectDirectory,
                 new OwnedDirectory("[build.output].test", config.build().testOutput(), outputDirectory),

@@ -122,6 +122,9 @@ final class TestCompileServiceIncrementalStateTest {
                     public String message() {
                         return "one";
                     }
+
+                    static final class Removed {
+                    }
                 }
                 """);
         testCompileService.compileTests(projectDir, config(), projectDir.resolve("cache"));
@@ -138,6 +141,12 @@ final class TestCompileServiceIncrementalStateTest {
                 () -> testCompileService.compileTests(projectDir, config(), projectDir.resolve("cache")));
 
         assertFalse(Files.exists(projectDir.resolve("target/test-classes/.zolt-incremental-test.state")));
+        Path staleClass = projectDir.resolve("target/test-classes/stale/Partial.class");
+        Path staleGenerated = projectDir.resolve("target/generated/test-sources/annotations/stale/Partial.java");
+        Files.createDirectories(staleClass.getParent());
+        Files.createDirectories(staleGenerated.getParent());
+        Files.write(staleClass, new byte[] {1, 2, 3});
+        Files.writeString(staleGenerated, "package stale; class Partial {}\n");
         Files.writeString(testSource, """
                 package com.example;
 
@@ -152,6 +161,9 @@ final class TestCompileServiceIncrementalStateTest {
 
         assertEquals("full", result.testCompilationMode());
         assertEquals("missing-state", result.testIncrementalFallbackReason());
+        assertFalse(Files.exists(projectDir.resolve("target/test-classes/com/example/MainTest$Removed.class")));
+        assertFalse(Files.exists(staleClass));
+        assertFalse(Files.exists(staleGenerated));
     }
 
     @Test

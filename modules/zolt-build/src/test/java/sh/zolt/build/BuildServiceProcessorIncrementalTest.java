@@ -1,5 +1,6 @@
 package sh.zolt.build;
 
+import static sh.zolt.build.BuildServiceIncrementalMainCompileTestSupport.selectiveBuildService;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -29,7 +30,7 @@ import org.junit.jupiter.api.io.TempDir;
 final class BuildServiceProcessorIncrementalTest {
     private static WorkerAttributionTestSupport worker;
 
-    private final BuildService buildService = new BuildService();
+    private final BuildService buildService = selectiveBuildService();
 
     @TempDir
     private Path projectDir;

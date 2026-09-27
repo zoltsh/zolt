@@ -20,7 +20,10 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 final class BuildFingerprintContent {
-    private static final String VERSION = "2";
+    // Version 3 establishes conservative full-scope recompilation as the stable source-change
+    // strategy. Invalidating v2 is required so outputs made stale by the former selective default
+    // cannot pass the no-op gate without first receiving a cleaned full compile.
+    private static final String VERSION = "3";
     private static final List<String> OUTPUT_DIRECTORY_NAMES = List.of("build", "target");
 
     private final BuildFingerprintExpectedClasses expectedClasses = new BuildFingerprintExpectedClasses();
@@ -103,7 +106,7 @@ final class BuildFingerprintContent {
         section(content, "generatedProducerFingerprints", generatedProducerEntries(generatedProducerFingerprints));
         section(content, "generatedSourceInputs", generatedSourceInputEntries(projectRoot, generatedSteps, cachedState, collectedState));
         section(content, "generatedSources", generatedSourceEntries(projectRoot, generatedSourcesDirectory, cachedState, collectedState));
-        section(content, "execOutputs", execOutputEntries(projectRoot, config.build().outputRoot(), generatedSteps, cachedState, collectedState));
+        section(content, "execOutputs", execOutputEntries(projectRoot, config.build(), generatedSteps, cachedState, collectedState));
         section(content, "resources", resourceEntries(
                 projectRoot,
                 resourceRoots,
@@ -226,7 +229,7 @@ final class BuildFingerprintContent {
 
     private List<String> execOutputEntries(
             Path projectRoot,
-            String outputRoot,
+            BuildSettings build,
             List<GeneratedSourceStep> steps,
             BuildFingerprintState cachedState,
             Map<Path, BuildFingerprintCachedFileHash> collectedState) {
@@ -238,7 +241,7 @@ final class BuildFingerprintContent {
             // Post-compile exec outputs (project runner / inputs under compiled classes) are produced
             // AFTER compile; hashing them into the compile fingerprint that gates compile would create a
             // cycle and break the double-build skip. Their consumer fence lives in package/test evidence.
-            if (ExecStepClassification.isPostCompile(step, projectRoot, outputRoot)) {
+            if (ExecStepClassification.isPostCompile(step, projectRoot, build)) {
                 continue;
             }
             Path output = outputPath(projectRoot, "[generated." + step.id() + "].output", step.output());

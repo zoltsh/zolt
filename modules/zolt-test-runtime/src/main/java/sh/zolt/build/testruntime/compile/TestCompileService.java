@@ -13,6 +13,7 @@ import sh.zolt.build.BuildService;
 import sh.zolt.build.cache.BuildCacheKey;
 import sh.zolt.build.cache.BuildCacheRestoreResult;
 import sh.zolt.build.cache.BuildCacheService;
+import sh.zolt.build.compile.CompileOutputLayoutValidator;
 import sh.zolt.build.compile.EffectiveCompilerIdentity;
 import sh.zolt.build.compile.GroovyCompilerRunner;
 import sh.zolt.build.compile.JavacRunner;
@@ -26,6 +27,7 @@ import sh.zolt.build.generatedsource.GeneratedSourceProducerFingerprint;
 import sh.zolt.build.generatedsource.GeneratedSourceProducerFingerprintService;
 import sh.zolt.build.generatedsource.OpenApiGeneratedSourceService;
 import sh.zolt.build.incremental.IncrementalCompileStateRecorder;
+import sh.zolt.build.incremental.IncrementalCompilePlanner;
 import sh.zolt.doctor.JdkChecker;
 import sh.zolt.doctor.JdkDetector;
 import sh.zolt.doctor.JdkStatus;
@@ -65,6 +67,12 @@ public final class TestCompileService {
 
     public TestCompileService(JdkChecker jdkDetector, ResolveService resolveService) {
         this(TestCompileServiceDependencies.create(jdkDetector, resolveService));
+    }
+
+    /** Internal test construction for the explicitly non-stable selective compiler path. */
+    TestCompileService(IncrementalCompilePlanner incrementalCompilePlanner) {
+        this(TestCompileServiceDependencies.create(
+                new JdkDetector(), new ResolveService(), incrementalCompilePlanner));
     }
 
     TestCompileService(
@@ -200,6 +208,7 @@ public final class TestCompileService {
             BuildResult buildResult,
             List<ResolvedClasspathPackage> classpathPackages) {
         Path projectDirectory = context.projectRoot();
+        CompileOutputLayoutValidator.validateTest(projectDirectory, config);
         openApiGeneratedSourceService.generateTest(projectDirectory, config, classpathPackages);
         try {
             protobufGeneratedSourceService.generateTest(projectDirectory, config);

@@ -1,6 +1,7 @@
 package sh.zolt.plan;
 
 import sh.zolt.generated.GeneratedSourceEvidence;
+import sh.zolt.project.BuildSettings;
 import sh.zolt.project.ExecGenerationSettings;
 import sh.zolt.project.GeneratedSourceKind;
 import sh.zolt.project.GeneratedSourceStep;
@@ -28,7 +29,7 @@ final class BuildPlanExecStepNodePlanner {
             Path root,
             List<GeneratedSourceEvidence> generatedSources,
             String scope,
-            String outputRoot,
+            BuildSettings build,
             Set<String> lockedToolGroups) {
         List<GeneratedSourceEvidence> execEvidence = generatedSources.stream()
                 .filter(evidence -> evidence.scope().equals(scope))
@@ -40,14 +41,14 @@ final class BuildPlanExecStepNodePlanner {
         Set<String> cyclicIds = cyclicStepIds(root, execEvidence.stream().map(GeneratedSourceEvidence::step).toList());
         List<PlanNode> nodes = new ArrayList<>();
         for (GeneratedSourceEvidence evidence : execEvidence) {
-            nodes.add(execNode(root, outputRoot, scope, evidence, lockedToolGroups, cyclicIds));
+            nodes.add(execNode(root, build, scope, evidence, lockedToolGroups, cyclicIds));
         }
         return List.copyOf(nodes);
     }
 
     private static PlanNode execNode(
             Path root,
-            String outputRoot,
+            BuildSettings build,
             String scope,
             GeneratedSourceEvidence evidence,
             Set<String> lockedToolGroups,
@@ -55,7 +56,7 @@ final class BuildPlanExecStepNodePlanner {
         GeneratedSourceStep step = evidence.step();
         ExecGenerationSettings exec = step.exec();
         String subject = "[generated." + scope + "." + step.id() + "]";
-        boolean postCompile = isPostCompile(step, root, outputRoot);
+        boolean postCompile = isPostCompile(step, root, build);
         // A jvm tool is "locked" only when its own isolated closure is present in zolt.lock: an entry
         // tagged with this tool's group. A lock that predates per-tool isolation has no such tag, so the
         // step is reported unlocked and routed to `zolt resolve` rather than a stale global classpath.
@@ -73,7 +74,7 @@ final class BuildPlanExecStepNodePlanner {
         for (int index = 0; index < step.inputs().size(); index++) {
             String input = step.inputs().get(index);
             addInvalidPathBlocker(blockers, root, input, "input");
-            if (!isGlob(input) && !underCompileOutput(root, outputRoot, input)
+            if (!isGlob(input) && !underCompileOutput(root, build, input)
                     && !Files.exists(evidence.inputs().get(index))) {
                 blockers.add(new PlanBlocker(
                         "missing-exec-input",
@@ -220,17 +221,18 @@ final class BuildPlanExecStepNodePlanner {
                 .orElse("");
     }
 
-    private static boolean isPostCompile(GeneratedSourceStep step, Path root, String outputRoot) {
+    private static boolean isPostCompile(GeneratedSourceStep step, Path root, BuildSettings build) {
         if ("project".equals(step.exec().tool().runner())) {
             return true;
         }
-        return step.inputs().stream().anyMatch(input -> underCompileOutput(root, outputRoot, input));
+        return step.inputs().stream().anyMatch(input -> underCompileOutput(root, build, input));
     }
 
-    private static boolean underCompileOutput(Path root, String outputRoot, String input) {
+    private static boolean underCompileOutput(Path root, BuildSettings build, String input) {
         Path base = root.resolve(literalBase(input)).normalize();
-        return base.startsWith(root.resolve(outputRoot).resolve("classes").normalize())
-                || base.startsWith(root.resolve(outputRoot).resolve("test-classes").normalize());
+        return base.startsWith(root.resolve(build.output()).normalize())
+                || base.startsWith(root.resolve(build.testOutput()).normalize())
+                || base.startsWith(root.resolve(build.integrationTestOutput()).normalize());
     }
 
     private static Set<String> cyclicStepIds(Path root, List<GeneratedSourceStep> steps) {
