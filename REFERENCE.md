@@ -666,6 +666,10 @@ UTF-8. The effective Java release must not exceed the selected complete JDK;
 `[compiler].jdkApi = "host"` selects host-platform API semantics instead of
 `-Xjdk-release`.
 
+A sources jar includes authored `.kt` files. Kotlin API documentation requires
+Dokka, which is outside this preview, so Zolt rejects `[package].javadoc = true`
+for a Kotlin source set instead of publishing an empty `-javadoc.jar`.
+
 Every Kotlin source change uses a cleaned full-scope compilation. An unchanged
 fingerprint may skip compilation, and a verified output-cache entry may restore
 the complete class and `META-INF/*.kotlin_module` inventory. `--no-build-cache`

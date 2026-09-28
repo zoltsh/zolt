@@ -73,7 +73,7 @@ final class PackageMetadataQualityCheckTest extends PackageQualityCheckTestSuppo
     }
 
     @Test
-    void metadataTreatsKotlinAsAMainSourceForJavadocPolicy() throws IOException {
+    void metadataRejectsKotlinJavadocPublicationOutsidePreview() throws IOException {
         Path projectDir = tempDir.resolve("missing-javadoc-kotlin");
         Files.createDirectories(projectDir.resolve("src/main/java/com/example"));
         Files.writeString(
@@ -87,8 +87,40 @@ final class PackageMetadataQualityCheckTest extends PackageQualityCheckTestSuppo
 
         QualityCheckResult result = check.checkMetadata(Optional.empty(), projectDir, config);
 
-        assertEquals("[package].javadoc", result.subject());
-        assertEquals(QualityCheckStatus.FAILED, result.status());
+        assertResult(
+                result,
+                QualityCheckService.PACKAGE_METADATA,
+                QualityCheckStatus.FAILED,
+                "[package].javadoc",
+                "Kotlin/Dokka Javadoc publication is outside the bounded Kotlin/JVM preview.",
+                "Do not enable [package].javadoc for Kotlin sources; generate and publish Dokka "
+                        + "documentation through an external qualified workflow.");
+    }
+
+    @Test
+    void metadataRejectsConfiguredKotlinJavadocArtifact() throws IOException {
+        Path projectDir = tempDir.resolve("configured-javadoc-kotlin");
+        Files.createDirectories(projectDir.resolve("src/main/java/com/example"));
+        Files.writeString(
+                projectDir.resolve("src/main/java/com/example/Api.kt"),
+                "package com.example\nclass Api\n");
+        ProjectConfig config = parseProject(projectDir, """
+
+                [package]
+                sources = true
+                javadoc = true
+                """);
+
+        QualityCheckResult result = check.checkMetadata(Optional.empty(), projectDir, config);
+
+        assertResult(
+                result,
+                QualityCheckService.PACKAGE_METADATA,
+                QualityCheckStatus.FAILED,
+                "[package].javadoc",
+                "Kotlin/Dokka Javadoc publication is outside the bounded Kotlin/JVM preview.",
+                "Do not enable [package].javadoc for Kotlin sources; generate and publish Dokka "
+                        + "documentation through an external qualified workflow.");
     }
 
     @Test

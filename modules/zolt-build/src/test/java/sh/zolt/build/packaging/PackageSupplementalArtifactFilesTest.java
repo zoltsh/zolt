@@ -55,7 +55,7 @@ final class PackageSupplementalArtifactFilesTest {
     }
 
     @Test
-    void sourceJarIncludesGroovyAndKotlinWhileJavadocConsumesOnlyJava() throws IOException {
+    void sourceJarIncludesGroovyWhileJavadocConsumesOnlyJava() throws IOException {
         Path sourceRoot = tempDir.resolve("src/main/java/com/example");
         write(sourceRoot.resolve("App.java"), """
                 package com.example;
@@ -69,10 +69,6 @@ final class PackageSupplementalArtifactFilesTest {
                 class GroovyApi {
                     def answer() { 42 }
                 }
-                """);
-        write(sourceRoot.resolve("KotlinApi.kt"), """
-                package com.example
-                class KotlinApi
                 """);
         Path classes = tempDir.resolve("target/classes");
         Files.createDirectories(classes);
@@ -97,12 +93,10 @@ final class PackageSupplementalArtifactFilesTest {
         try (JarFile sources = new JarFile(tempDir.resolve("target/demo-0.1.0-sources.jar").toFile())) {
             assertNotNull(sources.getEntry("com/example/App.java"));
             assertNotNull(sources.getEntry("com/example/GroovyApi.groovy"));
-            assertNotNull(sources.getEntry("com/example/KotlinApi.kt"));
         }
         try (JarFile javadoc = new JarFile(tempDir.resolve("target/demo-0.1.0-javadoc.jar").toFile())) {
             assertTrue(javadoc.stream().anyMatch(entry -> entry.getName().endsWith("App.html")));
             assertFalse(javadoc.stream().anyMatch(entry -> entry.getName().contains("GroovyApi")));
-            assertFalse(javadoc.stream().anyMatch(entry -> entry.getName().contains("KotlinApi")));
         }
     }
 

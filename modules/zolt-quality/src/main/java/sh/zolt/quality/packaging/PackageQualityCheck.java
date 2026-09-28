@@ -55,6 +55,15 @@ public final class PackageQualityCheck {
                     "Library package metadata is enabled, but sources jar generation is disabled.",
                     "Set [package].sources = true for library projects.");
         }
+        if (hasKotlinSourceFiles(projectRoot, config.build().sourceRoots())) {
+            return QualityCheckResult.failed(
+                    PACKAGE_METADATA,
+                    member,
+                    "[package].javadoc",
+                    "Kotlin/Dokka Javadoc publication is outside the bounded Kotlin/JVM preview.",
+                    "Do not enable [package].javadoc for Kotlin sources; generate and publish Dokka "
+                            + "documentation through an external qualified workflow.");
+        }
         if (hasSourceFiles(projectRoot, config.build().sourceRoots()) && !settings.javadoc()) {
             return QualityCheckResult.failed(
                     PACKAGE_METADATA,
@@ -266,6 +275,30 @@ public final class PackageQualityCheck {
                 }
             } catch (java.io.IOException exception) {
                 return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasKotlinSourceFiles(Path projectRoot, List<String> roots) {
+        Path normalizedRoot = projectRoot.toAbsolutePath().normalize();
+        for (String root : roots) {
+            if (root == null || root.isBlank()) {
+                continue;
+            }
+            Path sourceRoot = normalizedRoot.resolve(root).normalize();
+            if (!sourceRoot.startsWith(normalizedRoot) || !Files.isDirectory(sourceRoot)) {
+                continue;
+            }
+            try (var stream = Files.find(sourceRoot, Integer.MAX_VALUE, (path, attributes) ->
+                    attributes.isRegularFile()
+                            && path.getFileName().toString().endsWith(".kt"))) {
+                if (stream.findFirst().isPresent()) {
+                    return true;
+                }
+            } catch (java.io.IOException exception) {
+                // Let the broader source check below fail closed without misclassifying the language.
+                return false;
             }
         }
         return false;

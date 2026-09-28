@@ -308,6 +308,7 @@ public final class PackageService {
             Optional<PackagePlan> suppliedPlan,
             PackageOutputFingerprintIndex inputs) {
         Path projectDirectory = context.projectRoot();
+        PackageJavadocPolicy.requireSupported(projectDirectory, config);
         testCompileGate.requireCurrent(
                 context, config, buildResult, cacheRoot, classpathPackages, classpaths);
         PackagePlan plan = suppliedPlan.orElseGet(() ->
