@@ -8,14 +8,13 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class CliTestRepository implements AutoCloseable {
     private final HttpServer server;
-    private final Map<String, byte[]> responses = new HashMap<>();
-    private final Map<String, byte[]> uploads = new HashMap<>();
+    private final Map<String, byte[]> responses = new ConcurrentHashMap<>();
+    private final Map<String, byte[]> uploads = new ConcurrentHashMap<>();
     private final Map<String, String> authorizations = new ConcurrentHashMap<>();
     private final URI baseUri;
     private volatile String requiredAuthorization;
