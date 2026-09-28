@@ -274,7 +274,7 @@ final class BuildFingerprintContent {
             try (Stream<Path> paths = Files.walk(root)) {
                 paths.filter(Files::isRegularFile)
                         .map(Path::normalize)
-                        .filter(path -> !path.getFileName().toString().endsWith(".java"))
+                        .filter(path -> !isSource(path))
                         .filter(path -> !path.startsWith(mainOutput))
                         .filter(path -> !path.startsWith(testOutput))
                         .filter(path -> !startsWithOutputDirectorySegment(root.relativize(path)))
@@ -335,6 +335,11 @@ final class BuildFingerprintContent {
     private static boolean startsWithOutputDirectorySegment(Path relativePath) {
         return relativePath.getNameCount() > 0
                 && OUTPUT_DIRECTORY_NAMES.contains(relativePath.getName(0).toString());
+    }
+
+    private static boolean isSource(Path path) {
+        String fileName = path.getFileName().toString();
+        return fileName.endsWith(".java") || fileName.endsWith(".groovy");
     }
 
 }

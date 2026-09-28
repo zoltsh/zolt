@@ -41,6 +41,7 @@ final class BuildFingerprintContentTest {
         write("target/classes/com/example/Beta.class", "compiled");
         write("src/main/resources/application.properties", "name=demo\n");
         write("src/main/resources/Ignored.java", "class Ignored {}\n");
+        write("src/main/resources/Ignored.groovy", "class Ignored {}\n");
         write("src/main/resources/target/generated.txt", "ignored\n");
         write("api/openapi.yaml", "openapi: 3.0.0\n");
         write("target/generated/sources/annotations/com/example/Generated.java", "class Generated {}\n");
@@ -58,6 +59,7 @@ final class BuildFingerprintContentTest {
         assertTrue(first.contains("[expectedClasses]\ntarget/classes/com/example/Alpha.class\n"));
         assertTrue(first.contains("target/classes/com/example/Beta.class\n"));
         assertFalse(first.contains("src/main/resources/Ignored.java|"));
+        assertFalse(first.contains("src/main/resources/Ignored.groovy|"));
         assertFalse(first.contains("src/main/resources/target/generated.txt|"));
     }
 

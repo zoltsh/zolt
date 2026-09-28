@@ -2,6 +2,7 @@ package sh.zolt.build.fingerprint;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -198,6 +199,68 @@ final class BuildFingerprintServiceTest {
     }
 
     @Test
+    void mainFingerprintAndCacheKeyTrackGroovySources() throws IOException {
+        Files.writeString(projectDir.resolve("zolt.toml"), "[project]\nname = \"demo\"\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
+        Path source = write(
+                "src/main/groovy/com/example/Main.groovy",
+                "package com.example\nfinal class Main {}\n");
+        write("target/classes/com/example/Main.class", "class");
+        SourceDiscoveryResult sources = new SourceDiscoveryResult(
+                List.of(),
+                List.of(source),
+                List.of(),
+                List.of());
+        ProjectConfig config = config().withBuildSettings(buildSettingsWithSourceRoots(
+                List.of("src/main/java", "src/main/groovy")));
+        Path output = projectDir.resolve("target/classes");
+
+        service.writeMainCompileFingerprint(
+                projectDir,
+                config,
+                COMPILER_IDENTITY,
+                projectDir.resolve("zolt.lock"),
+                sources,
+                emptyClasspaths(),
+                output,
+                projectDir.resolve("target/generated/sources/annotations"));
+        String before = service.mainInputsFingerprintSha256(
+                projectDir,
+                config,
+                COMPILER_IDENTITY,
+                projectDir.resolve("zolt.lock"),
+                sources,
+                emptyClasspaths(),
+                output,
+                projectDir.resolve("target/generated/sources/annotations"));
+
+        Files.writeString(source, "package com.example\nfinal class Main { int changed }\n");
+
+        BuildFingerprintCheck check = service.checkMainCompileCurrent(
+                projectDir,
+                config,
+                COMPILER_IDENTITY,
+                projectDir.resolve("zolt.lock"),
+                sources,
+                emptyClasspaths(),
+                output,
+                projectDir.resolve("target/generated/sources/annotations"));
+        String after = service.mainInputsFingerprintSha256(
+                projectDir,
+                config,
+                COMPILER_IDENTITY,
+                projectDir.resolve("zolt.lock"),
+                sources,
+                emptyClasspaths(),
+                output,
+                projectDir.resolve("target/generated/sources/annotations"));
+
+        assertFalse(check.current());
+        assertEquals("fingerprint-mismatch:sources", check.reason());
+        assertNotEquals(before, after);
+    }
+
+    @Test
     void refreshesChangedFilesWithoutDroppingCurrentCachedHashes() throws IOException {
         Files.writeString(projectDir.resolve("zolt.toml"), "[project]\nname = \"demo\"\n");
         Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
@@ -271,6 +334,22 @@ final class BuildFingerprintServiceTest {
     private static ClasspathSet emptyClasspaths() {
         Classpath empty = new Classpath(List.of());
         return new ClasspathSet(empty, empty, empty, empty, empty, empty);
+    }
+
+    private static BuildSettings buildSettingsWithSourceRoots(List<String> sourceRoots) {
+        BuildSettings defaults = BuildSettings.defaults();
+        return new BuildSettings(
+                defaults.source(),
+                sourceRoots,
+                defaults.test(),
+                defaults.outputRoot(),
+                defaults.output(),
+                defaults.testOutput(),
+                defaults.testSources(),
+                defaults.groovyTestSources(),
+                defaults.resourceRoots(),
+                defaults.testResourceRoots(),
+                defaults.metadata());
     }
 
     private Path write(String relativePath, String content) throws IOException {
