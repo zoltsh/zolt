@@ -25,6 +25,9 @@ import java.util.stream.Collectors;
 public final class ProjectResolutionFingerprint {
     private static final String GROOVY_TOOLCHAIN_CATEGORY = "toolchain.groovy";
     private static final String GROOVY_COMPILER_COORDINATE = "org.apache.groovy:groovy";
+    private static final String KOTLIN_TOOLCHAIN_CATEGORY = "toolchain.kotlin";
+    private static final String KOTLIN_COMPILER_COORDINATE =
+            "org.jetbrains.kotlin:kotlin-compiler-embeddable";
 
     /**
      * The fingerprint schema version, itself a fingerprint input so a bump restates every lock.
@@ -66,7 +69,16 @@ public final class ProjectResolutionFingerprint {
         line(inputs, "schema", SCHEMA);
         line(inputs, "java", "project", config.project().java());
         line(inputs, "java", "compilerRelease", config.compilerSettings().release());
-        groovyToolchainInput(inputs, config.compilerSettings().groovyVersion());
+        compilerToolchainInput(
+                inputs,
+                GROOVY_TOOLCHAIN_CATEGORY,
+                GROOVY_COMPILER_COORDINATE,
+                config.compilerSettings().groovyVersion());
+        compilerToolchainInput(
+                inputs,
+                KOTLIN_TOOLCHAIN_CATEGORY,
+                KOTLIN_COMPILER_COORDINATE,
+                config.compilerSettings().kotlinVersion());
         repositoryInputs(inputs, config.repositorySettings());
         credentialInputs(inputs, config.repositoryCredentials());
         mapInputs(inputs, "versions", config.versionAliases());
@@ -99,13 +111,17 @@ public final class ProjectResolutionFingerprint {
     }
 
     /**
-     * Adds lock identity only for projects that select Groovy tooling. Keeping the line conditional
-     * avoids restating every unrelated Java-only lock when this resolution input is introduced.
+     * Adds lock identity only for projects that select compiler tooling. Keeping each line
+     * conditional avoids restating unrelated locks when a compiler resolution input is introduced.
      */
-    private static void groovyToolchainInput(List<String> inputs, String configuredVersion) {
+    private static void compilerToolchainInput(
+            List<String> inputs,
+            String category,
+            String coordinate,
+            String configuredVersion) {
         String version = configuredVersion == null ? "" : configuredVersion.strip();
         if (!version.isEmpty()) {
-            line(inputs, GROOVY_TOOLCHAIN_CATEGORY, GROOVY_COMPILER_COORDINATE, version);
+            line(inputs, category, coordinate, version);
         }
     }
 

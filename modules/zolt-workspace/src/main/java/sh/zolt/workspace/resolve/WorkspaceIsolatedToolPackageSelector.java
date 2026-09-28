@@ -13,7 +13,7 @@ import java.util.Set;
 
 /**
  * Aggregates independently resolved tool candidates without version mediation. Each exec tool and
- * Groovy compiler closure keeps its isolated version; candidates collapse only within the same
+ * compiler closure keeps its isolated version; candidates collapse only within the same
  * scope, package, version, and artifact variant.
  */
 final class WorkspaceIsolatedToolPackageSelector {
@@ -22,7 +22,8 @@ final class WorkspaceIsolatedToolPackageSelector {
 
     static boolean isIsolatedScope(DependencyScope scope) {
         return scope == DependencyScope.TOOL_EXEC
-                || scope == DependencyScope.TOOL_GROOVY;
+                || scope == DependencyScope.TOOL_GROOVY
+                || scope == DependencyScope.TOOL_KOTLIN;
     }
 
     static List<LockPackage> select(List<LockPackage> candidates) {

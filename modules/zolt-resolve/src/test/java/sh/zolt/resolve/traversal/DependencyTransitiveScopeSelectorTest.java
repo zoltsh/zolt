@@ -67,5 +67,8 @@ final class DependencyTransitiveScopeSelectorTest {
         assertEquals(
                 Optional.of(DependencyScope.TOOL_GROOVY),
                 selector.select(DependencyScope.TOOL_GROOVY, DependencyScope.RUNTIME));
+        assertEquals(
+                Optional.of(DependencyScope.TOOL_KOTLIN),
+                selector.select(DependencyScope.TOOL_KOTLIN, DependencyScope.RUNTIME));
     }
 }

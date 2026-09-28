@@ -14,7 +14,8 @@ import java.util.Map;
 /** Resolves registered compiler-tool scopes independently and in stable scope order. */
 final class CompilerToolResolver {
     private static final List<CompilerTool> TOOLS = List.of(
-            new CompilerTool(DependencyScope.TOOL_GROOVY, "Groovy"));
+            new CompilerTool(DependencyScope.TOOL_GROOVY, "Groovy"),
+            new CompilerTool(DependencyScope.TOOL_KOTLIN, "Kotlin"));
 
     private CompilerToolResolver() {
     }
