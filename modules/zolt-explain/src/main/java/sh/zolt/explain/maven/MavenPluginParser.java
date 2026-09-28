@@ -49,7 +49,7 @@ final class MavenPluginParser {
                     .orElseGet(List::of);
             plugins.add(new MavenPluginInspection(
                     coordinate,
-                    phases(artifactId, executions, properties),
+                    phases(groupId, artifactId, executions, properties),
                     goals(executions, properties),
                     disabledExecutions(executions, properties),
                     pluginManagement,
@@ -60,6 +60,7 @@ final class MavenPluginParser {
     }
 
     private static List<String> phases(
+            String groupId,
             String artifactId,
             List<Element> executions,
             MavenPomProperties properties) {
@@ -76,7 +77,7 @@ final class MavenPluginParser {
                 continue;
             }
             for (String goal : goals(execution, properties)) {
-                defaultPhase(artifactId, goal).ifPresent(phases::add);
+                defaultPhase(groupId, artifactId, goal).ifPresent(phases::add);
             }
         }
         return phases.stream().distinct().sorted().toList();
@@ -126,9 +127,17 @@ final class MavenPluginParser {
         return goals.isEmpty() ? "execution" : String.join(",", goals);
     }
 
-    private static Optional<String> defaultPhase(String artifactId, String goal) {
+    private static Optional<String> defaultPhase(String groupId, String artifactId, String goal) {
         String plugin = artifactId.toLowerCase();
         String normalizedGoal = goal.toLowerCase();
+        if (groupId.equalsIgnoreCase("org.codehaus.gmavenplus") && plugin.equals("gmavenplus-plugin")) {
+            if (normalizedGoal.equals("compile")) {
+                return Optional.of("compile");
+            }
+            if (normalizedGoal.equals("compiletests")) {
+                return Optional.of("test-compile");
+            }
+        }
         if (plugin.equals("maven-surefire-plugin") && normalizedGoal.equals("test")) {
             return Optional.of("test");
         }

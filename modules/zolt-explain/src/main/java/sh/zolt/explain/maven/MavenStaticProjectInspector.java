@@ -224,7 +224,18 @@ public final class MavenStaticProjectInspector {
             if (plugin.pluginManagement()) {
                 continue;
             }
-            if (MavenSignalRules.unsupportedLanguagePlugin(plugin.coordinate())) {
+            if (MavenSignalRules.replacedGroovyCompilation(plugin)) {
+                continue;
+            }
+            if (MavenSignalRules.gmavenPlusPlugin(plugin.coordinate())
+                    && (!plugin.phases().isEmpty() || !plugin.goals().isEmpty())) {
+                signals.add(ExplainSignals.MAVEN_PLUGIN_LIFECYCLE_BINDING.signal(
+                        project,
+                        "Plugin `" + plugin.coordinate()
+                                + "` declares gmavenplus behavior outside Zolt's replaced compile/compileTests shape"
+                                + " with goal(s) " + plugin.goals()
+                                + MavenSignalRules.phaseSuffix(plugin) + "."));
+            } else if (MavenSignalRules.unsupportedLanguagePlugin(plugin.coordinate())) {
                 signals.add(ExplainSignals.MAVEN_LANGUAGE_UNSUPPORTED.signal(
                         project,
                         "Plugin `" + plugin.coordinate() + "` declares an unsupported public-beta language or Android build."));

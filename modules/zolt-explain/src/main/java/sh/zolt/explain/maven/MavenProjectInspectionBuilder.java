@@ -78,6 +78,7 @@ final class MavenProjectInspectionBuilder {
                         "sourceDirectory",
                         "src/main/java",
                         properties,
+                        List.of("src/main/groovy"),
                         MavenRootInspection.buildHelperSourceRoots(project, properties)),
                 MavenRootInspection.sourceRoots(
                         project,
