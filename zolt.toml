@@ -12,6 +12,7 @@ java = 21
 license = "Apache-2.0"
 
 [versions]
+groovy = "4.0.22"
 junit-platform = "1.14.4"
 quarkus = "3.39.0"
 tomlj = "1.1.1"

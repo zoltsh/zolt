@@ -13,6 +13,7 @@ name = "zolt-build"
 "sh.zolt:zolt-framework-api" = { workspace = true }
 
 [dependencies.test]
+"org.apache.groovy:groovy" = { versionRef = "groovy" }
 "org.junit.platform:junit-platform-console-standalone" = { versionRef = "junit-platform" }
 
 [test.suites.test-execution]
