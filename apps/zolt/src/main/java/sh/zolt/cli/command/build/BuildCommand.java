@@ -40,7 +40,7 @@ import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Spec;
 
-@Command(name = "build", description = "Compile main Java sources with the resolved compile classpath.")
+@Command(name = "build", description = "Compile configured main sources with the resolved compile classpath.")
 public final class BuildCommand implements Runnable {
     private final ManifestProjectLoader projectLoader;
     private final BuildService buildService;

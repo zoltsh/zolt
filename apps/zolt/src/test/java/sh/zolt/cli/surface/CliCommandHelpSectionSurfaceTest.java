@@ -17,6 +17,8 @@ final class CliCommandHelpSectionSurfaceTest {
         assertEquals(0, result.exitCode());
         assertEquals("", result.stderr());
         assertFalse(result.stdout().contains("\u001B["));
+        assertTrue(result.stdout().contains(
+                "Compile configured main sources with the resolved compile classpath."));
         assertContainsInOrder(
                 result.stdout(),
                 "Options:",

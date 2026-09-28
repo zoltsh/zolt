@@ -612,6 +612,66 @@ of `--release`. The other boundaries must be removed or isolated in a Java-only
 member. See `examples/groovy-main` for a runnable circular Java-to-Groovy-to-Java
 example.
 
+### Kotlin/JVM main compilation preview
+
+Zolt can compile a Kotlin-only main source set with an isolated, locked
+Kotlin/JVM compiler. Kotlin roots are explicit during this preview: the default
+main root remains `src/main/java`, so declare `src/main/kotlin` (or another root)
+under `[build].sources`. Zolt discovers `.kt` files, but not Kotlin scripts
+(`.kts`). A minimal executable project looks like this:
+
+```toml
+[project]
+name = "kotlin-main"
+version = "0.1.0"
+group = "com.example"
+java = 21
+main = "com.example.Main"
+
+[build]
+sources = ["src/main/kotlin"]
+
+[toolchain.kotlin]
+version = "2.2.0"
+
+[dependencies]
+"org.jetbrains.kotlin:kotlin-stdlib" = "2.2.0"
+```
+
+```kotlin
+package com.example
+
+object Main {
+    @JvmStatic
+    fun main(args: Array<String>) {
+        println("Hello from Kotlin")
+    }
+}
+```
+
+`[toolchain.kotlin]` selects compiler tooling, not an application dependency.
+`zolt resolve` locks its checksum-verified closure in the isolated `tool-kotlin`
+scope; `zolt toolchain sync` continues to manage Java toolchains only. Declare
+the ordinary external `org.jetbrains.kotlin:kotlin-stdlib` dependency at the
+same exact version so it is available to application compilation and runtime.
+Compiler artifacts do not enter application or package classpaths.
+
+This is intentionally a bounded preview. It supports Kotlin-only authored main
+sources and fails before cache restoration or output cleanup when the member
+also has Java or Groovy main sources, annotation processors, custom
+`[compiler].args`, generated Java sources, or compile-scoped workspace member
+dependencies. Kotlin test and integration-test compilation, generated Kotlin,
+KAPT, and migration-manifest drafting are not supported. Sources are read as
+UTF-8. The effective Java release must not exceed the selected complete JDK;
+`[compiler].jdkApi = "host"` selects host-platform API semantics instead of
+`-Xjdk-release`.
+
+Every Kotlin source change uses a cleaned full-scope compilation. An unchanged
+fingerprint may skip compilation, and a verified output-cache entry may restore
+the complete class and `META-INF/*.kotlin_module` inventory. `--no-build-cache`
+only bypasses output-cache restore and storage; it does not disable the
+unchanged-input skip.
+
 ## Resolution and Lockfile Contracts
 
 Zolt deliberately documents the parts of resolution that Maven leaves
@@ -1622,8 +1682,9 @@ observe that change, and paranoid mode does not help there either.
 ## Tests and Coverage
 
 Zolt runs JUnit Platform based tests and can compile Java and Groovy test
-sources when configured. That covers examples such as JUnit Jupiter, JUnit
-Vintage, and Spock:
+sources when configured. Kotlin test and integration-test sources are
+recognized but rejected during the preview. Supported test sources cover
+examples such as JUnit Jupiter, JUnit Vintage, and Spock:
 
 Zolt treats test engines as project dependencies and the JUnit Platform console
 launcher as build tooling. When test dependencies are configured and no console
@@ -1735,7 +1796,8 @@ preset = "spring-api"
 repeat `kind` on a reserved id. A step's `tool` defaults to the built-in for its
 kind and its `output` defaults to `<build.output.root>/generated/sources/<id>`
 (`generated/test-sources/<id>` for a test step), so neither is written unless it
-differs. `language` is omitted while Java is the sole supported language.
+differs. `language` is omitted while Java is the sole supported generated-source
+language.
 
 Protobuf/gRPC configuration can look like this:
 
