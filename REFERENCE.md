@@ -683,6 +683,14 @@ the ordinary external `org.jetbrains.kotlin:kotlin-stdlib` dependency at the
 same exact version so it is available to application compilation and runtime.
 Compiler artifacts do not enter application or package classpaths.
 
+Kotlin-only and mixed Java/Kotlin applications use the ordinary application
+lifecycle: `zolt run`, thin `zolt package` plus `zolt run-package`, and
+self-contained `uber-jar` artifacts. Configure `[project].main` with the JVM
+binary name; for an idiomatic top-level `main` in `Application.kt`, that is
+typically `com.example.ApplicationKt`. Thin packages record the Kotlin runtime
+dependency without embedding compiler tooling, while uber JARs merge the
+application runtime and remain directly executable with `java -jar`.
+
 Mixed Java/Kotlin main compilation is a cleaned, full-scope two-phase operation.
 First, Zolt passes the complete authored Java and Kotlin source set to `kotlinc`
 so Kotlin can resolve Java declarations. `kotlinc` emits the Kotlin bytecode;
