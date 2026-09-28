@@ -236,7 +236,8 @@ public final class TestCompileService {
                 ? null
                 : groovyCompilerToolchainResolver.resolve(
                         classpathPackages,
-                        GroovyCompilerToolchainResolver.SourceSet.TEST);
+                        GroovyCompilerToolchainResolver.SourceSet.TEST,
+                        config.compilerSettings().groovyVersion());
         String compilerIdentity = compilerIdentity(jdkStatus, groovyCompilerToolchain);
 
         List<Path> testCompileEntries = new ArrayList<>();

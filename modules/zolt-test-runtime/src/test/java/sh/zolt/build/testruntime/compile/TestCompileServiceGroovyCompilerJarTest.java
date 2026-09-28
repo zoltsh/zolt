@@ -3,8 +3,10 @@ package sh.zolt.build.testruntime.compile;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.build.GroovyCompileException;
 import sh.zolt.build.cache.BuildCacheService;
 import sh.zolt.build.cache.BuildCacheSettings;
 import sh.zolt.build.compile.EffectiveCompilerIdentity;
@@ -13,6 +15,7 @@ import sh.zolt.build.incremental.IncrementalCompileStateCodec;
 import sh.zolt.doctor.JdkDetector;
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.ProjectConfig;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -33,20 +36,14 @@ final class TestCompileServiceGroovyCompilerJarTest extends TestCompileServiceGr
     @Test
     void compilesGroovyTestSourcesWithProjectProvidedCompilerJar() throws IOException {
         Path cacheRoot = projectDir.resolve("cache");
-        writeGroovyCompilerLock(cacheRoot, "4.0.24");
+        writeConfiguredGroovyCompilerLock(cacheRoot, "4.0.24", "4.0.24");
         TestCompileServiceGroovyTest.source(projectDir, "src/test/groovy/com/example/MainSpec.groovy", """
                 package com.example
 
                 final class MainSpec {
                 }
                 """);
-        ProjectConfig config = config().withBuildSettings(new BuildSettings(
-                "src/main/java",
-                "src/test/java",
-                "target/classes",
-                "target/test-classes",
-                List.of("src/test/java"),
-                List.of("src/test/groovy")));
+        ProjectConfig config = configuredConfig("4.0.24");
 
         TestCompileResult first = testCompileService.compileTests(projectDir, config, cacheRoot);
         TestCompileResult second = testCompileService.compileTests(projectDir, config, cacheRoot);
@@ -65,6 +62,33 @@ final class TestCompileServiceGroovyCompilerJarTest extends TestCompileServiceGr
                 EffectiveCompilerIdentity.of(new JdkDetector().detect(config.project().java())),
                 state.compilerIdentity());
         assertTrue(second.testCompilationSkipped());
+    }
+
+    @Test
+    void configuredCompilerSkewFailsBeforeExistingTestOutputIsCleaned() throws IOException {
+        Path cacheRoot = projectDir.resolve("cache");
+        writeConfiguredGroovyCompilerLock(cacheRoot, "4.0.24", "4.0.25");
+        TestCompileServiceGroovyTest.source(projectDir, "src/test/groovy/com/example/MainSpec.groovy", """
+                package com.example
+
+                final class MainSpec {
+                }
+                """);
+        Path staleClass = TestCompileServiceGroovyTest.source(
+                projectDir,
+                "target/test-classes/com/example/StillHere.class",
+                "stale\n");
+
+        GroovyCompileException exception = assertThrows(
+                GroovyCompileException.class,
+                () -> testCompileService.compileTests(
+                        projectDir,
+                        configuredConfig("4.0.24"),
+                        cacheRoot));
+
+        assertTrue(exception.getMessage().contains(
+                "configured version `4.0.24` does not match zolt.lock tool root version `4.0.25`"));
+        assertEquals("stale\n", Files.readString(staleClass));
     }
 
     @Test
@@ -133,6 +157,50 @@ final class TestCompileServiceGroovyCompilerJarTest extends TestCompileServiceGr
                 """.formatted(version, version, version, version));
     }
 
+    private void writeConfiguredGroovyCompilerLock(
+            Path cacheRoot,
+            String runtimeVersion,
+            String toolVersion) throws IOException {
+        Path groovyJar = cacheRoot.resolve(
+                "org/apache/groovy/groovy/" + runtimeVersion + "/groovy-" + runtimeVersion + ".jar");
+        createFakeGroovyCompilerJar(projectDir, groovyJar, runtimeVersion);
+        TestCompileServiceGroovyTest.writeLockfile(projectDir, """
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "org.apache.groovy:groovy"
+                version = "%s"
+                lane = "test"
+                resolvedScope = "test"
+
+                [[package]]
+                id = "org.apache.groovy:groovy"
+                version = "%s"
+                source = "maven-central"
+                scope = "test"
+                direct = true
+                jar = "org/apache/groovy/groovy/%s/groovy-%s.jar"
+                dependencies = []
+
+                [[package]]
+                id = "org.apache.groovy:groovy"
+                version = "%s"
+                source = "maven-central"
+                scope = "tool-groovy"
+                direct = true
+                jar = "org/apache/groovy/groovy/%s/groovy-%s.jar"
+                dependencies = []
+                """.formatted(
+                        runtimeVersion,
+                        runtimeVersion,
+                        runtimeVersion,
+                        runtimeVersion,
+                        toolVersion,
+                        runtimeVersion,
+                        runtimeVersion));
+    }
+
     private IncrementalCompileState state() {
         return new IncrementalCompileStateCodec()
                 .read(projectDir.resolve("target/test-classes/.zolt-incremental-test.state"))
@@ -150,5 +218,24 @@ final class TestCompileServiceGroovyCompilerJarTest extends TestCompileServiceGr
 
     private static ProjectConfig config() {
         return TestCompileServiceGroovyTest.config();
+    }
+
+    private static ProjectConfig configuredConfig(String groovyVersion) {
+        return new ManifestProjectConfigLoader().load("""
+                [project]
+                name = "demo"
+                version = "0.1.0"
+                group = "com.example"
+                java = %s
+
+                [toolchain.groovy]
+                version = "%s"
+
+                [dependencies.test]
+                "org.apache.groovy:groovy" = "4.0.24"
+
+                [test.sources]
+                groovy = ["src/test/groovy"]
+                """.formatted(currentJavaMajorVersion(), groovyVersion));
     }
 }
