@@ -1,0 +1,15 @@
+[project]
+name = "kotlin-main"
+version = "0.1.0"
+group = "com.example"
+java = 21
+main = "com.example.Main"
+
+[build]
+sources = ["src/main/kotlin"]
+
+[toolchain.kotlin]
+version = "2.2.0"
+
+[dependencies]
+"org.jetbrains.kotlin:kotlin-stdlib" = "2.2.0"

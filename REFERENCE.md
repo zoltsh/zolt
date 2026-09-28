@@ -2260,6 +2260,8 @@ The `examples/` directory is deliberately broad. It includes:
 - `junit-vintage`: JUnit Vintage test support.
 - `groovy-main`: joint Java/Groovy main compilation with separate conventional
   roots and circular cross-language references.
+- `kotlin-main`: bounded Kotlin-only main compilation with isolated compiler
+  tooling and an ordinary Kotlin runtime dependency.
 - `spock-basic`: Groovy test sources and Spock.
 - `workspace-app`: app/module/tools workspace with a configured task.
 - `large-workspace`: larger workspace selection fixture.
