@@ -83,7 +83,7 @@ final class TestCommandKotlinIntegrationTest {
     }
 
     @Test
-    void mainMetadataInvalidatesKotlinTestsWithoutRepositoryAccess() throws Exception {
+    void mixedMainSupportsKotlinAndJavaTestsWithoutRepositoryAccess() throws Exception {
         Path projectDirectory = tempDir.resolve("kotlin-main-project");
         Path onlineCache = tempDir.resolve("kotlin-main-online-cache");
         Path offlineCache = tempDir.resolve("kotlin-main-offline-cache");
@@ -92,18 +92,25 @@ final class TestCommandKotlinIntegrationTest {
             repository.close();
             CommandResult first = testFromSeededCache(projectDirectory, offlineCache);
             Path mainClass = projectDirectory.resolve("target/classes/com/example/Main.class");
+            Path javaMainClass = projectDirectory.resolve("target/classes/com/example/JavaMain.class");
+            Path kotlinApiClass = projectDirectory.resolve("target/classes/com/example/KotlinApi.class");
             Path testClass = projectDirectory.resolve("target/test-classes/com/example/DemoTest.class");
             assertEquals(0, first.exitCode(), first.stderr());
             assertTrue(first.stdout().contains("Tests passed"), first.stdout());
+            assertTrue(Files.isRegularFile(javaMainClass));
+            assertTrue(Files.isRegularFile(kotlinApiClass));
             Path mainModule = kotlinModule(projectDirectory.resolve("target/classes"));
             Path testModule = kotlinModule(projectDirectory.resolve("target/test-classes"));
             assertNotEquals(mainModule.getFileName(), testModule.getFileName());
             byte[] stableMainClass = Files.readAllBytes(mainClass);
+            byte[] stableJavaMainClass = Files.readAllBytes(javaMainClass);
             FileTime mainClassTime = Files.getLastModifiedTime(mainClass);
+            FileTime javaMainClassTime = Files.getLastModifiedTime(javaMainClass);
             FileTime testClassTime = Files.getLastModifiedTime(testClass);
             CommandResult warm = testFromSeededCache(projectDirectory, offlineCache);
             assertEquals(0, warm.exitCode(), warm.stderr());
             assertEquals(mainClassTime, Files.getLastModifiedTime(mainClass));
+            assertEquals(javaMainClassTime, Files.getLastModifiedTime(javaMainClass));
             assertEquals(testClassTime, Files.getLastModifiedTime(testClass));
             writeKotlinMain(projectDirectory, "Int");
             CommandResult incompatible = testFromSeededCache(projectDirectory, offlineCache);
@@ -113,10 +120,29 @@ final class TestCommandKotlinIntegrationTest {
                             && incompatible.stderr().contains("String"),
                     incompatible.stderr());
             assertArrayEquals(stableMainClass, Files.readAllBytes(mainClass));
+            assertArrayEquals(stableJavaMainClass, Files.readAllBytes(javaMainClass));
             writeKotlinMain(projectDirectory, "String");
             CommandResult repaired = testFromSeededCache(projectDirectory, offlineCache);
             assertEquals(0, repaired.exitCode(), repaired.stderr());
             assertTrue(repaired.stdout().contains("Tests passed"), repaired.stdout());
+
+            byte[] kotlinTestBeforeMixedRejection = Files.readAllBytes(testClass);
+            writeJavaTest(projectDirectory);
+            CommandResult mixedTests = testFromSeededCache(projectDirectory, offlineCache);
+            assertEquals(1, mixedTests.exitCode());
+            assertTrue(
+                    mixedTests.stderr().contains(
+                            "The test source set combines Java and Kotlin, which the Kotlin preview does not support."),
+                    mixedTests.stderr());
+            assertArrayEquals(kotlinTestBeforeMixedRejection, Files.readAllBytes(testClass));
+
+            Files.delete(projectDirectory.resolve("src/test/kotlin/com/example/DemoTest.kt"));
+            CommandResult javaOnly = testFromSeededCache(projectDirectory, offlineCache);
+            assertEquals(0, javaOnly.exitCode(), javaOnly.stderr());
+            assertTrue(javaOnly.stdout().contains("Tests passed"), javaOnly.stdout());
+            assertFalse(Files.exists(testClass), "the removed Kotlin test class must be cleaned");
+            assertTrue(Files.isRegularFile(projectDirectory.resolve(
+                    "target/test-classes/com/example/MixedMainJavaTest.class")));
             assertEquals(Map.of(), repository.authorizations());
         }
     }
@@ -177,6 +203,7 @@ final class TestCommandKotlinIntegrationTest {
 
     private static void writeKotlinMainProject(Path projectDirectory, CliTestRepository repository) throws IOException {
         Files.createDirectories(projectDirectory.resolve("src/main/kotlin/com/example"));
+        Files.createDirectories(projectDirectory.resolve("src/main/java/com/example"));
         Files.createDirectories(projectDirectory.resolve("src/test/kotlin/com/example"));
         Files.writeString(projectDirectory.resolve("zolt.toml"), """
                 [project]
@@ -186,7 +213,7 @@ final class TestCommandKotlinIntegrationTest {
                 java = %s
 
                 [build]
-                sources = ["src/main/kotlin"]
+                sources = ["src/main/kotlin", "src/main/java"]
 
                 [toolchain.kotlin]
                 version = "%s"
@@ -212,6 +239,21 @@ final class TestCommandKotlinIntegrationTest {
                 KotlinCompilerCliFixture.KOTLIN_VERSION,
                 JUnitConsoleCliFixture.VERSION));
         writeKotlinMain(projectDirectory, "String");
+        Files.writeString(projectDirectory.resolve("src/main/java/com/example/JavaMain.java"), """
+                package com.example;
+
+                public final class JavaMain {
+                    private JavaMain() {}
+
+                    public static String message() {
+                        return "hello";
+                    }
+
+                    public static String kotlinMessage() {
+                        return KotlinApi.message();
+                    }
+                }
+                """);
         Files.writeString(projectDirectory.resolve("src/test/kotlin/com/example/DemoTest.kt"), """
                 package com.example
 
@@ -220,9 +262,10 @@ final class TestCommandKotlinIntegrationTest {
 
                 class DemoTest {
                     @Test
-                    fun verifiesKotlinMain() {
+                    fun verifiesMixedMainAndKotlinFriendAccess() {
                         val value: TestValue = Main.message()
                         assertEquals("hello", value)
+                        assertEquals("kotlin", JavaMain.kotlinMessage())
                     }
                 }
                 """);
@@ -236,9 +279,35 @@ final class TestCommandKotlinIntegrationTest {
 
                 internal object Main {
                     @JvmStatic
-                    fun message(): String = "hello"
+                    fun message(): String = JavaMain.message()
+                }
+
+                object KotlinApi {
+                    @JvmStatic
+                    fun message(): String = "kotlin"
                 }
                 """.formatted(alias));
+    }
+
+    private static void writeJavaTest(Path projectDirectory) throws IOException {
+        Path source = projectDirectory.resolve("src/test/java/com/example/MixedMainJavaTest.java");
+        Files.createDirectories(source.getParent());
+        Files.writeString(source, """
+                package com.example;
+
+                import static org.junit.jupiter.api.Assertions.assertEquals;
+
+                import org.junit.jupiter.api.Test;
+
+                final class MixedMainJavaTest {
+                    @Test
+                    void verifiesJavaAndKotlinMainApis() {
+                        assertEquals("hello", JavaMain.message());
+                        assertEquals("kotlin", KotlinApi.message());
+                        assertEquals("kotlin", JavaMain.kotlinMessage());
+                    }
+                }
+                """);
     }
 
     private static void seed(CliTestRepository repository, Path projectDirectory, Path onlineCache,

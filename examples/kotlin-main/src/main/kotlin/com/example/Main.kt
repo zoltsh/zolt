@@ -2,7 +2,10 @@ package com.example
 
 object Main {
     @JvmStatic
+    fun kotlinWord(): String = "Kotlin"
+
+    @JvmStatic
     fun main(args: Array<String>) {
-        println(listOf("Hello", "from", "Kotlin").joinToString(" "))
+        println(JavaGreeting.message())
     }
 }

@@ -81,6 +81,7 @@ final class BuildCommandKotlinWorkspaceIntegrationTest {
         Path workspace = workspaceCase.directory();
         Path providerOutput = workspace.resolve("modules/provider/target/classes/probe/provider");
         Path providerApi = providerOutput.resolve("ProviderApi.class");
+        Path providerJava = providerOutput.resolve("ProviderJava.class");
         Path providerMetadata = providerOutput.resolve("ProviderKt.class");
         Path providerModule = workspace.resolve(
                 "modules/provider/target/classes/META-INF/provider_main.kotlin_module");
@@ -90,19 +91,23 @@ final class BuildCommandKotlinWorkspaceIntegrationTest {
         CommandResult first = build(workspace, cache);
         assertEquals(0, first.exitCode(), first.stderr());
         assertTrue(Files.isRegularFile(providerApi));
+        assertTrue(Files.isRegularFile(providerJava));
         assertTrue(Files.isRegularFile(providerMetadata));
         assertTrue(Files.isRegularFile(providerModule));
         assertTrue(Files.isRegularFile(consumerClass));
         byte[] stableProviderApi = Files.readAllBytes(providerApi);
+        byte[] stableProviderJava = Files.readAllBytes(providerJava);
         byte[] stringMetadata = Files.readAllBytes(providerMetadata);
         byte[] stringModule = Files.readAllBytes(providerModule);
         FileTime providerTime = Files.getLastModifiedTime(providerApi);
+        FileTime providerJavaTime = Files.getLastModifiedTime(providerJava);
         FileTime consumerTime = Files.getLastModifiedTime(consumerClass);
 
         CommandResult warm = build(workspace, cache);
         assertEquals(0, warm.exitCode(), warm.stderr());
         workspaceCase.members().forEach(member -> assertSkipped(warm, member));
         assertEquals(providerTime, Files.getLastModifiedTime(providerApi));
+        assertEquals(providerJavaTime, Files.getLastModifiedTime(providerJava));
         assertEquals(consumerTime, Files.getLastModifiedTime(consumerClass));
 
         writeProvider(workspace.resolve("modules/provider"), "Int");
@@ -124,6 +129,7 @@ final class BuildCommandKotlinWorkspaceIntegrationTest {
         workspaceCase.members().forEach(
                 member -> assertFalse(skipped(repaired, member), repaired.stdout()));
         assertArrayEquals(stableProviderApi, Files.readAllBytes(providerApi));
+        assertArrayEquals(stableProviderJava, Files.readAllBytes(providerJava));
         assertArrayEquals(stringMetadata, Files.readAllBytes(providerMetadata));
         assertArrayEquals(stringModule, Files.readAllBytes(providerModule));
         assertTrue(Files.isRegularFile(consumerClass));
@@ -131,6 +137,28 @@ final class BuildCommandKotlinWorkspaceIntegrationTest {
         CommandResult settled = build(workspace, cache);
         assertEquals(0, settled.exitCode(), settled.stderr());
         workspaceCase.members().forEach(member -> assertSkipped(settled, member));
+
+        writeProviderJava(workspace.resolve("modules/provider"), "changed");
+        CommandResult javaEdit = build(workspace, cache);
+        assertEquals(0, javaEdit.exitCode(), javaEdit.stderr());
+        assertFalse(skipped(javaEdit, "modules/provider"), javaEdit.stdout());
+        workspaceCase.downstreamMembers().forEach(member -> assertSkipped(javaEdit, member));
+        assertFalse(
+                java.util.Arrays.equals(stableProviderJava, Files.readAllBytes(providerJava)),
+                "the Java implementation edit must replace its class output");
+        assertArrayEquals(stableProviderApi, Files.readAllBytes(providerApi));
+        assertArrayEquals(stringMetadata, Files.readAllBytes(providerMetadata));
+
+        writeProviderJava(workspace.resolve("modules/provider"), "stable");
+        CommandResult javaRevert = build(workspace, cache);
+        assertEquals(0, javaRevert.exitCode(), javaRevert.stderr());
+        assertFalse(skipped(javaRevert, "modules/provider"), javaRevert.stdout());
+        workspaceCase.downstreamMembers().forEach(member -> assertSkipped(javaRevert, member));
+        assertArrayEquals(stableProviderJava, Files.readAllBytes(providerJava));
+
+        CommandResult javaSettled = build(workspace, cache);
+        assertEquals(0, javaSettled.exitCode(), javaSettled.stderr());
+        workspaceCase.members().forEach(member -> assertSkipped(javaSettled, member));
     }
 
     private static void assertSkipped(CommandResult result, String member) {
@@ -187,8 +215,10 @@ final class BuildCommandKotlinWorkspaceIntegrationTest {
         writeKotlinMember(
                 workspace.resolve("modules/provider"),
                 "provider",
-                workspaceDependency("", ""));
+                workspaceDependency("", ""),
+                List.of("src/main/kotlin", "src/main/java"));
         writeProvider(workspace.resolve("modules/provider"), "String");
+        writeProviderJava(workspace.resolve("modules/provider"), "stable");
         String consumerDependency = "provider";
         if (workspaceCase.viaApiBridge()) {
             writeKotlinMember(
@@ -223,21 +253,31 @@ final class BuildCommandKotlinWorkspaceIntegrationTest {
             Path directory,
             String name,
             String workspaceDependency) throws Exception {
-        Path sourceDirectory = directory.resolve("src/main/kotlin/probe/" + name);
-        Files.createDirectories(sourceDirectory);
+        writeKotlinMember(directory, name, workspaceDependency, List.of("src/main/kotlin"));
+    }
+
+    private static void writeKotlinMember(
+            Path directory,
+            String name,
+            String workspaceDependency,
+            List<String> sourceRoots) throws Exception {
+        for (String sourceRoot : sourceRoots) {
+            Files.createDirectories(directory.resolve(sourceRoot).resolve("probe/" + name));
+        }
         Files.writeString(directory.resolve("zolt.toml"), project(name) + """
 
                 [toolchain.kotlin]
                 version = "%s"
 
                 [build]
-                sources = ["src/main/kotlin"]
+                sources = %s
 
                 [dependencies]
                 "org.jetbrains.kotlin:kotlin-stdlib" = "%s"
                 %s
                 """.formatted(
                 KotlinCompilerCliFixture.KOTLIN_VERSION,
+                tomlArray(sourceRoots),
                 KotlinCompilerCliFixture.KOTLIN_VERSION,
                 workspaceDependency));
     }
@@ -262,9 +302,27 @@ final class BuildCommandKotlinWorkspaceIntegrationTest {
 
                 object ProviderApi {
                     @JvmStatic
-                    fun value(): String = "value"
+                    fun value(): String = ProviderJava.javaValue()
+
+                    @JvmStatic
+                    fun kotlinValue(): String = "value"
                 }
                 """.formatted(alias));
+    }
+
+    private static void writeProviderJava(Path directory, String implementation) throws Exception {
+        Files.writeString(directory.resolve("src/main/java/probe/provider/ProviderJava.java"), """
+                package probe.provider;
+
+                public final class ProviderJava {
+                    private ProviderJava() {}
+
+                    public static String javaValue() {
+                        ProviderApi.kotlinValue();
+                        return "%s";
+                    }
+                }
+                """.formatted(implementation));
     }
 
     private static String project(String name) {
@@ -299,6 +357,12 @@ final class BuildCommandKotlinWorkspaceIntegrationTest {
             return viaApiBridge
                     ? List.of("modules/provider", "modules/bridge", "apps/consumer")
                     : List.of("modules/provider", "apps/consumer");
+        }
+
+        private List<String> downstreamMembers() {
+            return viaApiBridge
+                    ? List.of("modules/bridge", "apps/consumer")
+                    : List.of("apps/consumer");
         }
     }
 }
