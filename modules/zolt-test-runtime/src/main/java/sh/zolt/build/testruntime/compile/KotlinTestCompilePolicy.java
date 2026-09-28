@@ -1,6 +1,7 @@
 package sh.zolt.build.testruntime.compile;
 
 import java.nio.file.Path;
+import java.util.List;
 import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.compile.CompilerPlatformApi;
 import sh.zolt.build.compile.KotlinCompilationScope;
@@ -51,11 +52,12 @@ final class KotlinTestCompilePolicy {
                     "test annotation processors are configured",
                     "Remove [dependencies.test-processor] or keep the test source set Java-only.");
         }
-        if (!compiler.testArgs().isEmpty()) {
+        if (!compiler.testArgs().isEmpty()
+                && !compiler.testArgs().equals(List.of("-parameters"))) {
             throw unsupported(
-                    "[compiler].testArgs is not empty",
-                    "Remove the custom javac test arguments or keep the test source set Java-only; "
-                            + "Zolt does not forward javac flags to kotlinc.");
+                    "[compiler.test].args contains unsupported custom javac arguments",
+                    "Use only `-parameters`, remove the other custom javac test arguments, or keep "
+                            + "the test source set Java-only.");
         }
         if (config.frameworkSettings().quarkus().enabled()) {
             throw unsupported(

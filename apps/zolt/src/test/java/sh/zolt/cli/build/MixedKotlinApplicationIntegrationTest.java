@@ -172,6 +172,9 @@ final class MixedKotlinApplicationIntegrationTest {
                 [build]
                 sources = ["src/main/kotlin", "src/main/java"]
 
+                [compiler]
+                args = ["-parameters"]
+
                 [toolchain.kotlin]
                 version = "%s"
 
@@ -194,7 +197,7 @@ final class MixedKotlinApplicationIntegrationTest {
 
                 object KotlinApi {
                     @JvmStatic
-                    fun word(): String = "kotlin"
+                    fun word(kotlinWord: String): String = kotlinWord
                 }
 
                 fun main(args: Array<String>) {
@@ -207,8 +210,34 @@ final class MixedKotlinApplicationIntegrationTest {
                 public final class JavaBridge {
                     private JavaBridge() {}
 
-                    public static String message(String[] arguments) {
-                        return "mixed-" + KotlinApi.word() + "-" + String.join(",", arguments);
+                    public static String message(String[] javaArguments) {
+                        assertNamedParameter(KotlinApi.class, "word", String.class, "kotlinWord");
+                        assertNamedParameter(JavaBridge.class, "message", String[].class, "javaArguments");
+                        return "mixed-" + KotlinApi.word("kotlin") + "-" + String.join(",", javaArguments);
+                    }
+
+                    private static void assertNamedParameter(
+                            Class<?> owner,
+                            String methodName,
+                            Class<?> parameterType,
+                            String expectedName) {
+                        try {
+                            java.lang.reflect.Parameter parameter = owner
+                                    .getDeclaredMethod(methodName, parameterType)
+                                    .getParameters()[0];
+                            if (!parameter.isNamePresent()) {
+                                throw new AssertionError("Parameter name is not present for "
+                                        + owner.getName() + "." + methodName);
+                            }
+                            if (!expectedName.equals(parameter.getName())) {
+                                throw new AssertionError("Expected parameter name " + expectedName
+                                        + " for " + owner.getName() + "." + methodName
+                                        + " but found " + parameter.getName());
+                            }
+                        } catch (NoSuchMethodException exception) {
+                            throw new AssertionError("Could not inspect "
+                                    + owner.getName() + "." + methodName, exception);
+                        }
                     }
                 }
                 """);

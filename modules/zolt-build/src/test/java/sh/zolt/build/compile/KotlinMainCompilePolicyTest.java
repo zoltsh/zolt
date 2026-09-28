@@ -46,6 +46,7 @@ final class KotlinMainCompilePolicyTest {
         assertEquals("zolt_9_demo_app_main", options.moduleName());
         assertFalse(options.hostPlatformApi());
         assertTrue(options.useJdkRelease());
+        assertFalse(options.javaParameters());
     }
 
     @Test
@@ -113,6 +114,47 @@ final class KotlinMainCompilePolicyTest {
         assertEquals(List.of(), javac.modulePath());
         assertFalse(javac.hostPlatformApi());
         assertTrue(javac.useJdkRelease());
+        assertFalse(options.javaParameters());
+    }
+
+    @Test
+    void acceptsJavaParametersAndMapsItToBothCompilerPhases() {
+        CompilerSettings compiler = new CompilerSettings(
+                null, null, "", "", List.of("-parameters"), List.of());
+
+        KotlinCompilerRunner.Options options = KotlinMainCompilePolicy.options(
+                config(compiler, Map.of(), Map.of(), "demo"),
+                sources(List.of(Path.of("src/main/java/Main.java")), List.of(), List.of(KOTLIN)),
+                classpaths(List.of()),
+                jdkStatus("21.0.11", "21"));
+
+        assertTrue(options.javaParameters());
+        assertEquals(
+                List.of("-parameters"),
+                KotlinCompileOptionsPolicy.javacOptions(options).arguments());
+    }
+
+    @Test
+    void scopesJavaParametersToTheActiveCompilerLane() {
+        CompilerSettings compiler = new CompilerSettings(
+                null, null, "", "", List.of(), List.of("-parameters"));
+        ProjectConfig config = config(compiler, Map.of(), Map.of(), "demo");
+
+        KotlinCompilerRunner.Options main = KotlinCompileOptionsPolicy.options(
+                config,
+                jdkStatus("21.0.11", "21"),
+                KotlinCompilationScope.MAIN);
+        KotlinCompilerRunner.Options test = KotlinCompileOptionsPolicy.options(
+                config,
+                jdkStatus("21.0.11", "21"),
+                KotlinCompilationScope.TEST);
+
+        assertFalse(main.javaParameters());
+        assertEquals(List.of(), KotlinCompileOptionsPolicy.javacOptions(main).arguments());
+        assertTrue(test.javaParameters());
+        assertEquals(
+                List.of("-parameters"),
+                KotlinCompileOptionsPolicy.javacOptions(test).arguments());
     }
 
     @Test
@@ -142,7 +184,7 @@ final class KotlinMainCompilePolicyTest {
     }
 
     @Test
-    void rejectsProcessorsAndJavacArguments() {
+    void rejectsProcessorsAndUnsupportedJavacArguments() {
         KotlinCompileException processorFailure = assertThrows(
                 KotlinCompileException.class,
                 () -> KotlinMainCompilePolicy.options(
@@ -150,18 +192,25 @@ final class KotlinMainCompilePolicyTest {
                         sources(List.of(), List.of(), List.of(KOTLIN)),
                         classpaths(List.of(Path.of("processor.jar"))),
                         jdkStatus("21.0.11", "21")));
-        CompilerSettings arguments = new CompilerSettings(
-                null, null, "", "", List.of("-parameters"), List.of());
-        KotlinCompileException argumentFailure = assertThrows(
-                KotlinCompileException.class,
-                () -> KotlinMainCompilePolicy.options(
-                        config(arguments, Map.of(), Map.of(), "demo"),
-                        sources(List.of(), List.of(), List.of(KOTLIN)),
-                        classpaths(List.of()),
-                        jdkStatus("21.0.11", "21")));
 
         assertTrue(processorFailure.getMessage().contains("[dependencies.processor]"));
-        assertTrue(argumentFailure.getMessage().contains("[compiler].args"));
+        for (List<String> arguments : List.of(
+                List.of("-Xlint:all"),
+                List.of("-parameters", "-Xlint:all"),
+                List.of("-parameters", "-parameters"))) {
+            CompilerSettings compiler = new CompilerSettings(
+                    null, null, "", "", arguments, List.of());
+            KotlinCompileException argumentFailure = assertThrows(
+                    KotlinCompileException.class,
+                    () -> KotlinMainCompilePolicy.options(
+                            config(compiler, Map.of(), Map.of(), "demo"),
+                            sources(List.of(), List.of(), List.of(KOTLIN)),
+                            classpaths(List.of()),
+                            jdkStatus("21.0.11", "21")));
+
+            assertTrue(argumentFailure.getMessage().contains("[compiler].args"));
+            assertTrue(argumentFailure.getMessage().contains("only `-parameters`"));
+        }
     }
 
     @Test

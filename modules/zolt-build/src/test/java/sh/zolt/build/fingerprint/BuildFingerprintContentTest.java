@@ -10,8 +10,10 @@ import sh.zolt.build.BuildException;
 import sh.zolt.build.CompilationSemantics;
 import sh.zolt.classpath.Classpath;
 import sh.zolt.project.BuildSettings;
+import sh.zolt.project.CompilerSettings;
 import sh.zolt.project.GeneratedSourceKind;
 import sh.zolt.project.GeneratedSourceStep;
+import sh.zolt.project.NativeSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectConfigs;
 import sh.zolt.project.ProjectMetadata;
@@ -22,6 +24,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -154,6 +157,38 @@ final class BuildFingerprintContentTest {
         assertNotEquals(first, second);
     }
 
+    @Test
+    void fingerprintAndCacheKeyTrackJavaParameterMetadataFlag() throws IOException {
+        Files.writeString(projectDir.resolve("zolt.toml"), "[project]\nname = \"demo\"\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
+        Classpath empty = new Classpath(List.of());
+        ProjectConfig withoutParameters = configWithCompilerArgs(List.of(), List.of());
+        ProjectConfig withMainParameters = configWithCompilerArgs(
+                List.of("-parameters"), List.of());
+        ProjectConfig withTestParameters = configWithCompilerArgs(
+                List.of(), List.of("-parameters"));
+
+        String ordinaryWithout = fingerprint(
+                withoutParameters, List.of(), empty, empty, false);
+        String ordinaryMain = fingerprint(
+                withMainParameters, List.of(), empty, empty, false);
+        String ordinaryTest = fingerprint(
+                withTestParameters, List.of(), empty, empty, false);
+        String cacheWithout = fingerprint(
+                withoutParameters, List.of(), empty, empty, true);
+        String cacheMain = fingerprint(
+                withMainParameters, List.of(), empty, empty, true);
+        String cacheTest = fingerprint(
+                withTestParameters, List.of(), empty, empty, true);
+
+        assertNotEquals(ordinaryWithout, ordinaryMain);
+        assertNotEquals(ordinaryWithout, ordinaryTest);
+        assertNotEquals(cacheWithout, cacheMain);
+        assertNotEquals(cacheWithout, cacheTest);
+        assertTrue(ordinaryMain.contains("args=[-parameters]"), ordinaryMain);
+        assertTrue(ordinaryTest.contains("testArgs=[-parameters]"), ordinaryTest);
+    }
+
     private String fingerprint(ProjectConfig config, List<Path> sources) {
         return fingerprint(config, sources, "test-compiler");
     }
@@ -245,5 +280,25 @@ final class BuildFingerprintContentTest {
                 dependencies,
                 Map.of(),
                 BuildSettings.defaults());
+    }
+
+    private static ProjectConfig configWithCompilerArgs(
+            List<String> arguments,
+            List<String> testArguments) {
+        return ProjectConfigs.withDependencySections(
+                new ProjectMetadata("demo", "0.1.0", "com.example", "21", Optional.empty()),
+                ProjectConfig.defaultRepositories(),
+                Map.of(),
+                Map.of(),
+                Set.of(),
+                Map.of(),
+                Set.of(),
+                Map.of(),
+                Set.of(),
+                Map.of(),
+                Set.of(),
+                BuildSettings.defaults(),
+                NativeSettings.defaults(),
+                new CompilerSettings(null, null, "", "", arguments, testArguments));
     }
 }

@@ -49,11 +49,15 @@ public final class KotlinCompileOptionsPolicy {
         boolean hostPlatformApi = compilationScope == KotlinCompilationScope.MAIN
                 ? compiler.mainHostPlatformApi()
                 : compiler.testHostPlatformApi();
+        boolean javaParameters = compilationScope == KotlinCompilationScope.MAIN
+                ? compiler.args().equals(List.of("-parameters"))
+                : compiler.testArgs().equals(List.of("-parameters"));
         return new KotlinCompilerRunner.Options(
                 Integer.toString(release),
                 moduleName(config.project().name(), compilationScope),
                 hostPlatformApi,
-                !hostPlatformApi && jdkFeature >= 9);
+                !hostPlatformApi && jdkFeature >= 9,
+                javaParameters);
     }
 
     /** Maps Kotlin platform targeting onto the matching deterministic javac phase. */
@@ -64,7 +68,7 @@ public final class KotlinCompileOptionsPolicy {
         return new JavacOptions(
                 options.release(),
                 StandardCharsets.UTF_8.name(),
-                List.of(),
+                options.javaParameters() ? List.of("-parameters") : List.of(),
                 List.of(),
                 options.hostPlatformApi(),
                 options.useJdkRelease());

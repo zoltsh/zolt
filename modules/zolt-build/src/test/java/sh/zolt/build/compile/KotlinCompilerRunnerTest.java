@@ -122,6 +122,31 @@ final class KotlinCompilerRunnerTest {
     }
 
     @Test
+    void emitsJavaParametersExactlyOnceWhenRequested() {
+        List<String> argumentContents = new ArrayList<>();
+        KotlinCompilerRunner runner = new KotlinCompilerRunner(":", command -> {
+            argumentContents.add(readString(argumentFile(command)));
+            return new KotlinCompilerRunner.ProcessResult(0, "");
+        });
+
+        runner.compile(
+                Path.of("/jdk/bin/java"),
+                Path.of("/jdk"),
+                List.of(Path.of("src/Main.kt")),
+                new Classpath(List.of(Path.of("compiler.jar"))),
+                new Classpath(List.of(Path.of("stdlib.jar"))),
+                tempDir.resolve("parameters-classes"),
+                new KotlinCompilerRunner.Options(
+                        "21", "parameters_main", false, true, true));
+
+        List<String> arguments = argumentContents.getFirst().lines().toList();
+        assertEquals(
+                1,
+                arguments.stream().filter("\"-java-parameters\""::equals).count(),
+                arguments.toString());
+    }
+
+    @Test
     void passesTheOwnedMainOutputAsTheSoleFriendPath() {
         List<String> argumentContents = new ArrayList<>();
         KotlinCompilerRunner runner = new KotlinCompilerRunner(":", command -> {
@@ -336,6 +361,7 @@ final class KotlinCompilerRunnerTest {
 
     @Test
     void optionsRejectBlankReleaseAndModuleName() {
+        assertFalse(new KotlinCompilerRunner.Options("21", "main", false).javaParameters());
         assertThrows(
                 KotlinCompileException.class,
                 () -> new KotlinCompilerRunner.Options(" ", "main", false));

@@ -1,5 +1,6 @@
 package sh.zolt.build.compile;
 
+import java.util.List;
 import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.classpath.ClasspathSet;
@@ -44,11 +45,12 @@ final class KotlinMainCompilePolicy {
                     "annotation processors are configured",
                     "Remove [dependencies.processor] or keep this member Java-only.");
         }
-        if (!compiler.args().isEmpty()) {
+        if (!compiler.args().isEmpty()
+                && !compiler.args().equals(List.of("-parameters"))) {
             throw unsupported(
-                    "[compiler].args is not empty",
-                    "Remove the custom javac arguments or keep this member Java-only; Zolt does not"
-                            + " forward javac flags to kotlinc.");
+                    "[compiler].args contains unsupported javac arguments",
+                    "Keep only `-parameters`, remove the custom javac arguments, or keep this member"
+                            + " Java-only; the bounded Kotlin compiler supports only `-parameters`.");
         }
         if (!sources.mainSources().isEmpty() && jdkStatus.javac().isEmpty()) {
             throw unsupported(

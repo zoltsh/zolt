@@ -162,6 +162,9 @@ final class IntegrationTestCommandKotlinWorkspaceIntegrationTest {
                 object WorkspaceApi {
                     @JvmStatic
                     fun message(): String = "workspace-api"
+
+                    @JvmStatic
+                    fun named(libraryValue: String): String = libraryValue
                 }
                 """);
         Files.writeString(
@@ -175,8 +178,13 @@ final class IntegrationTestCommandKotlinWorkspaceIntegrationTest {
 
                 public final class WorkspaceApiIntegrationTest {
                     @Test
-                    void exposesWorkspaceApi() {
+                    void exposesWorkspaceApi() throws Exception {
                         assertEquals("workspace-api", WorkspaceApi.message());
+                        var parameter = WorkspaceApi.class
+                                .getDeclaredMethod("named", String.class)
+                                .getParameters()[0];
+                        assertEquals(true, parameter.isNamePresent());
+                        assertEquals("libraryValue", parameter.getName());
                     }
                 }
                 """);
@@ -227,6 +235,10 @@ final class IntegrationTestCommandKotlinWorkspaceIntegrationTest {
                     fun seesJavaTestWorkspaceApiAndResource() {
                         assertEquals("workspace-api", JavaWorkspaceIntegrationTest.javaMessage())
                         assertEquals("workspace-api", WorkspaceApi.message())
+                        assertEquals(
+                            "javaValue:workspace-api",
+                            JavaWorkspaceIntegrationTest.javaParameter("workspace-api")
+                        )
                         val properties = Properties()
                         javaClass.getResourceAsStream("/workspace-integration.properties").use { input ->
                             requireNotNull(input) { "workspace integration resource is missing" }
@@ -238,6 +250,15 @@ final class IntegrationTestCommandKotlinWorkspaceIntegrationTest {
                     companion object {
                         @JvmStatic
                         fun kotlinMessage(): String = ApplicationApi.message()
+
+                        @JvmStatic
+                        fun kotlinParameter(kotlinValue: String): String {
+                            val parameter = KotlinWorkspaceIntegrationTest::class.java
+                                .getDeclaredMethod("kotlinParameter", String::class.java)
+                                .parameters.single()
+                            check(parameter.isNamePresent)
+                            return "${parameter.name}:$kotlinValue"
+                        }
                     }
                 }
                 """);
@@ -257,10 +278,23 @@ final class IntegrationTestCommandKotlinWorkspaceIntegrationTest {
                     void seesKotlinTestAndWorkspaceApi() {
                         assertEquals("workspace-api", KotlinWorkspaceIntegrationTest.kotlinMessage());
                         assertEquals("workspace-api", WorkspaceApi.message());
+                        assertEquals(
+                                "kotlinValue:workspace-api",
+                                KotlinWorkspaceIntegrationTest.kotlinParameter("workspace-api"));
                     }
 
                     static String javaMessage() {
                         return WorkspaceApi.message();
+                    }
+
+                    static String javaParameter(String javaValue) throws Exception {
+                        var parameter = JavaWorkspaceIntegrationTest.class
+                                .getDeclaredMethod("javaParameter", String.class)
+                                .getParameters()[0];
+                        if (!parameter.isNamePresent()) {
+                            throw new AssertionError("Java integration-test parameter metadata is missing");
+                        }
+                        return parameter.getName() + ":" + javaValue;
                     }
                 }
                 """);
@@ -279,6 +313,12 @@ final class IntegrationTestCommandKotlinWorkspaceIntegrationTest {
 
                 [toolchain.kotlin]
                 version = "%s"
+
+                [compiler]
+                args = ["-parameters"]
+
+                [compiler.test]
+                args = ["-parameters"]
 
                 [dependencies]
                 "org.jetbrains.kotlin:kotlin-stdlib" = "%s"

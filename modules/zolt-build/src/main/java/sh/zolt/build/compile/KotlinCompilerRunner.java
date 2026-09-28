@@ -141,6 +141,9 @@ public final class KotlinCompilerRunner {
         } else {
             arguments.add("-Xjdk-release=" + options.release());
         }
+        if (options.javaParameters()) {
+            arguments.add("-java-parameters");
+        }
         List<Path> compilationEntries = entries(compilationClasspath);
         if (!compilationEntries.isEmpty()) {
             arguments.add("-classpath");
@@ -206,9 +209,10 @@ public final class KotlinCompilerRunner {
             String moduleName,
             boolean hostPlatformApi,
             boolean useJdkRelease,
+            boolean javaParameters,
             Path friendPath) {
         public Options(String release, String moduleName, boolean hostPlatformApi) {
-            this(release, moduleName, hostPlatformApi, !hostPlatformApi, null);
+            this(release, moduleName, hostPlatformApi, !hostPlatformApi, false, null);
         }
 
         public Options(
@@ -216,7 +220,25 @@ public final class KotlinCompilerRunner {
                 String moduleName,
                 boolean hostPlatformApi,
                 boolean useJdkRelease) {
-            this(release, moduleName, hostPlatformApi, useJdkRelease, null);
+            this(release, moduleName, hostPlatformApi, useJdkRelease, false, null);
+        }
+
+        public Options(
+                String release,
+                String moduleName,
+                boolean hostPlatformApi,
+                boolean useJdkRelease,
+                boolean javaParameters) {
+            this(release, moduleName, hostPlatformApi, useJdkRelease, javaParameters, null);
+        }
+
+        public Options(
+                String release,
+                String moduleName,
+                boolean hostPlatformApi,
+                boolean useJdkRelease,
+                Path friendPath) {
+            this(release, moduleName, hostPlatformApi, useJdkRelease, false, friendPath);
         }
 
         public Options {
@@ -241,6 +263,7 @@ public final class KotlinCompilerRunner {
                     moduleName,
                     hostPlatformApi,
                     useJdkRelease,
+                    javaParameters,
                     Objects.requireNonNull(path, "Kotlin friend path is required."));
         }
 
