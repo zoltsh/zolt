@@ -18,6 +18,7 @@ import sh.zolt.project.ResourceFilteringSettings;
 import sh.zolt.project.ResourceMissingTokenPolicy;
 import sh.zolt.project.ResourceTokenSettings;
 import sh.zolt.project.TestRuntimeSettings;
+import sh.zolt.project.TestSourceRoots;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Files;
@@ -114,9 +115,10 @@ final class BuildPlanServiceTest {
                 "target",
                 "target/classes",
                 "target/test-classes",
-                List.of("src/test/java", "src/testSupport/java"),
-                List.of("src/test/groovy"),
-                List.of("src/test/kotlin"),
+                new TestSourceRoots(
+                        List.of("src/test/java", "src/testSupport/java"),
+                        List.of("src/test/groovy"),
+                        List.of("src/test/kotlin")),
                 null,
                 null,
                 null,
@@ -337,8 +339,7 @@ final class BuildPlanServiceTest {
                 " ",
                 "build/classes",
                 "build/test-classes",
-                List.of("src/test/java"),
-                List.of(),
+                new TestSourceRoots(List.of("src/test/java"), List.of(), List.of()),
                 null,
                 null,
                 null,

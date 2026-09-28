@@ -7,6 +7,7 @@ import sh.zolt.project.BuildSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectConfigs;
 import sh.zolt.project.ProjectMetadata;
+import sh.zolt.project.TestSourceRoots;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -108,9 +109,10 @@ final class WorkspaceTestScheduleTest {
                 defaults.outputRoot(),
                 defaults.output(),
                 defaults.testOutput(),
-                List.of("src/test/java"),
-                List.of("src/test/groovy"),
-                List.of("src/test/kotlin"),
+                new TestSourceRoots(
+                        List.of("src/test/java"),
+                        List.of("src/test/groovy"),
+                        List.of("src/test/kotlin")),
                 defaults.integrationTestOutput(),
                 defaults.integrationTestSources(),
                 defaults.integrationTestResourceRoots(),

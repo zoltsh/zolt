@@ -8,6 +8,7 @@ import sh.zolt.project.BuildSettings;
 import sh.zolt.project.GeneratedSourceKind;
 import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.ProjectConfig;
+import sh.zolt.project.TestSourceRoots;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -59,9 +60,10 @@ final class ProjectModelQualityCheckTest extends QualityCheckServiceTestSupport 
                 defaults.outputRoot(),
                 defaults.output(),
                 defaults.testOutput(),
-                defaults.testSources(),
-                defaults.groovyTestSources(),
-                List.of("../shared-kotlin-tests"),
+                new TestSourceRoots(
+                        defaults.testSources(),
+                        defaults.groovyTestSources(),
+                        List.of("../shared-kotlin-tests")),
                 defaults.integrationTestOutput(),
                 defaults.integrationTestSources(),
                 defaults.integrationTestResourceRoots(),

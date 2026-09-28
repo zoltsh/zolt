@@ -16,6 +16,7 @@ import sh.zolt.project.PackageMode;
 import sh.zolt.project.PackageSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.PublicationMetadata;
+import sh.zolt.project.TestSourceRoots;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -282,9 +283,10 @@ final class PackageEvidenceFreshnessTest {
                 build.outputRoot(),
                 build.output(),
                 build.testOutput(),
-                build.testSources(),
-                build.groovyTestSources(),
-                List.of("src/test/kotlin"),
+                new TestSourceRoots(
+                        build.testSources(),
+                        build.groovyTestSources(),
+                        List.of("src/test/kotlin")),
                 build.integrationTestOutput(),
                 build.integrationTestSources(),
                 build.integrationTestResourceRoots(),

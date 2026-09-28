@@ -22,6 +22,7 @@ import sh.zolt.project.ResourceFilteringSettings;
 import sh.zolt.project.ResourceMissingTokenPolicy;
 import sh.zolt.project.ResourceTokenSettings;
 import sh.zolt.project.TestRuntimeSettings;
+import sh.zolt.project.TestSourceRoots;
 import sh.zolt.project.TestSuiteSettings;
 
 /**
@@ -77,13 +78,14 @@ final class ProjectConfigBuild {
                 outputRoot,
                 joined(outputRoot, output.flatMap(AuthoredBuild.Output::main), DEFAULT_MAIN_OUTPUT),
                 joined(outputRoot, output.flatMap(AuthoredBuild.Output::test), DEFAULT_TEST_OUTPUT),
-                testSources,
-                tests.flatMap(AuthoredTests::sources)
-                        .map(sources -> paths(sources.groovy()))
-                        .orElse(List.of()),
-                tests.flatMap(AuthoredTests::sources)
-                        .map(sources -> paths(sources.kotlin()))
-                        .orElse(List.of()),
+                new TestSourceRoots(
+                        testSources,
+                        tests.flatMap(AuthoredTests::sources)
+                                .map(sources -> paths(sources.groovy()))
+                                .orElse(List.of()),
+                        tests.flatMap(AuthoredTests::sources)
+                                .map(sources -> paths(sources.kotlin()))
+                                .orElse(List.of())),
                 joined(outputRoot, output.flatMap(AuthoredBuild.Output::integration), DEFAULT_INTEGRATION_OUTPUT),
                 integrationSources(tests),
                 integrationResources(tests),
