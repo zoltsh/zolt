@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.Objects;
 
 /** A single, opaque identity for the compiler selected for a compile scope. */
 public final class EffectiveCompilerIdentity {
@@ -23,6 +24,16 @@ public final class EffectiveCompilerIdentity {
                         "javac=" + status.javac().map(Object::toString).orElse("missing"),
                         "os=" + System.getProperty("os.name", "unknown"),
                         "arch=" + System.getProperty("os.arch", "unknown")));
+        return "sha256:" + sha256(material);
+    }
+
+    /** Composes the selected JDK and the relocatable identity of a verified Groovy compiler. */
+    public static String of(JdkStatus status, GroovyCompilerToolchain groovyToolchain) {
+        Objects.requireNonNull(groovyToolchain, "Groovy compiler toolchain is required.");
+        String material = String.join(
+                "\n",
+                "javaCompiler=" + of(status),
+                "groovyCompiler=" + groovyToolchain.identity());
         return "sha256:" + sha256(material);
     }
 

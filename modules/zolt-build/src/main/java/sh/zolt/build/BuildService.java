@@ -6,6 +6,8 @@ import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.build.cache.BuildCacheService;
 import sh.zolt.build.compile.CompileOutputLayoutValidator;
 import sh.zolt.build.compile.EffectiveCompilerIdentity;
+import sh.zolt.build.compile.GroovyCompilerToolchain;
+import sh.zolt.build.compile.GroovyCompilerToolchainResolver;
 import sh.zolt.build.compile.MainCompileSourceExecutor;
 import sh.zolt.build.discovery.SourceDiscoverer;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
@@ -43,6 +45,7 @@ public final class BuildService {
     private final ExecGeneratedSourceService execGeneratedSourceService;
     private final IncrementalCompileStateRecorder incrementalCompileStateRecorder;
     private final MainCompileSourceExecutor sourceExecutor;
+    private final GroovyCompilerToolchainResolver groovyCompilerToolchainResolver;
     private final MainBuildCacheGate mainBuildCacheGate;
     private final BuildOutputFinalizer outputFinalizer;
 
@@ -84,6 +87,7 @@ public final class BuildService {
         this.execGeneratedSourceService = dependencies.execGeneratedSourceService();
         this.incrementalCompileStateRecorder = dependencies.incrementalCompileStateRecorder();
         this.sourceExecutor = dependencies.sourceExecutor();
+        this.groovyCompilerToolchainResolver = new GroovyCompilerToolchainResolver();
         this.mainBuildCacheGate =
                 new MainBuildCacheGate(dependencies.buildCacheService(), dependencies.buildFingerprintService());
         this.outputFinalizer = new BuildOutputFinalizer(dependencies);
@@ -176,7 +180,7 @@ public final class BuildService {
                 request.projectDirectory(), request.config(), classpathPackages, request.offline());
         return new BuildResultWithClasspaths(
                 build(request.context(), request.config(), classpaths, resolved.resolveResult(), classpathPackages,
-                        request.offline()),
+                        request.offline(), true),
                 classpaths,
                 classpathPackages);
     }
@@ -188,6 +192,7 @@ public final class BuildService {
                 classpaths,
                 Optional.empty(),
                 List.of(),
+                false,
                 false);
     }
 
@@ -207,7 +212,8 @@ public final class BuildService {
                 classpaths,
                 Optional.empty(),
                 classpathPackages == null ? List.of() : List.copyOf(classpathPackages),
-                false);
+                false,
+                true);
     }
 
     public int ensureCleanMemberOutputsCurrent(
@@ -226,7 +232,8 @@ public final class BuildService {
             ClasspathSet classpaths,
             Optional<ResolveResult> resolveResult,
             List<ResolvedClasspathPackage> classpathPackages,
-            boolean offline) {
+            boolean offline,
+            boolean verifiedPackageMetadataAvailable) {
         Path projectDirectory = context.projectRoot();
         CompileOutputLayoutValidator.validateMain(projectDirectory, config);
         if (config.packageSettings().mode() == sh.zolt.project.PackageMode.BOM) {
@@ -240,8 +247,12 @@ public final class BuildService {
         if (!jdkStatus.ok()) {
             throw BuildException.actionable("JDK check failed.", String.join(" ", jdkStatus.problems()));
         }
-        sourceExecutor.preflight(config, sources, classpaths, jdkStatus);
-        String compilerIdentity = EffectiveCompilerIdentity.of(jdkStatus);
+        GroovyCompilerToolchain groovyToolchain = mainGroovyToolchain(
+                sources, classpathPackages, verifiedPackageMetadataAvailable);
+        sourceExecutor.preflight(config, sources, classpaths, jdkStatus, groovyToolchain);
+        String compilerIdentity = groovyToolchain == null
+                ? EffectiveCompilerIdentity.of(jdkStatus)
+                : EffectiveCompilerIdentity.of(jdkStatus, groovyToolchain);
 
         Path outputDirectory = projectDirectory.resolve(config.build().output());
         Path generatedSourcesDirectory =
@@ -286,7 +297,8 @@ public final class BuildService {
                 classpaths,
                 outputDirectory,
                 generatedSourcesDirectory,
-                jdkStatus);
+                jdkStatus,
+                groovyToolchain);
         BuildOutputFinalizer.Result finalization = outputFinalizer.afterCompile(
                 projectDirectory,
                 config,
@@ -342,6 +354,25 @@ public final class BuildService {
                 fingerprintWriteNanos,
                 restored ? cacheAttempt.restore().classCount() : 0,
                 buildCacheOutcome);
+    }
+
+    private GroovyCompilerToolchain mainGroovyToolchain(
+            SourceDiscoveryResult sources,
+            List<ResolvedClasspathPackage> classpathPackages,
+            boolean verifiedPackageMetadataAvailable) {
+        if (sources.groovyMainSources().isEmpty()) {
+            return null;
+        }
+        if (!verifiedPackageMetadataAvailable) {
+            throw BuildException.actionable(
+                    "Groovy main compilation requires verified resolved package metadata, which the legacy "
+                            + "BuildService.build(project, config, ClasspathSet) API does not provide.",
+                    "Use a cache-root build overload so Zolt can resolve and verify org.apache.groovy:groovy, "
+                            + "or use the metadata-aware workspace build API.");
+        }
+        return groovyCompilerToolchainResolver.resolve(
+                classpathPackages,
+                GroovyCompilerToolchainResolver.SourceSet.MAIN);
     }
 
     private static long elapsedSince(long started) {

@@ -1,6 +1,7 @@
 package sh.zolt.build.compile;
 
 import sh.zolt.build.CompileDiagnostics;
+import sh.zolt.build.GroovyCompileException;
 import sh.zolt.build.JavacException;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.build.incremental.GeneratedOutputAttribution;
@@ -62,7 +63,31 @@ public final class MainCompileSourceExecutor {
                 classpaths,
                 outputDirectory,
                 generatedSourcesDirectory,
-                jdkStatus);
+                jdkStatus,
+                null);
+    }
+
+    public Attempt compile(
+            boolean compileSkipped,
+            Path projectDirectory,
+            ProjectConfig config,
+            SourceDiscoveryResult sources,
+            ClasspathSet classpaths,
+            Path outputDirectory,
+            Path generatedSourcesDirectory,
+            JdkStatus jdkStatus,
+            GroovyCompilerToolchain groovyToolchain) {
+        return compile(
+                compileSkipped,
+                "non-source-input-changed",
+                projectDirectory,
+                config,
+                sources,
+                classpaths,
+                outputDirectory,
+                generatedSourcesDirectory,
+                jdkStatus,
+                groovyToolchain);
     }
 
     public Attempt compile(
@@ -75,8 +100,33 @@ public final class MainCompileSourceExecutor {
             Path outputDirectory,
             Path generatedSourcesDirectory,
             JdkStatus jdkStatus) {
+        return compile(
+                compileSkipped,
+                fingerprintMissReason,
+                projectDirectory,
+                config,
+                sources,
+                classpaths,
+                outputDirectory,
+                generatedSourcesDirectory,
+                jdkStatus,
+                null);
+    }
+
+    public Attempt compile(
+            boolean compileSkipped,
+            String fingerprintMissReason,
+            Path projectDirectory,
+            ProjectConfig config,
+            SourceDiscoveryResult sources,
+            ClasspathSet classpaths,
+            Path outputDirectory,
+            Path generatedSourcesDirectory,
+            JdkStatus jdkStatus,
+            GroovyCompilerToolchain groovyToolchain) {
         GroovyCompilerRunner.JointOptions groovyOptions = groovyOptions(
                 config, sources, classpaths, jdkStatus);
+        requireGroovyToolchain(groovyOptions, groovyToolchain);
         if (compileSkipped) {
             return new Attempt(
                     new JavacResult(sources.allMainSources().size(), outputDirectory, ""),
@@ -93,7 +143,8 @@ public final class MainCompileSourceExecutor {
                     outputDirectory,
                     generatedSourcesDirectory,
                     jdkStatus,
-                    groovyOptions);
+                    groovyOptions,
+                    groovyToolchain);
         }
         boolean hostMode = config.compilerSettings().mainHostPlatformApi()
                 && !MainCompileOptions.effectiveRelease(config).isBlank();
@@ -148,7 +199,18 @@ public final class MainCompileSourceExecutor {
             SourceDiscoveryResult sources,
             ClasspathSet classpaths,
             JdkStatus jdkStatus) {
-        groovyOptions(config, sources, classpaths, jdkStatus);
+        preflight(config, sources, classpaths, jdkStatus, null);
+    }
+
+    /** Validates Groovy policy and tool identity before reuse or output mutation. */
+    public void preflight(
+            ProjectConfig config,
+            SourceDiscoveryResult sources,
+            ClasspathSet classpaths,
+            JdkStatus jdkStatus,
+            GroovyCompilerToolchain groovyToolchain) {
+        GroovyCompilerRunner.JointOptions options = groovyOptions(config, sources, classpaths, jdkStatus);
+        requireGroovyToolchain(options, groovyToolchain);
     }
 
     private static GroovyCompilerRunner.JointOptions groovyOptions(
@@ -163,6 +225,17 @@ public final class MainCompileSourceExecutor {
                 config, sources.allMainSources(), classpaths, jdkStatus);
     }
 
+    private static void requireGroovyToolchain(
+            GroovyCompilerRunner.JointOptions options,
+            GroovyCompilerToolchain groovyToolchain) {
+        if (options != null && groovyToolchain == null) {
+            throw new GroovyCompileException(
+                    "Groovy main compilation requires a checksum-verified compiler toolchain before "
+                            + "cached output can be reused or compile output can be cleaned. Resolve verified "
+                            + "org.apache.groovy:groovy package metadata and retry.");
+        }
+    }
+
     private Attempt jointGroovyCompile(
             Path projectDirectory,
             ProjectConfig config,
@@ -171,7 +244,8 @@ public final class MainCompileSourceExecutor {
             Path outputDirectory,
             Path generatedSourcesDirectory,
             JdkStatus jdkStatus,
-            GroovyCompilerRunner.JointOptions options) {
+            GroovyCompilerRunner.JointOptions options,
+            GroovyCompilerToolchain groovyToolchain) {
         List<Path> allSources = sources.allMainSources();
         String platformApiWarning = CompilerPlatformApi.determinismWarning(
                 options.hostPlatformApi(), "main", jdkStatus);
@@ -181,6 +255,7 @@ public final class MainCompileSourceExecutor {
         JavacResult result = groovyCompilerRunner.compileJoint(
                 jdkStatus.java().orElseThrow(),
                 allSources,
+                groovyToolchain.launcherClasspath(),
                 classpaths.compile(),
                 outputDirectory,
                 options);

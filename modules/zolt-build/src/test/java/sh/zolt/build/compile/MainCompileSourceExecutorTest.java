@@ -50,7 +50,8 @@ final class MainCompileSourceExecutorTest {
                 classpaths(List.of(), List.of()),
                 projectDir.resolve("target/classes"),
                 projectDir.resolve("target/generated/sources/annotations"),
-                jdkStatus("21.0.11"));
+                jdkStatus("21.0.11"),
+                toolchain());
 
         assertEquals(2, result.sourceCount());
         assertEquals("skipped", result.mode());
@@ -87,10 +88,11 @@ final class MainCompileSourceExecutorTest {
                 projectDir,
                 config(),
                 sources,
-                classpaths(List.of(projectDir.resolve("cache/groovy.jar")), List.of()),
+                classpaths(List.of(projectDir.resolve("cache/application.jar")), List.of()),
                 output,
                 generated,
-                jdkStatus("21.0.11"));
+                jdkStatus("21.0.11"),
+                toolchain());
 
         assertEquals(2, result.sourceCount());
         assertEquals("full", result.mode());
@@ -98,10 +100,17 @@ final class MainCompileSourceExecutorTest {
         assertEquals(2, result.diagnostics().sourcesRecompiled());
         assertEquals(sources.allMainSources(), result.compiledSources());
         assertEquals("joint compile\n", result.output());
-        assertEquals("/managed-jdk/bin/java", commands.getFirst().getFirst());
-        assertTrue(commands.getFirst().contains("-J=-release=21"));
-        assertTrue(commands.getFirst().contains(javaSource.toString()));
-        assertTrue(commands.getFirst().contains(groovySource.toString()));
+        List<String> command = commands.getFirst();
+        assertEquals("/managed-jdk/bin/java", command.getFirst());
+        assertEquals(
+                projectDir.resolve("verified/groovy.jar").toAbsolutePath().normalize().toString(),
+                command.get(command.indexOf("-cp") + 1));
+        assertEquals(
+                projectDir.resolve("cache/application.jar").toString(),
+                command.get(command.indexOf("-classpath") + 1));
+        assertTrue(command.contains("-J=-release=21"));
+        assertTrue(command.contains(javaSource.toString()));
+        assertTrue(command.contains(groovySource.toString()));
     }
 
     @Test
@@ -126,9 +135,38 @@ final class MainCompileSourceExecutorTest {
                         classpaths(List.of(), List.of(projectDir.resolve("cache/processor.jar"))),
                         output,
                         projectDir.resolve("target/generated/sources/annotations"),
-                        jdkStatus("21.0.11")));
+                        jdkStatus("21.0.11"),
+                        toolchain()));
 
         assertTrue(exception.getMessage().contains("[dependencies.processor]"));
+        assertTrue(Files.exists(staleClass));
+    }
+
+    @Test
+    void rejectsMissingValidatedToolchainBeforeDeletingOutput() throws IOException {
+        Path groovySource = source("src/main/java/com/example/Main.groovy", "class Main {}");
+        Path output = projectDir.resolve("target/classes");
+        Path staleClass = output.resolve("com/example/StillHere.class");
+        Files.createDirectories(staleClass.getParent());
+        Files.write(staleClass, new byte[] {1});
+        GroovyCompilerRunner runner = new GroovyCompilerRunner(":", command -> {
+            throw new AssertionError("Groovy compiler must not run without a validated toolchain");
+        });
+
+        GroovyCompileException exception = assertThrows(
+                GroovyCompileException.class,
+                () -> executor(runner).compile(
+                        false,
+                        projectDir,
+                        config(),
+                        new SourceDiscoveryResult(
+                                List.of(), List.of(groovySource), List.of(), List.of()),
+                        classpaths(List.of(), List.of()),
+                        output,
+                        projectDir.resolve("target/generated/sources/annotations"),
+                        jdkStatus("21.0.11")));
+
+        assertTrue(exception.getMessage().contains("checksum-verified compiler toolchain"));
         assertTrue(Files.exists(staleClass));
     }
 
@@ -171,6 +209,13 @@ final class MainCompileSourceExecutorTest {
                 Optional.of(Path.of("/managed-jdk/bin/jar")),
                 Optional.of(version),
                 "21");
+    }
+
+    private GroovyCompilerToolchain toolchain() {
+        return new GroovyCompilerToolchain(
+                "4.0.22",
+                "a".repeat(64),
+                projectDir.resolve("verified/groovy.jar"));
     }
 
     private Path source(String relativePath, String content) throws IOException {

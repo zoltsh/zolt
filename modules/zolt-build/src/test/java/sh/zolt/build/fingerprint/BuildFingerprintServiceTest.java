@@ -261,6 +261,69 @@ final class BuildFingerprintServiceTest {
     }
 
     @Test
+    void mainFingerprintAndCacheInputTrackGroovyCompilerIdentity() throws IOException {
+        Files.writeString(projectDir.resolve("zolt.toml"), "[project]\nname = \"demo\"\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
+        Path source = write(
+                "src/main/groovy/com/example/Main.groovy",
+                "package com.example\nfinal class Main {}\n");
+        write("target/classes/com/example/Main.class", "class");
+        SourceDiscoveryResult sources = new SourceDiscoveryResult(
+                List.of(),
+                List.of(source),
+                List.of(),
+                List.of());
+        ProjectConfig config = config().withBuildSettings(buildSettingsWithSourceRoots(
+                List.of("src/main/java", "src/main/groovy")));
+        Path output = projectDir.resolve("target/classes");
+        Path generatedSources = projectDir.resolve("target/generated/sources/annotations");
+        String firstCompiler = "jdk-a+groovy-sha-a";
+        String changedCompiler = "jdk-a+groovy-sha-b";
+
+        service.writeMainCompileFingerprint(
+                projectDir,
+                config,
+                firstCompiler,
+                projectDir.resolve("zolt.lock"),
+                sources,
+                emptyClasspaths(),
+                output,
+                generatedSources);
+        String firstCacheInput = service.mainInputsFingerprintSha256(
+                projectDir,
+                config,
+                firstCompiler,
+                projectDir.resolve("zolt.lock"),
+                sources,
+                emptyClasspaths(),
+                output,
+                generatedSources);
+
+        BuildFingerprintCheck check = service.checkMainCompileCurrent(
+                projectDir,
+                config,
+                changedCompiler,
+                projectDir.resolve("zolt.lock"),
+                sources,
+                emptyClasspaths(),
+                output,
+                generatedSources);
+        String changedCacheInput = service.mainInputsFingerprintSha256(
+                projectDir,
+                config,
+                changedCompiler,
+                projectDir.resolve("zolt.lock"),
+                sources,
+                emptyClasspaths(),
+                output,
+                generatedSources);
+
+        assertFalse(check.current());
+        assertEquals("fingerprint-mismatch:compilerIdentity", check.reason());
+        assertNotEquals(firstCacheInput, changedCacheInput);
+    }
+
+    @Test
     void refreshesChangedFilesWithoutDroppingCurrentCachedHashes() throws IOException {
         Files.writeString(projectDir.resolve("zolt.toml"), "[project]\nname = \"demo\"\n");
         Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
