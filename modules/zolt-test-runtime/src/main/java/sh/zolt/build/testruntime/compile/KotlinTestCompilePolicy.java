@@ -1,5 +1,6 @@
 package sh.zolt.build.testruntime.compile;
 
+import java.nio.file.Path;
 import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.compile.KotlinCompilationScope;
 import sh.zolt.build.compile.KotlinCompileOptionsPolicy;
@@ -19,7 +20,8 @@ final class KotlinTestCompilePolicy {
             ProjectConfig config,
             SourceDiscoveryResult sources,
             ClasspathSet classpaths,
-            JdkStatus jdkStatus) {
+            JdkStatus jdkStatus,
+            Path mainOutputDirectory) {
         CompilerSettings compiler = config.compilerSettings();
         if (!sources.groovyTestSources().isEmpty()) {
             throw unsupported(
@@ -48,10 +50,19 @@ final class KotlinTestCompilePolicy {
                     "Keep Quarkus tests Java-only until the Quarkus workspace model represents"
                             + " explicit Kotlin test roots.");
         }
-        return KotlinCompileOptionsPolicy.options(
+        KotlinCompilerRunner.Options options = KotlinCompileOptionsPolicy.options(
                 config,
                 jdkStatus,
                 KotlinCompilationScope.TEST);
+        if (sources.kotlinMainSources().isEmpty()) {
+            return options;
+        }
+        if (mainOutputDirectory == null) {
+            throw unsupported(
+                    "its own Kotlin main output directory is unavailable",
+                    "Build the member's Kotlin main sources before compiling its tests.");
+        }
+        return options.withFriendPath(mainOutputDirectory);
     }
 
     private static KotlinCompileException unsupported(String reason, String remediation) {

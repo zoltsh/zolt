@@ -2,11 +2,13 @@ package sh.zolt.workspace.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.member;
 import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.source;
 import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.workspace;
 import sh.zolt.build.CompilationSemantics;
+import sh.zolt.workspace.state.WorkspaceState;
 import sh.zolt.workspace.state.WorkspaceStateStore;
 import sh.zolt.workspace.test.WorkspaceTestCompileResult;
 import sh.zolt.workspace.test.WorkspaceTestService;
@@ -15,7 +17,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -102,6 +106,36 @@ final class WorkspaceSparseTestLanePlanningTest {
         assertFalse(skipped(result).get("apps/a"));
         assertFalse(Arrays.equals(stale, Files.readAllBytes(testClass)));
         assertTrue(Files.readString(state).startsWith("version=5\nchecksum="));
+        assertTrue(Files.readString(fingerprint)
+                .startsWith("version=" + CompilationSemantics.VERSION + "\n"));
+    }
+
+    @Test
+    void changedCompilationSemanticsKeyReentersTheTestCompiler() throws IOException {
+        compile();
+        WorkspaceStateStore store = new WorkspaceStateStore();
+        WorkspaceState current = store.read(tempDir);
+        var members = new LinkedHashMap<>(current.members());
+        var app = current.member("apps/a").orElseThrow();
+        members.put(
+                "apps/a",
+                app.withTestCompilation(
+                        "pre-kotlin-friend-path-semantics",
+                        app.testResourceTreeDigest(),
+                        app.testOutputManifestDigest()));
+        store.write(tempDir, new WorkspaceState(members, current.files()));
+        Path fingerprint = tempDir.resolve(
+                "apps/a/target/test-classes/.zolt-build-test.fingerprint");
+        replaceVersion(fingerprint, "9");
+        Path testClass = tempDir.resolve(
+                "apps/a/target/test-classes/com/example/a/AppATest.class");
+        FileTime sentinel = FileTime.fromMillis(946_684_800_000L);
+        Files.setLastModifiedTime(testClass, sentinel);
+
+        Compilation result = compile();
+
+        assertFalse(skipped(result).get("apps/a"));
+        assertNotEquals(sentinel, Files.getLastModifiedTime(testClass));
         assertTrue(Files.readString(fingerprint)
                 .startsWith("version=" + CompilationSemantics.VERSION + "\n"));
     }

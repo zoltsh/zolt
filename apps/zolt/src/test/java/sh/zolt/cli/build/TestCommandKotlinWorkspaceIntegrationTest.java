@@ -102,6 +102,14 @@ final class TestCommandKotlinWorkspaceIntegrationTest {
             CommandResult settled = testConsumer(workspace, offlineCache);
             assertEquals(0, settled.exitCode(), settled.stderr());
             assertWarmSentinel(consumerMain, testClass, testModule);
+
+            writeDependencyInternalTest(workspace);
+            CommandResult dependencyInternal = testConsumer(workspace, offlineCache);
+            assertEquals(1, dependencyInternal.exitCode());
+            assertTrue(
+                    dependencyInternal.stderr().contains("ProviderInternal")
+                            && dependencyInternal.stderr().contains("internal"),
+                    dependencyInternal.stderr());
             assertEquals(
                     Map.of(),
                     repository.authorizations(),
@@ -171,6 +179,11 @@ final class TestCommandKotlinWorkspaceIntegrationTest {
                 object ProviderApi {
                     @JvmStatic
                     fun value(): String = "provider"
+                }
+
+                internal object ProviderInternal {
+                    @JvmStatic
+                    fun value(): String = "internal-provider"
                 }
                 """);
         writeKotlinMember(workspace.resolve("modules/test-support"), "test-support");
@@ -244,7 +257,7 @@ final class TestCommandKotlinWorkspaceIntegrationTest {
                 import probe.provider.ProviderApi
                 import probe.provider.ProviderValue
 
-                object ConsumerApi {
+                internal object ConsumerApi {
                     @JvmStatic
                     fun value(): ProviderValue = ProviderApi.value()
 
@@ -277,6 +290,26 @@ final class TestCommandKotlinWorkspaceIntegrationTest {
                         assertEquals("api", consumerApi)
                         assertEquals("provider", provider)
                         assertEquals("support", support)
+                    }
+                }
+                """);
+    }
+
+    private static void writeDependencyInternalTest(Path workspace) throws Exception {
+        Files.writeString(
+                workspace.resolve(
+                        "apps/consumer/src/test/kotlin/probe/consumer/DependencyInternalTest.kt"),
+                """
+                package probe.consumer
+
+                import org.junit.jupiter.api.Assertions.assertEquals
+                import org.junit.jupiter.api.Test
+                import probe.provider.ProviderInternal
+
+                class DependencyInternalTest {
+                    @Test
+                    fun cannotUseDependencyInternal() {
+                        assertEquals("internal-provider", ProviderInternal.value())
                     }
                 }
                 """);

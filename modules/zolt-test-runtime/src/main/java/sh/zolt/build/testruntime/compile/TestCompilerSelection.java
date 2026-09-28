@@ -1,5 +1,6 @@
 package sh.zolt.build.testruntime.compile;
 
+import java.nio.file.Path;
 import java.util.List;
 import sh.zolt.build.compile.EffectiveCompilerIdentity;
 import sh.zolt.build.compile.GroovyCompilerToolchain;
@@ -26,10 +27,16 @@ record TestCompilerSelection(
             SourceDiscoveryResult sources,
             ClasspathSet classpaths,
             List<ResolvedClasspathPackage> classpathPackages,
-            JdkStatus jdkStatus) {
+            JdkStatus jdkStatus,
+            Path mainOutputDirectory) {
         KotlinCompilerRunner.Options kotlinOptions = sources.kotlinTestSources().isEmpty()
                 ? null
-                : KotlinTestCompilePolicy.options(config, sources, classpaths, jdkStatus);
+                : KotlinTestCompilePolicy.options(
+                        config,
+                        sources,
+                        classpaths,
+                        jdkStatus,
+                        mainOutputDirectory);
         KotlinCompilerToolchain kotlin = sources.kotlinTestSources().isEmpty()
                 ? null
                 : new KotlinCompilerToolchainResolver().resolve(
@@ -58,7 +65,7 @@ record TestCompilerSelection(
                     jdkStatus,
                     "kotlinCompiler",
                     kotlin.identity(),
-                    "kotlin-test-v1");
+                    "kotlin-test-v2-friend-main");
         }
         return groovy == null
                 ? EffectiveCompilerIdentity.of(jdkStatus)

@@ -2,6 +2,7 @@ package sh.zolt.build.testruntime.compile;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -37,12 +38,14 @@ final class KotlinTestCompilePolicyTest {
                 sources(List.of(), List.of(), List.of(Path.of("src/main/kotlin/com/example/Demo.kt")),
                         List.of(), List.of(), List.of(KOTLIN_TEST)),
                 classpaths(List.of()),
-                jdkStatus());
+                jdkStatus(),
+                Path.of("target/classes"));
 
         assertEquals("21", options.release());
         assertEquals("demo_test", options.moduleName());
         assertFalse(options.hostPlatformApi());
         assertTrue(options.useJdkRelease());
+        assertEquals(Path.of("target/classes"), options.friendPath());
     }
 
     @Test
@@ -55,9 +58,11 @@ final class KotlinTestCompilePolicyTest {
                         Map.of("test-support", "../test-support")),
                 sources(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(KOTLIN_TEST)),
                 classpaths(List.of()),
-                jdkStatus());
+                jdkStatus(),
+                null);
 
         assertEquals("demo_test", options.moduleName());
+        assertNull(options.friendPath());
     }
 
     @Test
@@ -68,7 +73,8 @@ final class KotlinTestCompilePolicyTest {
                         config(CompilerSettings.defaults(), Map.of(), Map.of(), Map.of()),
                         sources(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(KOTLIN_TEST)),
                         classpaths(List.of(Path.of("processor.jar"))),
-                        jdkStatus()));
+                        jdkStatus(),
+                        null));
         CompilerSettings arguments = new CompilerSettings(
                 null, null, "", "", List.of(), List.of("-parameters"));
         KotlinCompileException argumentsFailure = assertThrows(
@@ -77,7 +83,8 @@ final class KotlinTestCompilePolicyTest {
                         config(arguments, Map.of(), Map.of(), Map.of()),
                         sources(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(KOTLIN_TEST)),
                         classpaths(List.of()),
-                        jdkStatus()));
+                        jdkStatus(),
+                        null));
 
         assertTrue(processorFailure.getMessage().contains("[dependencies.test-processor]"));
         assertTrue(argumentsFailure.getMessage().contains("[compiler].testArgs"));
@@ -95,7 +102,8 @@ final class KotlinTestCompilePolicyTest {
                         config,
                         sources(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(KOTLIN_TEST)),
                         classpaths(List.of()),
-                        jdkStatus()));
+                        jdkStatus(),
+                        null));
 
         assertTrue(failure.getMessage().contains("Quarkus is enabled"));
         assertTrue(failure.getMessage().contains("explicit Kotlin test roots"));

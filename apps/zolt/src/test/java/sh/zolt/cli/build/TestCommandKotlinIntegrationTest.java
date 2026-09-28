@@ -234,7 +234,7 @@ final class TestCommandKotlinIntegrationTest {
 
                 typealias TestValue = %s
 
-                object Main {
+                internal object Main {
                     @JvmStatic
                     fun message(): String = "hello"
                 }

@@ -129,6 +129,9 @@ public final class KotlinCompilerRunner {
             command.add("-classpath");
             command.add(joinedPath(compilationEntries));
         }
+        if (options.friendPath() != null) {
+            command.add("-Xfriend-paths=" + options.friendPath());
+        }
         command.add("-module-name");
         command.add(options.moduleName());
         command.add("-d");
@@ -185,18 +188,43 @@ public final class KotlinCompilerRunner {
             String release,
             String moduleName,
             boolean hostPlatformApi,
-            boolean useJdkRelease) {
+            boolean useJdkRelease,
+            Path friendPath) {
         public Options(String release, String moduleName, boolean hostPlatformApi) {
-            this(release, moduleName, hostPlatformApi, !hostPlatformApi);
+            this(release, moduleName, hostPlatformApi, !hostPlatformApi, null);
+        }
+
+        public Options(
+                String release,
+                String moduleName,
+                boolean hostPlatformApi,
+                boolean useJdkRelease) {
+            this(release, moduleName, hostPlatformApi, useJdkRelease, null);
         }
 
         public Options {
             release = require(release, "effective Java release");
             moduleName = require(moduleName, "module name");
+            friendPath = friendPath == null ? null : friendPath.normalize();
+            if (friendPath != null && friendPath.toString().contains(",")) {
+                throw new KotlinCompileException(
+                        "Kotlin test compilation cannot use a friend output path containing a comma because "
+                                + "kotlinc treats commas as friend-path separators. Move the project to a path "
+                                + "without commas and try again.");
+            }
             if (hostPlatformApi && useJdkRelease) {
                 throw new KotlinCompileException(
                         "Kotlin host platform-API mode cannot use -Xjdk-release.");
             }
+        }
+
+        public Options withFriendPath(Path path) {
+            return new Options(
+                    release,
+                    moduleName,
+                    hostPlatformApi,
+                    useJdkRelease,
+                    Objects.requireNonNull(path, "Kotlin friend path is required."));
         }
 
         private static String require(String value, String label) {

@@ -229,7 +229,7 @@ public final class TestCompileService {
             throw new BuildException("JDK check failed. " + String.join(" ", jdkStatus.problems()));
         }
         TestCompilerSelection compiler = TestCompilerSelection.select(
-                config, sources, classpaths, classpathPackages, jdkStatus);
+                config, sources, classpaths, classpathPackages, jdkStatus, buildResult.outputDirectory());
 
         List<Path> testCompileEntries = new ArrayList<>();
         testCompileEntries.add(buildResult.outputDirectory());

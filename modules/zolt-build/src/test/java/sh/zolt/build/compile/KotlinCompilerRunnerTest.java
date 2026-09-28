@@ -108,6 +108,32 @@ final class KotlinCompilerRunnerTest {
     }
 
     @Test
+    void passesTheOwnedMainOutputAsTheSoleFriendPath() {
+        List<List<String>> commands = new ArrayList<>();
+        KotlinCompilerRunner runner = new KotlinCompilerRunner(":", command -> {
+            commands.add(command);
+            return new KotlinCompilerRunner.ProcessResult(0, "");
+        });
+
+        runner.compile(
+                Path.of("/jdk/bin/java"),
+                Path.of("/jdk"),
+                List.of(Path.of("src/Test.kt")),
+                new Classpath(List.of(Path.of("compiler.jar"))),
+                new Classpath(List.of(Path.of("main.jar"))),
+                tempDir.resolve("test-classes"),
+                new KotlinCompilerRunner.Options("21", "demo_test", false)
+                        .withFriendPath(Path.of("friends/main/../main")),
+                KotlinCompilationScope.TEST);
+
+        List<String> command = commands.getFirst();
+        assertTrue(command.contains("-Xfriend-paths=friends/main"), command.toString());
+        assertEquals(
+                1,
+                command.stream().filter(argument -> argument.startsWith("-Xfriend-paths=")).count());
+    }
+
+    @Test
     void emptySourceSetCreatesOutputWithoutStartingCompiler() {
         KotlinCompilerRunner runner = new KotlinCompilerRunner(":", command -> {
             throw new AssertionError("compiler must not run");
@@ -179,5 +205,15 @@ final class KotlinCompilerRunnerTest {
         assertThrows(
                 KotlinCompileException.class,
                 () -> new KotlinCompilerRunner.Options("21", " ", false));
+    }
+
+    @Test
+    void optionsRejectCommaDelimitedFriendPath() {
+        KotlinCompileException failure = assertThrows(
+                KotlinCompileException.class,
+                () -> new KotlinCompilerRunner.Options("21", "demo_test", false)
+                        .withFriendPath(Path.of("workspace,copy/target/classes")));
+
+        assertTrue(failure.getMessage().contains("containing a comma"));
     }
 }
