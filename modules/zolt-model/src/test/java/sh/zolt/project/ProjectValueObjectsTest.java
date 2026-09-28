@@ -237,6 +237,7 @@ final class ProjectValueObjectsTest {
                 "target/test-classes",
                 null,
                 List.of("src/test/groovy"),
+                List.of("src/test/kotlin"),
                 null,
                 null,
                 null,
@@ -259,12 +260,14 @@ final class ProjectValueObjectsTest {
         assertEquals(TestSuiteSettings.empty(), settings.testSuites().get("unit"));
         assertEquals(List.of(generated), settings.generatedMainSources());
         assertEquals(List.of(), settings.generatedTestSources());
+        assertEquals(List.of("src/test/kotlin"), settings.kotlinTestSources());
         assertThrows(UnsupportedOperationException.class, () -> settings.generatedMainSources().add(generated));
 
         BuildSettings integration = settings.asIntegrationTestBuild();
         assertEquals("src/integration-test/java", integration.test());
         assertEquals("target/integration-test-classes", integration.testOutput());
         assertEquals(List.of("src/integration-test/resources"), integration.testResourceRoots());
+        assertEquals(List.of(), integration.kotlinTestSources());
     }
 
     @Test

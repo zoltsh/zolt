@@ -65,7 +65,7 @@ final class IdeModelRootsServiceTest {
     }
 
     @Test
-    void exportsGroovyTestRootsDeterministically() throws IOException {
+    void exportsGroovyAndKotlinTestRootsDeterministically() throws IOException {
         Path projectDir = tempDir.resolve("groovy-tests");
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), """
@@ -78,6 +78,7 @@ final class IdeModelRootsServiceTest {
                 [test.sources]
                 java = ["src/test/java"]
                 groovy = ["src/test/groovy", "src/integrationTest/groovy"]
+                kotlin = ["src/test/kotlin", "src/contractTest/kotlin"]
                 """);
         Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
@@ -95,6 +96,18 @@ final class IdeModelRootsServiceTest {
                 "test",
                 "groovy",
                 root.resolve("src/integrationTest/groovy"),
+                false)));
+        assertTrue(model.sourceRoots().contains(new IdeModel.SourceRoot(
+                "test-kotlin-1",
+                "test",
+                "kotlin",
+                root.resolve("src/test/kotlin"),
+                false)));
+        assertTrue(model.sourceRoots().contains(new IdeModel.SourceRoot(
+                "test-kotlin-2",
+                "test",
+                "kotlin",
+                root.resolve("src/contractTest/kotlin"),
                 false)));
     }
 

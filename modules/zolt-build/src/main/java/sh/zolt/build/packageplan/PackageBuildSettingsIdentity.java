@@ -37,6 +37,7 @@ final class PackageBuildSettingsIdentity {
         hash.value("testOutput", build.testOutput());
         hash.value("testSources", build.testSources().toString());
         hash.value("groovyTestSources", build.groovyTestSources().toString());
+        hash.value("kotlinTestSources", build.kotlinTestSources().toString());
         hash.value("integrationTestOutput", build.integrationTestOutput());
         hash.value("integrationTestSources", build.integrationTestSources().toString());
         hash.value(

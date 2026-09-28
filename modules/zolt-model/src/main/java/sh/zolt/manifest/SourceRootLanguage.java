@@ -7,16 +7,17 @@ import java.util.Optional;
 /**
  * Languages and platforms that require source-root admission checks.
  *
- * <p>Kotlin is admitted only for explicitly authored main roots. Kotlin test/integration roots,
- * Scala, and Android still fail at the parse boundary. The all-language recognizer also serves
- * migration drafting, which keeps Kotlin roots as review notes until automatic migration is ready.
+ * <p>Kotlin is admitted only for explicitly authored main and unit-test Kotlin roots. Kotlin
+ * integration roots, Scala, and Android still fail at the parse boundary. The all-language
+ * recognizer also serves migration drafting, which keeps Kotlin roots as review notes until
+ * automatic migration is ready.
  */
 public enum SourceRootLanguage {
     KOTLIN(
             "Kotlin",
-            "Kotlin is supported only for explicitly authored main roots in [build].sources during"
-                    + " the preview. Kotlin test and integration roots and automatic migration are"
-                    + " not supported yet."),
+            "Kotlin is supported only for explicitly authored main roots in [build].sources and"
+                    + " unit-test roots in [test.sources].kotlin during the preview. Kotlin"
+                    + " integration roots and automatic migration are not supported yet."),
     SCALA(
             "Scala",
             "Scala is not supported in the public beta. Use Java source roots such as src/main/java,"
@@ -42,6 +43,11 @@ public enum SourceRootLanguage {
 
     /** The authored main root, admitting Kotlin while still rejecting Scala and Android. */
     public static ManifestRelativePath requireMainSupported(ManifestRelativePath root) {
+        return requireSupported(root, false);
+    }
+
+    /** An explicit Kotlin unit-test root, admitting Kotlin while rejecting Scala and Android. */
+    public static ManifestRelativePath requireKotlinTestSupported(ManifestRelativePath root) {
         return requireSupported(root, false);
     }
 

@@ -197,6 +197,7 @@ final class FinalManifestFieldsTest extends FinalManifestSchemaTestSupport {
                         "generated.test.<id>.clean",
                         "test.sources.java",
                         "test.sources.groovy",
+                        "test.sources.kotlin",
                         "test.runtime.jvmArgs",
                         "test.runtime.properties",
                         "test.runtime.env",
@@ -347,6 +348,7 @@ final class FinalManifestFieldsTest extends FinalManifestSchemaTestSupport {
         assertEquals(ManifestValueKind.INLINE_TABLE, valueKinds.get("resources.tokens.<id>"));
         assertEquals(ManifestValueKind.STRING_ARRAY, valueKinds.get("test.sources.java"));
         assertEquals(ManifestValueKind.STRING_ARRAY, valueKinds.get("test.sources.groovy"));
+        assertEquals(ManifestValueKind.STRING_ARRAY, valueKinds.get("test.sources.kotlin"));
         assertEquals(ManifestValueKind.STRING_ARRAY, valueKinds.get("test.runtime.jvmArgs"));
         assertEquals(ManifestValueKind.INLINE_TABLE, valueKinds.get("test.runtime.properties"));
         assertEquals(ManifestValueKind.INLINE_TABLE, valueKinds.get("test.runtime.env"));

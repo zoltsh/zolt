@@ -78,7 +78,9 @@ final class ManifestTestRootsDecoder {
                 index.field(FinalManifestTestFields.TEST_SOURCES_JAVA);
         Optional<ValidatedManifestField> groovyField =
                 index.field(FinalManifestTestFields.TEST_SOURCES_GROOVY);
-        if (javaField.isEmpty() && groovyField.isEmpty()) {
+        Optional<ValidatedManifestField> kotlinField =
+                index.field(FinalManifestTestFields.TEST_SOURCES_KOTLIN);
+        if (javaField.isEmpty() && groovyField.isEmpty() && kotlinField.isEmpty()) {
             return Optional.empty();
         }
 
@@ -90,11 +92,16 @@ final class ManifestTestRootsDecoder {
                 .map(field -> sourcePaths(
                         field, prefix -> new AuthoredTests.Sources(List.of(), prefix)))
                 .orElse(List.of());
+        List<ManifestRelativePath> kotlin = kotlinField
+                .map(field -> kotlinSourcePaths(
+                        field, prefix -> new AuthoredTests.Sources(List.of(), List.of(), prefix)))
+                .orElse(List.of());
         javaField.ifPresent(field -> ManifestSemanticDiagnostics.requireNonEmptyArray(field, java));
         groovyField.ifPresent(field -> ManifestSemanticDiagnostics.requireNonEmptyArray(field, groovy));
+        kotlinField.ifPresent(field -> ManifestSemanticDiagnostics.requireNonEmptyArray(field, kotlin));
         return Optional.of(ManifestSemanticDiagnostics.construct(
                 index.firstDirectField(FinalManifestPaths.TEST_SOURCES).orElseThrow(),
-                () -> new AuthoredTests.Sources(java, groovy)));
+                () -> new AuthoredTests.Sources(java, groovy, kotlin)));
     }
 
     Optional<AuthoredTests.Integration> decodeIntegration(ManifestDecodeIndex index) {
@@ -130,6 +137,12 @@ final class ManifestTestRootsDecoder {
             ValidatedManifestField field,
             Function<List<ManifestRelativePath>, Object> probe) {
         return paths(field, probe, SourceRootLanguage::requireSupported);
+    }
+
+    private static List<ManifestRelativePath> kotlinSourcePaths(
+            ValidatedManifestField field,
+            Function<List<ManifestRelativePath>, Object> probe) {
+        return paths(field, probe, SourceRootLanguage::requireKotlinTestSupported);
     }
 
     private static List<ManifestRelativePath> paths(

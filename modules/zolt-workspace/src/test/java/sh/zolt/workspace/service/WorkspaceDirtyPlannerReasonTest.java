@@ -51,6 +51,7 @@ final class WorkspaceDirtyPlannerReasonTest extends WorkspaceBuildServiceTestSup
                 [test.sources]
                 java = ["src/test/java"]
                 groovy = ["src/test/groovy"]
+                kotlin = ["src/test/kotlin"]
                 """);
         source("apps/api/src/main/java/com/acme/api/Api.java", """
                 package com.acme.api;
@@ -263,9 +264,18 @@ final class WorkspaceDirtyPlannerReasonTest extends WorkspaceBuildServiceTestSup
     }
 
     @Test
-    void kotlinTestSourceInAGroovyRootIsReportedOnlyWhenTheCommandCompilesTests()
+    void kotlinTestSourceInAKotlinRootIsReportedOnlyWhenTheCommandCompilesTests()
             throws IOException {
-        source("apps/api/src/test/groovy/com/acme/api/ApiSpec.kt", "package com.acme.api\nclass ApiSpec\n");
+        source("apps/api/src/test/kotlin/com/acme/api/ApiTest.kt", "package com.acme.api\nclass ApiTest\n");
+
+        assertFalse(reasons().get("apps/api").contains(WorkspaceDirtyReason.TEST_SOURCE_CHANGED));
+        assertTrue(testReasons().get("apps/api").contains(WorkspaceDirtyReason.TEST_SOURCE_CHANGED));
+    }
+
+    @Test
+    void misplacedKotlinTestSourceKeepsTheFailClosedTestLaneObservable()
+            throws IOException {
+        source("apps/api/src/test/java/com/acme/api/MisplacedTest.kt", "package com.acme.api\nclass MisplacedTest\n");
 
         assertFalse(reasons().get("apps/api").contains(WorkspaceDirtyReason.TEST_SOURCE_CHANGED));
         assertTrue(testReasons().get("apps/api").contains(WorkspaceDirtyReason.TEST_SOURCE_CHANGED));

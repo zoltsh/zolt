@@ -114,7 +114,8 @@ final class InspectionToManifestRootsTest {
                 draft.notes().stream().anyMatch(note ->
                         note.contains("a test source root at `src/test/kotlin`")
                                 && note.contains("cannot migrate automatically")
-                                && note.contains("Kotlin test and integration roots")),
+                                && note.contains("unit-test roots in [test.sources].kotlin")
+                                && note.contains("automatic migration")),
                 () -> "expected the audited Kotlin test root as review data: " + draft.notes());
         assertTrue(
                 draft.notes().stream().anyMatch(note ->

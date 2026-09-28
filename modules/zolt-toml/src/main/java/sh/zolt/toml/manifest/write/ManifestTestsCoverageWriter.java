@@ -82,6 +82,11 @@ final class ManifestTestsCoverageWriter {
                     FinalManifestTestFields.TEST_SOURCES_GROOVY,
                     paths(FinalManifestTestFields.TEST_SOURCES_GROOVY, sources.groovy()));
         }
+        if (!sources.kotlin().isEmpty()) {
+            emitter.field(
+                    FinalManifestTestFields.TEST_SOURCES_KOTLIN,
+                    paths(FinalManifestTestFields.TEST_SOURCES_KOTLIN, sources.kotlin()));
+        }
     }
 
     private static void writeRuntime(

@@ -81,6 +81,9 @@ final class ProjectConfigBuild {
                 tests.flatMap(AuthoredTests::sources)
                         .map(sources -> paths(sources.groovy()))
                         .orElse(List.of()),
+                tests.flatMap(AuthoredTests::sources)
+                        .map(sources -> paths(sources.kotlin()))
+                        .orElse(List.of()),
                 joined(outputRoot, output.flatMap(AuthoredBuild.Output::integration), DEFAULT_INTEGRATION_OUTPUT),
                 integrationSources(tests),
                 integrationResources(tests),

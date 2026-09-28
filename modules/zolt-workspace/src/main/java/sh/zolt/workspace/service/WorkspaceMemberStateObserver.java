@@ -151,7 +151,8 @@ final class WorkspaceMemberStateObserver {
                 WorkspaceFileKind.TEST_SOURCE,
                 member.directory(),
                 build.testSources(),
-                build.groovyTestSources());
+                build.groovyTestSources(),
+                build.kotlinTestSources());
         return WorkspaceHash.text(String.join(
                 "|",
                 CompilationSemantics.VERSION,

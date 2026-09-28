@@ -131,6 +131,7 @@ final class BuildPlanServiceTest {
                 "target/test-classes",
                 List.of("src/test/java", "src/testSupport/java"),
                 List.of("src/test/groovy"),
+                List.of("src/test/kotlin"),
                 null,
                 null,
                 null,
@@ -171,13 +172,22 @@ final class BuildPlanServiceTest {
                 List.of("src/main/java", "src/generated/main"),
                 node(plan, "compile-main").inputs());
         assertEquals(
-                List.of("target/classes", "src/test/java", "src/testSupport/java", "src/test/groovy"),
+                List.of(
+                        "target/classes",
+                        "src/test/java",
+                        "src/testSupport/java",
+                        "src/test/groovy",
+                        "src/test/kotlin"),
                 node(plan, "compile-tests").inputs());
         assertEquals(
                 List.of(
                         "javaTestRoots: [src/test/java, src/testSupport/java]",
-                        "groovyTestRoots: [src/test/groovy]"),
+                        "groovyTestRoots: [src/test/groovy]",
+                        "kotlinTestRoots: [src/test/kotlin]"),
                 node(plan, "compile-tests").details());
+        assertEquals(
+                "Compile configured Java, Groovy, and Kotlin test sources.",
+                node(plan, "compile-tests").description());
         assertEquals(List.of(reports.toString()), node(plan, "run-tests").outputs());
         assertEquals(
                 List.of(

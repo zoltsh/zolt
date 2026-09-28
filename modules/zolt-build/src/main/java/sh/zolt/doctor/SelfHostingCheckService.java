@@ -88,6 +88,7 @@ public final class SelfHostingCheckService {
         List<String> roots = new ArrayList<>();
         roots.addAll(config.build().testSources());
         roots.addAll(config.build().groovyTestSources());
+        roots.addAll(config.build().kotlinTestSources());
         return List.copyOf(roots);
     }
 

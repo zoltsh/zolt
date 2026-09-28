@@ -288,6 +288,7 @@ final class FinalManifestFieldHandlesTest {
                 List.of(
                         field("test.sources.java", 6_701),
                         field("test.sources.groovy", 6_702),
+                        field("test.sources.kotlin", 6_703),
                         field("test.runtime.jvmArgs", 6_711),
                         field("test.runtime.properties", 6_712),
                         field("test.runtime.env", 6_713),
@@ -369,9 +370,9 @@ final class FinalManifestFieldHandlesTest {
         List<ManifestField> handles = handles();
         List<ManifestField> registered = registry.fields();
 
-        assertEquals(231, handles.size());
-        assertEquals(231, handles.stream().map(ManifestField::path).distinct().count());
-        assertEquals(231, handles.stream().map(ManifestField::canonicalOrder).distinct().count());
+        assertEquals(232, handles.size());
+        assertEquals(232, handles.stream().map(ManifestField::path).distinct().count());
+        assertEquals(232, handles.stream().map(ManifestField::canonicalOrder).distinct().count());
         assertEquals(handles, registered);
         for (int index = 0; index < handles.size(); index++) {
             assertSame(handles.get(index), registered.get(index));

@@ -93,6 +93,15 @@ final class IdeRootModelBuilder {
                     inputRoot(root, "[test.sources].groovy", settings.groovyTestSources().get(index), diagnostics),
                     false);
         }
+        for (int index = 0; index < settings.kotlinTestSources().size(); index++) {
+            addSourceRoot(
+                    roots,
+                    "test-kotlin-" + (index + 1),
+                    "test",
+                    "kotlin",
+                    inputRoot(root, "[test.sources].kotlin", settings.kotlinTestSources().get(index), diagnostics),
+                    false);
+        }
         addSourceRoot(
                 roots,
                 "test-generated-java",

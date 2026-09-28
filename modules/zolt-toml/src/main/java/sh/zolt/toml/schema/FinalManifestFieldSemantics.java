@@ -84,6 +84,7 @@ final class FinalManifestFieldSemantics {
             validation("generated.test.<id>.inheritEnv", ManifestValidationCategory.ENVIRONMENT_NAME),
             validation("test.sources.java", ManifestValidationCategory.MANIFEST_RELATIVE_PATH),
             validation("test.sources.groovy", ManifestValidationCategory.MANIFEST_RELATIVE_PATH),
+            validation("test.sources.kotlin", ManifestValidationCategory.MANIFEST_RELATIVE_PATH),
             validation("test.runtime.env", ManifestValidationCategory.ENVIRONMENT_MAP_KEYS),
             validation("test.integration.sources", ManifestValidationCategory.MANIFEST_RELATIVE_PATH),
             validation("test.integration.resources", ManifestValidationCategory.MANIFEST_RELATIVE_PATH),

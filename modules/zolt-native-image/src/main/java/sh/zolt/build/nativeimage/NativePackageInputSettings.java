@@ -17,6 +17,7 @@ final class NativePackageInputSettings {
                 build.testOutput(),
                 build.testSources(),
                 build.groovyTestSources(),
+                build.kotlinTestSources(),
                 build.integrationTestOutput(),
                 build.integrationTestSources(),
                 build.integrationTestResourceRoots(),

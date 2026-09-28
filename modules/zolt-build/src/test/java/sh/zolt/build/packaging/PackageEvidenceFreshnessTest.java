@@ -123,7 +123,9 @@ final class PackageEvidenceFreshnessTest {
                 "target/test-classes/com/example/MainTest.class");
         Files.createDirectories(testClass.getParent());
         Files.writeString(testClass, "test bytecode");
-        ProjectConfig config = config(Optional.of("com.example.Main"))
+        ProjectConfig baseConfig = config(Optional.of("com.example.Main"));
+        ProjectConfig config = baseConfig
+                .withBuildSettings(withKotlinTestSources(baseConfig.build()))
                 .withPackageSettings(new PackageSettings(
                         PackageMode.THIN,
                         false,
@@ -148,8 +150,8 @@ final class PackageEvidenceFreshnessTest {
                 }
                 """);
 
-        Path kotlinTest = projectDir.resolve("src/test/java/com/example/KotlinTest.kt");
-        source(projectDir, "src/test/java/com/example/KotlinTest.kt", """
+        Path kotlinTest = projectDir.resolve("src/test/kotlin/com/example/KotlinTest.kt");
+        source(projectDir, "src/test/kotlin/com/example/KotlinTest.kt", """
                 package com.example
                 class KotlinTest
                 """);
@@ -270,6 +272,30 @@ final class PackageEvidenceFreshnessTest {
 
         assertStale(config, evidence, "build inputs changed");
         assertStale(config, evidence, "supplemental package input `sources` changed");
+    }
+
+    private static BuildSettings withKotlinTestSources(BuildSettings build) {
+        return new BuildSettings(
+                build.source(),
+                build.sourceRoots(),
+                build.test(),
+                build.outputRoot(),
+                build.output(),
+                build.testOutput(),
+                build.testSources(),
+                build.groovyTestSources(),
+                List.of("src/test/kotlin"),
+                build.integrationTestOutput(),
+                build.integrationTestSources(),
+                build.integrationTestResourceRoots(),
+                build.resourceRoots(),
+                build.testResourceRoots(),
+                build.resourceFiltering(),
+                build.testRuntime(),
+                build.testSuites(),
+                build.metadata(),
+                build.generatedMainSources(),
+                build.generatedTestSources());
     }
 
     private void assertStale(

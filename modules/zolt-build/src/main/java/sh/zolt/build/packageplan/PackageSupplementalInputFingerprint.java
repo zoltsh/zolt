@@ -128,13 +128,8 @@ final class PackageSupplementalInputFingerprint {
         Set<Path> kotlinTestSources = new LinkedHashSet<>();
         addKotlinTestSources(
                 projectRoot,
-                "[test.sources].java",
-                build.testSources(),
-                kotlinTestSources);
-        addKotlinTestSources(
-                projectRoot,
-                "[test.sources].groovy",
-                build.groovyTestSources(),
+                "[test.sources].kotlin",
+                build.kotlinTestSources(),
                 kotlinTestSources);
         kotlinTestSources.stream().sorted().forEach(
                 source -> file(hash, projectRoot, "kotlinTestSource", source));

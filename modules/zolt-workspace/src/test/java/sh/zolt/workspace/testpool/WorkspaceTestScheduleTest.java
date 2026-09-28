@@ -90,12 +90,16 @@ final class WorkspaceTestScheduleTest {
     void weighsJavaGroovyAndKotlinTestSourcesWithoutCountingWrongLanguageFiles() throws IOException {
         Path directory = tempDir.resolve("mixed");
         write(directory.resolve("src/test/java/example/JavaTest.java"));
-        write(directory.resolve("src/test/java/example/KotlinTest.kt"));
+        write(directory.resolve("src/test/java/example/Ignored.kt"));
         write(directory.resolve("src/test/java/example/Ignored.groovy"));
         write(directory.resolve("src/test/groovy/example/GroovySpec.groovy"));
-        write(directory.resolve("src/test/groovy/example/KotlinSpec.kt"));
+        write(directory.resolve("src/test/groovy/example/Ignored.kt"));
         write(directory.resolve("src/test/groovy/example/Ignored.kts"));
         write(directory.resolve("src/test/groovy/example/Ignored.java"));
+        write(directory.resolve("src/test/kotlin/example/KotlinTest.kt"));
+        write(directory.resolve("src/test/kotlin/example/Ignored.java"));
+        write(directory.resolve("src/test/kotlin/example/Ignored.groovy"));
+        write(directory.resolve("src/test/kotlin/example/Ignored.kts"));
         BuildSettings defaults = BuildSettings.defaults();
         BuildSettings build = new BuildSettings(
                 defaults.source(),
@@ -106,15 +110,24 @@ final class WorkspaceTestScheduleTest {
                 defaults.testOutput(),
                 List.of("src/test/java"),
                 List.of("src/test/groovy"),
+                List.of("src/test/kotlin"),
+                defaults.integrationTestOutput(),
+                defaults.integrationTestSources(),
+                defaults.integrationTestResourceRoots(),
                 defaults.resourceRoots(),
                 defaults.testResourceRoots(),
-                defaults.metadata());
+                defaults.resourceFiltering(),
+                defaults.testRuntime(),
+                defaults.testSuites(),
+                defaults.metadata(),
+                defaults.generatedMainSources(),
+                defaults.generatedTestSources());
         WorkspaceMember mixed = new WorkspaceMember("mixed", directory, config("mixed", build));
 
         Map<String, Integer> weights = WorkspaceTestSchedule.testSourceWeights(
                 List.of("mixed"), Map.of("mixed", mixed));
 
-        assertEquals(4, weights.get("mixed"));
+        assertEquals(3, weights.get("mixed"));
     }
 
     private WorkspaceMember member(String name, int testSources) throws IOException {

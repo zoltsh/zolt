@@ -177,6 +177,40 @@ final class CompileOutputLayoutValidatorTest {
     }
 
     @Test
+    void testOutputCannotBeNestedInsideKotlinTestSourceRoot() {
+        BuildSettings defaults = BuildSettings.defaults();
+        BuildSettings build = new BuildSettings(
+                defaults.source(),
+                defaults.sourceRoots(),
+                defaults.test(),
+                defaults.outputRoot(),
+                defaults.output(),
+                "src/test/kotlin/compiled",
+                defaults.testSources(),
+                defaults.groovyTestSources(),
+                List.of("src/test/kotlin"),
+                defaults.integrationTestOutput(),
+                defaults.integrationTestSources(),
+                defaults.integrationTestResourceRoots(),
+                defaults.resourceRoots(),
+                defaults.testResourceRoots(),
+                defaults.resourceFiltering(),
+                defaults.testRuntime(),
+                defaults.testSuites(),
+                defaults.metadata(),
+                defaults.generatedMainSources(),
+                defaults.generatedTestSources());
+
+        BuildException exception = assertThrows(
+                BuildException.class,
+                () -> CompileOutputLayoutValidator.validateTest(
+                        projectDir, config(build, CompilerSettings.defaults())));
+
+        assertTrue(exception.getMessage().contains("[build.output].test"), exception.getMessage());
+        assertTrue(exception.getMessage().contains("[test.sources].kotlin[0]"), exception.getMessage());
+    }
+
+    @Test
     void testGeneratedOutputCannotBeNestedInsideTestResourceRoot() throws IOException {
         Path resource = projectDir.resolve("src/test/resources/annotations/application.properties");
         Files.createDirectories(resource.getParent());

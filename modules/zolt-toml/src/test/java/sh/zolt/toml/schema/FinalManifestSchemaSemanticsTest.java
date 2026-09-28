@@ -92,6 +92,7 @@ final class FinalManifestSchemaSemanticsTest {
                         "generated.test.<id>.cwd",
                         "test.sources.java",
                         "test.sources.groovy",
+                        "test.sources.kotlin",
                         "test.integration.sources",
                         "test.integration.resources",
                         "native.output",

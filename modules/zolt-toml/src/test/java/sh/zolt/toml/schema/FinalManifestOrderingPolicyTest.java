@@ -63,6 +63,7 @@ final class FinalManifestOrderingPolicyTest extends FinalManifestSchemaTestSuppo
                         6_221,
                         6_701,
                         6_702,
+                        6_703,
                         6_711,
                         6_712,
                         6_713,

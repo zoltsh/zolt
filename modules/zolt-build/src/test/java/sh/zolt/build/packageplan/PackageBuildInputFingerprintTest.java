@@ -148,6 +148,41 @@ final class PackageBuildInputFingerprintTest {
     }
 
     @Test
+    void testsSupplementalFingerprintReadsKotlinOnlyFromConfiguredKotlinRoots()
+            throws IOException {
+        Path configured = projectRoot.resolve("src/test/kotlin/com/example/ConfiguredTest.kt");
+        Files.createDirectories(configured.getParent());
+        Files.writeString(configured, "package com.example\nclass ConfiguredTest\n");
+        ProjectConfig config = new ManifestProjectConfigLoader().load("""
+                [project]
+                name = "demo"
+                version = "0.1.0"
+                group = "com.example"
+                java = 21
+
+                [test.sources]
+                kotlin = ["src/test/kotlin"]
+
+                [package]
+                testJar = true
+                """);
+
+        String before = supplementalFingerprint(supplementalInputs(config), "tests");
+        Files.writeString(configured, "package com.example\nclass ConfiguredTest(val changed: Int)\n");
+        String configuredChanged = supplementalFingerprint(supplementalInputs(config), "tests");
+
+        assertNotEquals(before, configuredChanged);
+
+        Path misplaced = projectRoot.resolve("src/test/java/com/example/MisplacedTest.kt");
+        Files.createDirectories(misplaced.getParent());
+        Files.writeString(misplaced, "package com.example\nclass MisplacedTest\n");
+
+        assertEquals(
+                configuredChanged,
+                supplementalFingerprint(supplementalInputs(config), "tests"));
+    }
+
+    @Test
     void effectiveResourceTokensAreCanonicalByName() {
         ProjectConfig config = new ManifestProjectConfigLoader().load("""
                 [project]

@@ -88,7 +88,8 @@ final class WorkspaceTestCompileExecutor {
                         WorkspaceFileKind.TEST_SOURCE,
                         member.directory(),
                         build.testSources(),
-                        build.groovyTestSources())
+                        build.groovyTestSources(),
+                        build.kotlinTestSources())
                 .fileCount();
         return new WorkspaceTestCompileResult.MemberTestCompileResult(
                 member.path(),

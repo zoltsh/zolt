@@ -52,10 +52,21 @@ public final class WorkspaceFileSnapshot {
             Path projectDirectory,
             List<String> javaRoots,
             List<String> groovyRoots) {
+        return testSources(member, kind, projectDirectory, javaRoots, groovyRoots, List.of());
+    }
+
+    public TreeDigest testSources(
+            String member,
+            WorkspaceFileKind kind,
+            Path projectDirectory,
+            List<String> javaRoots,
+            List<String> groovyRoots,
+            List<String> kotlinRoots) {
         Path projectRoot = projectDirectory.toAbsolutePath().normalize();
         List<Entry> files = new ArrayList<>();
         addRootFiles(projectRoot, javaRoots, WorkspaceFileSnapshot::javaOrKotlin, files);
         addRootFiles(projectRoot, groovyRoots, WorkspaceFileSnapshot::groovyOrKotlin, files);
+        addRootFiles(projectRoot, kotlinRoots, WorkspaceFileSnapshot::kotlin, files);
         hasher.sweep(member, kind);
         return digest(member, kind, projectRoot, files);
     }

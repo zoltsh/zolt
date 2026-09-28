@@ -26,11 +26,16 @@ final class SourceRootLanguageTest {
     void generalAdmissionAndMigrationRecognitionStillRejectKotlin() {
         ManifestRelativePath kotlin = new ManifestRelativePath("src/test/kotlin");
 
+        assertEquals(kotlin, SourceRootLanguage.requireKotlinTestSupported(kotlin));
         assertEquals(
                 Optional.of(SourceRootLanguage.KOTLIN),
                 SourceRootLanguage.unsupported(kotlin.value()));
         assertThrows(
                 IllegalArgumentException.class,
                 () -> SourceRootLanguage.requireSupported(kotlin));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> SourceRootLanguage.requireKotlinTestSupported(
+                        new ManifestRelativePath("src/test/scala")));
     }
 }

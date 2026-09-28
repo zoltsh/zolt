@@ -64,8 +64,7 @@ public final class WorkspaceTestSchedule {
         Set<Path> sources = new LinkedHashSet<>();
         addSources(member, member.config().build().testSources(), ".java", sources);
         addSources(member, member.config().build().groovyTestSources(), ".groovy", sources);
-        addSources(member, member.config().build().testSources(), ".kt", sources);
-        addSources(member, member.config().build().groovyTestSources(), ".kt", sources);
+        addSources(member, member.config().build().kotlinTestSources(), ".kt", sources);
         return sources.size();
     }
 

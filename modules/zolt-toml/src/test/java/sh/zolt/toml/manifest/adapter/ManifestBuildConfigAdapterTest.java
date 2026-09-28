@@ -66,6 +66,7 @@ final class ManifestBuildConfigAdapterTest {
                 [test.sources]
                 java = ["src/test/java"]
                 groovy = ["src/test/groovy"]
+                kotlin = ["src/test/kotlin"]
 
                 [test.runtime]
                 jvmArgs = ["-Xmx2g"]
@@ -132,6 +133,7 @@ final class ManifestBuildConfigAdapterTest {
         assertEquals(List.of("skipped", "failed"), adapted.build().testRuntime().events());
         assertEquals(List.of("src/test/java"), adapted.build().testSources());
         assertEquals(List.of("src/test/groovy"), adapted.build().groovyTestSources());
+        assertEquals(List.of("src/test/kotlin"), adapted.build().kotlinTestSources());
 
         assertEquals(List.of("smoke"), List.copyOf(adapted.build().testSuites().keySet()));
         assertEquals(

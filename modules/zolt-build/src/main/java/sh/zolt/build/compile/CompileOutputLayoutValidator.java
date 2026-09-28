@@ -102,6 +102,7 @@ public final class CompileOutputLayoutValidator {
     private static boolean isIntegrationProjection(BuildSettings build) {
         return build.testOutput().equals(build.integrationTestOutput())
                 && build.testSources().equals(build.integrationTestSources())
+                && build.kotlinTestSources().isEmpty()
                 && build.testResourceRoots().equals(build.integrationTestResourceRoots());
     }
 
@@ -196,6 +197,7 @@ public final class CompileOutputLayoutValidator {
         addInputs(paths, root, "[build].sources", build.sourceRoots());
         addInputs(paths, root, "[test.sources].java", build.testSources());
         addInputs(paths, root, "[test.sources].groovy", build.groovyTestSources());
+        addInputs(paths, root, "[test.sources].kotlin", build.kotlinTestSources());
         addInputs(paths, root, "[test.integration].sources", build.integrationTestSources());
         addInputs(paths, root, "[resources].main", build.resourceRoots());
         addInputs(paths, root, "[resources].test", build.testResourceRoots());

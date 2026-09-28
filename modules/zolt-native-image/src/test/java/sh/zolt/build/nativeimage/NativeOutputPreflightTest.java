@@ -100,6 +100,7 @@ final class NativeOutputPreflightTest {
                 new Collision("zolt.lock", "native", null, "project lockfile"),
                 new Collision("src", "main/resources", null, "main resource root"),
                 new Collision("src", "test/java", null, "test source root"),
+                new Collision("src", "test/kotlin", null, "Kotlin test source root"),
                 new Collision("src", "integration-test/java", null, "integration-test source root"),
                 new Collision("target", "test-classes", null, "compiled test classes"),
                 new Collision("target", "integration-test-classes", null, "compiled integration-test classes"),
@@ -188,6 +189,9 @@ final class NativeOutputPreflightTest {
                 group = "com.example"
                 java = 21
                 main = "com.example.Main"
+
+                [test.sources]
+                kotlin = ["src/test/kotlin"]
 
                 [build.output]
                 root = "%s"

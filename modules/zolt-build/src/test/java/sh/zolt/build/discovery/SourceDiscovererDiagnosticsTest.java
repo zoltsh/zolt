@@ -114,6 +114,31 @@ final class SourceDiscovererDiagnosticsTest {
     }
 
     @Test
+    void rejectsKotlinTestSourceRootOutsideProject() {
+        BuildSettings defaults = BuildSettings.defaults();
+        SourceDiscoveryException exception = assertThrows(
+                SourceDiscoveryException.class,
+                () -> discoverer.discover(
+                        projectDir,
+                        new BuildSettings(
+                                defaults.source(),
+                                defaults.sourceRoots(),
+                                defaults.test(),
+                                defaults.outputRoot(),
+                                defaults.output(),
+                                defaults.testOutput(),
+                                defaults.testSources(),
+                                defaults.groovyTestSources(),
+                                List.of("../outside-kotlin"),
+                                defaults.resourceRoots(),
+                                defaults.testResourceRoots(),
+                                defaults.metadata())));
+
+        assertTrue(exception.getMessage().contains("[test.sources].kotlin"));
+        assertTrue(exception.getMessage().contains("../outside-kotlin"));
+    }
+
+    @Test
     void rejectsSourceSymlinkThatEscapesProject() throws IOException {
         Path outside = Files.createTempFile(projectDir.getParent(), "Outside-", ".java");
         Files.writeString(outside, "final class Outside {}\n");

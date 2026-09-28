@@ -111,15 +111,19 @@ final class WorkspaceFileSnapshotTest {
     }
 
     @Test
-    void testSourcesUseTheLanguageDeclaredForEachRoot() throws IOException {
+    void testSourcesObserveMisplacedKotlinForFailClosedDiscovery() throws IOException {
         Path project = root.resolve("modules/core");
         write(project.resolve("src/test/java/JavaTest.java"), "class JavaTest {}\n");
-        write(project.resolve("src/test/java/KotlinTest.kt"), "class KotlinTest\n");
+        write(project.resolve("src/test/java/Ignored.kt"), "class IgnoredKotlin\n");
         write(project.resolve("src/test/java/Ignored.groovy"), "class IgnoredGroovy {}\n");
         write(project.resolve("src/test/groovy/GroovySpec.groovy"), "class GroovySpec {}\n");
-        write(project.resolve("src/test/groovy/KotlinSpec.kt"), "class KotlinSpec\n");
+        write(project.resolve("src/test/groovy/Ignored.kt"), "class IgnoredKotlin\n");
         write(project.resolve("src/test/groovy/Ignored.java"), "class IgnoredJava {}\n");
         write(project.resolve("src/test/groovy/Ignored.kts"), "println(\"ignored\")\n");
+        write(project.resolve("src/test/kotlin/KotlinTest.kt"), "class KotlinTest\n");
+        write(project.resolve("src/test/kotlin/Ignored.java"), "class IgnoredJava {}\n");
+        write(project.resolve("src/test/kotlin/Ignored.groovy"), "class IgnoredGroovy {}\n");
+        write(project.resolve("src/test/kotlin/Ignored.kts"), "println(\"ignored\")\n");
 
         WorkspaceFileSnapshot snapshot = snapshot(WorkspaceFileState.empty(), false);
         WorkspaceFileSnapshot.TreeDigest digest = snapshot.testSources(
@@ -127,17 +131,22 @@ final class WorkspaceFileSnapshotTest {
                 WorkspaceFileKind.TEST_SOURCE,
                 project,
                 List.of("src/test/java"),
-                List.of("src/test/groovy"));
+                List.of("src/test/groovy"),
+                List.of("src/test/kotlin"));
 
-        assertEquals(4, digest.fileCount());
-        assertEquals(4, snapshot.state().files().size());
+        assertEquals(5, digest.fileCount());
+        assertEquals(5, snapshot.state().files().size());
         assertTrue(snapshot.state().file("modules/core/src/test/java/JavaTest.java").isPresent());
-        assertTrue(snapshot.state().file("modules/core/src/test/java/KotlinTest.kt").isPresent());
         assertTrue(snapshot.state().file("modules/core/src/test/groovy/GroovySpec.groovy").isPresent());
-        assertTrue(snapshot.state().file("modules/core/src/test/groovy/KotlinSpec.kt").isPresent());
+        assertTrue(snapshot.state().file("modules/core/src/test/kotlin/KotlinTest.kt").isPresent());
+        assertTrue(snapshot.state().file("modules/core/src/test/java/Ignored.kt").isPresent());
         assertTrue(snapshot.state().file("modules/core/src/test/java/Ignored.groovy").isEmpty());
+        assertTrue(snapshot.state().file("modules/core/src/test/groovy/Ignored.kt").isPresent());
         assertTrue(snapshot.state().file("modules/core/src/test/groovy/Ignored.java").isEmpty());
         assertTrue(snapshot.state().file("modules/core/src/test/groovy/Ignored.kts").isEmpty());
+        assertTrue(snapshot.state().file("modules/core/src/test/kotlin/Ignored.java").isEmpty());
+        assertTrue(snapshot.state().file("modules/core/src/test/kotlin/Ignored.groovy").isEmpty());
+        assertTrue(snapshot.state().file("modules/core/src/test/kotlin/Ignored.kts").isEmpty());
     }
 
     @Test

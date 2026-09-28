@@ -149,6 +149,30 @@ final class PackageMetadataQualityCheckTest extends PackageQualityCheckTestSuppo
     @Test
     void metadataTreatsKotlinAsATestSourceForTestsJarPolicy() throws IOException {
         Path projectDir = tempDir.resolve("missing-tests-kotlin");
+        Files.createDirectories(projectDir.resolve("src/test/kotlin/com/example"));
+        Files.writeString(
+                projectDir.resolve("src/test/kotlin/com/example/ApiTest.kt"),
+                "package com.example\nclass ApiTest\n");
+        ProjectConfig config = parseProject(projectDir, """
+
+                [test.sources]
+                kotlin = ["src/test/kotlin"]
+
+                [package]
+                sources = true
+                javadoc = true
+                """);
+
+        QualityCheckResult result = check.checkMetadata(Optional.empty(), projectDir, config);
+
+        assertEquals("[package].testJar", result.subject());
+        assertEquals(QualityCheckStatus.FAILED, result.status());
+    }
+
+    @Test
+    void metadataDoesNotTreatKotlinOutsideConfiguredKotlinRootsAsATestSource()
+            throws IOException {
+        Path projectDir = tempDir.resolve("misplaced-kotlin-test");
         Files.createDirectories(projectDir.resolve("src/test/java/com/example"));
         Files.writeString(
                 projectDir.resolve("src/test/java/com/example/ApiTest.kt"),
@@ -162,8 +186,7 @@ final class PackageMetadataQualityCheckTest extends PackageQualityCheckTestSuppo
 
         QualityCheckResult result = check.checkMetadata(Optional.empty(), projectDir, config);
 
-        assertEquals("[package].testJar", result.subject());
-        assertEquals(QualityCheckStatus.FAILED, result.status());
+        assertEquals(QualityCheckStatus.PASSED, result.status());
     }
 
     @Test

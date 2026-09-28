@@ -14,8 +14,6 @@ import sh.zolt.project.PublicationMetadata;
 import sh.zolt.quality.QualityCheckResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -72,7 +70,7 @@ public final class PackageQualityCheck {
                     "Library package metadata is enabled, but javadoc jar generation is disabled.",
                     "Set [package].javadoc = true when publishing Java APIs.");
         }
-        if (hasSourceFiles(projectRoot, testSourceRoots(config.build())) && !settings.tests()) {
+        if (hasTestSourceFiles(projectRoot, config.build()) && !settings.tests()) {
             return QualityCheckResult.failed(
                     PACKAGE_METADATA,
                     member,
@@ -250,12 +248,36 @@ public final class PackageQualityCheck {
                 "Fill " + field + " in zolt.toml."));
     }
 
-    private static List<String> testSourceRoots(BuildSettings build) {
-        List<String> roots = new ArrayList<>();
-        roots.add(build.test());
-        roots.addAll(build.testSources());
-        roots.addAll(build.groovyTestSources());
-        return List.copyOf(new LinkedHashSet<>(roots));
+    private static boolean hasTestSourceFiles(Path projectRoot, BuildSettings build) {
+        return hasSourceFiles(projectRoot, build.testSources(), ".java")
+                || hasSourceFiles(projectRoot, build.groovyTestSources(), ".groovy")
+                || hasSourceFiles(projectRoot, build.kotlinTestSources(), ".kt");
+    }
+
+    private static boolean hasSourceFiles(
+            Path projectRoot,
+            List<String> roots,
+            String extension) {
+        Path normalizedRoot = projectRoot.toAbsolutePath().normalize();
+        for (String root : roots) {
+            if (root == null || root.isBlank()) {
+                continue;
+            }
+            Path sourceRoot = normalizedRoot.resolve(root).normalize();
+            if (!sourceRoot.startsWith(normalizedRoot) || !Files.isDirectory(sourceRoot)) {
+                continue;
+            }
+            try (var stream = Files.find(sourceRoot, Integer.MAX_VALUE, (path, attributes) ->
+                    attributes.isRegularFile()
+                            && path.getFileName().toString().endsWith(extension))) {
+                if (stream.findFirst().isPresent()) {
+                    return true;
+                }
+            } catch (java.io.IOException exception) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean hasSourceFiles(Path projectRoot, List<String> roots) {

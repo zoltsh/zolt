@@ -15,6 +15,7 @@ public record BuildSettings(
         String testOutput,
         List<String> testSources,
         List<String> groovyTestSources,
+        List<String> kotlinTestSources,
         String integrationTestOutput,
         List<String> integrationTestSources,
         List<String> integrationTestResourceRoots,
@@ -40,6 +41,7 @@ public record BuildSettings(
         outputRoot = outputRoot == null ? DEFAULT_OUTPUT_ROOT : outputRoot;
         testSources = copyOrDefault(testSources, List.of(test));
         groovyTestSources = copyOrDefault(groovyTestSources, List.of());
+        kotlinTestSources = copyOrDefault(kotlinTestSources, List.of());
         integrationTestOutput = integrationTestOutput == null ? outputRoot + "/integration-test-classes" : integrationTestOutput;
         integrationTestSources = copyOrDefault(integrationTestSources, DEFAULT_INTEGRATION_TEST_SOURCES);
         integrationTestResourceRoots = copyOrDefault(integrationTestResourceRoots, DEFAULT_INTEGRATION_TEST_RESOURCES);
@@ -51,6 +53,50 @@ public record BuildSettings(
         metadata = metadata == null ? BuildMetadataSettings.defaults() : metadata;
         generatedMainSources = copyOrDefault(generatedMainSources, List.of());
         generatedTestSources = copyOrDefault(generatedTestSources, List.of());
+    }
+
+    /** Compatibility constructor for callers that predate explicit Kotlin unit-test roots. */
+    public BuildSettings(
+            String source,
+            List<String> sourceRoots,
+            String test,
+            String outputRoot,
+            String output,
+            String testOutput,
+            List<String> testSources,
+            List<String> groovyTestSources,
+            String integrationTestOutput,
+            List<String> integrationTestSources,
+            List<String> integrationTestResourceRoots,
+            List<String> resourceRoots,
+            List<String> testResourceRoots,
+            ResourceFilteringSettings resourceFiltering,
+            TestRuntimeSettings testRuntime,
+            Map<String, TestSuiteSettings> testSuites,
+            BuildMetadataSettings metadata,
+            List<GeneratedSourceStep> generatedMainSources,
+            List<GeneratedSourceStep> generatedTestSources) {
+        this(
+                source,
+                sourceRoots,
+                test,
+                outputRoot,
+                output,
+                testOutput,
+                testSources,
+                groovyTestSources,
+                List.of(),
+                integrationTestOutput,
+                integrationTestSources,
+                integrationTestResourceRoots,
+                resourceRoots,
+                testResourceRoots,
+                resourceFiltering,
+                testRuntime,
+                testSuites,
+                metadata,
+                generatedMainSources,
+                generatedTestSources);
     }
 
     public BuildSettings(
@@ -68,6 +114,25 @@ public record BuildSettings(
                 resourceRoots, testResourceRoots, ResourceFilteringSettings.defaults(), TestRuntimeSettings.defaults(),
                 Map.of(),
                 metadata, List.of(), List.of());
+    }
+
+    public BuildSettings(
+            String source,
+            List<String> sourceRoots,
+            String test,
+            String outputRoot,
+            String output,
+            String testOutput,
+            List<String> testSources,
+            List<String> groovyTestSources,
+            List<String> kotlinTestSources,
+            List<String> resourceRoots,
+            List<String> testResourceRoots,
+            BuildMetadataSettings metadata) {
+        this(source, sourceRoots, test, outputRoot, output, testOutput, testSources, groovyTestSources,
+                kotlinTestSources, null, null, null, resourceRoots, testResourceRoots,
+                ResourceFilteringSettings.defaults(), TestRuntimeSettings.defaults(), Map.of(), metadata,
+                List.of(), List.of());
     }
 
     public BuildSettings(
@@ -211,6 +276,7 @@ public record BuildSettings(
             List<GeneratedSourceStep> generatedMainSources,
             List<GeneratedSourceStep> generatedTestSources) {
         return new BuildSettings(source, sourceRoots, test, outputRoot, output, testOutput, testSources, groovyTestSources,
+                kotlinTestSources,
                 integrationTestOutput, integrationTestSources, integrationTestResourceRoots, resourceRoots,
                 testResourceRoots, resourceFiltering, testRuntime, testSuites, metadata, generatedMainSources,
                 generatedTestSources);
@@ -218,6 +284,7 @@ public record BuildSettings(
 
     public BuildSettings withResourceFiltering(ResourceFilteringSettings resourceFiltering) {
         return new BuildSettings(source, sourceRoots, test, outputRoot, output, testOutput, testSources, groovyTestSources,
+                kotlinTestSources,
                 integrationTestOutput, integrationTestSources, integrationTestResourceRoots, resourceRoots,
                 testResourceRoots, resourceFiltering, testRuntime, testSuites, metadata, generatedMainSources,
                 generatedTestSources);
@@ -225,6 +292,7 @@ public record BuildSettings(
 
     public BuildSettings withTestRuntime(TestRuntimeSettings testRuntime) {
         return new BuildSettings(source, sourceRoots, test, outputRoot, output, testOutput, testSources, groovyTestSources,
+                kotlinTestSources,
                 integrationTestOutput, integrationTestSources, integrationTestResourceRoots, resourceRoots,
                 testResourceRoots, resourceFiltering, testRuntime, testSuites, metadata, generatedMainSources,
                 generatedTestSources);
@@ -232,6 +300,7 @@ public record BuildSettings(
 
     public BuildSettings withTestSuites(Map<String, TestSuiteSettings> testSuites) {
         return new BuildSettings(source, sourceRoots, test, outputRoot, output, testOutput, testSources, groovyTestSources,
+                kotlinTestSources,
                 integrationTestOutput, integrationTestSources, integrationTestResourceRoots, resourceRoots,
                 testResourceRoots, resourceFiltering, testRuntime, testSuites, metadata, generatedMainSources,
                 generatedTestSources);
@@ -242,6 +311,7 @@ public record BuildSettings(
             List<String> integrationTestSources,
             List<String> integrationTestResourceRoots) {
         return new BuildSettings(source, sourceRoots, test, outputRoot, output, testOutput, testSources, groovyTestSources,
+                kotlinTestSources,
                 integrationTestOutput, integrationTestSources, integrationTestResourceRoots, resourceRoots,
                 testResourceRoots, resourceFiltering, testRuntime, testSuites, metadata, generatedMainSources,
                 generatedTestSources);
@@ -250,7 +320,7 @@ public record BuildSettings(
     public BuildSettings asIntegrationTestBuild() {
         return new BuildSettings(source, sourceRoots,
                 integrationTestSources.isEmpty() ? "src/integration-test/java" : integrationTestSources.getFirst(),
-                outputRoot, output, integrationTestOutput, integrationTestSources, List.of(), integrationTestOutput,
+                outputRoot, output, integrationTestOutput, integrationTestSources, List.of(), List.of(), integrationTestOutput,
                 integrationTestSources, integrationTestResourceRoots, resourceRoots, integrationTestResourceRoots,
                 resourceFiltering, testRuntime, testSuites, metadata, generatedMainSources, generatedTestSources);
     }

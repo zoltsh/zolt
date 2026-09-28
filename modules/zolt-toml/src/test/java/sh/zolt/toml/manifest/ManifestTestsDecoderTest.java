@@ -42,6 +42,7 @@ final class ManifestTestsDecoderTest {
         AuthoredTests tests = decode("""
                 [test.sources]
                 java = ["src/custom-test/java"]
+                kotlin = ["src/custom-test/kotlin"]
 
                 [test.runtime]
                 events = ["failed"]
@@ -59,6 +60,7 @@ final class ManifestTestsDecoderTest {
         AuthoredTests.Sources sources = tests.sources().orElseThrow();
         assertEquals(List.of(path("src/custom-test/java")), sources.java());
         assertTrue(sources.groovy().isEmpty());
+        assertEquals(List.of(path("src/custom-test/kotlin")), sources.kotlin());
         AuthoredTestRuntime runtime = tests.runtime().orElseThrow();
         assertTrue(runtime.jvmArgs().isEmpty());
         assertTrue(runtime.properties().isEmpty());
@@ -119,7 +121,13 @@ final class ManifestTestsDecoderTest {
                 "[test.sources]\njava = [\"src/test/kotlin\"]\n",
                 "`test.sources.java[0]`",
                 "Unsupported Kotlin source root `src/test/kotlin`",
-                "only for explicitly authored main roots in [build].sources");
+                "unit-test roots in [test.sources].kotlin");
+        AuthoredTests kotlin = decode(
+                "[test.sources]\nkotlin = [\"src/test/kotlin\"]\n")
+                .orElseThrow();
+        assertEquals(
+                List.of(path("src/test/kotlin")),
+                kotlin.sources().orElseThrow().kotlin());
         assertFailure(
                 "[test.sources]\ngroovy = [\"src/test/scala\"]\n",
                 "`test.sources.groovy[0]`",

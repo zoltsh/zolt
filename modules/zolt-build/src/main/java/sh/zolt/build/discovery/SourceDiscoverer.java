@@ -33,17 +33,67 @@ public final class SourceDiscoverer {
         List<SourceRoot> authoredGroovyTestRoots = settings.groovyTestSources().stream()
                 .map(root -> inputRoot(projectRoot, "[test.sources].groovy", root))
                 .toList();
-        List<SourceRoot> authoredKotlinTestRoots = new ArrayList<>(authoredTestRoots);
-        authoredKotlinTestRoots.addAll(authoredGroovyTestRoots);
+        List<SourceRoot> authoredKotlinTestRoots = settings.kotlinTestSources().stream()
+                .map(root -> inputRoot(projectRoot, "[test.sources].kotlin", root))
+                .toList();
         List<SourceRoot> testRoots = new ArrayList<>(authoredTestRoots);
         testRoots.addAll(generatedRoots(projectRoot, settings.generatedTestSources(), "test"));
+        List<Path> kotlinTestSources = discoverSources(
+                projectRoot, authoredKotlinTestRoots, output, testOutput, ".kt");
+        rejectMisplacedKotlinTests(
+                projectRoot,
+                authoredTestRoots,
+                authoredGroovyTestRoots,
+                kotlinTestSources,
+                output,
+                testOutput,
+                isIntegrationProjection(settings));
         return new SourceDiscoveryResult(
                 discoverSources(projectRoot, mainRoots, output, testOutput, ".java"),
                 discoverSources(projectRoot, authoredMainRoots, output, testOutput, ".groovy"),
                 discoverSources(projectRoot, authoredMainRoots, output, testOutput, ".kt"),
                 discoverSources(projectRoot, testRoots, output, testOutput, ".java"),
                 discoverSources(projectRoot, authoredGroovyTestRoots, output, testOutput, ".groovy"),
-                discoverSources(projectRoot, authoredKotlinTestRoots, output, testOutput, ".kt"));
+                kotlinTestSources);
+    }
+
+    private static void rejectMisplacedKotlinTests(
+            Path projectRoot,
+            List<SourceRoot> javaRoots,
+            List<SourceRoot> groovyRoots,
+            List<Path> configuredKotlinSources,
+            Path output,
+            Path testOutput,
+            boolean integrationProjection) {
+        List<SourceRoot> legacyRoots = new ArrayList<>(javaRoots);
+        legacyRoots.addAll(groovyRoots);
+        Set<Path> admitted = Set.copyOf(configuredKotlinSources);
+        List<Path> misplaced = discoverSources(projectRoot, legacyRoots, output, testOutput, ".kt")
+                .stream()
+                .filter(source -> !admitted.contains(source))
+                .toList();
+        if (misplaced.isEmpty()) {
+            return;
+        }
+        Path first = misplaced.getFirst();
+        String displayed = projectRoot.relativize(first).toString().replace('\\', '/');
+        if (integrationProjection) {
+            throw new SourceDiscoveryException(
+                    "Kotlin integration-test source `" + displayed
+                            + "` is not supported. Keep integration-test sources Java-only; "
+                            + "[test.sources].kotlin configures unit tests only.");
+        }
+        throw new SourceDiscoveryException(
+                "Kotlin test source `" + displayed
+                        + "` is under a Java or Groovy test root, but Kotlin test roots are explicit. "
+                        + "Move it under a root declared in [test.sources].kotlin or declare its current root there.");
+    }
+
+    private static boolean isIntegrationProjection(BuildSettings settings) {
+        return settings.testOutput().equals(settings.integrationTestOutput())
+                && settings.testSources().equals(settings.integrationTestSources())
+                && settings.kotlinTestSources().isEmpty()
+                && settings.testResourceRoots().equals(settings.integrationTestResourceRoots());
     }
 
     private static List<SourceRoot> generatedRoots(
