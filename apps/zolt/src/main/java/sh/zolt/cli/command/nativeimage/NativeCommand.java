@@ -1,9 +1,7 @@
 package sh.zolt.cli.command.nativeimage;
 
 import sh.zolt.build.BuildException;
-import sh.zolt.build.GroovyCompileException;
-import sh.zolt.build.JavacException;
-import sh.zolt.build.KotlinCompileException;
+import sh.zolt.build.SourceCompileException;
 import sh.zolt.build.ManifestGenerationException;
 import sh.zolt.build.PackageException;
 import sh.zolt.build.ResourceCopyException;
@@ -169,9 +167,7 @@ public final class NativeCommand implements Runnable {
             output.provenance(CommandBuildProvenance.read(projectRoot));
             progress.result("Built native binary at " + result.nativeImageResult().outputBinary());
         } catch (BuildException
-                | JavacException
-                | GroovyCompileException
-                | KotlinCompileException
+                | SourceCompileException
                 | ManifestGenerationException
                 | NativeImageException
                 | PackageException

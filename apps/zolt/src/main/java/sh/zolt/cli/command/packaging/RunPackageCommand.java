@@ -1,10 +1,8 @@
 package sh.zolt.cli.command.packaging;
 
 import sh.zolt.build.BuildException;
-import sh.zolt.build.GroovyCompileException;
 import sh.zolt.build.JavaRunException;
-import sh.zolt.build.JavacException;
-import sh.zolt.build.KotlinCompileException;
+import sh.zolt.build.SourceCompileException;
 import sh.zolt.build.ManifestGenerationException;
 import sh.zolt.build.PackageException;
 import sh.zolt.build.ResourceCopyException;
@@ -146,9 +144,7 @@ public final class RunPackageCommand implements Runnable {
             }
             runSinglePackage(context, timings, packageModeOverride);
         } catch (BuildException
-                | JavacException
-                | GroovyCompileException
-                | KotlinCompileException
+                | SourceCompileException
                 | JavaRunException
                 | ManifestGenerationException
                 | PackageException

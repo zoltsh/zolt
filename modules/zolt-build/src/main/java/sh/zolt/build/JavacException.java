@@ -3,7 +3,7 @@ package sh.zolt.build;
 import sh.zolt.error.ActionableError;
 import sh.zolt.error.HasActionableError;
 
-public final class JavacException extends RuntimeException implements HasActionableError {
+public final class JavacException extends SourceCompileException implements HasActionableError {
     private final transient ActionableError error;
 
     public JavacException(String message) {

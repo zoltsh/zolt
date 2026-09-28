@@ -1,6 +1,6 @@
 package sh.zolt.build;
 
-public final class GroovyCompileException extends RuntimeException {
+public final class GroovyCompileException extends SourceCompileException {
     public GroovyCompileException(String message) {
         super(message);
     }

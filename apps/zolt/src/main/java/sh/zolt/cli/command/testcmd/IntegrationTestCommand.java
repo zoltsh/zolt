@@ -3,10 +3,8 @@ package sh.zolt.cli.command.testcmd;
 import sh.zolt.build.BuildException;
 import sh.zolt.build.BuildResultWithClasspaths;
 import sh.zolt.build.compile.CompileOutputLayoutValidator;
-import sh.zolt.build.GroovyCompileException;
 import sh.zolt.build.JavaRunException;
-import sh.zolt.build.JavacException;
-import sh.zolt.build.KotlinCompileException;
+import sh.zolt.build.SourceCompileException;
 import sh.zolt.build.ResourceCopyException;
 import sh.zolt.build.SourceDiscoveryException;
 import sh.zolt.build.testruntime.compile.TestCompileResult;
@@ -177,9 +175,7 @@ public final class IntegrationTestCommand implements Runnable {
             runSingleProjectIntegrationTests(
                     context, timings, testSelection, testJvmArguments, requestedTestEvents);
         } catch (BuildException
-                | JavacException
-                | GroovyCompileException
-                | KotlinCompileException
+                | SourceCompileException
                 | JavaRunException
                 | ResourceCopyException
                 | TestRunException

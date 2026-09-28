@@ -2,10 +2,8 @@ package sh.zolt.cli.command.testcmd;
 
 import sh.zolt.build.BuildException;
 import sh.zolt.build.BuildResultWithClasspaths;
-import sh.zolt.build.GroovyCompileException;
 import sh.zolt.build.JavaRunException;
-import sh.zolt.build.JavacException;
-import sh.zolt.build.KotlinCompileException;
+import sh.zolt.build.SourceCompileException;
 import sh.zolt.build.ResourceCopyException;
 import sh.zolt.build.SourceDiscoveryException;
 import sh.zolt.build.testruntime.*;
@@ -188,9 +186,7 @@ public final class TestCommand implements Runnable {
                 runSingleProjectTests(context, timings, CommandProgress.human(spec), request);
             }
         } catch (BuildException
-                | JavacException
-                | GroovyCompileException
-                | KotlinCompileException
+                | SourceCompileException
                 | JavaRunException
                 | ResourceCopyException
                 | TestRunException

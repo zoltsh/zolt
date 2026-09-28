@@ -1,9 +1,7 @@
 package sh.zolt.cli.command.packaging;
 
 import sh.zolt.build.BuildException;
-import sh.zolt.build.GroovyCompileException;
-import sh.zolt.build.JavacException;
-import sh.zolt.build.KotlinCompileException;
+import sh.zolt.build.SourceCompileException;
 import sh.zolt.build.ManifestGenerationException;
 import sh.zolt.build.PackageException;
 import sh.zolt.build.ResourceCopyException;
@@ -76,9 +74,7 @@ public final class SelfParityCommand implements Runnable {
             output.context("Zolt-built jar", result.zoltJar().toString());
             output.statusDetail("ok", "Jar entries match");
         } catch (BuildException
-                | JavacException
-                | GroovyCompileException
-                | KotlinCompileException
+                | SourceCompileException
                 | ManifestGenerationException
                 | PackageException
                 | ResourceCopyException

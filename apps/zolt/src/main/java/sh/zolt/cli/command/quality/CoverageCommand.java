@@ -5,10 +5,8 @@ import sh.zolt.build.CoverageException;
 import sh.zolt.build.coverage.CoverageReportSettings;
 import sh.zolt.build.coverage.CoverageResult;
 import sh.zolt.build.coverage.CoverageService;
-import sh.zolt.build.GroovyCompileException;
 import sh.zolt.build.JavaRunException;
-import sh.zolt.build.JavacException;
-import sh.zolt.build.KotlinCompileException;
+import sh.zolt.build.SourceCompileException;
 import sh.zolt.build.ResourceCopyException;
 import sh.zolt.build.SourceDiscoveryException;
 import sh.zolt.test.runtime.TestRunException;
@@ -219,9 +217,7 @@ public final class CoverageCommand implements Runnable {
                     result.xmlReport());
         } catch (BuildException
                 | CoverageException
-                | JavacException
-                | GroovyCompileException
-                | KotlinCompileException
+                | SourceCompileException
                 | JavaRunException
                 | ResourceCopyException
                 | TestRunException

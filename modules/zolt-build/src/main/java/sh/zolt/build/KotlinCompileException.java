@@ -1,6 +1,6 @@
 package sh.zolt.build;
 
-public final class KotlinCompileException extends RuntimeException {
+public final class KotlinCompileException extends SourceCompileException {
     public KotlinCompileException(String message) {
         super(message);
     }
