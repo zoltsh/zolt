@@ -145,7 +145,7 @@ public final class BuildPlanService {
                 "compile-main",
                 "compile",
                 PlanNodeStatus.READY,
-                "Compile main Java sources with Zolt-owned javac inputs.",
+                "Compile configured main sources with Zolt-owned compiler inputs.",
                 mainCompileInputs(build),
                 List.of(build.output()),
                 List.of("sources: " + build.sourceRoots()),

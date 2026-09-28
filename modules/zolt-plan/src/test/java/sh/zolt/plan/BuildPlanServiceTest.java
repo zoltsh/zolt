@@ -71,6 +71,39 @@ final class BuildPlanServiceTest {
     }
 
     @Test
+    void plansConfiguredGroovyMainSourcesWithCompilerNeutralWording() throws IOException {
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
+        BuildSettings defaults = BuildSettings.defaults();
+        BuildSettings build = new BuildSettings(
+                "src/main/groovy",
+                List.of("src/main/groovy"),
+                defaults.test(),
+                defaults.outputRoot(),
+                defaults.output(),
+                defaults.testOutput(),
+                defaults.testSources(),
+                defaults.groovyTestSources(),
+                defaults.resourceRoots(),
+                defaults.testResourceRoots(),
+                defaults.metadata());
+        ProjectConfig config = ProjectConfigs.withDirectDependencies(
+                new ProjectMetadata("demo", "1.0.0", "com.example", "21", Optional.empty()),
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                build);
+
+        BuildPlan plan = service.plan(projectDir, config, PlanTarget.BUILD, Optional.empty());
+
+        PlanNode compile = node(plan, "compile-main");
+        assertEquals(
+                "Compile configured main sources with Zolt-owned compiler inputs.",
+                compile.description());
+        assertEquals(List.of("src/main/groovy"), compile.inputs());
+        assertEquals(List.of("sources: [src/main/groovy]"), compile.details());
+    }
+
+    @Test
     void plansResourceFilteringAndTestRuntimeDetailsDeterministically() throws IOException {
         Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Map<String, ResourceTokenSettings> tokens = new LinkedHashMap<>();
