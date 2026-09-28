@@ -44,8 +44,7 @@ final class ManifestTestRootsDecoderTest {
                 List.of(path("src/z-test/groovy"), path("src/a-test/groovy")),
                 sources.groovy());
         assertEquals(
-                List.of(path("src/z-test/kotlin"), path("src/a-test/kotlin")),
-                sources.kotlin());
+                List.of(path("src/z-test/kotlin"), path("src/a-test/kotlin")), sources.kotlin());
         assertEquals(
                 List.of(path("src/z-integration/java"), path("src/a-integration/java")),
                 integration.sources());
@@ -66,8 +65,7 @@ final class ManifestTestRootsDecoderTest {
         assertEquals(
                 List.of(path("custom/groovy")),
                 sources("groovy = [\"custom/groovy\"]\n").orElseThrow().groovy());
-        assertEquals(
-                List.of(path("custom/kotlin")),
+        assertEquals(List.of(path("custom/kotlin")),
                 sources("kotlin = [\"custom/kotlin\"]\n").orElseThrow().kotlin());
         assertEquals(
                 List.of(path("custom/integration")),
@@ -108,8 +106,7 @@ final class ManifestTestRootsDecoderTest {
         assertSourcesFailure(
                 "groovy = [\"custom/groovy\", \"custom/groovy\"]\n",
                 "`test.sources.groovy[1]`");
-        assertSourcesFailure(
-                "kotlin = [\"custom/kotlin\", \"custom/kotlin\"]\n",
+        assertSourcesFailure("kotlin = [\"custom/kotlin\", \"custom/kotlin\"]\n",
                 "`test.sources.kotlin[1]`");
         assertIntegrationFailure(
                 "sources = [\"custom/java\", \"custom/java\"]\n",

@@ -32,12 +32,7 @@ final class CompileOutputLayoutValidatorTest {
     void mainOutputCannotOwnProjectLockfile() throws IOException {
         Path lockfile = projectDir.resolve("zolt.lock");
         Files.writeString(lockfile, "sentinel\n");
-        BuildSettings build = new BuildSettings(
-                "src/main/java",
-                "src/test/java",
-                "target",
-                "zolt.lock",
-                "target/test-classes");
+        BuildSettings build = buildWithOutputs("zolt.lock", "target/test-classes");
         ProjectConfig config = config(build, CompilerSettings.defaults());
 
         BuildException exception = assertThrows(
@@ -76,12 +71,7 @@ final class CompileOutputLayoutValidatorTest {
     void testOutputCannotOwnProjectLockfile() throws IOException {
         Path lockfile = projectDir.resolve("zolt.lock");
         Files.writeString(lockfile, "sentinel\n");
-        BuildSettings build = new BuildSettings(
-                "src/main/java",
-                "src/test/java",
-                "target",
-                "target/classes",
-                "zolt.lock");
+        BuildSettings build = buildWithOutputs("target/classes", "zolt.lock");
         ProjectConfig config = config(build, CompilerSettings.defaults());
 
         BuildException exception = assertThrows(
@@ -116,12 +106,7 @@ final class CompileOutputLayoutValidatorTest {
         Path source = projectDir.resolve("src/main/java/compiled/p/Main.java");
         Files.createDirectories(source.getParent());
         Files.writeString(source, "package p; public final class Main {}\n");
-        BuildSettings build = new BuildSettings(
-                "src/main/java",
-                "src/test/java",
-                "target",
-                "src/main/java/compiled",
-                "target/test-classes");
+        BuildSettings build = buildWithOutputs("src/main/java/compiled", "target/test-classes");
 
         BuildException exception = assertThrows(
                 BuildException.class,
@@ -160,17 +145,11 @@ final class CompileOutputLayoutValidatorTest {
     @Test
     void testOutputCannotBeNestedInsideTestSourceRoot() throws IOException {
         Files.createDirectories(projectDir.resolve("src/test/java"));
-        BuildSettings build = new BuildSettings(
-                "src/main/java",
-                "src/test/java",
-                "target",
-                "target/classes",
-                "src/test/java/compiled");
+        BuildSettings build = buildWithOutputs("target/classes", "src/test/java/compiled");
 
         BuildException exception = assertThrows(
                 BuildException.class,
-                () -> CompileOutputLayoutValidator.validateTest(
-                        projectDir, config(build, CompilerSettings.defaults())));
+                () -> validateTest(build));
 
         assertTrue(exception.getMessage().contains("[build.output].test"), exception.getMessage());
         assertTrue(exception.getMessage().contains("[test.sources].java[0]"), exception.getMessage());
@@ -189,22 +168,13 @@ final class CompileOutputLayoutValidatorTest {
                 defaults.testSources(),
                 defaults.groovyTestSources(),
                 List.of("src/test/kotlin"),
-                defaults.integrationTestOutput(),
-                defaults.integrationTestSources(),
-                defaults.integrationTestResourceRoots(),
                 defaults.resourceRoots(),
                 defaults.testResourceRoots(),
-                defaults.resourceFiltering(),
-                defaults.testRuntime(),
-                defaults.testSuites(),
-                defaults.metadata(),
-                defaults.generatedMainSources(),
-                defaults.generatedTestSources());
+                defaults.metadata());
 
         BuildException exception = assertThrows(
                 BuildException.class,
-                () -> CompileOutputLayoutValidator.validateTest(
-                        projectDir, config(build, CompilerSettings.defaults())));
+                () -> validateTest(build));
 
         assertTrue(exception.getMessage().contains("[build.output].test"), exception.getMessage());
         assertTrue(exception.getMessage().contains("[test.sources].kotlin[0]"), exception.getMessage());
@@ -240,17 +210,11 @@ final class CompileOutputLayoutValidatorTest {
     @Test
     void testOutputCannotOverlapMainOutput() throws IOException {
         Files.createDirectories(projectDir.resolve("target/classes"));
-        BuildSettings build = new BuildSettings(
-                "src/main/java",
-                "src/test/java",
-                "target",
-                "target/classes",
-                "target/classes/tests");
+        BuildSettings build = buildWithOutputs("target/classes", "target/classes/tests");
 
         BuildException exception = assertThrows(
                 BuildException.class,
-                () -> CompileOutputLayoutValidator.validateTest(
-                        projectDir, config(build, CompilerSettings.defaults())));
+                () -> validateTest(build));
 
         assertTrue(exception.getMessage().contains("overlaps another compile scope"), exception.getMessage());
         assertTrue(exception.getMessage().contains("[build.output].main"), exception.getMessage());
@@ -266,17 +230,11 @@ final class CompileOutputLayoutValidatorTest {
         } catch (UnsupportedOperationException | IOException exception) {
             assumeTrue(false, "symbolic links are unavailable: " + exception.getMessage());
         }
-        BuildSettings build = new BuildSettings(
-                "src/main/java",
-                "src/test/java",
-                "target",
-                "classes-link",
-                "target/test-classes");
+        BuildSettings build = buildWithOutputs("classes-link", "target/test-classes");
 
         BuildException exception = assertThrows(
                 BuildException.class,
-                () -> CompileOutputLayoutValidator.validateMain(
-                        projectDir, config(build, CompilerSettings.defaults())));
+                () -> validateMain(build));
 
         assertTrue(exception.getMessage().contains("contains protected project input"), exception.getMessage());
     }
@@ -287,17 +245,11 @@ final class CompileOutputLayoutValidatorTest {
         Files.createDirectories(sourceRoot);
         Path outputAlias = projectDir.resolve("classes-link");
         createSymlink(outputAlias, sourceRoot);
-        BuildSettings build = new BuildSettings(
-                "src/main/java",
-                "src/test/java",
-                "target",
-                "classes-link/compiled",
-                "target/test-classes");
+        BuildSettings build = buildWithOutputs("classes-link/compiled", "target/test-classes");
 
         BuildException exception = assertThrows(
                 BuildException.class,
-                () -> CompileOutputLayoutValidator.validateMain(
-                        projectDir, config(build, CompilerSettings.defaults())));
+                () -> validateMain(build));
 
         assertTrue(exception.getMessage().contains("is nested within protected project input"), exception.getMessage());
     }
@@ -386,10 +338,8 @@ final class CompileOutputLayoutValidatorTest {
                 "target/classes",
                 "target/test-classes");
 
-        assertDoesNotThrow(() -> CompileOutputLayoutValidator.validateMain(
-                projectDir, config(build, CompilerSettings.defaults())));
-        assertDoesNotThrow(() -> CompileOutputLayoutValidator.validateTest(
-                projectDir, config(build, CompilerSettings.defaults())));
+        assertDoesNotThrow(() -> validateMain(build));
+        assertDoesNotThrow(() -> validateTest(build));
     }
 
     @Test
@@ -403,8 +353,7 @@ final class CompileOutputLayoutValidatorTest {
 
         BuildException exception = assertThrows(
                 BuildException.class,
-                () -> CompileOutputLayoutValidator.validateMain(
-                        projectDir, config(build, CompilerSettings.defaults())));
+                () -> validateMain(build));
 
         assertTrue(exception.getMessage().contains("[build].sources[0]"), exception.getMessage());
     }
@@ -427,12 +376,24 @@ final class CompileOutputLayoutValidatorTest {
                 BuildMetadataSettings.defaults());
     }
 
+    private static BuildSettings buildWithOutputs(String mainOutput, String testOutput) {
+        return new BuildSettings("src/main/java", "src/test/java", "target", mainOutput, testOutput);
+    }
+
     private static void createSymlink(Path link, Path target) throws IOException {
         try {
             Files.createSymbolicLink(link, target);
         } catch (UnsupportedOperationException | IOException exception) {
             assumeTrue(false, "symbolic links are unavailable: " + exception.getMessage());
         }
+    }
+
+    private void validateMain(BuildSettings build) {
+        CompileOutputLayoutValidator.validateMain(projectDir, config(build, CompilerSettings.defaults()));
+    }
+
+    private void validateTest(BuildSettings build) {
+        CompileOutputLayoutValidator.validateTest(projectDir, config(build, CompilerSettings.defaults()));
     }
 
     private static ProjectConfig config(BuildSettings build, CompilerSettings compiler) {

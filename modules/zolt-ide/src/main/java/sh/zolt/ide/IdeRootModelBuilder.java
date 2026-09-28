@@ -75,33 +75,9 @@ final class IdeRootModelBuilder {
                     generatedRoot.path(),
                     true));
         }
-        for (int index = 0; index < settings.testSources().size(); index++) {
-            addSourceRoot(
-                    roots,
-                    "test-java-" + (index + 1),
-                    "test",
-                    "java",
-                    inputRoot(root, "[test.sources].java", settings.testSources().get(index), diagnostics),
-                    false);
-        }
-        for (int index = 0; index < settings.groovyTestSources().size(); index++) {
-            addSourceRoot(
-                    roots,
-                    "test-groovy-" + (index + 1),
-                    "test",
-                    "groovy",
-                    inputRoot(root, "[test.sources].groovy", settings.groovyTestSources().get(index), diagnostics),
-                    false);
-        }
-        for (int index = 0; index < settings.kotlinTestSources().size(); index++) {
-            addSourceRoot(
-                    roots,
-                    "test-kotlin-" + (index + 1),
-                    "test",
-                    "kotlin",
-                    inputRoot(root, "[test.sources].kotlin", settings.kotlinTestSources().get(index), diagnostics),
-                    false);
-        }
+        addTestSourceRoots(roots, root, "java", settings.testSources(), diagnostics);
+        addTestSourceRoots(roots, root, "groovy", settings.groovyTestSources(), diagnostics);
+        addTestSourceRoots(roots, root, "kotlin", settings.kotlinTestSources(), diagnostics);
         addSourceRoot(
                 roots,
                 "test-generated-java",
@@ -159,6 +135,20 @@ final class IdeRootModelBuilder {
             boolean generated) {
         if (path != null) {
             roots.add(new IdeModel.SourceRoot(id, kind, language, path, generated));
+        }
+    }
+
+    private static void addTestSourceRoots(
+            List<IdeModel.SourceRoot> roots, Path root, String language, List<String> configuredRoots,
+            List<IdeModel.Diagnostic> diagnostics) {
+        for (int index = 0; index < configuredRoots.size(); index++) {
+            addSourceRoot(
+                    roots,
+                    "test-" + language + "-" + (index + 1),
+                    "test",
+                    language,
+                    inputRoot(root, "[test.sources]." + language, configuredRoots.get(index), diagnostics),
+                    false);
         }
     }
 

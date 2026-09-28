@@ -122,12 +122,9 @@ final class ManifestTestsDecoderTest {
                 "`test.sources.java[0]`",
                 "Unsupported Kotlin source root `src/test/kotlin`",
                 "unit-test roots in [test.sources].kotlin");
-        AuthoredTests kotlin = decode(
-                "[test.sources]\nkotlin = [\"src/test/kotlin\"]\n")
-                .orElseThrow();
-        assertEquals(
-                List.of(path("src/test/kotlin")),
-                kotlin.sources().orElseThrow().kotlin());
+        AuthoredTests.Sources kotlin = decode("[test.sources]\nkotlin = [\"src/test/kotlin\"]\n")
+                .orElseThrow().sources().orElseThrow();
+        assertEquals(List.of(path("src/test/kotlin")), kotlin.kotlin());
         assertFailure(
                 "[test.sources]\ngroovy = [\"src/test/scala\"]\n",
                 "`test.sources.groovy[0]`",

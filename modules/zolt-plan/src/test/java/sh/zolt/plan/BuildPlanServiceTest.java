@@ -36,12 +36,7 @@ final class BuildPlanServiceTest {
 
     @Test
     void blocksMissingLockfileWithResolveNextStep() {
-        ProjectConfig config = ProjectConfigs.withDirectDependencies(
-                new ProjectMetadata("demo", "1.0.0", "com.example", "21", Optional.empty()),
-                Map.of(),
-                Map.of(),
-                Map.of(),
-                BuildSettings.defaults());
+        ProjectConfig config = config(BuildSettings.defaults());
 
         BuildPlan plan = service.plan(projectDir, config, PlanTarget.BUILD, Optional.empty());
 
@@ -56,12 +51,7 @@ final class BuildPlanServiceTest {
     @Test
     void blocksPreV7LockfilesBeforeInferringAnyExecToolState() throws IOException {
         Files.writeString(projectDir.resolve("zolt.lock"), "version = 6\n");
-        ProjectConfig config = ProjectConfigs.withDirectDependencies(
-                new ProjectMetadata("demo", "1.0.0", "com.example", "21", Optional.empty()),
-                Map.of(),
-                Map.of(),
-                Map.of(),
-                BuildSettings.defaults());
+        ProjectConfig config = config(BuildSettings.defaults());
 
         BuildPlan plan = service.plan(projectDir, config, PlanTarget.BUILD, Optional.empty());
 
@@ -86,12 +76,7 @@ final class BuildPlanServiceTest {
                 defaults.resourceRoots(),
                 defaults.testResourceRoots(),
                 defaults.metadata());
-        ProjectConfig config = ProjectConfigs.withDirectDependencies(
-                new ProjectMetadata("demo", "1.0.0", "com.example", "21", Optional.empty()),
-                Map.of(),
-                Map.of(),
-                Map.of(),
-                build);
+        ProjectConfig config = config(build);
 
         BuildPlan plan = service.plan(projectDir, config, PlanTarget.BUILD, Optional.empty());
 
@@ -143,12 +128,7 @@ final class BuildPlanServiceTest {
                 BuildMetadataSettings.defaults(),
                 List.of(),
                 List.of());
-        ProjectConfig config = ProjectConfigs.withDirectDependencies(
-                new ProjectMetadata("demo", "1.0.0", "com.example", "21", Optional.empty()),
-                Map.of(),
-                Map.of(),
-                Map.of(),
-                build);
+        ProjectConfig config = config(build);
         Path reports = projectDir.resolve("reports/tests");
 
         BuildPlan plan = service.plan(projectDir, config, PlanTarget.TEST, Optional.of(reports));
@@ -225,12 +205,7 @@ final class BuildPlanServiceTest {
     @Test
     void blocksTestRuntimeToolchainThatIsNotReady() throws IOException {
         Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
-        ProjectConfig config = ProjectConfigs.withDirectDependencies(
-                new ProjectMetadata("demo", "1.0.0", "com.example", "21", Optional.empty()),
-                Map.of(),
-                Map.of(),
-                Map.of(),
-                BuildSettings.defaults());
+        ProjectConfig config = config(BuildSettings.defaults());
 
         BuildPlan plan = service.plan(
                 projectDir,
@@ -456,6 +431,15 @@ final class BuildPlanServiceTest {
                 .filter(node -> node.id().equals(id))
                 .findFirst()
                 .orElseThrow();
+    }
+
+    private static ProjectConfig config(BuildSettings build) {
+        return ProjectConfigs.withDirectDependencies(
+                new ProjectMetadata("demo", "1.0.0", "com.example", "21", Optional.empty()),
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                build);
     }
 
     private static PlanBlocker blocker(PlanNode node, String code) {

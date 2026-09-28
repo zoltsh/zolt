@@ -18,8 +18,7 @@ import java.util.List;
 
 /** Rejects compile-output layouts that could overwrite or erase project inputs or another scope. */
 public final class CompileOutputLayoutValidator {
-    private CompileOutputLayoutValidator() {
-    }
+    private CompileOutputLayoutValidator() {}
 
     public static void validateMain(Path projectDirectory, ProjectConfig config) {
         Path root = ProjectPaths.root(projectDirectory);
