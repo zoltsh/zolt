@@ -1,5 +1,6 @@
 package sh.zolt.explain.emit;
 
+import sh.zolt.dependency.DependencyLane;
 import sh.zolt.manifest.JavaBinaryClassName;
 import sh.zolt.manifest.LocalId;
 import sh.zolt.manifest.ProjectGroup;
@@ -9,6 +10,7 @@ import sh.zolt.manifest.authored.AuthoredBuildConfiguration;
 import sh.zolt.manifest.authored.AuthoredDependencies;
 import sh.zolt.manifest.authored.AuthoredDependencyConstraints;
 import sh.zolt.manifest.authored.AuthoredGeneratedSources;
+import sh.zolt.manifest.authored.AuthoredGroovyToolchain;
 import sh.zolt.manifest.authored.AuthoredManifest;
 import sh.zolt.manifest.authored.AuthoredPackaging;
 import sh.zolt.manifest.authored.AuthoredPlatforms;
@@ -17,10 +19,12 @@ import sh.zolt.manifest.authored.AuthoredProjectIdentity;
 import sh.zolt.manifest.authored.AuthoredProjectMetadata;
 import sh.zolt.manifest.authored.AuthoredToolchains;
 import sh.zolt.manifest.authored.AuthoredWorkspace;
+import sh.zolt.project.toolchain.GroovyToolchainVersion;
 import sh.zolt.project.toolchain.JavaFeatureRelease;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Assembles drafted audit facts into an {@link AuthoredManifest} in the final language.
@@ -31,6 +35,18 @@ import java.util.Optional;
  * guaranteed to be a legal Zolt project name or workspace ID.
  */
 final class DraftManifests {
+    private static final String GROOVY_COORDINATE = "org.apache.groovy:groovy";
+    private static final Set<DependencyLane> MAIN_GROOVY_LANES = Set.of(
+            DependencyLane.API,
+            DependencyLane.IMPLEMENTATION,
+            DependencyLane.PROVIDED);
+    private static final Set<DependencyLane> TEST_GROOVY_LANES = Set.of(
+            DependencyLane.API,
+            DependencyLane.IMPLEMENTATION,
+            DependencyLane.RUNTIME,
+            DependencyLane.PROVIDED,
+            DependencyLane.TEST);
+
     private DraftManifests() {
     }
 
@@ -45,6 +61,28 @@ final class DraftManifests {
         return project(
                 identity,
                 metadata,
+                AuthoredToolchains.empty(),
+                dependencies.dependencies(),
+                dependencies.platformDomain(),
+                constraints,
+                build,
+                generated,
+                packaging);
+    }
+
+    static AuthoredManifest project(
+            AuthoredProjectIdentity identity,
+            AuthoredProjectMetadata metadata,
+            AuthoredToolchains toolchains,
+            DraftDependencies dependencies,
+            Optional<AuthoredDependencyConstraints> constraints,
+            AuthoredBuildConfiguration build,
+            Optional<AuthoredGeneratedSources> generated,
+            AuthoredPackaging packaging) {
+        return project(
+                identity,
+                metadata,
+                toolchains,
                 dependencies.dependencies(),
                 dependencies.platformDomain(),
                 constraints,
@@ -62,10 +100,32 @@ final class DraftManifests {
             AuthoredBuildConfiguration build,
             Optional<AuthoredGeneratedSources> generated,
             AuthoredPackaging packaging) {
+        return project(
+                identity,
+                metadata,
+                AuthoredToolchains.empty(),
+                dependencies,
+                platforms,
+                constraints,
+                build,
+                generated,
+                packaging);
+    }
+
+    private static AuthoredManifest project(
+            AuthoredProjectIdentity identity,
+            AuthoredProjectMetadata metadata,
+            AuthoredToolchains toolchains,
+            Optional<AuthoredDependencies> dependencies,
+            Optional<AuthoredPlatforms> platforms,
+            Optional<AuthoredDependencyConstraints> constraints,
+            AuthoredBuildConfiguration build,
+            Optional<AuthoredGeneratedSources> generated,
+            AuthoredPackaging packaging) {
         return new AuthoredManifest(
                 Optional.empty(),
                 Optional.of(new AuthoredProject(identity, metadata)),
-                AuthoredToolchains.empty(),
+                toolchains,
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -78,6 +138,30 @@ final class DraftManifests {
                 packaging,
                 Optional.empty(),
                 Optional.empty());
+    }
+
+    /** Emits a Groovy compiler request only from audited roots and a validated ordinary runtime. */
+    static AuthoredToolchains groovyToolchains(
+            DraftDependencies dependencies,
+            List<String> mainSourceRoots,
+            List<String> testSourceRoots,
+            List<String> groovyTestSourceRoots) {
+        boolean hasMainGroovy = hasGroovyRoot(mainSourceRoots);
+        boolean hasTestGroovy = hasGroovyRoot(testSourceRoots)
+                || hasGroovyRoot(groovyTestSourceRoots);
+        if (!hasMainGroovy && !hasTestGroovy) {
+            return AuthoredToolchains.empty();
+        }
+        if (hasMainGroovy
+                && dependencies.uniqueFixedOrdinaryVersion(GROOVY_COORDINATE, MAIN_GROOVY_LANES).isEmpty()) {
+            return AuthoredToolchains.empty();
+        }
+        Set<DependencyLane> relevantLanes = hasTestGroovy ? TEST_GROOVY_LANES : MAIN_GROOVY_LANES;
+        Optional<AuthoredGroovyToolchain> groovy = dependencies
+                .uniqueFixedOrdinaryVersion(GROOVY_COORDINATE, relevantLanes)
+                .flatMap(DraftManifests::groovyToolchain);
+        return new AuthoredToolchains(
+                Optional.empty(), Optional.empty(), Optional.empty(), groovy);
     }
 
     /** A virtual workspace root: no project-only domain may be present (design §4.5). */
@@ -178,6 +262,27 @@ final class DraftManifests {
                     + exception.getMessage() + " Set `[project].main` by hand.");
             return Optional.empty();
         }
+    }
+
+    private static Optional<AuthoredGroovyToolchain> groovyToolchain(String version) {
+        try {
+            return Optional.of(new AuthoredGroovyToolchain(new GroovyToolchainVersion(version)));
+        } catch (IllegalArgumentException exception) {
+            return Optional.empty();
+        }
+    }
+
+    private static boolean hasGroovyRoot(List<String> roots) {
+        if (roots == null) {
+            return false;
+        }
+        return roots.stream()
+                .filter(root -> root != null && !root.isBlank())
+                .map(root -> root.replace('\\', '/').toLowerCase(Locale.ROOT))
+                .anyMatch(root -> root.equals("groovy")
+                        || root.startsWith("groovy/")
+                        || root.endsWith("/groovy")
+                        || root.contains("/groovy/"));
     }
 
     private static String sanitizeLocalId(String value) {

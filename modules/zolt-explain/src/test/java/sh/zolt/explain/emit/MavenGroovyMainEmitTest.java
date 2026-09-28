@@ -1,6 +1,7 @@
 package sh.zolt.explain.emit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.dependency.DependencyLane;
 import sh.zolt.explain.maven.MavenStaticProjectInspector;
@@ -69,5 +70,34 @@ final class MavenGroovyMainEmitTest {
                 DraftManifestSubject.of(draft)
                         .fixed(DependencyLane.IMPLEMENTATION)
                         .get("org.apache.groovy:groovy"));
+        assertEquals(
+                "4.0.22",
+                draft.manifest().toolchains().groovy().orElseThrow().version().value());
+    }
+
+    @Test
+    void doesNotUseATestOnlyRuntimeForGroovyMainCompilation() throws IOException {
+        Files.createDirectories(tempDir.resolve("src/main/groovy/com/example"));
+        Files.writeString(tempDir.resolve("pom.xml"), """
+                <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>com.example</groupId>
+                  <artifactId>groovy-main</artifactId>
+                  <version>1.0.0</version>
+                  <dependencies>
+                    <dependency>
+                      <groupId>org.apache.groovy</groupId>
+                      <artifactId>groovy</artifactId>
+                      <version>4.0.22</version>
+                      <scope>test</scope>
+                    </dependency>
+                  </dependencies>
+                </project>
+                """);
+
+        DraftZoltToml draft = new InspectionToManifest()
+                .fromMaven(new MavenStaticProjectInspector().inspect(tempDir));
+
+        assertTrue(draft.manifest().toolchains().groovy().isEmpty());
     }
 }

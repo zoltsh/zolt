@@ -6,6 +6,7 @@ import sh.zolt.explain.gradle.GradleRepositoryInspection;
 import sh.zolt.explain.gradle.GradleVersionCatalogAlias;
 import sh.zolt.manifest.authored.AuthoredManifest;
 import sh.zolt.manifest.authored.AuthoredPackaging;
+import sh.zolt.manifest.authored.AuthoredToolchains;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -80,6 +81,11 @@ final class GradleInspectionMapper {
                 JavaVersionNotation.featureRelease(primary.javaVersion()),
                 () -> notes.add(MavenInspectionMapper.unreadableJavaNote(primary.javaVersion())));
         addCoordinatePlaceholderNotes(primary, notes);
+        AuthoredToolchains toolchains = DraftManifests.groovyToolchains(
+                dependencies,
+                primary.sourceRoots(),
+                primary.testSourceRoots(),
+                primary.groovyTestSourceRoots());
         AuthoredManifest manifest = DraftManifests.project(
                 DraftManifests.identity(
                         primary.name(),
@@ -89,6 +95,7 @@ final class GradleInspectionMapper {
                         notes),
                 DraftManifests.metadata(
                         primary.mainClass().filter(value -> !value.isBlank()), notes),
+                toolchains,
                 dependencies,
                 Optional.empty(),
                 InspectionBuildSettingsMapper.fromRoots(

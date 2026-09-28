@@ -12,6 +12,7 @@ import sh.zolt.manifest.authored.AuthoredDependencyConstraints;
 import sh.zolt.manifest.authored.AuthoredGeneratedSources;
 import sh.zolt.manifest.authored.AuthoredManifest;
 import sh.zolt.manifest.authored.AuthoredPackaging;
+import sh.zolt.manifest.authored.AuthoredToolchains;
 import sh.zolt.project.VersionPolicy;
 import java.util.ArrayList;
 import java.util.List;
@@ -105,6 +106,11 @@ final class MavenInspectionMapper {
                     + MavenExecStepDrafter.INPUT_PLACEHOLDER + ") and a conventional output path;"
                     + " declare the real declared-input closure and owned output for each before building.");
         }
+        AuthoredToolchains toolchains = DraftManifests.groovyToolchains(
+                dependencies,
+                primary.sourceRoots(),
+                primary.testSourceRoots(),
+                List.of());
         AuthoredManifest manifest = DraftManifests.project(
                 DraftManifests.identity(
                         primary.artifactId(),
@@ -113,6 +119,7 @@ final class MavenInspectionMapper {
                         javaRelease,
                         notes),
                 DraftManifests.metadata(Optional.empty(), notes),
+                toolchains,
                 dependencies,
                 constraints,
                 build,

@@ -15,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TreeMap;
 
 /**
@@ -37,6 +38,7 @@ final class DraftDependencies {
     private final Map<DependencyCoordinate, PlatformSelector> platforms = new TreeMap<>();
     private final Map<String, AuthoredDependency> declarations = new LinkedHashMap<>();
     private final Map<DependencyCoordinate, DependencyLane> ordinaryLanes = new HashMap<>();
+    private final List<AuthoredDependency> ordinaryCandidates = new ArrayList<>();
     private final List<String> notes;
 
     DraftDependencies(List<String> notes) {
@@ -116,12 +118,44 @@ final class DraftDependencies {
         return platforms.isEmpty() ? Optional.empty() : Optional.of(new AuthoredPlatforms(platforms));
     }
 
+    /** The one exact version shared by every relevant ordinary declaration, when one exists. */
+    Optional<String> uniqueFixedOrdinaryVersion(
+            String coordinate, Set<DependencyLane> relevantLanes) {
+        List<AuthoredDependency> relevant = ordinaryCandidates.stream()
+                .filter(dependency -> relevantLanes.contains(dependency.lane()))
+                .filter(dependency -> dependency.coordinate().value().equals(coordinate))
+                .toList();
+        if (relevant.isEmpty()
+                || relevant.stream().anyMatch(dependency ->
+                        !(dependency.selector() instanceof DependencySelector.FixedVersion))) {
+            return Optional.empty();
+        }
+        List<String> versions = relevant.stream()
+                .map(AuthoredDependency::selector)
+                .map(DependencySelector.FixedVersion.class::cast)
+                .map(DependencySelector.FixedVersion::value)
+                .distinct()
+                .toList();
+        return versions.size() == 1 ? Optional.of(versions.getFirst()) : Optional.empty();
+    }
+
     private void declare(
             DependencyLane lane,
             DependencyCoordinate coordinate,
             DependencySelector selector,
             AuthoredDependencyMetadata metadata) {
         String key = lane.name() + " " + coordinate.value();
+        AuthoredDependency candidate;
+        try {
+            candidate = new AuthoredDependency(lane, coordinate, selector, metadata);
+        } catch (IllegalArgumentException exception) {
+            notes.add("Dependency `" + coordinate.value() + "` could not be expressed in the "
+                    + label(lane) + " lane: " + exception.getMessage() + " Add it by hand.");
+            return;
+        }
+        if (isOrdinary(lane)) {
+            ordinaryCandidates.add(candidate);
+        }
         if (declarations.containsKey(key)) {
             return;
         }
@@ -135,12 +169,7 @@ final class DraftDependencies {
                 return;
             }
         }
-        try {
-            declarations.put(key, new AuthoredDependency(lane, coordinate, selector, metadata));
-        } catch (IllegalArgumentException exception) {
-            notes.add("Dependency `" + coordinate.value() + "` could not be expressed in the "
-                    + label(lane) + " lane: " + exception.getMessage() + " Add it by hand.");
-        }
+        declarations.put(key, candidate);
     }
 
     private DependencyCoordinate coordinate(String value, String subject) {
