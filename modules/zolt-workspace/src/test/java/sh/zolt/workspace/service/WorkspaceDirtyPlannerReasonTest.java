@@ -290,6 +290,30 @@ final class WorkspaceDirtyPlannerReasonTest extends WorkspaceBuildServiceTestSup
         assertTrue(testReasons().get("apps/api").contains(WorkspaceDirtyReason.TEST_RESOURCE_CHANGED));
     }
 
+    @Test
+    void generatedTestStepsAreConservativeOnlyWhenTheCommandCompilesTests() throws IOException {
+        source("apps/api/fixtures.sql", "fixture\n");
+        Path manifest = tempDir.resolve("apps/api/zolt.toml");
+        Files.writeString(
+                manifest,
+                Files.readString(manifest) + """
+
+                        [generated.test.fixtures]
+                        kind = "declared-root"
+                        language = "java"
+                        inputs = ["fixtures.sql"]
+                        output = "generated/test/java"
+                        required = false
+                        """);
+
+        assertFalse(reasons()
+                .get("apps/api")
+                .contains(WorkspaceDirtyReason.CONSERVATIVE_GENERATED_TEST_SOURCE_STEP));
+        assertTrue(testReasons()
+                .get("apps/api")
+                .contains(WorkspaceDirtyReason.CONSERVATIVE_GENERATED_TEST_SOURCE_STEP));
+    }
+
     private Map<String, List<WorkspaceDirtyReason>> reasons() {
         return reasons(WorkspaceBuildRequirements.mainBuild());
     }

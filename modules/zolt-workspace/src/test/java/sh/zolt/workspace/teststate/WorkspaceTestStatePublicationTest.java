@@ -136,6 +136,50 @@ final class WorkspaceTestStatePublicationTest {
     }
 
     @Test
+    void generatedTestSourcesAndInputsReachTheCanonicalCompileGate() throws IOException {
+        enableDeclaredTestRoot();
+        source(tempDir, "apps/api/fixtures.sql", "before\n");
+        writeDeclaredTestSource("before");
+
+        WorkspaceTestCompileResult first = compileUnit();
+        Path declaredClass = tempDir.resolve(
+                "apps/api/target/test-classes/com/example/DeclaredTestSupport.class");
+        byte[] priorClass = Files.readAllBytes(declaredClass);
+        assertFalse(first.members().getFirst().result().testCompilationSkipped());
+        PendingCompile warm = pendingCompile();
+        assertTrue(warm.build().membersRequiringTestCompile().contains("apps/api"));
+        assertTrue(service.compileTests(warm.plan(), warm.build())
+                .members()
+                .getFirst()
+                .result()
+                .testCompilationSkipped());
+
+        writeDeclaredTestSource("after");
+        PendingCompile sourceEdit = pendingCompile();
+        assertTrue(sourceEdit.build().membersRequiringTestCompile().contains("apps/api"));
+        assertEquals(0, sourceEdit.build().executionMetrics().memberPipelineInvocations());
+        WorkspaceTestCompileResult recompiled =
+                service.compileTests(sourceEdit.plan(), sourceEdit.build());
+        assertFalse(recompiled.members().getFirst().result().testCompilationSkipped());
+        assertFalse(Arrays.equals(priorClass, Files.readAllBytes(declaredClass)));
+
+        Files.writeString(tempDir.resolve("apps/api/fixtures.sql"), "after\n");
+        PendingCompile inputEdit = pendingCompile();
+        assertTrue(inputEdit.build().membersRequiringTestCompile().contains("apps/api"));
+        assertEquals(0, inputEdit.build().executionMetrics().memberPipelineInvocations());
+        WorkspaceTestCompileResult producerRecompiled =
+                service.compileTests(inputEdit.plan(), inputEdit.build());
+        assertFalse(producerRecompiled.members().getFirst().result().testCompilationSkipped());
+        PendingCompile finalWarm = pendingCompile();
+        assertTrue(finalWarm.build().membersRequiringTestCompile().contains("apps/api"));
+        assertTrue(service.compileTests(finalWarm.plan(), finalWarm.build())
+                .members()
+                .getFirst()
+                .result()
+                .testCompilationSkipped());
+    }
+
+    @Test
     void failedRunDoesNotCommitCompiledTestOutputAndExactRevertRecompiles() throws IOException {
         compileUnit();
         WorkspaceMemberState committed = memberState();
@@ -246,6 +290,32 @@ final class WorkspaceTestStatePublicationTest {
                         groovy = ["src/test/groovy"]
                         kotlin = ["src/test/kotlin"]
                         """);
+    }
+
+    private void enableDeclaredTestRoot() throws IOException {
+        Path manifest = tempDir.resolve("apps/api/zolt.toml");
+        Files.writeString(
+                manifest,
+                Files.readString(manifest) + """
+
+                        [generated.test.fixtures]
+                        kind = "declared-root"
+                        language = "java"
+                        inputs = ["fixtures.sql"]
+                        output = "generated/test/java"
+                        """);
+    }
+
+    private void writeDeclaredTestSource(String value) throws IOException {
+        source(tempDir, "apps/api/generated/test/java/com/example/DeclaredTestSupport.java", """
+                package com.example;
+
+                public final class DeclaredTestSupport {
+                    public static String value() {
+                        return "%s";
+                    }
+                }
+                """.formatted(value));
     }
 
     private void writeJavaTest(String value) throws IOException {

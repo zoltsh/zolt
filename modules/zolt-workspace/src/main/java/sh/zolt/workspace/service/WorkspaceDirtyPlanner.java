@@ -261,6 +261,13 @@ final class WorkspaceDirtyPlanner {
         if (!previous.orElseThrow().testCompileKey().equals(candidate.testCompileKey())) {
             reasons.add(WorkspaceDirtyReason.TEST_SOURCE_CHANGED);
         }
+        // Generated-test identity includes tool versions, selected environment, glob-expanded
+        // inputs, and the output tree after generation. Stage 0 cannot reproduce that canonical
+        // fingerprint, so admit the test lane and let TestCompileService make the precise no-op
+        // decision. This mirrors the generated-main correctness boundary above.
+        if (!member.config().build().generatedTestSources().isEmpty()) {
+            reasons.add(WorkspaceDirtyReason.CONSERVATIVE_GENERATED_TEST_SOURCE_STEP);
+        }
         if (!previous.orElseThrow()
                 .testResourceTreeDigest()
                 .equals(candidate.testResourceTreeDigest())) {
