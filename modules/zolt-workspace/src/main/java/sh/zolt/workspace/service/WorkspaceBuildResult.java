@@ -82,7 +82,7 @@ public record WorkspaceBuildResult(
     public int compiledSourceCount() {
         return members.stream()
                 .map(MemberBuildResult::result)
-                .filter(result -> !result.mainCompilationSkipped())
+                .filter(result -> !result.mainCompilationSkipped() && !result.mainCompilationRestored())
                 .mapToInt(BuildResult::sourceCount)
                 .sum();
     }
@@ -95,7 +95,21 @@ public record WorkspaceBuildResult(
     }
 
     public int mainCompilationExecutedCount() {
-        return members.size() - mainCompilationSkippedCount();
+        return members.size() - mainCompilationSkippedCount() - mainCompilationRestoredCount();
+    }
+
+    public int mainCompilationRestoredCount() {
+        return (int) members.stream()
+                .map(MemberBuildResult::result)
+                .filter(BuildResult::mainCompilationRestored)
+                .count();
+    }
+
+    public int mainRestoredClassCount() {
+        return members.stream()
+                .map(MemberBuildResult::result)
+                .mapToInt(BuildResult::mainRestoredClassCount)
+                .sum();
     }
 
     public long mainFingerprintCheckNanos() {

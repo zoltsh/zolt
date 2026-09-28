@@ -68,9 +68,55 @@ final class WorkspaceTestBuildCacheCommandTest {
             assertEquals(0, restored.exitCode(), restored.stderr());
             assertTrue(restored.stdout().contains("fake console"), restored.stdout());
             assertTrue(
+                    restored.stdout().contains(
+                            "Restored 1 main classes in modules/core (build cache)"),
+                    restored.stdout());
+            assertTrue(
+                    restored.stdout().contains(
+                            "Restored 1 main classes in apps/api (build cache)"),
+                    restored.stdout());
+            assertTrue(
+                    restored.stdout().contains(
+                            "Restored test classes in apps/api (build cache)"),
+                    restored.stdout());
+            assertTrue(
                     restored.stderr().contains(
                             "\"workspaceTestRuntimeToolchainIdentityCalculations\":\"1\""),
                     restored.stderr());
+            assertCompilationOutcomes(
+                    timingLine(restored, "build workspace test inputs"),
+                    "main",
+                    0,
+                    2,
+                    0);
+            assertCompilationOutcomes(
+                    timingLine(restored, "run workspace test members"),
+                    "main",
+                    0,
+                    2,
+                    0);
+            assertTrue(
+                    timingLine(restored, "run workspace test members")
+                            .contains("\"mainRestoredClasses\":\"2\""),
+                    restored.stderr());
+            assertCompilationOutcomes(
+                    timingLine(restored, "run workspace test members"),
+                    "test",
+                    0,
+                    1,
+                    0);
+            assertCompilationOutcomes(
+                    timingLine(restored, "test workspace"),
+                    "main",
+                    0,
+                    2,
+                    0);
+            assertCompilationOutcomes(
+                    timingLine(restored, "test workspace"),
+                    "test",
+                    0,
+                    1,
+                    0);
             assertArrayEquals(coreBytes, Files.readAllBytes(coreClass));
             assertArrayEquals(mainBytes, Files.readAllBytes(mainClass));
             assertArrayEquals(testBytes, Files.readAllBytes(testClass));
@@ -82,9 +128,49 @@ final class WorkspaceTestBuildCacheCommandTest {
                     "apps/api/target/test-classes/.zolt-incremental-test.state")));
 
             wipeMemberTargets(workspace);
+            CommandResult compileOnlyRestored = compileTests(workspace, artifactCache, false);
+            assertEquals(0, compileOnlyRestored.exitCode(), compileOnlyRestored.stderr());
+            assertTrue(
+                    compileOnlyRestored.stdout().contains(
+                            "Restored 1 main classes in modules/core (build cache)"),
+                    compileOnlyRestored.stdout());
+            assertTrue(
+                    compileOnlyRestored.stdout().contains(
+                            "Restored 1 main classes in apps/api (build cache)"),
+                    compileOnlyRestored.stdout());
+            assertTrue(
+                    compileOnlyRestored.stdout().contains(
+                            "Restored test classes in apps/api (build cache)"),
+                    compileOnlyRestored.stdout());
+            assertCompilationOutcomes(
+                    timingLine(compileOnlyRestored, "build workspace test inputs"),
+                    "main",
+                    0,
+                    2,
+                    0);
+            assertCompilationOutcomes(
+                    timingLine(compileOnlyRestored, "compile workspace test members"),
+                    "test",
+                    0,
+                    1,
+                    0);
+
+            wipeMemberTargets(workspace);
             CommandResult bypassed = compileTests(workspace, artifactCache, true);
             assertEquals(0, bypassed.exitCode(), bypassed.stderr());
             assertFalse(bypassed.stdout().contains("fake console"), bypassed.stdout());
+            assertCompilationOutcomes(
+                    timingLine(bypassed, "build workspace test inputs"),
+                    "main",
+                    0,
+                    0,
+                    2);
+            assertCompilationOutcomes(
+                    timingLine(bypassed, "compile workspace test members"),
+                    "test",
+                    0,
+                    0,
+                    1);
             assertTrue(Files.isRegularFile(workspace.resolve(
                     "modules/core/target/classes/.zolt-incremental-main.state")));
             assertTrue(Files.isRegularFile(workspace.resolve(
@@ -198,6 +284,8 @@ final class WorkspaceTestBuildCacheCommandTest {
                 "--workspace",
                 "--member", "apps/api",
                 "--compile-only",
+                "--timings",
+                "--timings-format", "json",
                 "--cwd", workspace.toString(),
                 "--cache-root", artifactCache.toString()));
         if (bypassCache) {
@@ -227,6 +315,31 @@ final class WorkspaceTestBuildCacheCommandTest {
             }
         }
         return Map.copyOf(metadata);
+    }
+
+    private static String timingLine(CommandResult result, String phase) {
+        return result.stderr().lines()
+                .filter(line -> line.contains("\"phase\":\"" + phase + "\""))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError(
+                        "Missing timing phase " + phase + " in:\n" + result.stderr()));
+    }
+
+    private static void assertCompilationOutcomes(
+            String timingLine,
+            String scope,
+            int skipped,
+            int restored,
+            int executed) {
+        assertTrue(
+                timingLine.contains("\"" + scope + "CompilationsSkipped\":\"" + skipped + "\""),
+                timingLine);
+        assertTrue(
+                timingLine.contains("\"" + scope + "CompilationsRestored\":\"" + restored + "\""),
+                timingLine);
+        assertTrue(
+                timingLine.contains("\"" + scope + "CompilationsExecuted\":\"" + executed + "\""),
+                timingLine);
     }
 
     private static void wipeMemberTargets(Path workspace) throws IOException {

@@ -15,6 +15,7 @@ import sh.zolt.test.TestSelection;
 import sh.zolt.test.runtime.TestJvmArguments;
 import sh.zolt.workspace.coverage.WorkspaceCoverageResult;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
+import sh.zolt.workspace.test.WorkspaceTestCompileResult;
 import sh.zolt.workspace.test.WorkspaceTestResult;
 import java.nio.file.Path;
 import java.util.List;
@@ -128,6 +129,59 @@ final class WorkspaceResultSummaryTest {
     }
 
     @Test
+    void compilationOutcomesSeparateSkippedRestoredAndExecutedMembers() {
+        WorkspaceBuildResult.MemberBuildResult compiled = memberBuild(
+                "modules/compiled",
+                build("modules/compiled", 3, false, "", CompileDiagnostics.empty(), 0L, 0L));
+        WorkspaceBuildResult.MemberBuildResult skipped = memberBuild(
+                "modules/skipped",
+                build("modules/skipped", 2, true, "", CompileDiagnostics.empty(), 0L, 0L));
+        WorkspaceBuildResult.MemberBuildResult restored = memberBuild(
+                "modules/restored",
+                restoredBuild("modules/restored", 4, 7));
+        List<WorkspaceBuildResult.MemberBuildResult> builds = List.of(compiled, skipped, restored);
+        WorkspaceBuildResult buildResult = new WorkspaceBuildResult(Optional.empty(), builds);
+
+        assertEquals(1, buildResult.mainCompilationExecutedCount());
+        assertEquals(1, buildResult.mainCompilationSkippedCount());
+        assertEquals(1, buildResult.mainCompilationRestoredCount());
+        assertEquals(3, buildResult.compiledSourceCount());
+        assertEquals(7, buildResult.mainRestoredClassCount());
+
+        TestCompileResult compiledTests = testCompile(compiled.result(), "modules/compiled", "full", false);
+        TestCompileResult skippedTests = testCompile(skipped.result(), "modules/skipped", "skipped", true);
+        TestCompileResult restoredTests = testCompile(restored.result(), "modules/restored", "restored", false);
+        List<WorkspaceTestCompileResult.MemberTestCompileResult> compiledMembers = List.of(
+                new WorkspaceTestCompileResult.MemberTestCompileResult("modules/compiled", compiledTests),
+                new WorkspaceTestCompileResult.MemberTestCompileResult("modules/skipped", skippedTests),
+                new WorkspaceTestCompileResult.MemberTestCompileResult("modules/restored", restoredTests));
+        WorkspaceTestCompileResult compileResult = new WorkspaceTestCompileResult(
+                Optional.empty(), builds, compiledMembers, 3, 1);
+
+        assertEquals(1, compileResult.mainCompilationExecutedCount());
+        assertEquals(1, compileResult.mainCompilationSkippedCount());
+        assertEquals(1, compileResult.testCompilationExecutedCount());
+        assertEquals(1, compileResult.testCompilationSkippedCount());
+
+        WorkspaceTestResult testResult = new WorkspaceTestResult(
+                Optional.empty(),
+                builds,
+                List.of(
+                        new WorkspaceTestResult.MemberTestRunResult(
+                                "modules/compiled", new TestRunResult(compiledTests, "")),
+                        new WorkspaceTestResult.MemberTestRunResult(
+                                "modules/skipped", new TestRunResult(skippedTests, "")),
+                        new WorkspaceTestResult.MemberTestRunResult(
+                                "modules/restored", new TestRunResult(restoredTests, ""))),
+                3);
+
+        assertEquals(1, testResult.mainCompilationExecutedCount());
+        assertEquals(1, testResult.mainCompilationSkippedCount());
+        assertEquals(1, testResult.testCompilationExecutedCount());
+        assertEquals(1, testResult.testCompilationSkippedCount());
+    }
+
+    @Test
     void coverageResultDefaultsOptionalsAndConvertsToTestSummary() {
         WorkspaceBuildResult.MemberBuildResult coreBuild = memberBuild(
                 "modules/core",
@@ -211,6 +265,42 @@ final class WorkspaceResultSummaryTest {
                 fingerprintWriteNanos,
                 0,
                 "");
+    }
+
+    private static BuildResult restoredBuild(String member, int sourceCount, int restoredClassCount) {
+        return new BuildResult(
+                Optional.empty(),
+                sourceCount,
+                0,
+                Path.of(member).resolve("target/classes"),
+                "",
+                false,
+                "restored",
+                "",
+                CompileDiagnostics.empty(),
+                0L,
+                0L,
+                restoredClassCount,
+                "restored");
+    }
+
+    private static TestCompileResult testCompile(
+            BuildResult buildResult,
+            String member,
+            String mode,
+            boolean skipped) {
+        return new TestCompileResult(
+                buildResult,
+                1,
+                0,
+                Path.of(member).resolve("target/test-classes"),
+                "",
+                skipped,
+                mode,
+                "",
+                CompileDiagnostics.empty(),
+                0L,
+                0L);
     }
 
     private static ClasspathSet emptyClasspaths() {

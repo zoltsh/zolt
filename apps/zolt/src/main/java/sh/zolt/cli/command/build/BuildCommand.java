@@ -279,8 +279,13 @@ public final class BuildCommand implements Runnable {
                 }
             }
         }
-        if (result.mainCompilationExecutedCount() == 0) {
+        if (result.mainCompilationExecutedCount() == 0
+                && result.mainCompilationRestoredCount() == 0) {
             output.detail("Skipped workspace main compilation; inputs are unchanged");
+        } else if (result.mainCompilationExecutedCount() == 0) {
+            output.summary(
+                    "Restored " + result.mainRestoredClassCount() + " workspace main classes",
+                    "build cache");
         } else {
             output.summary(
                     "Compiled " + result.compiledSourceCount() + " workspace main source files",

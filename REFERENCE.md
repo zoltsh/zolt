@@ -1269,15 +1269,18 @@ maxSizeMb = 2048
 
 When enabled, `zolt build`, `zolt test`, and `zolt package` restore a module's
 compiled classes on a fingerprint miss and store them after a real compile. In a
-workspace each member is cached independently. Restores are reported distinctly:
+workspace each member is cached independently. Workspace build and test commands
+name restored members distinctly:
 
 ```text
 ✔ Restored 80 main classes · build cache
 ```
 
 Pass `--no-build-cache` to any of those commands to bypass the cache for one run
-(neither restore nor store). `--timings` records the per-module cache outcome
-(`restored`, `stored`, or `uncacheable`).
+(neither restore nor store). For a standalone module, `--timings` records the
+cache outcome (`restored`, `stored`, or `uncacheable`). Workspace timings report
+separate skipped, restored, and executed member counts. Workspace build and test
+human output names each restored member.
 
 ### Inspecting and pruning
 

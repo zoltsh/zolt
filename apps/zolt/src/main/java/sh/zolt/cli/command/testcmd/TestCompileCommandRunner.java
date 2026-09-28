@@ -89,17 +89,15 @@ final class TestCompileCommandRunner {
         if (result.resolvedLockfile()) {
             output.detail("Resolved workspace dependencies because zolt.lock was missing");
         }
-        for (WorkspaceTestCompileResult.MemberTestCompileResult member : result.members()) {
-            output.success("Tests compiled in " + member.member());
-        }
+        WorkspaceTestCommandOutput.printCompileMembers(output, result);
         int compiledMembers = result.members().size();
         String summary = compiledMembers < result.totalMemberCount()
-                ? "Compiled tests for " + compiledMembers + " of " + result.totalMemberCount()
+                ? "Prepared test classes for " + compiledMembers + " of " + result.totalMemberCount()
                         + " workspace members; use --all to compile every member"
-                : "Compiled tests for " + compiledMembers + " workspace members";
+                : "Prepared test classes for " + compiledMembers + " workspace members";
         output.summary(summary, result.testSourceCount() + " test source files");
         output.provenance(CommandBuildProvenance.read(workspaceRoot));
-        progress.result("Compiled tests for " + compiledMembers + " workspace members");
+        progress.result("Prepared test classes for " + compiledMembers + " workspace members");
     }
 
     void compileSingle(
