@@ -32,6 +32,9 @@ zolt run
 
 - **Projects.** Configure sources, resources, generated sources, tasks, aliases,
   and integration-test roots.
+- **Languages.** Jointly compile Java and Groovy main sources across declared
+  roots, including circular cross-language references. Unsupported joint-compiler
+  combinations fail closed.
 - **Dependencies.** Use API, implementation, runtime, provided, development,
   test, and annotation-processor lanes under one `[dependencies]` namespace.
 - **Metadata.** Import BOMs and configure version aliases, exclusions,

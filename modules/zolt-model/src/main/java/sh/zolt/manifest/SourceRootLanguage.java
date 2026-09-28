@@ -7,10 +7,11 @@ import java.util.Optional;
 /**
  * The languages and platforms Zolt does not build, recognized from a source-root path.
  *
- * <p>Zolt compiles Java and runs Groovy test sources. A Kotlin, Scala, or Android root would be
- * silently ignored by the compiler pipeline, so §10.1 requires an authored one to fail actionably at
- * the parse boundary. The same recognizer serves migration drafting, which keeps such a root as a
- * review note instead of emitting a manifest that cannot parse.
+ * <p>Zolt jointly compiles Java and Groovy main sources and separately compiles configured Groovy
+ * test sources. A Kotlin, Scala, or Android root would be silently ignored by the compiler pipeline,
+ * so §10.1 requires an authored one to fail actionably at the parse boundary. The same recognizer
+ * serves migration drafting, which keeps such a root as a review note instead of emitting a manifest
+ * that cannot parse.
  */
 public enum SourceRootLanguage {
     KOTLIN(

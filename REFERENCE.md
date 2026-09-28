@@ -552,6 +552,53 @@ on an entry. Every entry in `[versions]`, `[platforms]`, `[dependencies]`, and
 `[dependencies.constraints]` occupies one physical line under its own table
 header — the source shape Zolt's failure-safe manifest editor requires.
 
+### Joint Java and Groovy main compilation
+
+Authored main roots may contain both `.java` and `.groovy` files. The default
+main root remains `src/main/java`; a project that keeps the conventional Groovy
+layout declares both roots and puts the Groovy compiler/runtime on the compile
+classpath:
+
+```toml
+[project]
+name = "groovy-main"
+version = "0.1.0"
+group = "com.example"
+java = 21
+main = "com.example.JavaGreeting"
+
+[build]
+sources = ["src/main/java", "src/main/groovy"]
+
+[dependencies]
+"org.apache.groovy:groovy" = "4.0.22"
+```
+
+When an authored main root contains any Groovy source, Zolt passes the complete
+Java/Groovy main source set to Groovy's joint compiler. Java may therefore refer
+to Groovy types while those Groovy types refer back to Java. Source changes use
+a cleaned full-scope compile; an unchanged fingerprint may still skip compilation,
+and a verified build-cache entry may restore the complete output. Generated
+source lanes remain Java-only.
+
+This support is deliberately fail-closed. Zolt rejects Groovy main joint
+compilation before cache restoration or output cleanup when any of these
+conditions applies:
+
+- annotation processors are configured for the main compile;
+- `[compiler].args` contains custom javac arguments;
+- the main source set contains `module-info.java`;
+- the member has workspace API or implementation dependencies;
+- reproducible release mode selects a build JDK whose feature version differs
+  from the effective Java release; or
+- the selected JDK identity is unreadable or has no `java` executable.
+
+Set `[compiler].jdkApi = "host"` to accept the JDK/release mismatch explicitly.
+This uses source/target semantics and gives up the cross-JDK API reproducibility
+of `--release`. The other boundaries must be removed or isolated in a Java-only
+member. See `examples/groovy-main` for a runnable circular Java-to-Groovy-to-Java
+example.
+
 ## Resolution and Lockfile Contracts
 
 Zolt deliberately documents the parts of resolution that Maven leaves
@@ -2128,6 +2175,8 @@ The `examples/` directory is deliberately broad. It includes:
 - `adoption-plain-app`: plain Java app with resources and a small test.
 - `junit-basic`: JUnit Platform console runner.
 - `junit-vintage`: JUnit Vintage test support.
+- `groovy-main`: joint Java/Groovy main compilation with separate conventional
+  roots and circular cross-language references.
 - `spock-basic`: Groovy test sources and Spock.
 - `workspace-app`: app/module/tools workspace with a configured task.
 - `large-workspace`: larger workspace selection fixture.

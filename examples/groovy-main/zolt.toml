@@ -1,0 +1,12 @@
+[project]
+name = "groovy-main"
+version = "0.1.0"
+group = "com.example"
+java = 21
+main = "com.example.JavaGreeting"
+
+[build]
+sources = ["src/main/java", "src/main/groovy"]
+
+[dependencies]
+"org.apache.groovy:groovy" = "4.0.22"
