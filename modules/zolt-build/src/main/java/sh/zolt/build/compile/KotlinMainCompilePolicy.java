@@ -112,7 +112,7 @@ final class KotlinMainCompilePolicy {
         }
         throw unsupported(
                 "the effective Java release `" + value + "` is not a supported feature version",
-                "Set [project].java or [compiler].release to Java 8 or newer.");
+                "Set [project].java to Java 8 or newer.");
     }
 
     private static String moduleName(String projectName) {
