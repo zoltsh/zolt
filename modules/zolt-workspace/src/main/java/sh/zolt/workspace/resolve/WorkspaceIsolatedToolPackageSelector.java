@@ -1,5 +1,6 @@
 package sh.zolt.workspace.resolve;
 
+import sh.zolt.dependency.DependencyScope;
 import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.lockfile.LockPackage;
 import java.util.ArrayList;
@@ -11,27 +12,35 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Aggregates tool-exec candidates without version mediation. Each named tool keeps its isolated
- * version; candidates collapse only on package, version, and artifact variant.
+ * Aggregates independently resolved tool candidates without version mediation. Each exec tool and
+ * Groovy compiler closure keeps its isolated version; candidates collapse only within the same
+ * scope, package, version, and artifact variant.
  */
-final class WorkspaceExecPackageSelector {
-    private WorkspaceExecPackageSelector() {
+final class WorkspaceIsolatedToolPackageSelector {
+    private WorkspaceIsolatedToolPackageSelector() {
+    }
+
+    static boolean isIsolatedScope(DependencyScope scope) {
+        return scope == DependencyScope.TOOL_EXEC
+                || scope == DependencyScope.TOOL_GROOVY;
     }
 
     static List<LockPackage> select(List<LockPackage> candidates) {
         Map<String, List<LockPackage>> byIdentity = new LinkedHashMap<>();
         candidates.stream()
-                .sorted(Comparator.comparing(WorkspaceExecPackageSelector::key))
+                .sorted(Comparator.comparing(WorkspaceIsolatedToolPackageSelector::key))
                 .forEach(candidate -> byIdentity
                         .computeIfAbsent(key(candidate), ignored -> new ArrayList<>())
                         .add(candidate));
         return byIdentity.values().stream()
-                .map(WorkspaceExecPackageSelector::merge)
+                .map(WorkspaceIsolatedToolPackageSelector::merge)
                 .toList();
     }
 
     private static String key(LockPackage lockPackage) {
-        return lockPackage.packageId()
+        return lockPackage.scope().lockfileName()
+                + ":"
+                + lockPackage.packageId()
                 + ":"
                 + lockPackage.version()
                 + ":"

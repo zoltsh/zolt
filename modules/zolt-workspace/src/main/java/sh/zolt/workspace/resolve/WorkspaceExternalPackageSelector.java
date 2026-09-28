@@ -24,7 +24,8 @@ final class WorkspaceExternalPackageSelector {
     Map<ResolutionVariant, String> versionOverrides(List<LockPackage> candidates) {
         Map<PackageVariantKey, List<LockPackage>> candidatesByVariant =
                 candidatesByVariant(candidates.stream()
-                        .filter(candidate -> candidate.scope() != DependencyScope.TOOL_EXEC)
+                        .filter(candidate -> !WorkspaceIsolatedToolPackageSelector.isIsolatedScope(
+                                candidate.scope()))
                         .toList());
         Map<ResolutionVariant, String> overrides = new LinkedHashMap<>();
         for (Map.Entry<PackageVariantKey, List<LockPackage>> entry : candidatesByVariant.entrySet()) {
@@ -38,7 +39,8 @@ final class WorkspaceExternalPackageSelector {
     List<LockConflict> versionConflicts(List<LockPackage> candidates) {
         Map<PackageVariantKey, List<LockPackage>> candidatesByVariant =
                 candidatesByVariant(candidates.stream()
-                        .filter(candidate -> candidate.scope() != DependencyScope.TOOL_EXEC)
+                        .filter(candidate -> !WorkspaceIsolatedToolPackageSelector.isIsolatedScope(
+                                candidate.scope()))
                         .toList());
         List<LockConflict> conflicts = new ArrayList<>();
         for (Map.Entry<PackageVariantKey, List<LockPackage>> entry : candidatesByVariant.entrySet()) {
@@ -92,10 +94,12 @@ final class WorkspaceExternalPackageSelector {
             Map<ResolutionVariant, String> protectedSelections,
             WorkspaceProvidedArtifactMediator provided) {
         List<LockPackage> regularCandidates = candidates.stream()
-                .filter(candidate -> candidate.scope() != DependencyScope.TOOL_EXEC)
+                .filter(candidate -> !WorkspaceIsolatedToolPackageSelector.isIsolatedScope(
+                        candidate.scope()))
                 .toList();
-        List<LockPackage> execCandidates = candidates.stream()
-                .filter(candidate -> candidate.scope() == DependencyScope.TOOL_EXEC)
+        List<LockPackage> isolatedToolCandidates = candidates.stream()
+                .filter(candidate -> WorkspaceIsolatedToolPackageSelector.isIsolatedScope(
+                        candidate.scope()))
                 .toList();
 
         // Two variants of one GAV (a plain jar and a linux-x86_64 classified jar, or a jar and a .zip)
@@ -146,7 +150,7 @@ final class WorkspaceExternalPackageSelector {
         }
 
         List<LockConflict> conflicts = new ArrayList<>(versionConflicts(regularCandidates));
-        packages.addAll(WorkspaceExecPackageSelector.select(execCandidates));
+        packages.addAll(WorkspaceIsolatedToolPackageSelector.select(isolatedToolCandidates));
         return new WorkspaceExternalSelection(packages, conflicts, memberGraphs);
     }
 
