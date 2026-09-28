@@ -10,10 +10,9 @@ package sh.zolt.build;
  */
 public final class CompilationSemantics {
     /**
-     * Version 3 establishes conservative full-scope recompilation as the stable source-change
-     * strategy.
+     * Version 4 adds full-scope Groovy/Java joint compilation for supported main source sets.
      */
-    public static final String VERSION = "3";
+    public static final String VERSION = "4";
 
     private CompilationSemantics() {}
 }

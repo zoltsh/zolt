@@ -1,7 +1,6 @@
 package sh.zolt.build.compile;
 
 import sh.zolt.build.CompileDiagnostics;
-import sh.zolt.build.GroovyCompileException;
 import sh.zolt.build.JavacException;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.build.incremental.GeneratedOutputAttribution;
@@ -17,6 +16,7 @@ import java.util.List;
 
 public final class MainCompileSourceExecutor {
     private final JavacRunner javacRunner;
+    private final GroovyCompilerRunner groovyCompilerRunner;
     private final IncrementalCompileStateRecorder incrementalCompileStateRecorder;
     private final IncrementalCompilePlanner incrementalCompilePlanner;
     private final IncrementalJavacExecution incrementalJavacExecution;
@@ -25,7 +25,20 @@ public final class MainCompileSourceExecutor {
             JavacRunner javacRunner,
             IncrementalCompileStateRecorder incrementalCompileStateRecorder,
             IncrementalCompilePlanner incrementalCompilePlanner) {
+        this(
+                javacRunner,
+                new GroovyCompilerRunner(),
+                incrementalCompileStateRecorder,
+                incrementalCompilePlanner);
+    }
+
+    public MainCompileSourceExecutor(
+            JavacRunner javacRunner,
+            GroovyCompilerRunner groovyCompilerRunner,
+            IncrementalCompileStateRecorder incrementalCompileStateRecorder,
+            IncrementalCompilePlanner incrementalCompilePlanner) {
         this.javacRunner = javacRunner;
+        this.groovyCompilerRunner = groovyCompilerRunner;
         this.incrementalCompileStateRecorder = incrementalCompileStateRecorder;
         this.incrementalCompilePlanner = incrementalCompilePlanner;
         this.incrementalJavacExecution = new IncrementalJavacExecution(javacRunner, incrementalCompilePlanner);
@@ -62,13 +75,25 @@ public final class MainCompileSourceExecutor {
             Path outputDirectory,
             Path generatedSourcesDirectory,
             JdkStatus jdkStatus) {
-        rejectUnsupportedGroovyMainSources(sources);
+        GroovyCompilerRunner.JointOptions groovyOptions = groovyOptions(
+                config, sources, classpaths, jdkStatus);
         if (compileSkipped) {
             return new Attempt(
-                    new JavacResult(sources.mainSources().size(), outputDirectory, ""),
+                    new JavacResult(sources.allMainSources().size(), outputDirectory, ""),
                     "skipped",
                     "",
                     CompileDiagnostics.empty());
+        }
+        if (groovyOptions != null) {
+            return jointGroovyCompile(
+                    projectDirectory,
+                    config,
+                    sources,
+                    classpaths,
+                    outputDirectory,
+                    generatedSourcesDirectory,
+                    jdkStatus,
+                    groovyOptions);
         }
         boolean hostMode = config.compilerSettings().mainHostPlatformApi()
                 && !MainCompileOptions.effectiveRelease(config).isBlank();
@@ -117,12 +142,57 @@ public final class MainCompileSourceExecutor {
                 platformApiWarning);
     }
 
-    private static void rejectUnsupportedGroovyMainSources(SourceDiscoveryResult sources) {
-        if (!sources.groovyMainSources().isEmpty()) {
-            throw new GroovyCompileException(
-                    "Groovy main sources are not supported yet. Remove them from [build].sources"
-                            + " or keep them in a separate project until main Groovy compilation is enabled.");
+    /** Validates Groovy main compilation before any cache restore or output cleanup can mutate state. */
+    public void preflight(
+            ProjectConfig config,
+            SourceDiscoveryResult sources,
+            ClasspathSet classpaths,
+            JdkStatus jdkStatus) {
+        groovyOptions(config, sources, classpaths, jdkStatus);
+    }
+
+    private static GroovyCompilerRunner.JointOptions groovyOptions(
+            ProjectConfig config,
+            SourceDiscoveryResult sources,
+            ClasspathSet classpaths,
+            JdkStatus jdkStatus) {
+        if (sources.groovyMainSources().isEmpty()) {
+            return null;
         }
+        return GroovyJointCompilePolicy.options(
+                config, sources.allMainSources(), classpaths, jdkStatus);
+    }
+
+    private Attempt jointGroovyCompile(
+            Path projectDirectory,
+            ProjectConfig config,
+            SourceDiscoveryResult sources,
+            ClasspathSet classpaths,
+            Path outputDirectory,
+            Path generatedSourcesDirectory,
+            JdkStatus jdkStatus,
+            GroovyCompilerRunner.JointOptions options) {
+        List<Path> allSources = sources.allMainSources();
+        String platformApiWarning = CompilerPlatformApi.determinismWarning(
+                options.hostPlatformApi(), "main", jdkStatus);
+        incrementalCompileStateRecorder.deleteMainState(outputDirectory);
+        CompileOutputCleaner.resetMain(
+                projectDirectory, config, outputDirectory, generatedSourcesDirectory);
+        JavacResult result = groovyCompilerRunner.compileJoint(
+                jdkStatus.java().orElseThrow(),
+                allSources,
+                classpaths.compile(),
+                outputDirectory,
+                options);
+        return withPlatformApiWarning(
+                new Attempt(
+                        result,
+                        "full",
+                        "groovy-main-sources",
+                        CompileDiagnostics.legacy(allSources.size(), false),
+                        GeneratedOutputAttribution.absent(),
+                        allSources),
+                platformApiWarning);
     }
 
     private static Attempt withPlatformApiWarning(Attempt attempt, String warning) {

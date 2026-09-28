@@ -240,6 +240,7 @@ public final class BuildService {
         if (!jdkStatus.ok()) {
             throw BuildException.actionable("JDK check failed.", String.join(" ", jdkStatus.problems()));
         }
+        sourceExecutor.preflight(config, sources, classpaths, jdkStatus);
         String compilerIdentity = EffectiveCompilerIdentity.of(jdkStatus);
 
         Path outputDirectory = projectDirectory.resolve(config.build().output());

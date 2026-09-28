@@ -1,9 +1,10 @@
 package sh.zolt.build;
 
 import sh.zolt.build.cache.BuildCacheService;
-import sh.zolt.build.discovery.SourceDiscoverer;
+import sh.zolt.build.compile.GroovyCompilerRunner;
 import sh.zolt.build.compile.JavacRunner;
 import sh.zolt.build.compile.MainCompileSourceExecutor;
+import sh.zolt.build.discovery.SourceDiscoverer;
 import sh.zolt.build.fingerprint.BuildFingerprintService;
 import sh.zolt.build.generatedsource.ExecGeneratedSourceService;
 import sh.zolt.build.generatedsource.OpenApiGeneratedSourceService;
@@ -107,6 +108,7 @@ final class BuildServiceDependencies {
                         incrementalCompilePlanner,
                         new MainCompileSourceExecutor(
                                 javacRunner,
+                                new GroovyCompilerRunner(),
                                 incrementalCompileStateRecorder,
                                 incrementalCompilePlanner)),
                 BuildCacheService.disabled());
@@ -135,6 +137,7 @@ final class BuildServiceDependencies {
                         incrementalCompilePlanner,
                         new MainCompileSourceExecutor(
                                 javacRunner,
+                                new GroovyCompilerRunner(),
                                 incrementalCompileStateRecorder,
                                 incrementalCompilePlanner)),
                 buildCacheService);

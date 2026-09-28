@@ -94,10 +94,17 @@ public final class IncrementalCompileStateRecorder {
             String compilerIdentity,
             GeneratedOutputAttribution attribution,
             List<Path> compiledSources) {
+        List<String> fallbackReasons = new ArrayList<>(processorFallbackReasons(classpaths.processor()));
+        if (!sources.groovyMainSources().isEmpty()) {
+            fallbackReasons.add("groovy-main-sources");
+        }
         record(
                 "main",
                 projectDirectory,
                 config,
+                // Source-record extraction is deliberately Java-specific. The fallback marker keeps
+                // this state out of selective compilation while class records still summarize every
+                // Java or Groovy class emitted into the output directory.
                 sources.mainSources(),
                 config.build().sourceRoots(),
                 config.build().generatedMainSources(),
@@ -108,7 +115,7 @@ public final class IncrementalCompileStateRecorder {
                 IncrementalCompileState.mainStatePath(outputDirectory),
                 outputDirectory.resolve(MAIN_FINGERPRINT_FILE),
                 compilerIdentity,
-                processorFallbackReasons(classpaths.processor()),
+                fallbackReasons,
                 attribution,
                 compiledSources);
     }
