@@ -22,18 +22,18 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.io.TempDir;
 
-abstract class WorkspaceBuildServiceDependencyVisibilityTestSupport {
-    final WorkspaceBuildService service = new WorkspaceBuildService();
+public abstract class WorkspaceBuildServiceDependencyVisibilityTestSupport {
+    protected final WorkspaceBuildService service = new WorkspaceBuildService();
     final Map<String, byte[]> responses = new HashMap<>();
 
     @TempDir
-    Path tempDir;
+    protected Path tempDir;
 
     HttpServer server;
-    URI baseUri;
+    protected URI baseUri;
 
     @BeforeEach
-    void startServer() {
+    protected void startServer() {
         try {
             server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         } catch (IOException exception) {
@@ -46,17 +46,17 @@ abstract class WorkspaceBuildServiceDependencyVisibilityTestSupport {
     }
 
     @AfterEach
-    void stopServer() {
+    protected void stopServer() {
         if (server != null) {
             server.stop(0);
         }
     }
 
-    final void workspace(String content) throws IOException {
+    protected final void workspace(String content) throws IOException {
         Files.writeString(tempDir.resolve("zolt.toml"), content);
     }
 
-    final void member(String path, String name, String extraToml) throws IOException {
+    protected final void member(String path, String name, String extraToml) throws IOException {
         Path member = tempDir.resolve(path);
         Files.createDirectories(member);
         Files.writeString(member.resolve("zolt.toml"), """
@@ -68,13 +68,13 @@ abstract class WorkspaceBuildServiceDependencyVisibilityTestSupport {
                 %s""".formatted(name, currentJavaMajorVersion(), extraToml));
     }
 
-    final void source(String path, String content) throws IOException {
+    protected final void source(String path, String content) throws IOException {
         Path source = tempDir.resolve(path);
         Files.createDirectories(source.getParent());
         Files.writeString(source, content);
     }
 
-    final void addJarArtifact(
+    protected final void addJarArtifact(
             String groupId,
             String artifactId,
             String version,
@@ -83,7 +83,7 @@ abstract class WorkspaceBuildServiceDependencyVisibilityTestSupport {
         addJarArtifact(groupId, artifactId, version, className, source, null, null, null);
     }
 
-    final void addJarArtifactWithDependency(
+    protected final void addJarArtifactWithDependency(
             String groupId,
             String artifactId,
             String version,
@@ -103,7 +103,7 @@ abstract class WorkspaceBuildServiceDependencyVisibilityTestSupport {
                 dependencyVersion);
     }
 
-    final void addPrebuiltJarArtifact(
+    protected final void addPrebuiltJarArtifact(
             String groupId,
             String artifactId,
             String version,

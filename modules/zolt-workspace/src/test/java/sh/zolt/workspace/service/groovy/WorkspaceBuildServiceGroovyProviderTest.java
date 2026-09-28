@@ -1,4 +1,4 @@
-package sh.zolt.workspace.service;
+package sh.zolt.workspace.service.groovy;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -14,6 +14,8 @@ import java.util.Comparator;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import sh.zolt.build.JavacException;
+import sh.zolt.workspace.service.WorkspaceBuildResult;
+import sh.zolt.workspace.service.WorkspaceBuildServiceDependencyVisibilityTestSupport;
 
 /** Proves Groovy provider ABI changes propagate through the workspace planner to Java consumers. */
 final class WorkspaceBuildServiceGroovyProviderTest

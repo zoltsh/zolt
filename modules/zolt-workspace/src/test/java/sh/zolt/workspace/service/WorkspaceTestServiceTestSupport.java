@@ -14,7 +14,7 @@ import java.util.Optional;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 
-final class WorkspaceTestServiceTestSupport {
+public final class WorkspaceTestServiceTestSupport {
     private WorkspaceTestServiceTestSupport() {
     }
 
@@ -45,7 +45,7 @@ final class WorkspaceTestServiceTestSupport {
                 tempDir.resolve("zolt.lock"), tempDir.resolve("cache"), content);
     }
 
-    static void createFakeConsoleJar(Path tempDir, Path jar) throws IOException {
+    public static void createFakeConsoleJar(Path tempDir, Path jar) throws IOException {
         createFakeConsoleJar(tempDir, jar, "fake console");
     }
 

@@ -1,4 +1,4 @@
-package sh.zolt.workspace.service;
+package sh.zolt.workspace.service.groovy;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -10,6 +10,13 @@ import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import sh.zolt.dependency.DependencyScope;
+import sh.zolt.workspace.service.WorkspaceBuildPlan;
+import sh.zolt.workspace.service.WorkspaceBuildResult;
+import sh.zolt.workspace.service.WorkspaceBuildService;
+import sh.zolt.workspace.service.WorkspaceBuildServiceDependencyVisibilityTestSupport;
+import sh.zolt.workspace.service.WorkspacePlanTarget;
+import sh.zolt.workspace.service.WorkspaceSelectionRequest;
+import sh.zolt.workspace.service.WorkspaceTestServiceTestSupport;
 import sh.zolt.workspace.test.WorkspaceTestCompileResult;
 import sh.zolt.workspace.test.WorkspaceTestService;
 
