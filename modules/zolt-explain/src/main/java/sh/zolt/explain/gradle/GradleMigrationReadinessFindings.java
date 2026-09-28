@@ -240,8 +240,8 @@ public final class GradleMigrationReadinessFindings {
                     "ci",
                     MigrationReadinessCategory.UNSUPPORTED,
                     signal,
-                    "Gradle unsupported language plugin or main sources",
-                    "normal Java application modules",
+                    "Gradle Kotlin or Scala plugin",
+                    "supported Java or Groovy application modules",
                     "",
                     signal.nextStep());
             case "gradle.android.unsupported" -> MigrationReadinessFindings.finding(

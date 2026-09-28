@@ -280,7 +280,7 @@ public final class ExplainSignals {
             "gradle.language.unsupported",
             ExplainSignal.Severity.BLOCK,
             ExplainSignal.Category.MIGRATION_BLOCKER,
-            "Keep Kotlin, Scala, and Groovy main-source modules outside the public beta or migrate a plain Java module first.");
+            "Keep Kotlin and Scala modules outside the public beta or migrate a supported Java or Groovy module first.");
     public static final ExplainSignalDefinition GRADLE_ANDROID_UNSUPPORTED = new ExplainSignalDefinition(
             "gradle.android.unsupported",
             ExplainSignal.Severity.BLOCK,

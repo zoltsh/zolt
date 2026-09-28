@@ -156,6 +156,29 @@ final class InspectionToManifestRootsTest {
                 () -> "expected the non-conventional test root review note: " + draft.notes());
     }
 
+    @Test
+    void gradleDraftCarriesConventionalGroovyMainRootIntoBuildSources() throws IOException {
+        Files.createDirectories(tempDir.resolve("src/main/java/com/example"));
+        Files.createDirectories(tempDir.resolve("src/main/groovy/com/example"));
+        Files.writeString(tempDir.resolve("settings.gradle"), "rootProject.name = 'groovy-main'\n");
+        Files.writeString(tempDir.resolve("build.gradle"), """
+                plugins {
+                    id 'java'
+                    id 'groovy'
+                }
+                group = 'com.example'
+                version = '1.0.0'
+                dependencies {
+                    implementation 'org.apache.groovy:groovy:4.0.22'
+                }
+                """);
+
+        DraftZoltToml draft = mapper.fromGradle(new GradleStaticProjectInspector().inspect(tempDir));
+
+        AuthoredBuild build = draft.manifest().build().build().orElseThrow();
+        assertEquals(List.of("src/main/java", "src/main/groovy"), paths(build.sources()));
+    }
+
     /** {@code [build].sources} is a sorted, distinct path list in the authored model. */
     private static List<String> paths(List<ManifestRelativePath> roots) {
         return roots.stream().map(ManifestRelativePath::value).toList();

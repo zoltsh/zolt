@@ -141,11 +141,6 @@ public final class GradleStaticProjectInspector {
                     "java-platform BOM detected: " + constraints.size() + " version constraint(s), "
                             + imports + " platform import(s)."));
         }
-        if (hasGroovyMainSources(projectDirectory, content)) {
-            signals.add(ExplainSignals.GRADLE_LANGUAGE_UNSUPPORTED.signal(
-                    project,
-                    "Gradle project has Groovy main sources, which are outside the Zolt public beta."));
-        }
         return new GradleProjectInspection(
                 relativePath,
                 declaredName.filter(name -> !name.isBlank()).orElseGet(() -> projectDirectory.getFileName().toString()),
@@ -158,11 +153,7 @@ public final class GradleStaticProjectInspector {
                 plugins,
                 repositories(content, settingsRepositories),
                 dependencies,
-                buildFileParser.sourceRoots(
-                        content,
-                        "main",
-                        "src/main/java",
-                        Files.isDirectory(projectDirectory.resolve("src/main/java"))),
+                mainSourceRoots(projectDirectory, content),
                 buildFileParser.sourceRoots(
                         content,
                         "test",
@@ -227,9 +218,16 @@ public final class GradleStaticProjectInspector {
         return path.toString().replace('\\', '/');
     }
 
-    private static boolean hasGroovyMainSources(Path projectDirectory, String content) {
-        return Files.isDirectory(projectDirectory.resolve("src/main/groovy"))
-                || content.contains("src/main/groovy");
+    private List<String> mainSourceRoots(Path projectDirectory, String content) {
+        List<String> roots = new ArrayList<>(buildFileParser.sourceRoots(
+                content,
+                "main",
+                "src/main/java",
+                Files.isDirectory(projectDirectory.resolve("src/main/java"))));
+        if (Files.isDirectory(projectDirectory.resolve("src/main/groovy"))) {
+            roots.add("src/main/groovy");
+        }
+        return roots.stream().distinct().toList();
     }
 
     private static boolean hasGroovyTestSources(Path projectDirectory, String content) {

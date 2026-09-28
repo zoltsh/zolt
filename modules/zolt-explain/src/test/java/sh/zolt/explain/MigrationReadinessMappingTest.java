@@ -39,13 +39,13 @@ final class MigrationReadinessMappingTest {
 
         assertEquals(MigrationReadinessCategory.UNSUPPORTED, finding.category());
         assertEquals("ci", concernFor(finding));
-        assertEquals("concern:ci Gradle unsupported language plugin or main sources", finding.sourcePattern());
-        assertEquals("normal Java application modules", finding.zoltPrimitive());
+        assertEquals("concern:ci Gradle Kotlin or Scala plugin", finding.sourcePattern());
+        assertEquals("supported Java or Groovy application modules", finding.zoltPrimitive());
         assertTrue(scorecardText.contains(
-                "unsupported  Gradle unsupported language plugin or main sources -> normal Java application modules"),
+                "unsupported  Gradle Kotlin or Scala plugin -> supported Java or Groovy application modules"),
                 () -> scorecardText);
         assertTrue(blockerText.contains(
-                "unsupported  Gradle unsupported language plugin or main sources -> normal Java application modules"),
+                "unsupported  Gradle Kotlin or Scala plugin -> supported Java or Groovy application modules"),
                 () -> blockerText);
         assertFalse(scorecardText.contains("gradle.language.unsupported -> explicit Zolt model"), () -> scorecardText);
         assertFalse(blockerText.contains("gradle.language.unsupported -> explicit Zolt model"), () -> blockerText);
