@@ -5,6 +5,7 @@ import sh.zolt.build.BuildResultWithClasspaths;
 import sh.zolt.build.BuildService;
 import sh.zolt.build.GroovyCompileException;
 import sh.zolt.build.JavacException;
+import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.ManifestGenerationException;
 import sh.zolt.build.PackageException;
 import sh.zolt.build.packageplan.PackagePlan;
@@ -205,6 +206,7 @@ public final class PackageCommand implements Runnable {
         } catch (BuildException
                 | JavacException
                 | GroovyCompileException
+                | KotlinCompileException
                 | ManifestGenerationException
                 | PackageException
                 | ResourceCopyException

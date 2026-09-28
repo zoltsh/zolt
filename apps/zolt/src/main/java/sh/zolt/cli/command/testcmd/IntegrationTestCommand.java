@@ -6,6 +6,7 @@ import sh.zolt.build.compile.CompileOutputLayoutValidator;
 import sh.zolt.build.GroovyCompileException;
 import sh.zolt.build.JavaRunException;
 import sh.zolt.build.JavacException;
+import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.ResourceCopyException;
 import sh.zolt.build.SourceDiscoveryException;
 import sh.zolt.build.testruntime.compile.TestCompileResult;
@@ -178,6 +179,7 @@ public final class IntegrationTestCommand implements Runnable {
         } catch (BuildException
                 | JavacException
                 | GroovyCompileException
+                | KotlinCompileException
                 | JavaRunException
                 | ResourceCopyException
                 | TestRunException

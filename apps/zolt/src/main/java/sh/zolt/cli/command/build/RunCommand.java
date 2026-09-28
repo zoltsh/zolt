@@ -4,6 +4,7 @@ import sh.zolt.build.BuildException;
 import sh.zolt.build.GroovyCompileException;
 import sh.zolt.build.JavaRunException;
 import sh.zolt.build.JavacException;
+import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.ResourceCopyException;
 import sh.zolt.build.RunException;
 import sh.zolt.build.run.JavaRunResult;
@@ -157,6 +158,7 @@ public final class RunCommand implements Runnable {
         } catch (BuildException
                 | JavacException
                 | GroovyCompileException
+                | KotlinCompileException
                 | ResourceCopyException
                 | RunException
                 | FrameworkRunException

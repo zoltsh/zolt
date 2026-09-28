@@ -97,6 +97,50 @@ final class BuildCommandDiagnosticsTest {
     }
 
     @Test
+    void buildReportsMissingKotlinToolchainAsAUserFailureBeforeMutatingOutput() throws IOException {
+        Path projectDir = tempDir.resolve("kotlin-missing-toolchain");
+        Files.createDirectories(projectDir.resolve("src/main/kotlin/com/example"));
+        Files.writeString(projectDir.resolve("zolt.toml"), """
+                [project]
+                name = "kotlin-missing-toolchain"
+                version = "0.1.0"
+                group = "com.example"
+                java = %s
+
+                [build]
+                sources = ["src/main/kotlin"]
+
+                [repositories]
+                central = false
+                """.formatted(currentJavaMajorVersion()));
+        writeCurrentProjectLock(projectDir);
+        Files.writeString(
+                projectDir.resolve("src/main/kotlin/com/example/Main.kt"),
+                "package com.example\n\nobject Main\n");
+        Path outputMarker = projectDir.resolve("target/classes/do-not-delete.marker");
+        Files.createDirectories(outputMarker.getParent());
+        Files.writeString(outputMarker, "preserve");
+
+        CommandResult result = execute(
+                "build",
+                "--offline",
+                "--cwd", projectDir.toString(),
+                "--cache-root", tempDir.resolve("kotlin-missing-toolchain-cache").toString());
+
+        assertEquals(1, result.exitCode());
+        assertTrue(result.stderr().contains(
+                "error: Configured Kotlin main compiler toolchain is invalid because "
+                        + "`[toolchain.kotlin].version` is required"), result.stderr());
+        assertTrue(result.stderr().contains(
+                "Keep `[toolchain.kotlin].version`, the `tool-kotlin` closure, and ordinary "
+                        + "org.jetbrains.kotlin:kotlin-stdlib in [dependencies] aligned"), result.stderr());
+        assertFalse(result.stderr().contains("KotlinCompileException"), result.stderr());
+        assertFalse(result.stderr().contains("\tat "), result.stderr());
+        assertEquals("preserve", Files.readString(outputMarker));
+        assertFalse(Files.exists(projectDir.resolve("target/classes/com/example/Main.class")));
+    }
+
+    @Test
     void buildAutoResolveFailureRetryHintNamesBuild() throws IOException {
         try (CliTestRepository repository = CliTestRepository.start()) {
             repository.addArtifact("com.example", "root", "1.0.0", """

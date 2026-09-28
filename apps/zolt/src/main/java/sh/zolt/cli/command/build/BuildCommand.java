@@ -5,6 +5,7 @@ import sh.zolt.build.BuildResult;
 import sh.zolt.build.BuildService;
 import sh.zolt.build.GroovyCompileException;
 import sh.zolt.build.JavacException;
+import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.ResourceCopyException;
 import sh.zolt.build.SourceDiscoveryException;
 import sh.zolt.cache.ArtifactCacheException;
@@ -202,6 +203,7 @@ public final class BuildCommand implements Runnable {
                 | ArtifactCacheException
                 | JavacException
                 | GroovyCompileException
+                | KotlinCompileException
                 | FrameworkBuildException
                 | ResourceCopyException
                 | SourceDiscoveryException

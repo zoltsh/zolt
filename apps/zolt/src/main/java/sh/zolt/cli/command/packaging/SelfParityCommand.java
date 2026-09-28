@@ -3,6 +3,7 @@ package sh.zolt.cli.command.packaging;
 import sh.zolt.build.BuildException;
 import sh.zolt.build.GroovyCompileException;
 import sh.zolt.build.JavacException;
+import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.ManifestGenerationException;
 import sh.zolt.build.PackageException;
 import sh.zolt.build.ResourceCopyException;
@@ -77,6 +78,7 @@ public final class SelfParityCommand implements Runnable {
         } catch (BuildException
                 | JavacException
                 | GroovyCompileException
+                | KotlinCompileException
                 | ManifestGenerationException
                 | PackageException
                 | ResourceCopyException
