@@ -2,17 +2,11 @@ package sh.zolt.build.compile;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HexFormat;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.jar.Attributes;
@@ -46,7 +40,8 @@ public final class GroovyCompilerToolchainResolver {
         if (version.isEmpty()) {
             return resolve(packages, sourceSet);
         }
-        return resolveExplicit(packages, sourceSet, version);
+        return new ConfiguredGroovyCompilerToolchainResolver()
+                .resolve(packages, sourceSet, version);
     }
 
     public GroovyCompilerToolchain resolve(
@@ -89,7 +84,7 @@ public final class GroovyCompilerToolchainResolver {
 
         Candidate selected = distinct.getFirst();
         String hashBefore = verifiedHash(selected.jar(), sourceSet);
-        inspectJar(selected, sourceSet);
+        inspectJar(selected.version(), selected.jar(), sourceSet);
         String hashAfter = verifiedHash(selected.jar(), sourceSet);
         if (!hashBefore.equals(hashAfter)) {
             throw invalid(
@@ -97,268 +92,6 @@ public final class GroovyCompilerToolchainResolver {
                     "the verified artifact identity changed while its JAR was being inspected");
         }
         return new GroovyCompilerToolchain(selected.version(), hashAfter, selected.jar());
-    }
-
-    private GroovyCompilerToolchain resolveExplicit(
-            List<ResolvedClasspathPackage> packages,
-            SourceSet sourceSet,
-            String configuredVersion) {
-        Objects.requireNonNull(sourceSet, "Groovy compiler source set is required.");
-        List<ResolvedClasspathPackage> all = packages == null ? List.of() : List.copyOf(packages);
-        List<ResolvedClasspathPackage> toolClosure = all.stream()
-                .filter(dependency -> dependency.scope() == DependencyScope.TOOL_GROOVY)
-                .toList();
-        List<ResolvedClasspathPackage> directRoots = toolClosure.stream()
-                .filter(dependency -> dependency.resolvedPackage().direct())
-                .toList();
-        List<ResolvedClasspathPackage> groovyRoots = directRoots.stream()
-                .filter(dependency -> dependency.resolvedPackage().packageId().equals(GROOVY_PACKAGE))
-                .toList();
-
-        if (groovyRoots.isEmpty()) {
-            throw explicitInvalid(
-                    sourceSet,
-                    "zolt.lock has no direct " + GroovyCompilerToolchain.COORDINATE
-                            + " root in scope `tool-groovy` for configured version `"
-                            + configuredVersion + "`");
-        }
-        if (groovyRoots.size() > 1) {
-            throw explicitInvalid(
-                    sourceSet,
-                    "zolt.lock has ambiguous direct " + GroovyCompilerToolchain.COORDINATE
-                            + " roots in scope `tool-groovy`: " + selections(groovyRoots));
-        }
-        if (directRoots.size() > 1) {
-            List<ResolvedClasspathPackage> extras = directRoots.stream()
-                    .filter(dependency -> dependency != groovyRoots.getFirst())
-                    .toList();
-            throw explicitInvalid(
-                    sourceSet,
-                    "zolt.lock has extra direct roots in scope `tool-groovy`: " + selections(extras));
-        }
-
-        ResolvedClasspathPackage rootDependency = groovyRoots.getFirst();
-        ResolvedPackage rootPackage = rootDependency.resolvedPackage();
-        if (!configuredVersion.equals(rootPackage.selectedVersion())) {
-            throw explicitInvalid(
-                    sourceSet,
-                    "configured version `" + configuredVersion + "` does not match zolt.lock tool root version `"
-                            + rootPackage.selectedVersion() + "`");
-        }
-        VerifiedLauncherArtifact root = verifiedLauncherArtifact(rootDependency, sourceSet, true);
-        inspectJar(new Candidate(rootPackage.selectedVersion(), root.jar()), sourceSet);
-
-        Map<String, VerifiedLauncherArtifact> closureByIdentity = new LinkedHashMap<>();
-        addClosureArtifact(closureByIdentity, root, sourceSet);
-        for (ResolvedClasspathPackage dependency : toolClosure) {
-            if (dependency == rootDependency) {
-                continue;
-            }
-            addClosureArtifact(
-                    closureByIdentity,
-                    verifiedLauncherArtifact(dependency, sourceSet, false),
-                    sourceSet);
-        }
-        List<VerifiedLauncherArtifact> transitives = closureByIdentity.values().stream()
-                .filter(artifact -> !artifact.artifactIdentity().canonicalKey()
-                        .equals(root.artifactIdentity().canonicalKey()))
-                .sorted(Comparator.comparing(artifact -> artifact.artifactIdentity().canonicalKey()))
-                .toList();
-        List<VerifiedLauncherArtifact> orderedClosure = new ArrayList<>();
-        orderedClosure.add(root);
-        orderedClosure.addAll(transitives);
-
-        requireRuntime(all, sourceSet, configuredVersion, root.sha256());
-        revalidateClosure(orderedClosure, sourceSet);
-
-        List<Path> launcherJars = orderedClosure.stream()
-                .map(VerifiedLauncherArtifact::jar)
-                .toList();
-        String closureIdentity = launcherClosureIdentity(orderedClosure);
-        return new GroovyCompilerToolchain(
-                configuredVersion,
-                root.sha256(),
-                launcherJars,
-                closureIdentity);
-    }
-
-    private static VerifiedLauncherArtifact verifiedLauncherArtifact(
-            ResolvedClasspathPackage dependency,
-            SourceSet sourceSet,
-            boolean requireDefaultVariant) {
-        ResolvedPackage resolved = dependency.resolvedPackage();
-        NestedArtifactIdentity identity = resolved.artifactIdentity();
-        String coordinate = resolved.packageId() + ":" + resolved.selectedVersion();
-        if (identity.sourceKind() != NestedArtifactIdentity.SourceKind.EXTERNAL) {
-            throw explicitInvalid(
-                    sourceSet,
-                    "the `tool-groovy` closure contains a workspace substitution for " + coordinate);
-        }
-        if (!identity.packageId().equals(resolved.packageId())
-                || !identity.version().equals(resolved.selectedVersion())) {
-            throw explicitInvalid(
-                    sourceSet,
-                    "the resolved package and artifact identities disagree for " + coordinate);
-        }
-        if (!"jar".equals(identity.extension())) {
-            throw explicitInvalid(
-                    sourceSet,
-                    "the `tool-groovy` closure contains a non-JAR artifact " + identity.coordinate());
-        }
-        if (requireDefaultVariant && identity.classifier().isPresent()) {
-            throw explicitInvalid(
-                    sourceSet,
-                    GroovyCompilerToolchain.COORDINATE
-                            + " is not the default unclassified JAR variant");
-        }
-        Path jar = resolved.jarPath().toAbsolutePath().normalize();
-        return new VerifiedLauncherArtifact(
-                identity,
-                jar,
-                verifiedExplicitHash(jar, sourceSet, identity.coordinate()));
-    }
-
-    private static void addClosureArtifact(
-            Map<String, VerifiedLauncherArtifact> closure,
-            VerifiedLauncherArtifact artifact,
-            SourceSet sourceSet) {
-        String key = artifact.artifactIdentity().canonicalKey();
-        VerifiedLauncherArtifact existing = closure.putIfAbsent(key, artifact);
-        if (existing != null
-                && (!existing.jar().equals(artifact.jar())
-                        || !existing.sha256().equals(artifact.sha256()))) {
-            throw explicitInvalid(
-                    sourceSet,
-                    "the `tool-groovy` closure resolves " + artifact.artifactIdentity().coordinate()
-                            + " ambiguously at " + existing.jar() + " and " + artifact.jar());
-        }
-    }
-
-    private static void requireRuntime(
-            List<ResolvedClasspathPackage> packages,
-            SourceSet sourceSet,
-            String configuredVersion,
-            String compilerHash) {
-        List<ResolvedClasspathPackage> visibleMatches = packages.stream()
-                .filter(dependency -> dependency.scope() != DependencyScope.TOOL_GROOVY)
-                .filter(dependency -> sourceSet.visible(dependency.scope()))
-                .filter(dependency -> dependency.resolvedPackage().packageId().equals(GROOVY_PACKAGE))
-                .toList();
-        for (ResolvedClasspathPackage runtime : visibleMatches) {
-            ResolvedPackage resolved = runtime.resolvedPackage();
-            NestedArtifactIdentity identity = resolved.artifactIdentity();
-            if (!identity.packageId().equals(resolved.packageId())
-                    || !identity.version().equals(resolved.selectedVersion())) {
-                throw explicitInvalid(
-                        sourceSet,
-                        "the resolved package and artifact identities disagree for ordinary runtime "
-                                + resolved.packageId() + ":" + resolved.selectedVersion());
-            }
-        }
-        List<ResolvedClasspathPackage> defaultRuntimes = visibleMatches.stream()
-                .filter(dependency -> {
-                    NestedArtifactIdentity identity = dependency.resolvedPackage().artifactIdentity();
-                    return identity.sourceKind() == NestedArtifactIdentity.SourceKind.EXTERNAL
-                            && "jar".equals(identity.extension())
-                            && identity.classifier().isEmpty();
-                })
-                .toList();
-        if (defaultRuntimes.isEmpty()) {
-            throw explicitInvalid(
-                    sourceSet,
-                    "no ordinary source-set-visible external default JAR for "
-                            + GroovyCompilerToolchain.COORDINATE
-                            + " is present at configured version `" + configuredVersion + "`");
-        }
-        Map<RuntimeSelection, ResolvedClasspathPackage> distinct = new LinkedHashMap<>();
-        for (ResolvedClasspathPackage runtime : defaultRuntimes) {
-            ResolvedPackage resolved = runtime.resolvedPackage();
-            distinct.putIfAbsent(
-                    new RuntimeSelection(
-                            resolved.selectedVersion(),
-                            resolved.jarPath().toAbsolutePath().normalize()),
-                    runtime);
-        }
-        if (distinct.size() != 1) {
-            throw explicitInvalid(
-                    sourceSet,
-                    "ordinary source-set-visible external default " + GroovyCompilerToolchain.COORDINATE
-                            + " runtime is ambiguous: " + selections(List.copyOf(distinct.values())));
-        }
-        ResolvedClasspathPackage runtime = distinct.values().iterator().next();
-        String runtimeVersion = runtime.resolvedPackage().selectedVersion();
-        if (!configuredVersion.equals(runtimeVersion)) {
-            throw explicitInvalid(
-                    sourceSet,
-                    "ordinary runtime version `" + runtimeVersion + "` does not match configured version `"
-                            + configuredVersion + "`");
-        }
-        VerifiedLauncherArtifact verified = verifiedLauncherArtifact(runtime, sourceSet, true);
-        if (!compilerHash.equals(verified.sha256())) {
-            throw explicitInvalid(
-                    sourceSet,
-                    "ordinary runtime " + GroovyCompilerToolchain.COORDINATE + ":" + runtimeVersion
-                            + " does not have the same checksum-verified core content as the compiler root");
-        }
-    }
-
-    private static void revalidateClosure(
-            List<VerifiedLauncherArtifact> closure,
-            SourceSet sourceSet) {
-        for (VerifiedLauncherArtifact artifact : closure) {
-            String current = verifiedExplicitHash(
-                    artifact.jar(),
-                    sourceSet,
-                    artifact.artifactIdentity().coordinate());
-            if (!artifact.sha256().equals(current)) {
-                throw explicitInvalid(
-                        sourceSet,
-                        "the verified artifact identity changed while the `tool-groovy` closure was inspected");
-            }
-        }
-    }
-
-    private static String verifiedExplicitHash(
-            Path jar,
-            SourceSet sourceSet,
-            String coordinate) {
-        if (!Files.isRegularFile(jar)) {
-            throw explicitInvalid(
-                    sourceSet,
-                    "the selected JAR for " + coordinate + " is not a regular file at " + jar);
-        }
-        return VerifiedArtifactHashes.currentHash(jar).orElseThrow(() -> explicitInvalid(
-                sourceSet,
-                "the selected JAR for " + coordinate + " at " + jar
-                        + " has no current checksum-verified artifact identity"));
-    }
-
-    private static String launcherClosureIdentity(List<VerifiedLauncherArtifact> closure) {
-        StringBuilder material = new StringBuilder();
-        for (VerifiedLauncherArtifact artifact : closure) {
-            material.append(artifact.artifactIdentity().canonicalKey())
-                    .append("@sha256:")
-                    .append(artifact.sha256())
-                    .append('\n');
-        }
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return "sha256:" + HexFormat.of().formatHex(
-                    digest.digest(material.toString().getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException exception) {
-            throw new GroovyCompileException(
-                    "Could not identify the verified Groovy compiler closure because SHA-256 is unavailable.",
-                    exception);
-        }
-    }
-
-    private static String selections(List<ResolvedClasspathPackage> dependencies) {
-        return dependencies.stream()
-                .map(dependency -> dependency.resolvedPackage().artifactIdentity().coordinate()
-                        + " at " + dependency.resolvedPackage().jarPath().toAbsolutePath().normalize())
-                .sorted()
-                .reduce((left, right) -> left + ", " + right)
-                .orElse("none");
     }
 
     private static Candidate candidate(
@@ -394,8 +127,8 @@ public final class GroovyCompilerToolchainResolver {
                         + " has no current checksum-verified artifact identity"));
     }
 
-    private static void inspectJar(Candidate candidate, SourceSet sourceSet) {
-        try (JarFile jar = new JarFile(candidate.jar().toFile(), false)) {
+    static void inspectJar(String version, Path jarPath, SourceSet sourceSet) {
+        try (JarFile jar = new JarFile(jarPath.toFile(), false)) {
             if (jar.getJarEntry(COMPILER_ENTRY) == null) {
                 throw invalid(sourceSet, "the selected compiler JAR does not contain " + COMPILER_ENTRY);
             }
@@ -404,18 +137,18 @@ public final class GroovyCompilerToolchainResolver {
                 throw invalid(sourceSet, "the selected compiler JAR has no Groovy implementation version metadata");
             }
             for (VersionMetadata metadata : versions) {
-                if (!candidate.version().equals(metadata.version())) {
+                if (!version.equals(metadata.version())) {
                     throw invalid(
                             sourceSet,
                             "the selected compiler JAR reports " + metadata.label() + " `"
-                                    + metadata.version() + "` but zolt.lock selected `" + candidate.version() + "`");
+                                    + metadata.version() + "` but zolt.lock selected `" + version + "`");
                 }
             }
         } catch (GroovyCompileException exception) {
             throw exception;
         } catch (IOException | RuntimeException exception) {
             throw new GroovyCompileException(
-                    "Could not inspect the checksum-verified Groovy compiler JAR at " + candidate.jar()
+                    "Could not inspect the checksum-verified Groovy compiler JAR at " + jarPath
                             + ". Run `zolt resolve` to refresh the artifact cache, then retry.",
                     exception);
         }
@@ -470,7 +203,7 @@ public final class GroovyCompilerToolchainResolver {
                         + sourceSet.dependencySections + ", run `zolt resolve`, and retry.");
     }
 
-    private static GroovyCompileException explicitInvalid(SourceSet sourceSet, String reason) {
+    static GroovyCompileException explicitInvalid(SourceSet sourceSet, String reason) {
         return new GroovyCompileException(
                 "Configured Groovy " + sourceSet.label + " compiler toolchain is invalid because " + reason + ". "
                         + "Keep `[toolchain.groovy].version` and the ordinary Groovy runtime in "
@@ -490,15 +223,6 @@ public final class GroovyCompilerToolchainResolver {
     private record Candidate(String version, Path jar) {
     }
 
-    private record VerifiedLauncherArtifact(
-            NestedArtifactIdentity artifactIdentity,
-            Path jar,
-            String sha256) {
-    }
-
-    private record RuntimeSelection(String version, Path jar) {
-    }
-
     private record VersionMetadata(String label, String version) {
     }
 
@@ -515,7 +239,7 @@ public final class GroovyCompilerToolchainResolver {
             this.dependencySections = dependencySections;
         }
 
-        private boolean visible(DependencyScope scope) {
+        boolean visible(DependencyScope scope) {
             return this == MAIN
                     ? scope.entersMainCompileClasspath()
                     : scope.entersTestCompileClasspath();
