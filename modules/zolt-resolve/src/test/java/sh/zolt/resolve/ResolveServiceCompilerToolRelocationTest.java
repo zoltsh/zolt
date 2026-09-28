@@ -47,7 +47,7 @@ final class ResolveServiceCompilerToolRelocationTest extends ResolveServiceTestS
                 "The POM for configured Groovy compiler root `org.apache.groovy:groovy:4.0.22` in "
                         + "[toolchain.groovy] relocates to `com.example:relocated-groovy:4.0.22`. "
                         + "Zolt requires compiler roots to preserve their exact configured Maven coordinate.",
-                exception.getMessage());
+                exception.actionableError().summary());
         assertEquals(
                 "Select a non-relocated Groovy compiler version in [toolchain.groovy], then run "
                         + "`zolt resolve --locked` again.",
@@ -94,7 +94,7 @@ final class ResolveServiceCompilerToolRelocationTest extends ResolveServiceTestS
                         + "[toolchain.kotlin] relocates to "
                         + "`org.jetbrains.kotlin:kotlin-compiler-embeddable:2.2.10`. "
                         + "Zolt requires compiler roots to preserve their exact configured Maven coordinate.",
-                exception.getMessage());
+                exception.actionableError().summary());
         assertEquals(
                 "Select a non-relocated Kotlin compiler version in [toolchain.kotlin], then run "
                         + "`zolt resolve --locked` again.",
