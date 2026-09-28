@@ -139,10 +139,13 @@ final class WorkspaceMemberStateObserver {
     }
 
     /**
-     * The test lane's compile inputs only. Test resources are tracked beside this key rather than
-     * inside it, exactly as the main lane keeps {@code resourceTreeDigest} out of its compile key:
-     * both lanes copy resources after compiling, so a resource edit has to be able to say so on its
-     * own instead of masquerading as a source change.
+     * The test lane's compile inputs and prior annotation-processor output. Test resources are
+     * tracked beside this key rather than inside it, exactly as the main lane keeps
+     * {@code resourceTreeDigest} out of its compile key: both lanes copy resources after compiling,
+     * so a resource edit has to be able to say so on its own instead of masquerading as a source
+     * change. Processor output is different: it is an owned output that becomes an input to the
+     * next freshness decision, so the key must reject a hand edit or deletion before the canonical
+     * compiler fingerprint can be bypassed.
      */
     String testCompileKey(WorkspaceMember member, String mainManifestDigest) {
         var build = member.config().build();
@@ -158,6 +161,7 @@ final class WorkspaceMemberStateObserver {
                 CompilationSemantics.VERSION,
                 mainManifestDigest.isEmpty() ? "missing" : mainManifestDigest,
                 testSources.digest(),
+                generatedTestOutputDigest(context.fileSnapshot(), member),
                 resolutionInputDigest(context.laneClosure().test(member.path())),
                 abiDigest(context.memberGraph().test(member.path()))));
     }
@@ -166,6 +170,7 @@ final class WorkspaceMemberStateObserver {
             WorkspaceMember member,
             String mainManifestDigest) {
         var build = member.config().build();
+        context.fileSnapshot().forget(member.path(), WorkspaceFileKind.GENERATED_TEST_OUTPUT);
         String resources = context.fileSnapshot()
                 .resources(
                         member.path(),
@@ -242,6 +247,21 @@ final class WorkspaceMemberStateObserver {
                 .toAbsolutePath()
                 .normalize();
         return snapshot.tree(member.path(), WorkspaceFileKind.GENERATED_OUTPUT, generated).digest();
+    }
+
+    /** What test annotation processors emitted, observed separately from their main-lane twins. */
+    private static String generatedTestOutputDigest(
+            WorkspaceFileSnapshot snapshot,
+            WorkspaceMember member) {
+        Path generated = member.directory()
+                .resolve(member.config().compilerSettings().generatedTestSources())
+                .toAbsolutePath()
+                .normalize();
+        return snapshot.tree(
+                        member.path(),
+                        WorkspaceFileKind.GENERATED_TEST_OUTPUT,
+                        generated)
+                .digest();
     }
 
     private String toolchainDigest(

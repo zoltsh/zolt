@@ -17,6 +17,7 @@ public enum WorkspaceFileKind {
     TEST_RESOURCE("test-resource", true),
     GENERATED_INPUT("generated-input", true),
     GENERATED_OUTPUT("generated-output", true),
+    GENERATED_TEST_OUTPUT("generated-test-output", true),
     OUTPUT_RESOURCE("output-resource", false),
     CONFIG("config", false);
 
