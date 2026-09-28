@@ -5,16 +5,20 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import sh.zolt.build.cache.BuildCacheService;
+import sh.zolt.build.cache.BuildCacheSettings;
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.project.ProjectConfig;
@@ -27,6 +31,9 @@ final class BuildServiceKotlinMainIntegrationTest {
 
     @TempDir
     private Path cacheRoot;
+
+    @TempDir
+    private Path buildCacheHome;
 
     @Test
     void compilesOfflineWithAnIsolatedToolchainAndSafelyReusesOutput() throws Exception {
@@ -46,7 +53,9 @@ final class BuildServiceKotlinMainIntegrationTest {
 
                 class Obsolete
                 """);
-        BuildService service = new BuildService();
+        BuildService service = new BuildService().withBuildCache(BuildCacheService.create(
+                new BuildCacheSettings(true, buildCacheHome, 0L),
+                "kotlin-main-integration"));
 
         BuildResultWithClasspaths first = service.buildWithClasspaths(
                 projectDir,
@@ -58,6 +67,7 @@ final class BuildServiceKotlinMainIntegrationTest {
         assertEquals(2, first.buildResult().sourceCount());
         assertEquals("full", first.buildResult().mainCompilationMode());
         assertEquals("kotlin-main-sources", first.buildResult().mainIncrementalFallbackReason());
+        assertEquals("stored", first.buildResult().mainBuildCacheOutcome());
         assertTrue(Files.isRegularFile(classFile("KotlinApi.class")));
         assertTrue(Files.isRegularFile(classFile("Obsolete.class")));
         assertTrue(hasKotlinModuleMetadata());
@@ -72,6 +82,19 @@ final class BuildServiceKotlinMainIntegrationTest {
         assertTrue(warm.buildResult().resolveResult().isEmpty());
         assertTrue(warm.buildResult().mainCompilationSkipped());
         assertEquals(2, warm.buildResult().sourceCount());
+
+        wipeTarget();
+        BuildResultWithClasspaths restored = service.buildWithClasspaths(
+                projectDir,
+                config(),
+                cacheRoot,
+                true);
+        assertTrue(restored.buildResult().mainCompilationRestored());
+        assertEquals("restored", restored.buildResult().mainBuildCacheOutcome());
+        assertTrue(Files.isRegularFile(classFile("KotlinApi.class")));
+        assertTrue(Files.isRegularFile(classFile("Obsolete.class")));
+        assertTrue(hasKotlinModuleMetadata());
+        assertEquals("real-kotlin", invokeKotlinApi(artifacts.applicationClasspath()));
 
         Files.delete(obsoleteSource);
         BuildResultWithClasspaths rebuilt = service.buildWithClasspaths(
@@ -149,6 +172,22 @@ final class BuildServiceKotlinMainIntegrationTest {
         Files.createDirectories(source.getParent());
         Files.writeString(source, content);
         return source;
+    }
+
+    private void wipeTarget() throws IOException {
+        Path target = projectDir.resolve("target");
+        if (!Files.exists(target)) {
+            return;
+        }
+        try (Stream<Path> paths = Files.walk(target)) {
+            paths.sorted(Comparator.reverseOrder()).forEach(path -> {
+                try {
+                    Files.delete(path);
+                } catch (IOException exception) {
+                    throw new UncheckedIOException(exception);
+                }
+            });
+        }
     }
 
     private static ProjectConfig config() {
