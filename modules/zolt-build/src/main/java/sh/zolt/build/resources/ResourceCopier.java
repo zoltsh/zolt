@@ -96,7 +96,7 @@ public final class ResourceCopier {
                 List<Path> resources = paths
                         .filter(path -> ProjectPaths.isRegularFileInsideProject(projectRoot, resourceRootKey, path))
                         .map(Path::normalize)
-                        .filter(path -> !path.getFileName().toString().endsWith(".java"))
+                        .filter(path -> !isSource(path))
                         .filter(path -> !path.startsWith(mainOutput))
                         .filter(path -> !path.startsWith(testOutput))
                         .filter(path -> !startsWithOutputDirectorySegment(resourceRoot.relativize(path)))
@@ -155,6 +155,11 @@ public final class ResourceCopier {
                 .filter(step -> step.kind() == GeneratedSourceKind.EXEC)
                 .filter(step -> step.exec().produces() == lane)
                 .toList();
+    }
+
+    private static boolean isSource(Path path) {
+        String fileName = path.getFileName().toString();
+        return fileName.endsWith(".java") || fileName.endsWith(".groovy");
     }
 
     private static void copyExecResources(

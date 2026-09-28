@@ -61,7 +61,8 @@ final class PackageBuildInputFingerprint {
         // v2 adds the shared compilation-semantics token. Package/publish paths can validate
         // existing evidence without first entering BuildService, so the stored compile fingerprint
         // alone cannot force pre-fix output through the current compiler.
-        hash.value("schema", "zolt.package-build-input.v2");
+        // v3 classifies authored Groovy files as main sources rather than resources.
+        hash.value("schema", "zolt.package-build-input.v3");
         hash.value("compilationSemantics", compilationSemantics);
         hash.value(
                 "build",
@@ -122,9 +123,7 @@ final class PackageBuildInputFingerprint {
                     "[build].sources",
                     configuredRoot);
             sources.addAll(files(root).stream()
-                    .filter(path -> path.getFileName()
-                            .toString()
-                            .endsWith(".java"))
+                    .filter(PackageBuildInputFingerprint::isSource)
                     .toList());
         }
         return sources.stream().distinct().sorted().toList();
@@ -137,7 +136,7 @@ final class PackageBuildInputFingerprint {
         for (String configuredRoot : build.resourceRoots()) {
             Path root = ProjectPaths.existingRoot(projectRoot, "[resources].main", configuredRoot);
             resources.addAll(files(root).stream()
-                    .filter(path -> !path.getFileName().toString().endsWith(".java"))
+                    .filter(path -> !isSource(path))
                     .filter(path -> !path.startsWith(mainOutput))
                     .filter(path -> !path.startsWith(testOutput))
                     .filter(path -> !startsWithBuildDirectory(root.relativize(path)))
@@ -158,6 +157,11 @@ final class PackageBuildInputFingerprint {
             outputs.addAll(expand(output));
         }
         return outputs.stream().sorted().toList();
+    }
+
+    private static boolean isSource(Path path) {
+        String fileName = path.getFileName().toString();
+        return fileName.endsWith(".java") || fileName.endsWith(".groovy");
     }
 
     private static List<Path> expand(Path path) {

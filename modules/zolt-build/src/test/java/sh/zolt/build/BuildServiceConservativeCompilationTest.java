@@ -63,22 +63,22 @@ final class BuildServiceConservativeCompilationTest {
     }
 
     @Test
-    void selectiveEraFingerprintForcesOneCleanFullCompileOnUpgrade() throws IOException {
+    void priorSemanticsFingerprintForcesOneCleanFullCompileOnUpgrade() throws IOException {
         writeLockfile(projectDir, "version = 7\n");
         source(projectDir, "src/main/java/p/Main.java", "package p; public final class Main {}\n");
         buildService.build(projectDir, config(), projectDir.resolve("cache"));
         Path fingerprint = projectDir.resolve("target/classes/.zolt-build-main.fingerprint");
         String oldFingerprint = Files.readString(fingerprint)
-                .replaceFirst("version=" + CompilationSemantics.VERSION, "version=2");
+                .replaceFirst("version=" + CompilationSemantics.VERSION, "version=4");
         Files.writeString(fingerprint, oldFingerprint);
         Path fingerprintState = fingerprint.resolveSibling(fingerprint.getFileName() + ".state");
         String oldState = Files.readString(fingerprintState).replaceFirst(
                 "fingerprintSha256=[0-9a-f]+",
                 "fingerprintSha256=" + sha256(oldFingerprint));
         Files.writeString(fingerprintState, oldState);
-        Path staleOutput = projectDir.resolve("target/classes/stale/sentinel.txt");
+        Path staleOutput = projectDir.resolve("target/classes/stale/PreviouslyCopied.groovy");
         Files.createDirectories(staleOutput.getParent());
-        Files.writeString(staleOutput, "selective-era output\n");
+        Files.writeString(staleOutput, "class PreviouslyCopied {}\n");
 
         BuildResult result = buildService.build(projectDir, config(), projectDir.resolve("cache"));
 

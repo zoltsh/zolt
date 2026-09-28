@@ -91,7 +91,7 @@ public final class PackageSupplementalArtifactAssembler {
             Files.createDirectories(jarPath.getParent());
             PackageSupplementalArtifactFiles.deleteDirectory(javadocDirectory);
             Files.createDirectories(javadocDirectory);
-            List<Path> sources = sourceFiles(sourceRoots);
+            List<Path> sources = javadocSourceFiles(sourceRoots);
             if (!sources.isEmpty()) {
                 runJavadoc(
                         projectDirectory,
@@ -224,7 +224,7 @@ public final class PackageSupplementalArtifactAssembler {
     private static List<SourceJarEntry> sourceJarEntries(List<MainSourceRoot> sourceRoots) throws IOException {
         List<SourceJarEntry> entries = new ArrayList<>();
         for (MainSourceRoot root : sourceRoots) {
-            for (Path file : PackageSupplementalArtifactFiles.sourceFiles(root.path())) {
+            for (Path file : PackageSupplementalArtifactFiles.sourceArchiveFiles(root.path())) {
                 entries.add(new SourceJarEntry(entryName(root.path(), file), file));
             }
         }
@@ -234,10 +234,10 @@ public final class PackageSupplementalArtifactAssembler {
                 .toList();
     }
 
-    private static List<Path> sourceFiles(List<MainSourceRoot> sourceRoots) throws IOException {
+    private static List<Path> javadocSourceFiles(List<MainSourceRoot> sourceRoots) throws IOException {
         List<Path> sources = new ArrayList<>();
         for (MainSourceRoot root : sourceRoots) {
-            sources.addAll(PackageSupplementalArtifactFiles.sourceFiles(root.path()));
+            sources.addAll(PackageSupplementalArtifactFiles.javadocSourceFiles(root.path()));
         }
         return sources.stream()
                 .sorted()

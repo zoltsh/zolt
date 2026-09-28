@@ -7,8 +7,13 @@ import sh.zolt.build.CompilationSemantics;
 import sh.zolt.build.generatedsource.GeneratedSourceProducerFingerprint;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.GeneratedSourceKind;
+import sh.zolt.project.PackageMode;
+import sh.zolt.project.PackageSettings;
 import sh.zolt.project.ProjectConfig;
+import sh.zolt.project.PublicationMetadata;
 import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -57,8 +62,49 @@ final class PackageBuildInputFingerprintTest {
     @Test
     void compilationSemanticsVersionInvalidatesPackageEvidenceIdentity() {
         assertNotEquals(
-                fingerprint(config(), List.of(), "2"),
+                fingerprint(config(), List.of(), "4"),
                 fingerprint(config(), List.of(), CompilationSemantics.VERSION));
+    }
+
+    @Test
+    void groovyMainSourceChangesBuildAndSourcesFingerprintsButNotJavadocSources()
+            throws IOException {
+        Path groovy = projectRoot.resolve("src/main/java/com/example/GroovyApi.groovy");
+        Files.createDirectories(groovy.getParent());
+        Files.writeString(groovy, "package com.example\nclass GroovyApi {}\n");
+        ProjectConfig config = config().withPackageSettings(new PackageSettings(
+                PackageMode.THIN,
+                true,
+                true,
+                false,
+                PublicationMetadata.empty()));
+
+        String buildBefore = fingerprint(config, List.of());
+        List<PackagePlanLiveInput> supplementalBefore = supplementalInputs(config);
+
+        Files.writeString(groovy, "package com.example\nclass GroovyApi { int changed }\n");
+
+        assertNotEquals(buildBefore, fingerprint(config, List.of()));
+        List<PackagePlanLiveInput> supplementalAfter = supplementalInputs(config);
+        assertNotEquals(
+                supplementalFingerprint(supplementalBefore, "sources"),
+                supplementalFingerprint(supplementalAfter, "sources"));
+        assertEquals(
+                supplementalFingerprint(supplementalBefore, "javadoc"),
+                supplementalFingerprint(supplementalAfter, "javadoc"));
+    }
+
+    @Test
+    void groovyFilesUnderResourceRootsDoNotChangeBuildFingerprint()
+            throws IOException {
+        Path groovy = projectRoot.resolve("src/main/resources/com/example/NotAResource.groovy");
+        Files.createDirectories(groovy.getParent());
+        Files.writeString(groovy, "class NotAResource {}\n");
+
+        String before = fingerprint(config(), List.of());
+        Files.writeString(groovy, "class NotAResource { int changed }\n");
+
+        assertEquals(before, fingerprint(config(), List.of()));
     }
 
     @Test
@@ -85,6 +131,26 @@ final class PackageBuildInputFingerprintTest {
     private String fingerprint(
             List<GeneratedSourceProducerFingerprint> producers) {
         return fingerprint(config(), producers);
+    }
+
+    private List<PackagePlanLiveInput> supplementalInputs(ProjectConfig config) {
+        return PackageSupplementalInputFingerprint.inputs(
+                projectRoot,
+                config,
+                "build-input",
+                "application-output",
+                "package-lock",
+                List.of());
+    }
+
+    private static String supplementalFingerprint(
+            List<PackagePlanLiveInput> inputs,
+            String kind) {
+        return inputs.stream()
+                .filter(input -> kind.equals(input.kind()))
+                .findFirst()
+                .orElseThrow()
+                .fingerprint();
     }
 
     private String fingerprint(

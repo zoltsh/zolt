@@ -154,9 +154,10 @@ final class ResourceCopierTest extends ResourceCopierTestSupport {
     }
 
     @Test
-    void skipsJavaFilesAndBuildOutputSegments() throws IOException {
+    void skipsSourceFilesAndBuildOutputSegments() throws IOException {
         Path config = resource("src/main/resources/config/app.properties", "ok=true\n");
         resource("src/main/resources/com/example/NotAResource.java", "final class NotAResource {}\n");
+        resource("src/main/resources/com/example/NotAResource.groovy", "class NotAResource {}\n");
         resource("src/main/resources/target/generated.txt", "target\n");
         resource("src/main/resources/build/generated.txt", "build\n");
 
@@ -165,6 +166,7 @@ final class ResourceCopierTest extends ResourceCopierTestSupport {
         assertEquals(List.of(config), result.copiedResources());
         assertTrue(Files.exists(projectDir.resolve("target/classes/config/app.properties")));
         assertFalse(Files.exists(projectDir.resolve("target/classes/com/example/NotAResource.java")));
+        assertFalse(Files.exists(projectDir.resolve("target/classes/com/example/NotAResource.groovy")));
         assertFalse(Files.exists(projectDir.resolve("target/classes/target/generated.txt")));
         assertFalse(Files.exists(projectDir.resolve("target/classes/build/generated.txt")));
     }

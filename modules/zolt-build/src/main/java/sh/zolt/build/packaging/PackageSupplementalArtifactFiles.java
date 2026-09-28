@@ -6,22 +6,38 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
+import java.util.function.Predicate;
 
 final class PackageSupplementalArtifactFiles {
     private PackageSupplementalArtifactFiles() {
     }
 
-    static List<Path> sourceFiles(Path sourceRoot) throws IOException {
+    static List<Path> sourceArchiveFiles(Path sourceRoot) throws IOException {
+        return sourceFiles(sourceRoot, PackageSupplementalArtifactFiles::isMainSource);
+    }
+
+    static List<Path> javadocSourceFiles(Path sourceRoot) throws IOException {
+        return sourceFiles(sourceRoot, path -> path.getFileName().toString().endsWith(".java"));
+    }
+
+    private static List<Path> sourceFiles(
+            Path sourceRoot,
+            Predicate<Path> include) throws IOException {
         if (!Files.isDirectory(sourceRoot)) {
             return List.of();
         }
         try (var stream = Files.walk(sourceRoot)) {
             return stream
                     .filter(Files::isRegularFile)
-                    .filter(path -> path.getFileName().toString().endsWith(".java"))
+                    .filter(include)
                     .sorted(Comparator.comparing(path -> entryName(sourceRoot, path)))
                     .toList();
         }
+    }
+
+    private static boolean isMainSource(Path path) {
+        String fileName = path.getFileName().toString();
+        return fileName.endsWith(".java") || fileName.endsWith(".groovy");
     }
 
     static List<Path> regularFiles(Path root) throws IOException {

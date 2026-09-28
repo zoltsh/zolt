@@ -30,12 +30,12 @@ final class PackageSupplementalInputFingerprint {
         if (config.packageSettings().sources()) {
             inputs.add(new PackagePlanLiveInput(
                     "sources",
-                    sourceFingerprint(projectRoot, config.build())));
+                    sourceArchiveFingerprint(projectRoot, config.build())));
         }
         if (config.packageSettings().javadoc()) {
             PackageCanonicalHash hash = new PackageCanonicalHash();
             hash.value("schema", "zolt.package-javadoc-input.v1");
-            hash.value("sources", sourceFingerprint(projectRoot, config.build()));
+            hash.value("sources", javadocSourceFingerprint(projectRoot, config.build()));
             hash.value("buildInput", buildInputFingerprint);
             hash.value("applicationOutput", applicationOutputFingerprint);
             hash.value("compileClasspath", packageLockFingerprint);
@@ -52,12 +52,24 @@ final class PackageSupplementalInputFingerprint {
         return List.copyOf(inputs);
     }
 
-    private static String sourceFingerprint(Path projectRoot, BuildSettings build) {
+    private static String sourceArchiveFingerprint(Path projectRoot, BuildSettings build) {
+        PackageCanonicalHash hash = new PackageCanonicalHash();
+        hash.value("schema", "zolt.package-sources-input.v2");
+        for (String configuredRoot : build.sourceRoots()) {
+            Path root = ProjectPaths.existingRoot(projectRoot, "[build].sources", configuredRoot);
+            for (Path file : sourceFiles(root, List.of(".java", ".groovy"))) {
+                file(hash, projectRoot, "source", file);
+            }
+        }
+        return hash.finish();
+    }
+
+    private static String javadocSourceFingerprint(Path projectRoot, BuildSettings build) {
         PackageCanonicalHash hash = new PackageCanonicalHash();
         hash.value("schema", "zolt.package-sources-input.v1");
         for (String configuredRoot : build.sourceRoots()) {
             Path root = ProjectPaths.existingRoot(projectRoot, "[build].sources", configuredRoot);
-            for (Path file : sourceFiles(root, ".java")) {
+            for (Path file : sourceFiles(root, List.of(".java"))) {
                 file(hash, projectRoot, "source", file);
             }
         }
@@ -98,7 +110,7 @@ final class PackageSupplementalInputFingerprint {
                     projectRoot,
                     "[test.sources].java",
                     configuredRoot);
-            for (Path file : sourceFiles(root, ".java")) {
+            for (Path file : sourceFiles(root, List.of(".java"))) {
                 file(hash, projectRoot, "testSource", file);
             }
         }
@@ -107,7 +119,7 @@ final class PackageSupplementalInputFingerprint {
                     projectRoot,
                     "[test.sources].groovy",
                     configuredRoot);
-            for (Path file : sourceFiles(root, ".groovy")) {
+            for (Path file : sourceFiles(root, List.of(".groovy"))) {
                 file(hash, projectRoot, "groovyTestSource", file);
             }
         }
@@ -147,9 +159,10 @@ final class PackageSupplementalInputFingerprint {
         return hash.finish();
     }
 
-    private static List<Path> sourceFiles(Path root, String extension) {
+    private static List<Path> sourceFiles(Path root, List<String> extensions) {
         return regularFiles(root).stream()
-                .filter(path -> path.getFileName().toString().endsWith(extension))
+                .filter(path -> extensions.stream()
+                        .anyMatch(extension -> path.getFileName().toString().endsWith(extension)))
                 .toList();
     }
 

@@ -26,9 +26,10 @@ final class PackageResourceEvidenceTest {
     private Path projectDir;
 
     @Test
-    void collectsNonJavaResourceInputsInDeterministicOrder() throws IOException {
+    void collectsNonSourceResourceInputsInDeterministicOrder() throws IOException {
         write("src/main/resources/app.properties", "name=demo\n");
         write("src/main/resources/Ignored.java", "class Ignored {}\n");
+        write("src/main/resources/Ignored.groovy", "class Ignored {}\n");
         write("resources-extra/config.yml", "server: true\n");
 
         PackageResourceEvidence.ResourceEvidence result = evidence.collect(

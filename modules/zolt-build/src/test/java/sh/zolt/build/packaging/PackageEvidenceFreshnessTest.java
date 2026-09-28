@@ -194,6 +194,42 @@ final class PackageEvidenceFreshnessTest {
         assertStale(config, evidence, "supplemental package input `javadoc` changed");
     }
 
+    @Test
+    void sourcesEvidenceTracksAuthoredGroovyAddedAfterPackaging()
+            throws IOException {
+        writeLockfile(projectDir);
+        source(projectDir, "src/main/java/com/example/Main.java", """
+                package com.example;
+
+                public final class Main {
+                    public static void main(String[] args) {
+                    }
+                }
+                """);
+        ProjectConfig config = config(Optional.of("com.example.Main"))
+                .withPackageSettings(new PackageSettings(
+                        PackageMode.THIN,
+                        true,
+                        false,
+                        false,
+                        PublicationMetadata.empty()));
+        PackageResult result = packageService.packageJar(
+                projectDir,
+                config,
+                projectDir.resolve("cache"));
+        Path evidence = result.evidenceManifestPath().orElseThrow();
+
+        source(projectDir, "src/main/java/com/example/GroovyApi.groovy", """
+                package com.example
+
+                class GroovyApi {
+                }
+                """);
+
+        assertStale(config, evidence, "build inputs changed");
+        assertStale(config, evidence, "supplemental package input `sources` changed");
+    }
+
     private void assertStale(
             ProjectConfig config,
             Path evidence,

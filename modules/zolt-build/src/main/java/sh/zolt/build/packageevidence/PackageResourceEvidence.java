@@ -56,7 +56,7 @@ final class PackageResourceEvidence {
             }
             try (Stream<Path> paths = Files.walk(resourceRoot)) {
                 paths.filter(Files::isRegularFile)
-                        .filter(path -> !path.getFileName().toString().endsWith(".java"))
+                        .filter(path -> !isSource(path))
                         .sorted(Comparator.comparing(path -> displayPath(projectRoot, path)))
                         .forEach(resources::add);
             } catch (IOException exception) {
@@ -78,13 +78,18 @@ final class PackageResourceEvidence {
         }
     }
 
+    private static boolean isSource(Path path) {
+        String fileName = path.getFileName().toString();
+        return fileName.endsWith(".java") || fileName.endsWith(".groovy");
+    }
+
     private static String resourceFingerprint(
             Path projectRoot,
             ResourceFilteringSettings filtering,
             List<Path> resources) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            updateText(digest, "zolt-resource-filtering-v1\n");
+            updateText(digest, "zolt-resource-filtering-v2\n");
             updateText(digest, "enabled=" + filtering.enabled() + "\n");
             updateText(digest, "testEnabled=" + filtering.testEnabled() + "\n");
             updateText(digest, "missing=" + filtering.missing().configValue() + "\n");
