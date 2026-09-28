@@ -31,12 +31,6 @@ final class KotlinTestCompilePolicy {
                     "the test source set also contains Java",
                     "Use a Kotlin-only test source set until Kotlin/Java joint test compilation is supported.");
         }
-        if (!sources.kotlinMainSources().isEmpty()) {
-            throw unsupported(
-                    "the main source set also contains Kotlin",
-                    "Keep the main source set Java-only until Kotlin module metadata participates in test"
-                            + " compilation fingerprints.");
-        }
         if (!classpaths.testProcessor().entries().isEmpty()) {
             throw unsupported(
                     "test annotation processors are configured",

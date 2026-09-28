@@ -16,8 +16,8 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import sh.zolt.build.BuildException;
 import sh.zolt.build.BuildResult;
-import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.cache.BuildCacheService;
 import sh.zolt.build.cache.BuildCacheSettings;
 import sh.zolt.build.cache.RemoteBuildCacheClient;
@@ -31,12 +31,12 @@ final class TestCompileServiceKotlinSourcePolicyTest {
     private Path projectDir;
 
     @Test
-    void failsBeforeTestCacheReuseOrOwnedOutputCleanup() throws IOException {
-        Path kotlinMain = projectDir.resolve("src/main/java/com/example/Main.kt");
+    void mixedJavaAndKotlinTestsFailBeforeTestCacheReuseOrOwnedOutputCleanup() throws IOException {
+        Path javaTest = projectDir.resolve("src/test/java/com/example/MainTest.java");
         Path kotlinTest = projectDir.resolve("src/test/kotlin/com/example/MainTest.kt");
         Path staleClass = projectDir.resolve("target/test-classes/stale/Existing.class");
         Path cacheMarker = projectDir.resolve("build-cache/do-not-touch.marker");
-        write(kotlinMain, new byte[] {1});
+        write(javaTest, new byte[] {1});
         write(kotlinTest, new byte[] {2});
         write(staleClass, new byte[] {2, 3, 4});
         write(cacheMarker, new byte[] {5, 6, 7});
@@ -54,8 +54,8 @@ final class TestCompileServiceKotlinSourcePolicyTest {
                             HttpClient.newHttpClient(), remote.baseUri(), Optional.empty(), false)),
                     "test-version");
 
-            KotlinCompileException exception = assertThrows(
-                    KotlinCompileException.class,
+            BuildException exception = assertThrows(
+                    BuildException.class,
                     () -> new TestCompileService()
                             .withBuildCache(cache)
                             .compileTests(
@@ -65,10 +65,11 @@ final class TestCompileServiceKotlinSourcePolicyTest {
                                     mainBuild));
 
             assertEquals(
-                    "Kotlin test compilation is not supported when the main source set also contains Kotlin. "
-                            + "Keep the main source set Java-only until Kotlin module metadata participates in test"
-                            + " compilation fingerprints.",
-                    exception.getMessage());
+                    "The test source set combines Java and Kotlin, which the Kotlin preview does not support.",
+                    exception.actionableError().summary());
+            assertEquals(
+                    "Use a Kotlin-only test source set or remove Kotlin, then run `zolt test` again.",
+                    exception.actionableError().remediation());
             assertEquals(0, remote.requestCount());
             assertArrayEquals(new byte[] {2, 3, 4}, Files.readAllBytes(staleClass));
             assertArrayEquals(new byte[] {5, 6, 7}, Files.readAllBytes(cacheMarker));

@@ -31,10 +31,10 @@ final class KotlinTestCompilePolicyTest {
     private static final Path KOTLIN_TEST = Path.of("src/test/kotlin/com/example/DemoTest.kt");
 
     @Test
-    void acceptsKotlinOnlyTestsWithJavaMainAndBuildsTestModuleName() {
+    void acceptsKotlinOnlyTestsWithKotlinMainAndBuildsTestModuleName() {
         KotlinCompilerRunner.Options options = KotlinTestCompilePolicy.options(
                 config(CompilerSettings.defaults(), Map.of(), Map.of(), Map.of()),
-                sources(List.of(Path.of("src/main/java/com/example/Demo.java")), List.of(), List.of(),
+                sources(List.of(), List.of(), List.of(Path.of("src/main/kotlin/com/example/Demo.kt")),
                         List.of(), List.of(), List.of(KOTLIN_TEST)),
                 classpaths(List.of()),
                 jdkStatus());
@@ -46,15 +46,7 @@ final class KotlinTestCompilePolicyTest {
     }
 
     @Test
-    void rejectsKotlinMainAndWorkspaceCompileDependencies() {
-        KotlinCompileException kotlinMainFailure = assertThrows(
-                KotlinCompileException.class,
-                () -> KotlinTestCompilePolicy.options(
-                        config(CompilerSettings.defaults(), Map.of(), Map.of(), Map.of()),
-                        sources(List.of(), List.of(), List.of(Path.of("src/main/kotlin/Demo.kt")),
-                                List.of(), List.of(), List.of(KOTLIN_TEST)),
-                        classpaths(List.of()),
-                        jdkStatus()));
+    void rejectsWorkspaceCompileDependencies() {
         KotlinCompileException workspaceFailure = assertThrows(
                 KotlinCompileException.class,
                 () -> KotlinTestCompilePolicy.options(
@@ -63,7 +55,6 @@ final class KotlinTestCompilePolicyTest {
                         classpaths(List.of()),
                         jdkStatus()));
 
-        assertTrue(kotlinMainFailure.getMessage().contains("main source set also contains Kotlin"));
         assertTrue(workspaceFailure.getMessage().contains("workspace compile dependencies"));
     }
 

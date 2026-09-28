@@ -3,6 +3,7 @@ package sh.zolt.cli.build;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static sh.zolt.cli.CliTestSupport.execute;
 
@@ -34,19 +35,7 @@ final class TestCommandKotlinIntegrationTest {
         Path offlineCache = tempDir.resolve("offline-cache");
 
         try (CliTestRepository repository = CliTestRepository.start()) {
-            KotlinCompilerCliFixture.publish(repository);
-            publishJUnitConsole(repository);
-            writeProject(projectDirectory, repository);
-
-            CommandResult resolve = execute(
-                    "resolve",
-                    "--cwd", projectDirectory.toString(),
-                    "--cache-root", onlineCache.toString());
-
-            assertEquals(0, resolve.exitCode(), resolve.stderr());
-            assertTrue(resolve.stdout().contains("wrote " + projectDirectory.resolve("zolt.lock")));
-            Files.move(onlineCache, offlineCache);
-            repository.clearAuthorizations();
+            seed(repository, projectDirectory, onlineCache, offlineCache, false);
 
             CommandResult first = testFromSeededCache(projectDirectory, offlineCache);
             Path classFile = projectDirectory.resolve("target/test-classes/com/example/DemoTest.class");
@@ -55,7 +44,7 @@ final class TestCommandKotlinIntegrationTest {
             assertTrue(first.stdout().contains("Tests passed"), first.stdout());
             assertTrue(first.stdout().contains("1 test source files"), first.stdout());
             assertTrue(Files.isRegularFile(classFile));
-            Path moduleFile = kotlinModule(projectDirectory);
+            Path moduleFile = kotlinModule(projectDirectory.resolve("target/test-classes"));
             assertTrue(Files.isRegularFile(moduleFile));
             byte[] firstClass = Files.readAllBytes(classFile);
             FileTime firstClassTime = Files.getLastModifiedTime(classFile);
@@ -97,6 +86,45 @@ final class TestCommandKotlinIntegrationTest {
         }
     }
 
+    @Test
+    void mainMetadataInvalidatesKotlinTestsWithoutRepositoryAccess() throws Exception {
+        Path projectDirectory = tempDir.resolve("kotlin-main-project");
+        Path onlineCache = tempDir.resolve("kotlin-main-online-cache");
+        Path offlineCache = tempDir.resolve("kotlin-main-offline-cache");
+        try (CliTestRepository repository = CliTestRepository.start()) {
+            seed(repository, projectDirectory, onlineCache, offlineCache, true);
+            repository.close();
+            CommandResult first = testFromSeededCache(projectDirectory, offlineCache);
+            Path mainClass = projectDirectory.resolve("target/classes/com/example/Main.class");
+            Path testClass = projectDirectory.resolve("target/test-classes/com/example/DemoTest.class");
+            assertEquals(0, first.exitCode(), first.stderr());
+            assertTrue(first.stdout().contains("Tests passed"), first.stdout());
+            Path mainModule = kotlinModule(projectDirectory.resolve("target/classes"));
+            Path testModule = kotlinModule(projectDirectory.resolve("target/test-classes"));
+            assertNotEquals(mainModule.getFileName(), testModule.getFileName());
+            byte[] stableMainClass = Files.readAllBytes(mainClass);
+            FileTime mainClassTime = Files.getLastModifiedTime(mainClass);
+            FileTime testClassTime = Files.getLastModifiedTime(testClass);
+            CommandResult warm = testFromSeededCache(projectDirectory, offlineCache);
+            assertEquals(0, warm.exitCode(), warm.stderr());
+            assertEquals(mainClassTime, Files.getLastModifiedTime(mainClass));
+            assertEquals(testClassTime, Files.getLastModifiedTime(testClass));
+            writeKotlinMain(projectDirectory, "Int");
+            CommandResult incompatible = testFromSeededCache(projectDirectory, offlineCache);
+            assertEquals(1, incompatible.exitCode());
+            assertTrue(
+                    incompatible.stderr().contains("Int")
+                            && incompatible.stderr().contains("String"),
+                    incompatible.stderr());
+            assertArrayEquals(stableMainClass, Files.readAllBytes(mainClass));
+            writeKotlinMain(projectDirectory, "String");
+            CommandResult repaired = testFromSeededCache(projectDirectory, offlineCache);
+            assertEquals(0, repaired.exitCode(), repaired.stderr());
+            assertTrue(repaired.stdout().contains("Tests passed"), repaired.stdout());
+            assertEquals(Map.of(), repository.authorizations());
+        }
+    }
+
     private static CommandResult testFromSeededCache(Path projectDirectory, Path cacheRoot) {
         return execute(
                 "test",
@@ -105,9 +133,8 @@ final class TestCommandKotlinIntegrationTest {
                 "--cache-root", cacheRoot.toString());
     }
 
-    private static void writeProject(
-            Path projectDirectory,
-            CliTestRepository repository) throws IOException {
+    private static void writeProject(Path projectDirectory, CliTestRepository repository)
+            throws IOException {
         Files.createDirectories(projectDirectory.resolve("src/main/java/com/example"));
         Files.createDirectories(projectDirectory.resolve("src/test/kotlin/com/example"));
         Files.writeString(projectDirectory.resolve("zolt.toml"), """
@@ -150,6 +177,91 @@ final class TestCommandKotlinIntegrationTest {
                 }
                 """);
         writeKotlinTest(projectDirectory, "hello", "first");
+    }
+
+    private static void writeKotlinMainProject(Path projectDirectory, CliTestRepository repository) throws IOException {
+        Files.createDirectories(projectDirectory.resolve("src/main/kotlin/com/example"));
+        Files.createDirectories(projectDirectory.resolve("src/test/kotlin/com/example"));
+        Files.writeString(projectDirectory.resolve("zolt.toml"), """
+                [project]
+                name = "kotlin-main-test-cli"
+                version = "0.1.0"
+                group = "com.example"
+                java = %s
+
+                [build]
+                sources = ["src/main/kotlin"]
+
+                [toolchain.kotlin]
+                version = "%s"
+
+                [test.sources]
+                kotlin = ["src/test/kotlin"]
+
+                [repositories]
+                central = false
+
+                [repositories.fixture]
+                url = "%s"
+
+                [dependencies]
+                "org.jetbrains.kotlin:kotlin-stdlib" = "%s"
+
+                [dependencies.test]
+                "org.junit.platform:junit-platform-console-standalone" = "%s"
+                """.formatted(
+                currentJavaMajorVersion(),
+                KotlinCompilerCliFixture.KOTLIN_VERSION,
+                repository.baseUri(),
+                KotlinCompilerCliFixture.KOTLIN_VERSION,
+                JUNIT_VERSION));
+        writeKotlinMain(projectDirectory, "String");
+        Files.writeString(projectDirectory.resolve("src/test/kotlin/com/example/DemoTest.kt"), """
+                package com.example
+
+                import org.junit.jupiter.api.Assertions.assertEquals
+                import org.junit.jupiter.api.Test
+
+                class DemoTest {
+                    @Test
+                    fun verifiesKotlinMain() {
+                        val value: TestValue = Main.message()
+                        assertEquals("hello", value)
+                    }
+                }
+                """);
+    }
+
+    private static void writeKotlinMain(Path projectDirectory, String alias) throws IOException {
+        Files.writeString(projectDirectory.resolve("src/main/kotlin/com/example/Main.kt"), """
+                package com.example
+
+                typealias TestValue = %s
+
+                object Main {
+                    @JvmStatic
+                    fun message(): String = "hello"
+                }
+                """.formatted(alias));
+    }
+
+    private static void seed(CliTestRepository repository, Path projectDirectory, Path onlineCache,
+            Path offlineCache, boolean kotlinMain) throws IOException {
+        KotlinCompilerCliFixture.publish(repository);
+        publishJUnitConsole(repository);
+        if (kotlinMain) {
+            writeKotlinMainProject(projectDirectory, repository);
+        } else {
+            writeProject(projectDirectory, repository);
+        }
+        CommandResult resolve = execute(
+                "resolve",
+                "--cwd", projectDirectory.toString(),
+                "--cache-root", onlineCache.toString());
+        assertEquals(0, resolve.exitCode(), resolve.stderr());
+        assertTrue(resolve.stdout().contains("wrote " + projectDirectory.resolve("zolt.lock")));
+        Files.move(onlineCache, offlineCache);
+        repository.clearAuthorizations();
     }
 
     private static void writeKotlinTest(
@@ -204,12 +316,12 @@ final class TestCommandKotlinIntegrationTest {
         }
     }
 
-    private static Path kotlinModule(Path projectDirectory) throws IOException {
-        Path metadataDirectory = projectDirectory.resolve("target/test-classes/META-INF");
+    private static Path kotlinModule(Path outputDirectory) throws IOException {
+        Path metadataDirectory = outputDirectory.resolve("META-INF");
         try (Stream<Path> paths = Files.list(metadataDirectory)) {
             return paths.filter(path -> path.getFileName().toString().endsWith(".kotlin_module"))
                     .findFirst()
-                    .orElseThrow(() -> new AssertionError("Kotlin test module metadata was not compiled"));
+                    .orElseThrow(() -> new AssertionError("Kotlin module metadata was not compiled"));
         }
     }
 

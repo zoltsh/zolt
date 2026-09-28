@@ -661,8 +661,10 @@ sources and fails before cache restoration or output cleanup when the member
 also has Java or Groovy main sources, annotation processors, custom
 `[compiler].args`, generated Java sources, or compile-scoped workspace member
 dependencies. Kotlin unit tests use the separate bounded path described under
-Tests and Coverage; a member cannot combine Kotlin main and Kotlin test sources
-yet. Kotlin integration-test compilation, generated Kotlin, KAPT, and
+Tests and Coverage; Kotlin-only main and unit-test source sets may coexist in
+one member. Tests may use public main APIs, but Zolt does not pass Kotlin
+`-Xfriend-paths`, so `internal` main declarations are not visible to tests.
+Kotlin integration-test compilation, generated Kotlin, KAPT, and
 migration-manifest drafting are not supported. Sources are read as UTF-8. The
 effective Java release must not exceed the selected complete JDK;
 `[compiler].jdkApi = "host"` selects host-platform API semantics instead of
@@ -1726,11 +1728,14 @@ core content, just as they do for main joint compilation.
 
 Kotlin unit tests use the same isolated `[toolchain.kotlin]` compiler and need
 the ordinary `org.jetbrains.kotlin:kotlin-stdlib` dependency on the test
-classpath. The preview accepts a main source set without Kotlin and a
-Kotlin-only test source set. It rejects Java or Groovy test sources, Kotlin main
-sources, test annotation processors, custom `[compiler].testArgs`, workspace
-API, compile, or test dependencies, and Quarkus in the same member. Kotlin test source
-changes use cleaned full-scope compilation rather than incremental javac state.
+classpath. The preview accepts a Kotlin-only test source set with an empty,
+Java-only, or Kotlin-only main source set. With Kotlin main sources, tests may
+use public main APIs only: Zolt does not pass `-Xfriend-paths`, so `internal`
+main declarations remain inaccessible. It rejects Java or Groovy test sources,
+test annotation processors, custom `[compiler].testArgs`, workspace API,
+compile, or test dependencies, and Quarkus in the same member. Kotlin test
+source changes use cleaned full-scope compilation rather than incremental javac
+state.
 
 Test commands support class/method selection, glob patterns, JUnit tags, JVM
 arguments, XML reports, deterministic shards, named suites, and optional profile
