@@ -2,8 +2,10 @@ package sh.zolt.cli.build;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static sh.zolt.cli.CliTestSupport.execute;
 
 import java.io.IOException;
@@ -14,20 +16,26 @@ import java.util.Map;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.Isolated;
 import sh.zolt.cli.CliTestRepository;
 import sh.zolt.cli.CliTestSupport.CommandResult;
 
 /** Real-compiler CLI canary for mixed Java/Kotlin integration tests. */
+@Isolated("mutates user.home so the command reads an isolated build-cache config")
 final class IntegrationTestCommandKotlinIntegrationTest {
     @TempDir
     private Path tempDir;
 
     @Test
     void compilesRunsAndReusesMixedKotlinIntegrationTestsOffline() throws Exception {
-        Path project = tempDir.resolve("kotlin-integration-project");
-        Path cache = tempDir.resolve("artifact-cache");
-
+        assumeTrue(System.getenv("ZOLT_USER_HOME") == null, "test needs an isolated user.home fallback");
+        String previousUserHome = System.getProperty("user.home");
+        Path fakeUserHome = tempDir.resolve("fake-user-home");
+        System.setProperty("user.home", fakeUserHome.toString());
         try (CliTestRepository repository = CliTestRepository.start()) {
+            Path project = tempDir.resolve("kotlin-integration-project");
+            Path cache = tempDir.resolve("artifact-cache");
+            KotlinCliBuildCacheTestSupport.configure(fakeUserHome);
             KotlinCompilerCliFixture.publish(repository);
             JUnitConsoleCliFixture.publish(repository);
             writeProject(project, repository);
@@ -47,6 +55,8 @@ final class IntegrationTestCommandKotlinIntegrationTest {
             Path javaTestClass = integrationOutput.resolve(
                     "com/example/JavaIntegrationTest.class");
             Path resource = integrationOutput.resolve("integration.properties");
+            Path fingerprint = integrationOutput.resolve(".zolt-build-test.fingerprint");
+            Path incrementalState = integrationOutput.resolve(".zolt-incremental-test.state");
 
             assertEquals(0, first.exitCode(), first.stderr());
             assertTrue(first.stdout().contains("Integration tests passed"), first.stdout());
@@ -55,6 +65,8 @@ final class IntegrationTestCommandKotlinIntegrationTest {
             assertCountPhrase(first.stdout(), 2, "tests successful");
             assertTrue(Files.isRegularFile(kotlinTestClass));
             assertTrue(Files.isRegularFile(javaTestClass));
+            assertTrue(Files.isRegularFile(fingerprint));
+            assertTrue(Files.isRegularFile(incrementalState));
             assertEquals("mode=integration\n", Files.readString(resource));
 
             Path mainModule = kotlinModule(mainOutput);
@@ -63,6 +75,7 @@ final class IntegrationTestCommandKotlinIntegrationTest {
             byte[] kotlinClassBytes = Files.readAllBytes(kotlinTestClass);
             byte[] javaClassBytes = Files.readAllBytes(javaTestClass);
             byte[] moduleBytes = Files.readAllBytes(integrationModule);
+            Map<String, String> integrationPayload = KotlinCliBuildCacheTestSupport.payload(integrationOutput);
             FileTime kotlinClassTime = Files.getLastModifiedTime(kotlinTestClass);
             FileTime javaClassTime = Files.getLastModifiedTime(javaTestClass);
             FileTime moduleTime = Files.getLastModifiedTime(integrationModule);
@@ -80,10 +93,42 @@ final class IntegrationTestCommandKotlinIntegrationTest {
             assertEquals(kotlinClassTime, Files.getLastModifiedTime(kotlinTestClass));
             assertEquals(javaClassTime, Files.getLastModifiedTime(javaTestClass));
             assertEquals(moduleTime, Files.getLastModifiedTime(integrationModule));
+
+            KotlinCliBuildCacheTestSupport.deleteTrees(integrationOutput);
+            assertFalse(Files.exists(fingerprint));
+            assertFalse(Files.exists(incrementalState));
+            CommandResult restored = integrationTest(project, cache);
+
+            assertEquals(0, restored.exitCode(), restored.stderr());
+            assertTrue(restored.stdout().contains("Integration tests passed"), restored.stdout());
+            assertCountPhrase(restored.stdout(), 2, "tests found");
+            assertCountPhrase(restored.stdout(), 2, "tests successful");
+            assertTiming(restored, "build integration-test inputs", "\"mainCompilationMode\":\"skipped\"");
+            assertTiming(restored, "compile integration-test sources", "\"testCompilationMode\":\"restored\"");
+            assertEquals(integrationPayload, KotlinCliBuildCacheTestSupport.payload(integrationOutput));
+            assertTrue(Files.isRegularFile(fingerprint));
+            assertFalse(Files.exists(incrementalState));
+
+            KotlinCliBuildCacheTestSupport.deleteTrees(integrationOutput);
+            CommandResult bypassed = integrationTestWithoutBuildCache(project, cache);
+
+            assertEquals(0, bypassed.exitCode(), bypassed.stderr());
+            assertTrue(bypassed.stdout().contains("Integration tests passed"), bypassed.stdout());
+            assertCountPhrase(bypassed.stdout(), 2, "tests found");
+            assertCountPhrase(bypassed.stdout(), 2, "tests successful");
+            assertTiming(bypassed, "compile integration-test sources", "\"testCompilationMode\":\"full\"");
+            assertEquals(integrationPayload, KotlinCliBuildCacheTestSupport.payload(integrationOutput));
+            assertTrue(Files.isRegularFile(incrementalState));
             assertEquals(
                     Map.of(),
                     repository.authorizations(),
                     "integration-test commands after resolve must not contact the repository");
+        } finally {
+            if (previousUserHome == null) {
+                System.clearProperty("user.home");
+            } else {
+                System.setProperty("user.home", previousUserHome);
+            }
         }
     }
 
@@ -188,6 +233,16 @@ final class IntegrationTestCommandKotlinIntegrationTest {
     private static CommandResult integrationTest(Path project, Path cache) {
         return execute(
                 "integration-test",
+                "--timings",
+                "--timings-format", "json",
+                "--cwd", project.toString(),
+                "--cache-root", cache.toString());
+    }
+
+    private static CommandResult integrationTestWithoutBuildCache(Path project, Path cache) {
+        return execute(
+                "integration-test",
+                "--no-build-cache",
                 "--timings",
                 "--timings-format", "json",
                 "--cwd", project.toString(),

@@ -92,6 +92,11 @@ public final class IntegrationTestCommand implements Runnable {
     @Option(names = "--cache-root", hidden = true)
     private Path cacheRoot = LocalArtifactCache.defaultRoot();
 
+    @Option(
+            names = "--no-build-cache",
+            description = "Bypass the build-output cache for this run (neither restore nor store).")
+    private boolean noBuildCache;
+
     @Mixin
     private CommandToolchainOptions toolchainOptions = new CommandToolchainOptions();
 
@@ -137,6 +142,7 @@ public final class IntegrationTestCommand implements Runnable {
     public void run() {
         TimingRecorder timings = CommandTimings.recorder(timingOptions);
         Path projectRoot = projectDirectory.path();
+        CommandTestBuildCacheSupport buildCache = CommandTestBuildCacheSupport.create(noBuildCache);
         try {
             TestSelection testSelection = TestSelection.fromCli(
                     testSelectors,
@@ -153,7 +159,8 @@ public final class IntegrationTestCommand implements Runnable {
                         testSelection,
                         testJvmArguments,
                         TestReportSettings.reportsDirectory(workspaceReportsDir()),
-                        requestedTestEvents);
+                        requestedTestEvents,
+                        buildCache);
                 return;
             }
             ProjectCommandContext context = timings.measure(
@@ -169,11 +176,12 @@ public final class IntegrationTestCommand implements Runnable {
                         testSelection,
                         testJvmArguments,
                         TestReportSettings.reportsDirectory(workspaceReportsDir()),
-                        requestedTestEvents);
+                        requestedTestEvents,
+                        buildCache);
                 return;
             }
             runSingleProjectIntegrationTests(
-                    context, timings, testSelection, testJvmArguments, requestedTestEvents);
+                    context, timings, testSelection, testJvmArguments, requestedTestEvents, buildCache);
         } catch (BuildException
                 | SourceCompileException
                 | JavaRunException
@@ -188,6 +196,7 @@ public final class IntegrationTestCommand implements Runnable {
                 | ZoltConfigException exception) {
             throw CommandFailures.user(spec, exception);
         } finally {
+            buildCache.surfaceWarnings(CommandHumanOutput.of(spec));
             CommandTimings.print(spec, "integration-test", projectRoot, timingOptions, timings);
         }
     }
@@ -199,13 +208,15 @@ public final class IntegrationTestCommand implements Runnable {
             TestSelection testSelection,
             TestJvmArguments testJvmArguments,
             TestReportSettings reportSettings,
-            List<String> requestedTestEvents) {
+            List<String> requestedTestEvents,
+            CommandTestBuildCacheSupport buildCache) {
         CommandToolchainOptions.WorkspaceCommandToolchains workspaceToolchains =
                 toolchainOptions.workspaceIntegrationTestToolchains(
                         testRunServiceFactory);
-        WorkspaceTestService projectWorkspaceTestService = workspaceTestService.withMemberServices(
-                workspaceToolchains.mainCheckers(),
-                workspaceToolchains.testRunServices());
+        WorkspaceTestService projectWorkspaceTestService = buildCache.applyTo(
+                workspaceTestService.withMemberServices(
+                        workspaceToolchains.mainCheckers(),
+                        workspaceToolchains.testRunServices()));
         WorkspaceTestResult result = WorkspaceMutationLock.withWorkspaceLock(
                 workspaceRoot,
                 () -> {
@@ -259,7 +270,8 @@ public final class IntegrationTestCommand implements Runnable {
             TimingRecorder timings,
             TestSelection testSelection,
             TestJvmArguments testJvmArguments,
-            List<String> requestedTestEvents) {
+            List<String> requestedTestEvents,
+            CommandTestBuildCacheSupport buildCache) {
         Path projectRoot = context.projectRoot();
         ProjectConfig config = context.config();
         var artifactIndex = lockfiles.requireFreshLockfile(context, cacheRoot, false);
@@ -267,10 +279,10 @@ public final class IntegrationTestCommand implements Runnable {
         CompileOutputLayoutValidator.validateTest(projectRoot, config);
         ProjectConfig integrationConfig = config.withBuildSettings(config.build().asIntegrationTestBuild());
         var compileChecker = toolchainOptions.jdkChecker(context, integrationConfig, "integration-test");
-        TestRunService projectTestRunService =
+        TestRunService projectTestRunService = buildCache.applyTo(
                 testRunServiceFactory.create(
                         compileChecker,
-                        toolchainOptions.testRuntimeRunChecker(context, integrationConfig, compileChecker));
+                        toolchainOptions.testRuntimeRunChecker(context, integrationConfig, compileChecker)));
         TestReportSettings reportSettings = TestReportSettings.reportsDirectory(integrationReportsDir(config));
         TestRunResult result = timings.measure(
                 "run integration tests",

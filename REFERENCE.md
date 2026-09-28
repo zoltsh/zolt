@@ -1327,10 +1327,11 @@ dir = "~/.zolt/build-cache"
 maxSizeMb = 2048
 ```
 
-When enabled, `zolt build`, `zolt test`, and `zolt package` restore a module's
-compiled classes on a fingerprint miss and store them after a real compile. In a
-workspace each member is cached independently. Workspace build and test commands
-name restored members distinctly:
+When enabled, `zolt build`, `zolt test`, `zolt integration-test`, and
+`zolt package` restore a module's compiled classes on a fingerprint miss and
+store them after a real compile. In a workspace each member is cached
+independently. Workspace build and test commands name restored members
+distinctly:
 
 ```text
 ✔ Restored 80 main classes · build cache
@@ -1819,7 +1820,10 @@ With Kotlin main sources, unit and integration tests may use public and
 `internal` APIs from their own member because its main output is the sole Kotlin
 friend path. Workspace API, implementation, and test dependency outputs stay
 ordinary classpath entries, so their `internal` declarations remain
-inaccessible. The preview rejects Groovy test sources, `module-info.java`, test
+inaccessible. Workspace-wide `integration-test --workspace --all` runs use the
+same bounded compiler path for every selected member, and unchanged main and
+integration-test outputs remain eligible for fingerprint reuse. The preview
+rejects Groovy test sources, `module-info.java`, test
 annotation processors, custom `[compiler].testArgs`, Java-source-producing
 generated-test steps, and Quarkus in the same member. Exec generation steps that
 produce test resources or intermediate outputs remain compatible. Test
