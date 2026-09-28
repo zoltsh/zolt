@@ -34,7 +34,6 @@ final class CommandPackageResultWriterTest {
                 """
                 SUMMARY Packaged 2 compiled files as jar
                 DETAIL Included Main-Class manifest entry
-                DETAIL Run with: java -jar target/demo.jar
                 DETAIL Run with dependencies: zolt run-package -- [args]
                 DETAIL Jar: dependencies are not bundled.
                 POINTER wrote target/demo.jar

@@ -43,7 +43,7 @@ final class PackageCommandTest extends PackageCommandTestSupport {
         assertTrue(result.stdout().contains("Resolved dependencies because zolt.lock was missing"));
         assertTrue(result.stdout().contains("Packaged 1 compiled files as jar"));
         assertTrue(result.stdout().contains("Included Main-Class manifest entry"));
-        assertTrue(result.stdout().contains("Run with: java -jar " + jarPath));
+        assertFalse(result.stdout().contains("Run with: java -jar " + jarPath));
         assertTrue(result.stdout().contains("Run with dependencies: zolt run-package -- [args]"));
         assertTrue(result.stdout().contains("Jar: dependencies are not bundled."));
         assertTrue(result.stdout().contains(

@@ -71,7 +71,9 @@ public final class CommandPackageResultWriter {
                     ? "Included Main-Class manifest entry"
                     : "Included Main-Class manifest entry" + suffix));
             if (suffix.isBlank()) {
-                lines.add(OutputLine.detail("Run with: java -jar " + result.jarPath()));
+                if (supportsDirectJavaJar(result.mode())) {
+                    lines.add(OutputLine.detail("Run with: java -jar " + result.jarPath()));
+                }
                 PackageCommandModes.runInstruction(result)
                         .ifPresent(message -> lines.add(OutputLine.detail(message)));
             }
@@ -80,6 +82,13 @@ public final class CommandPackageResultWriter {
             lines.add(OutputLine.detail(noMainClassDetail.orElse(
                     "No Main-Class manifest entry; add [project].main to make the jar directly runnable.")));
         }
+    }
+
+    private static boolean supportsDirectJavaJar(PackageMode mode) {
+        return switch (mode) {
+            case UBER, SPRING_BOOT, SPRING_BOOT_WAR, QUARKUS -> true;
+            case THIN, WAR, BOM -> false;
+        };
     }
 
     private static void appendPackageModeDetail(List<OutputLine> lines, PackageResult result) {

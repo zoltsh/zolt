@@ -101,6 +101,9 @@ final class BuildCommandKotlinOfflineIntegrationTest {
             assertTrue(
                     thinPackage.stdout().contains("Run with dependencies: zolt run-package -- [args]"),
                     thinPackage.stdout());
+            assertFalse(
+                    thinPackage.stdout().contains("Run with: java -jar"),
+                    thinPackage.stdout());
             assertThinPackage(jarFile, runtimeClasspath);
 
             KotlinCompilerCliFixture.writeSource(projectDirectory, "thin-package");
