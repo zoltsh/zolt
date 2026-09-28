@@ -94,7 +94,7 @@ final class WorkspaceBuildCommandTest {
         assertTrue(lines[2].contains("\"workspaceAbiInvalidations\""));
         assertTrue(lines[2].contains("\"workspaceGraphConstructionNanos\""));
         assertTrue(lines[2].contains("\"workspaceClasspathCalculationNanos\""));
-        assertTrue(lines[2].contains("\"workspacePackageCalculationNanos\":\"0\""));
+        assertTrue(nanos(lines[2], "workspacePackageCalculationNanos") > 0L);
         assertTrue(lines[2].contains("\"workspaceMemberExecutionNanos\""));
         assertTrue(lines[2].contains("\"workspaceFileSnapshotNanos\""));
         assertTrue(lines[2].contains("\"workspaceBytesHashed\""));
@@ -112,7 +112,7 @@ final class WorkspaceBuildCommandTest {
         assertTrue(lines[2].contains("\"workspaceToolchainIdentityCalculations\""));
         assertTrue(lines[2].contains("\"workspaceToolchainIdentityCacheHits\""));
         assertTrue(lines[2].contains("\"workspaceClasspathCalculations\":\"2\""));
-        assertTrue(lines[2].contains("\"workspacePackageCalculations\":\"0\""));
+        assertTrue(lines[2].contains("\"workspacePackageCalculations\":\"4\""));
         assertTrue(lines[3].contains("\"phase\":\"build workspace\""));
         assertTrue(lines[3].contains("\"depth\":0"));
         assertTrue(lines[3].contains("\"members\":\"2\""));

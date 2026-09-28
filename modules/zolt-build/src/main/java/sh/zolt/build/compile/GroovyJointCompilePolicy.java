@@ -83,14 +83,14 @@ final class GroovyJointCompilePolicy {
         if (end == 0) {
             throw unsupported(
                     label + " `" + value + "` is not a Java feature version",
-                    "Set [project].java or [compiler].release to a numeric Java feature release.");
+                    "Set [project].java to a numeric Java feature release.");
         }
         try {
             return Integer.parseInt(normalized.substring(0, end));
         } catch (NumberFormatException exception) {
             throw unsupported(
                     label + " `" + value + "` is not a Java feature version",
-                    "Set [project].java or [compiler].release to a numeric Java feature release.");
+                    "Set [project].java to a numeric Java feature release.");
         }
     }
 
