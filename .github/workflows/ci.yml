@@ -183,16 +183,22 @@ jobs:
         include:
           - name: core
             suite: ""
-            timeout: 30
+            timeout: 45
+            # The core lane installs Temurin 8 for the Kotlin compatibility smoke.
+            # Keep its immutable cache distinct from lanes that only sync the root JDK.
+            toolchain_cache_suffix: -kotlin-java8-v1
           - name: container
             suite: container
             timeout: 30
+            toolchain_cache_suffix: ""
           - name: native
             suite: native
             timeout: 60
+            toolchain_cache_suffix: ""
           - name: native-container
             suite: native-container
             timeout: 60
+            toolchain_cache_suffix: ""
 
     steps:
       - name: Check out repository
@@ -222,7 +228,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: ~/.zolt/toolchains
-          key: zolt-toolchains-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('zolt.lock') }}
+          key: zolt-toolchains-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('zolt.lock') }}${{ matrix.toolchain_cache_suffix }}
           restore-keys: |
             zolt-toolchains-${{ runner.os }}-${{ runner.arch }}-
             zolt-toolchains-${{ runner.os }}-
