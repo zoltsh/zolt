@@ -172,7 +172,7 @@ final class WorkspaceMemberBuildExecutor {
             WorkspaceMemberClasspaths classpaths,
             WorkspaceExecutionContext context) {
         ClasspathSet memberClasspaths = classpaths.forMember(member.path());
-        var memberPackages = classpaths.packagesForMember(member.path());
+        var compilerPackages = classpaths.verifiedCompilerPackagesForMember(member.path());
         try {
             return new WorkspaceBuildResult.MemberBuildResult(
                     member.path(),
@@ -185,9 +185,10 @@ final class WorkspaceMemberBuildExecutor {
                                     workspace.memberContext(member),
                                     member.config(),
                                     memberClasspaths,
-                                    memberPackages),
-                    memberClasspaths,
-                    memberPackages);
+                                    compilerPackages),
+                    () -> memberClasspaths,
+                    () -> classpaths.packageInputsForMember(member.path()),
+                    () -> compilerPackages);
         } catch (JavacException exception) {
             throw new JavacException(
                     exception.getMessage()
@@ -240,7 +241,8 @@ final class WorkspaceMemberBuildExecutor {
                         "",
                         true),
                 () -> classpaths.forMember(memberPath),
-                () -> classpaths.packagesForMember(memberPath));
+                () -> classpaths.packageInputsForMember(memberPath),
+                () -> classpaths.verifiedCompilerPackagesForMember(memberPath));
     }
 
     private static String compileAbiDigest(

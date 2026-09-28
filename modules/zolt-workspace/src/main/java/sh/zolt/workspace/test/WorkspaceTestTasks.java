@@ -144,6 +144,6 @@ final class WorkspaceTestTasks {
         return new BuildResultWithClasspaths(
                 memberBuild.result(),
                 memberBuild.classpaths(),
-                memberBuild.classpathPackages());
+                memberBuild.verifiedCompilerPackages());
     }
 }

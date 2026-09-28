@@ -172,6 +172,7 @@ public record WorkspaceBuildResult(
         private final BuildResult result;
         private final Supplier<ClasspathSet> classpaths;
         private final Supplier<List<ResolvedClasspathPackage>> classpathPackages;
+        private final Supplier<List<ResolvedClasspathPackage>> verifiedCompilerPackages;
 
         public MemberBuildResult(
                 String member,
@@ -183,17 +184,20 @@ public record WorkspaceBuildResult(
             this.result = result;
             this.classpaths = () -> classpaths;
             this.classpathPackages = () -> packages;
+            this.verifiedCompilerPackages = () -> packages;
         }
 
         MemberBuildResult(
                 String member,
                 BuildResult result,
                 Supplier<ClasspathSet> classpaths,
-                Supplier<List<ResolvedClasspathPackage>> classpathPackages) {
+                Supplier<List<ResolvedClasspathPackage>> classpathPackages,
+                Supplier<List<ResolvedClasspathPackage>> verifiedCompilerPackages) {
             this.member = member;
             this.result = result;
             this.classpaths = memoized(classpaths);
             this.classpathPackages = memoized(classpathPackages);
+            this.verifiedCompilerPackages = memoized(verifiedCompilerPackages);
         }
 
         public String member() {
@@ -210,6 +214,14 @@ public record WorkspaceBuildResult(
 
         public List<ResolvedClasspathPackage> classpathPackages() {
             return classpathPackages.get();
+        }
+
+        /**
+         * The verified member lock projection available to compiler tooling. Unlike packaging
+         * inputs, this remains available to test compilation after an ordinary workspace build.
+         */
+        public List<ResolvedClasspathPackage> verifiedCompilerPackages() {
+            return verifiedCompilerPackages.get();
         }
 
         @Override

@@ -11,5 +11,9 @@ import java.util.List;
 interface WorkspaceMemberClasspaths {
     ClasspathSet forMember(String memberPath);
 
-    List<ResolvedClasspathPackage> packagesForMember(String memberPath);
+    /** Verified lock projection used only to select and launch compiler tooling. */
+    List<ResolvedClasspathPackage> verifiedCompilerPackagesForMember(String memberPath);
+
+    /** Package-oriented projection exposed to commands that explicitly requested package inputs. */
+    List<ResolvedClasspathPackage> packageInputsForMember(String memberPath);
 }

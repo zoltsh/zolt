@@ -71,9 +71,14 @@ final class WorkspaceMemberBuildInputs {
             }
 
             @Override
-            public List<ResolvedClasspathPackage> packagesForMember(String memberPath) {
+            public List<ResolvedClasspathPackage> verifiedCompilerPackagesForMember(String memberPath) {
+                return classpathService.classpathPackagesFor(context, memberPath);
+            }
+
+            @Override
+            public List<ResolvedClasspathPackage> packageInputsForMember(String memberPath) {
                 return requirementsFor(memberPath).packageInputs()
-                        ? classpathService.classpathPackagesFor(context, memberPath)
+                        ? verifiedCompilerPackagesForMember(memberPath)
                         : List.of();
             }
         };

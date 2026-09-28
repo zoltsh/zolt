@@ -142,7 +142,7 @@ final class WorkspaceTestCompileExecutor {
         return new BuildResultWithClasspaths(
                 memberBuild.result(),
                 memberBuild.classpaths(),
-                memberBuild.classpathPackages());
+                memberBuild.verifiedCompilerPackages());
     }
 
     private static Map<String, WorkspaceMember> membersByPath(Workspace workspace) {
