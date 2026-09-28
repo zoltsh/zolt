@@ -32,12 +32,48 @@ public final class GroovyCompilerRunner {
             List<Path> sources,
             Classpath classpath,
             Path outputDirectory) {
+        return compile(
+                javaExecutable,
+                sources,
+                classpath,
+                outputDirectory,
+                CompilationMode.TEST,
+                null);
+    }
+
+    public JavacResult compileJoint(
+            Path javaExecutable,
+            List<Path> sources,
+            Classpath classpath,
+            Path outputDirectory,
+            JointOptions options) {
+        if (options == null) {
+            throw new GroovyCompileException("Groovy joint compilation options are required.");
+        }
+        return compile(
+                javaExecutable,
+                sources,
+                classpath,
+                outputDirectory,
+                CompilationMode.MAIN_JOINT,
+                options);
+    }
+
+    private JavacResult compile(
+            Path javaExecutable,
+            List<Path> sources,
+            Classpath classpath,
+            Path outputDirectory,
+            CompilationMode mode,
+            JointOptions options) {
         List<Path> sortedSources = sources.stream().map(Path::normalize).sorted().toList();
         try {
             Files.createDirectories(outputDirectory);
         } catch (IOException exception) {
             throw new GroovyCompileException(
-                    "Could not create Groovy test compilation output directory "
+                    "Could not create "
+                            + mode.label
+                            + " output directory "
                             + outputDirectory
                             + ". Check that the project directory is writable.",
                     exception);
@@ -46,13 +82,22 @@ public final class GroovyCompilerRunner {
             return new JavacResult(0, outputDirectory, "");
         }
 
-        ProcessResult result = processRunner.run(command(javaExecutable, sortedSources, classpath, outputDirectory));
+        ProcessResult result = processRunner.run(command(
+                javaExecutable,
+                sortedSources,
+                classpath,
+                outputDirectory,
+                mode,
+                options));
         if (result.exitCode() != 0) {
             throw new GroovyCompileException(
-                    "Groovy test compilation failed with exit code "
+                    mode.label
+                            + " failed with exit code "
                             + result.exitCode()
-                            + ". Fix the Groovy compilation errors and try again. "
-                            + "Ensure Groovy compiler tooling such as org.apache.groovy:groovy is declared in [dependencies.test].\n"
+                            + ". Fix the Groovy compilation errors and try again. Ensure Groovy compiler tooling such as"
+                            + " org.apache.groovy:groovy is declared in "
+                            + mode.dependencySection
+                            + ".\n"
                             + result.output().stripTrailing());
         }
         return new JavacResult(sortedSources.size(), outputDirectory, result.output());
@@ -62,18 +107,36 @@ public final class GroovyCompilerRunner {
             Path javaExecutable,
             List<Path> sources,
             Classpath classpath,
-            Path outputDirectory) {
+            Path outputDirectory,
+            CompilationMode mode,
+            JointOptions options) {
         List<Path> classpathEntries = orderedEntries(classpath);
         List<String> command = new ArrayList<>();
         command.add(javaExecutable.toString());
+        if (mode == CompilationMode.MAIN_JOINT) {
+            command.add("-Dgroovy.target.bytecode=" + options.release());
+        }
         command.add("-cp");
         command.add(joinedPath(classpathEntries));
         command.add(GROOVY_COMPILER_MAIN);
-        command.add("-d");
-        command.add(outputDirectory.toString());
         if (!classpathEntries.isEmpty()) {
             command.add("-classpath");
             command.add(joinedPath(classpathEntries));
+        }
+        if (mode == CompilationMode.MAIN_JOINT) {
+            command.add("-j");
+        }
+        command.add("-d");
+        command.add(outputDirectory.toString());
+        if (mode == CompilationMode.MAIN_JOINT) {
+            command.add("--encoding=" + options.encoding());
+            if (options.hostPlatformApi()) {
+                command.add("-J=source=" + options.release());
+                command.add("-J=target=" + options.release());
+            } else {
+                command.add("-J=-release=" + options.release());
+            }
+            command.add("-F=proc:none");
         }
         for (Path source : sources) {
             command.add(source.toString());
@@ -125,5 +188,36 @@ public final class GroovyCompilerRunner {
     }
 
     public record ProcessResult(int exitCode, String output) {
+    }
+
+    public record JointOptions(String release, String encoding, boolean hostPlatformApi) {
+        public JointOptions {
+            release = normalize(release);
+            encoding = normalize(encoding);
+            if (release.isEmpty()) {
+                throw new GroovyCompileException(
+                        "Groovy joint compilation requires an effective Java release.");
+            }
+            if (encoding.isEmpty()) {
+                encoding = StandardCharsets.UTF_8.name();
+            }
+        }
+
+        private static String normalize(String value) {
+            return value == null ? "" : value.trim();
+        }
+    }
+
+    private enum CompilationMode {
+        TEST("Groovy test compilation", "[dependencies.test]"),
+        MAIN_JOINT("Groovy main joint compilation", "[dependencies]");
+
+        private final String label;
+        private final String dependencySection;
+
+        CompilationMode(String label, String dependencySection) {
+            this.label = label;
+            this.dependencySection = dependencySection;
+        }
     }
 }
