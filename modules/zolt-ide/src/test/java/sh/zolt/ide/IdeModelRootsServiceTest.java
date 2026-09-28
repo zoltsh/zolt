@@ -163,4 +163,69 @@ final class IdeModelRootsServiceTest {
                         true)), model.sourceRoots());
     }
 
+    @Test
+    void exportsExplicitGroovyMainRootWithoutChangingSchemaOrJavaRows() throws IOException {
+        Path projectDir = tempDir.resolve("explicit-groovy-main");
+        Files.createDirectories(projectDir.resolve("src/main/java"));
+        Files.createDirectories(projectDir.resolve("src/main/groovy"));
+        Files.writeString(projectDir.resolve("zolt.toml"), """
+                [project]
+                name = "explicit-groovy-main"
+                version = "0.1.0"
+                group = "com.example"
+                java = 21
+
+                [build]
+                sources = ["src/main/java", "src/main/groovy"]
+                """);
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
+
+        IdeModel model = service.export(projectDir, tempDir.resolve("cache"));
+
+        Path root = projectDir.toAbsolutePath().normalize();
+        assertEquals(1, model.schemaVersion());
+        assertEquals(List.of(
+                new IdeModel.SourceRoot("main-java", "main", "java", root.resolve("src/main/java"), false),
+                new IdeModel.SourceRoot("main-java-2", "main", "java", root.resolve("src/main/groovy"), false),
+                new IdeModel.SourceRoot("main-groovy-2", "main", "groovy", root.resolve("src/main/groovy"), false)),
+                authoredMainRoots(model));
+    }
+
+    @Test
+    void exportsMixedJavaAndGroovyMainRootDeterministically() throws IOException {
+        Path projectDir = tempDir.resolve("mixed-main-root");
+        Path sourceRoot = projectDir.resolve("src/main/java/com/example");
+        Files.createDirectories(sourceRoot);
+        Files.writeString(sourceRoot.resolve("JavaApi.java"), "package com.example; final class JavaApi {}\n");
+        Files.writeString(sourceRoot.resolve("GroovyApi.groovy"), "package com.example\nfinal class GroovyApi {}\n");
+        Files.writeString(projectDir.resolve("zolt.toml"), """
+                [project]
+                name = "mixed-main-root"
+                version = "0.1.0"
+                group = "com.example"
+                java = 21
+                """);
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
+
+        IdeModel first = service.export(projectDir, tempDir.resolve("cache"));
+        IdeModel second = service.export(projectDir, tempDir.resolve("cache"));
+
+        Path root = projectDir.toAbsolutePath().normalize().resolve("src/main/java");
+        List<IdeModel.SourceRoot> expected = List.of(
+                new IdeModel.SourceRoot("main-java", "main", "java", root, false),
+                new IdeModel.SourceRoot("main-groovy", "main", "groovy", root, false));
+        assertEquals(expected, authoredMainRoots(first));
+        assertEquals(expected, authoredMainRoots(second));
+        String json = new IdeModelJsonWriter().write(first);
+        assertTrue(json.contains("\"schemaVersion\": 1"));
+        assertTrue(json.contains("\"id\": \"main-groovy\""));
+        assertTrue(json.contains("\"language\": \"groovy\""));
+    }
+
+    private static List<IdeModel.SourceRoot> authoredMainRoots(IdeModel model) {
+        return model.sourceRoots().stream()
+                .filter(root -> "main".equals(root.kind()) && !root.generated())
+                .toList();
+    }
+
 }

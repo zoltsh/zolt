@@ -7,9 +7,14 @@ import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectPathException;
 import sh.zolt.project.ProjectPaths;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.stream.Stream;
 
 final class IdeRootModelBuilder {
     private final GeneratedSourceEvidenceService generatedSourceEvidenceService;
@@ -27,14 +32,31 @@ final class IdeRootModelBuilder {
         }
         BuildSettings settings = config.build();
         List<IdeModel.SourceRoot> roots = new ArrayList<>();
+        List<Path> resolvedMainRoots = new ArrayList<>();
         for (int index = 0; index < settings.sourceRoots().size(); index++) {
+            Path sourceRoot = inputRoot(
+                    root, "[build].sources", settings.sourceRoots().get(index), diagnostics);
+            resolvedMainRoots.add(sourceRoot);
             addSourceRoot(
                     roots,
-                    index == 0 ? "main-java" : "main-java-" + (index + 1),
+                    mainSourceRootId("java", index),
                     "main",
                     "java",
-                    inputRoot(root, "[build].sources", settings.sourceRoots().get(index), diagnostics),
+                    sourceRoot,
                     false);
+        }
+        for (int index = 0; index < settings.sourceRoots().size(); index++) {
+            Path sourceRoot = resolvedMainRoots.get(index);
+            if (sourceRoot != null
+                    && isGroovyMainRoot(settings.sourceRoots().get(index), sourceRoot)) {
+                addSourceRoot(
+                        roots,
+                        mainSourceRootId("groovy", index),
+                        "main",
+                        "groovy",
+                        sourceRoot,
+                        false);
+            }
         }
         addSourceRoot(
                 roots,
@@ -126,6 +148,41 @@ final class IdeRootModelBuilder {
             boolean generated) {
         if (path != null) {
             roots.add(new IdeModel.SourceRoot(id, kind, language, path, generated));
+        }
+    }
+
+    private static String mainSourceRootId(String language, int index) {
+        String prefix = "main-" + language;
+        return index == 0 ? prefix : prefix + "-" + (index + 1);
+    }
+
+    private static boolean isGroovyMainRoot(String configuredRoot, Path sourceRoot) {
+        return hasGroovyPathSegment(configuredRoot) || containsGroovySource(sourceRoot);
+    }
+
+    private static boolean hasGroovyPathSegment(String configuredRoot) {
+        String normalized = configuredRoot.replace('\\', '/').toLowerCase(Locale.ROOT);
+        for (String segment : normalized.split("/")) {
+            if ("groovy".equals(segment)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean containsGroovySource(Path sourceRoot) {
+        if (!Files.isDirectory(sourceRoot)) {
+            return false;
+        }
+        try (Stream<Path> paths = Files.find(
+                sourceRoot,
+                Integer.MAX_VALUE,
+                (path, attributes) -> attributes.isRegularFile()
+                        && path.getFileName().toString().endsWith(".groovy"))) {
+            return paths.findFirst().isPresent();
+        } catch (IOException | UncheckedIOException ignored) {
+            // IDE export remains best-effort when an otherwise valid source root cannot be scanned.
+            return false;
         }
     }
 
