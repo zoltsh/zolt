@@ -24,9 +24,35 @@ final class EffectiveCompilerIdentityTest {
 
         String firstIdentity = EffectiveCompilerIdentity.of(jdkStatus(), first);
 
+        assertEquals(
+                "sha256:3027e384be16a19e1e0fa1436b8ba1a6ce19720827f39e23bc328ae7a5c45a0b",
+                firstIdentity);
         assertEquals(firstIdentity, EffectiveCompilerIdentity.of(jdkStatus(), relocated));
         assertNotEquals(firstIdentity, EffectiveCompilerIdentity.of(jdkStatus(), changed));
         assertNotEquals(EffectiveCompilerIdentity.of(jdkStatus()), firstIdentity);
+    }
+
+    @Test
+    void conditionallyIncludesCompilerSemantics() {
+        String compiler = "relocatable-compiler-identity";
+        String withoutSemantics = EffectiveCompilerIdentity.of(
+                jdkStatus(),
+                "kotlinCompiler",
+                compiler);
+        String withSemantics = EffectiveCompilerIdentity.of(
+                jdkStatus(),
+                "kotlinCompiler",
+                compiler,
+                "kotlin-main-v1");
+
+        assertNotEquals(withoutSemantics, withSemantics);
+        assertEquals(
+                withSemantics,
+                EffectiveCompilerIdentity.of(
+                        jdkStatus(),
+                        "kotlinCompiler",
+                        compiler,
+                        " kotlin-main-v1 "));
     }
 
     private static GroovyCompilerToolchain toolchain(String sha256, Path jar) {
