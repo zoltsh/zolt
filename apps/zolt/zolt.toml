@@ -31,6 +31,7 @@ main = "sh.zolt.cli.ZoltCli"
 "sh.zolt:zolt-workspace" = { workspace = true }
 
 [dependencies.test]
+"org.jetbrains.kotlin:kotlin-compiler-embeddable" = { versionRef = "kotlin" }
 "org.junit.platform:junit-platform-console-standalone" = { versionRef = "junit-platform" }
 
 [test.suites.worker-failure-diagnostic]
