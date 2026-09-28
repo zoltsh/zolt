@@ -70,11 +70,16 @@ final class MainCompileSourceExecutorKotlinTest {
         Files.writeString(staleState, "stale");
         Files.writeString(staleGenerated, "class Stale {}");
         List<List<String>> commands = new ArrayList<>();
+        List<Path> argumentFiles = new ArrayList<>();
+        List<String> argumentContents = new ArrayList<>();
         KotlinCompilerRunner runner = new KotlinCompilerRunner(":", command -> {
             assertFalse(Files.exists(staleClass));
             assertFalse(Files.exists(staleState));
             assertFalse(Files.exists(staleGenerated));
             commands.add(command);
+            Path argumentFile = argumentFile(command);
+            argumentFiles.add(argumentFile);
+            argumentContents.add(readString(argumentFile));
             return new KotlinCompilerRunner.ProcessResult(0, "compiled kotlin\n");
         });
         SourceDiscoveryResult sources = sources(List.of(), List.of(first, second));
@@ -104,11 +109,24 @@ final class MainCompileSourceExecutorKotlinTest {
         assertEquals(
                 launcherEntries().stream().map(Path::toString).reduce((left, right) -> left + ":" + right).orElseThrow(),
                 command.get(command.indexOf("-cp") + 1));
-        assertEquals(applicationJar.toString(), command.get(command.indexOf("-classpath") + 1));
-        assertEquals("/managed-jdk", command.get(command.indexOf("-jdk-home") + 1));
-        assertTrue(command.contains("-Xjdk-release=21"));
-        assertEquals(first.toString(), command.getLast());
-        assertTrue(command.indexOf(second.toString()) < command.indexOf(first.toString()));
+        assertEquals(5, command.size());
+        assertEquals("org.jetbrains.kotlin.cli.jvm.K2JVMCompiler", command.get(3));
+        assertEquals("@" + argumentFiles.getFirst(), command.getLast());
+        assertEquals(KotlinCompilerArgumentsFile.encode(List.of(
+                "-no-stdlib",
+                "-no-reflect",
+                "-jdk-home",
+                "/managed-jdk",
+                "-Xjdk-release=21",
+                "-classpath",
+                applicationJar.toString(),
+                "-module-name",
+                "demo_main",
+                "-d",
+                output.toString(),
+                second.toString(),
+                first.toString())), argumentContents.getFirst());
+        assertFalse(Files.exists(argumentFiles.getFirst()));
     }
 
     @Test
@@ -141,11 +159,16 @@ final class MainCompileSourceExecutorKotlinTest {
         Path kotlinMarker = output.resolve("com/example/Main.class");
         List<String> phases = new ArrayList<>();
         List<List<String>> kotlinCommands = new ArrayList<>();
+        List<Path> kotlinArgumentFiles = new ArrayList<>();
+        List<String> kotlinArgumentContents = new ArrayList<>();
         List<List<String>> javacCommands = new ArrayList<>();
         KotlinCompilerRunner kotlinRunner = new KotlinCompilerRunner(":", command -> {
             assertFalse(Files.exists(output.resolve("com/example/StillHere.class")));
             phases.add("kotlin");
             kotlinCommands.add(command);
+            Path argumentFile = argumentFile(command);
+            kotlinArgumentFiles.add(argumentFile);
+            kotlinArgumentContents.add(readString(argumentFile));
             try {
                 Files.createDirectories(kotlinMarker.getParent());
                 Files.write(kotlinMarker, new byte[] {1});
@@ -180,8 +203,27 @@ final class MainCompileSourceExecutorKotlinTest {
         assertEquals(sources.allMainSources(), result.compiledSources());
         assertEquals("compiled kotlin\ncompiled java\n", result.output());
         List<String> kotlinCommand = kotlinCommands.getFirst();
-        assertTrue(kotlinCommand.contains(java.toString()), kotlinCommand.toString());
-        assertTrue(kotlinCommand.contains(kotlin.toString()), kotlinCommand.toString());
+        assertEquals(5, kotlinCommand.size());
+        assertEquals(
+                launcherEntries().stream().map(Path::toString).reduce((left, right) -> left + ":" + right).orElseThrow(),
+                kotlinCommand.get(kotlinCommand.indexOf("-cp") + 1));
+        assertEquals("org.jetbrains.kotlin.cli.jvm.K2JVMCompiler", kotlinCommand.get(3));
+        assertEquals("@" + kotlinArgumentFiles.getFirst(), kotlinCommand.getLast());
+        assertEquals(KotlinCompilerArgumentsFile.encode(List.of(
+                "-no-stdlib",
+                "-no-reflect",
+                "-jdk-home",
+                "/managed-jdk",
+                "-Xjdk-release=21",
+                "-classpath",
+                applicationJar.toString(),
+                "-module-name",
+                "demo_main",
+                "-d",
+                output.toString(),
+                java.toString(),
+                kotlin.toString())), kotlinArgumentContents.getFirst());
+        assertFalse(Files.exists(kotlinArgumentFiles.getFirst()));
         List<String> javacCommand = javacCommands.getFirst();
         assertTrue(javacCommand.contains(java.toString()), javacCommand.toString());
         assertFalse(javacCommand.contains(kotlin.toString()), javacCommand.toString());
@@ -292,6 +334,23 @@ final class MainCompileSourceExecutorKotlinTest {
         Files.createDirectories(source.getParent());
         Files.writeString(source, content);
         return source;
+    }
+
+    private static Path argumentFile(List<String> command) {
+        String argument = command.getLast();
+        assertTrue(argument.startsWith("@"), command.toString());
+        Path path = Path.of(argument.substring(1));
+        assertTrue(path.isAbsolute(), path.toString());
+        assertTrue(Files.isRegularFile(path), path.toString());
+        return path;
+    }
+
+    private static String readString(Path path) {
+        try {
+            return Files.readString(path);
+        } catch (IOException exception) {
+            throw new UncheckedIOException(exception);
+        }
     }
 
     private static SourceDiscoveryResult sources(List<Path> java, List<Path> kotlin) {

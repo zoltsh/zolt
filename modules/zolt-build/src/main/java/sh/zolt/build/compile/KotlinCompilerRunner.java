@@ -80,64 +80,81 @@ public final class KotlinCompilerRunner {
             return new JavacResult(0, outputDirectory, "");
         }
 
-        ProcessResult result = processRunner.run(command(
-                javaExecutable,
+        List<String> compilerArguments = compilerArguments(
                 jdkHome,
                 sortedSources,
-                compilerLauncherClasspath,
                 compilationClasspath,
                 outputDirectory,
-                options));
-        if (result.exitCode() != 0) {
+                options);
+        try (KotlinCompilerArgumentsFile argumentsFile =
+                KotlinCompilerArgumentsFile.create(compilerArguments)) {
+            ProcessResult result = processRunner.run(launcherCommand(
+                    javaExecutable,
+                    compilerLauncherClasspath,
+                    argumentsFile.commandArgument()));
+            if (result.exitCode() != 0) {
+                throw new KotlinCompileException(
+                        "Kotlin " + compilationScope.label() + " compilation failed with exit code "
+                                + result.exitCode()
+                                + ". Fix the Kotlin compilation errors and try again. Ensure "
+                                + KotlinCompilerToolchain.COORDINATE
+                                + " is selected in [toolchain.kotlin] and kotlin-stdlib is declared in"
+                                + " " + compilationScope.runtimeDeclaration() + ".\n"
+                                + result.output().stripTrailing());
+            }
+            return new JavacResult(sortedSources.size(), outputDirectory, result.output());
+        } catch (IOException exception) {
             throw new KotlinCompileException(
-                    "Kotlin " + compilationScope.label() + " compilation failed with exit code "
-                            + result.exitCode()
-                            + ". Fix the Kotlin compilation errors and try again. Ensure "
-                            + KotlinCompilerToolchain.COORDINATE
-                            + " is selected in [toolchain.kotlin] and kotlin-stdlib is declared in"
-                            + " " + compilationScope.runtimeDeclaration() + ".\n"
-                            + result.output().stripTrailing());
+                    "Could not prepare or clean up the temporary Kotlin " + compilationScope.label()
+                            + " compiler argument file. Check that the system temporary directory is writable "
+                            + "and try again.",
+                    exception);
         }
-        return new JavacResult(sortedSources.size(), outputDirectory, result.output());
     }
 
-    private List<String> command(
+    private List<String> launcherCommand(
             Path javaExecutable,
+            Classpath compilerLauncherClasspath,
+            String argumentsFile) {
+        return List.of(
+                javaExecutable.toString(),
+                "-cp",
+                joinedPath(entries(compilerLauncherClasspath)),
+                COMPILER_MAIN,
+                argumentsFile);
+    }
+
+    private List<String> compilerArguments(
             Path jdkHome,
             List<Path> sources,
-            Classpath compilerLauncherClasspath,
             Classpath compilationClasspath,
             Path outputDirectory,
             Options options) {
-        List<String> command = new ArrayList<>();
-        command.add(javaExecutable.toString());
-        command.add("-cp");
-        command.add(joinedPath(entries(compilerLauncherClasspath)));
-        command.add(COMPILER_MAIN);
-        command.add("-no-stdlib");
-        command.add("-no-reflect");
-        command.add("-jdk-home");
-        command.add(jdkHome.toString());
+        List<String> arguments = new ArrayList<>();
+        arguments.add("-no-stdlib");
+        arguments.add("-no-reflect");
+        arguments.add("-jdk-home");
+        arguments.add(jdkHome.toString());
         if (!options.useJdkRelease()) {
-            command.add("-jvm-target");
-            command.add(jvmTarget(options.release()));
+            arguments.add("-jvm-target");
+            arguments.add(jvmTarget(options.release()));
         } else {
-            command.add("-Xjdk-release=" + options.release());
+            arguments.add("-Xjdk-release=" + options.release());
         }
         List<Path> compilationEntries = entries(compilationClasspath);
         if (!compilationEntries.isEmpty()) {
-            command.add("-classpath");
-            command.add(joinedPath(compilationEntries));
+            arguments.add("-classpath");
+            arguments.add(joinedPath(compilationEntries));
         }
         if (options.friendPath() != null) {
-            command.add("-Xfriend-paths=" + options.friendPath());
+            arguments.add("-Xfriend-paths=" + options.friendPath());
         }
-        command.add("-module-name");
-        command.add(options.moduleName());
-        command.add("-d");
-        command.add(outputDirectory.toString());
-        sources.forEach(source -> command.add(source.toString()));
-        return List.copyOf(command);
+        arguments.add("-module-name");
+        arguments.add(options.moduleName());
+        arguments.add("-d");
+        arguments.add(outputDirectory.toString());
+        sources.forEach(source -> arguments.add(source.toString()));
+        return List.copyOf(arguments);
     }
 
     private static String jvmTarget(String release) {

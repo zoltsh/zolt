@@ -29,9 +29,10 @@ final class BuildCommandKotlinOfflineIntegrationTest {
 
     @Test
     void resolvesBuildsRunsAndReusesRealKotlinMainOffline() throws Exception {
-        Path projectDirectory = tempDir.resolve("project");
-        Path onlineCache = tempDir.resolve("online-cache");
-        Path offlineCache = tempDir.resolve("offline-cache");
+        Path qualifiedRoot = tempDir.resolve("Kotlin π workspace");
+        Path projectDirectory = qualifiedRoot.resolve("project with spaces λ");
+        Path onlineCache = qualifiedRoot.resolve("online artifact cache 例");
+        Path offlineCache = qualifiedRoot.resolve("offline artifact cache 例");
 
         try (CliTestRepository repository = CliTestRepository.start()) {
             KotlinCompilerCliFixture.publish(repository);
