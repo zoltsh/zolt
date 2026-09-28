@@ -55,7 +55,8 @@ final class FinalManifestFieldHandlesTest {
                         field("toolchain.java.policy", 3_140),
                         field("toolchain.java.test.version", 3_210),
                         field("toolchain.java.test.distribution", 3_220),
-                        field("toolchain.java.test.policy", 3_230)));
+                        field("toolchain.java.test.policy", 3_230),
+                        field("toolchain.groovy.version", 3_310)));
     }
 
     @Test
@@ -367,9 +368,9 @@ final class FinalManifestFieldHandlesTest {
         List<ManifestField> handles = handles();
         List<ManifestField> registered = registry.fields();
 
-        assertEquals(229, handles.size());
-        assertEquals(229, handles.stream().map(ManifestField::path).distinct().count());
-        assertEquals(229, handles.stream().map(ManifestField::canonicalOrder).distinct().count());
+        assertEquals(230, handles.size());
+        assertEquals(230, handles.stream().map(ManifestField::path).distinct().count());
+        assertEquals(230, handles.stream().map(ManifestField::canonicalOrder).distinct().count());
         assertEquals(handles, registered);
         for (int index = 0; index < handles.size(); index++) {
             assertSame(handles.get(index), registered.get(index));

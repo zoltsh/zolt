@@ -23,6 +23,8 @@ public final class FinalManifestToolchainFields {
             3_220);
     public static final ManifestField JAVA_TEST_POLICY = field(
             FinalManifestPaths.TOOLCHAIN_JAVA_TEST, "policy", ManifestValueKind.STRING, 3_230);
+    public static final ManifestField GROOVY_VERSION = field(
+            FinalManifestPaths.TOOLCHAIN_GROOVY, "version", ManifestValueKind.STRING, 3_310);
 
     private FinalManifestToolchainFields() {
     }
@@ -36,7 +38,8 @@ public final class FinalManifestToolchainFields {
                 JAVA_POLICY,
                 JAVA_TEST_VERSION,
                 JAVA_TEST_DISTRIBUTION,
-                JAVA_TEST_POLICY);
+                JAVA_TEST_POLICY,
+                GROOVY_VERSION);
     }
 
     private static ManifestField field(

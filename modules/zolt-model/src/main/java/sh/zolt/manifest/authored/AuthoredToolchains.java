@@ -8,14 +8,25 @@ import sh.zolt.manifest.ZoltVersionPin;
 public record AuthoredToolchains(
         Optional<ZoltVersionPin> zolt,
         Optional<AuthoredJavaToolchain> mainJava,
-        Optional<AuthoredJavaTestToolchain> testJava) {
+        Optional<AuthoredJavaTestToolchain> testJava,
+        Optional<AuthoredGroovyToolchain> groovy) {
     public AuthoredToolchains {
         zolt = Objects.requireNonNull(zolt, "Authored Zolt toolchain must not be null.");
         mainJava = Objects.requireNonNull(mainJava, "Authored main Java toolchain must not be null.");
         testJava = Objects.requireNonNull(testJava, "Authored test Java toolchain must not be null.");
+        groovy = Objects.requireNonNull(groovy, "Authored Groovy toolchain must not be null.");
+    }
+
+    /** Compatibility constructor for callers that predate the Groovy toolchain domain. */
+    public AuthoredToolchains(
+            Optional<ZoltVersionPin> zolt,
+            Optional<AuthoredJavaToolchain> mainJava,
+            Optional<AuthoredJavaTestToolchain> testJava) {
+        this(zolt, mainJava, testJava, Optional.empty());
     }
 
     public static AuthoredToolchains empty() {
-        return new AuthoredToolchains(Optional.empty(), Optional.empty(), Optional.empty());
+        return new AuthoredToolchains(
+                Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
     }
 }

@@ -109,6 +109,8 @@ public record AuthoredManifest(
         if (workspace.isEmpty()) {
             rejectBomDomain(toolchains.mainJava().isPresent(), "project-local main Java toolchain");
             rejectBomDomain(toolchains.testJava().isPresent(), "project-local test Java toolchain");
+            rejectBomDomain(
+                    toolchains.groovy().isPresent(), "project-local Groovy compiler toolchain");
         }
         rejectBomDomain(dependencies.isPresent(), "dependencies");
         rejectBomDomain(dependencyConstraints.isPresent(), "dependency constraints");

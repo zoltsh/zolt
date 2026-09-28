@@ -23,7 +23,7 @@ import sh.zolt.toml.schema.ManifestField;
 
 final class ManifestToolchainDecoderTest {
     @Test
-    void decodesAllEightAuthoredToolchainFieldsWithoutApplyingDefaults() {
+    void decodesAllNineAuthoredToolchainFieldsWithoutApplyingDefaults() {
         AuthoredToolchains toolchains = decode("""
                 [toolchain.zolt]
                 version = "0.1.0-rc.1"
@@ -38,6 +38,9 @@ final class ManifestToolchainDecoderTest {
                 version = 17
                 distribution = "temurin"
                 policy = "allow-system"
+
+                [toolchain.groovy]
+                version = "4.0.22"
                 """);
 
         assertEquals("0.1.0-rc.1", toolchains.zolt().orElseThrow().value());
@@ -53,6 +56,7 @@ final class ManifestToolchainDecoderTest {
         assertEquals(
                 ToolchainPolicy.ALLOW_SYSTEM,
                 toolchains.testJava().orElseThrow().policy().orElseThrow());
+        assertEquals("4.0.22", toolchains.groovy().orElseThrow().version().value());
     }
 
     @Test
@@ -141,6 +145,14 @@ final class ManifestToolchainDecoderTest {
                 [toolchain.java.test]
                 version = -9223372036854775808
                 """, "Invalid value for `toolchain.java.test.version`: Java feature release is outside");
+        assertFailure("""
+                [toolchain.groovy]
+                version = "latest"
+                """, "Invalid value for `toolchain.groovy.version`: Invalid Groovy toolchain version");
+        assertFailure("""
+                [toolchain.groovy]
+                version = "4.0-SNAPSHOT"
+                """, "Use a fixed released version");
     }
 
     @Test
@@ -161,6 +173,10 @@ final class ManifestToolchainDecoderTest {
                 [toolchain.java.test]
                 features = ["native-image"]
                 """, "Unknown manifest field `toolchain.java.test.features`");
+        assertFailure("""
+                [toolchain.groovy]
+                distribution = "apache"
+                """, "Unknown manifest field `toolchain.groovy.distribution`");
 
         assertModelSymbols(
                 FinalManifestToolchainFields.JAVA_DISTRIBUTION,
@@ -192,6 +208,7 @@ final class ManifestToolchainDecoderTest {
         assertTrue(requests.testJava().orElseThrow().distribution().isEmpty());
         assertTrue(requests.testJava().orElseThrow().policy().isEmpty());
         assertFalse(requests.zolt().isPresent());
+        assertFalse(requests.groovy().isPresent());
     }
 
     private static AuthoredToolchains decode(String source) {

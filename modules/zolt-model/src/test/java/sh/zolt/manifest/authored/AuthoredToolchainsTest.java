@@ -4,9 +4,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import sh.zolt.manifest.ZoltVersionPin;
+import sh.zolt.project.toolchain.GroovyToolchainVersion;
 import sh.zolt.project.toolchain.JavaDistribution;
 import sh.zolt.project.toolchain.JavaFeatureRelease;
 import sh.zolt.project.toolchain.ToolchainPolicy;
@@ -44,5 +46,30 @@ final class AuthoredToolchainsTest {
         assertEquals(
                 new AuthoredToolchains(Optional.empty(), Optional.empty(), Optional.empty()),
                 AuthoredToolchains.empty());
+    }
+
+    @Test
+    void carriesAnExactGroovyCompilerVersionWithoutMaterializingDefaults() {
+        AuthoredGroovyToolchain groovy =
+                new AuthoredGroovyToolchain(new GroovyToolchainVersion("4.0.22"));
+
+        AuthoredToolchains toolchains = new AuthoredToolchains(
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(groovy));
+
+        assertEquals(groovy, toolchains.groovy().orElseThrow());
+        assertEquals("4.0.22", groovy.version().toString());
+    }
+
+    @Test
+    void groovyCompilerVersionUsesTheFixedToolDependencyPolicy() {
+        for (String invalid : List.of(
+                "", " 4.0.22", "latest", "4.+", "[4.0,5.0)", "4.0-SNAPSHOT", "${groovy}")) {
+            assertThrows(IllegalArgumentException.class, () -> new GroovyToolchainVersion(invalid));
+        }
+
+        assertEquals("4.0.22", new GroovyToolchainVersion("4.0.22").value());
     }
 }

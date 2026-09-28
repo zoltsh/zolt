@@ -36,6 +36,7 @@ import sh.zolt.manifest.authored.AuthoredCommands;
 import sh.zolt.manifest.authored.AuthoredCoverage;
 import sh.zolt.manifest.authored.AuthoredCredentials;
 import sh.zolt.manifest.authored.AuthoredDependencyRepositories;
+import sh.zolt.manifest.authored.AuthoredGroovyToolchain;
 import sh.zolt.manifest.authored.AuthoredJavaTestToolchain;
 import sh.zolt.manifest.authored.AuthoredJavaToolchain;
 import sh.zolt.manifest.authored.AuthoredPlatforms;
@@ -47,6 +48,7 @@ import sh.zolt.manifest.authored.AuthoredVersionAliases;
 import sh.zolt.manifest.authored.AuthoredWorkspace;
 import sh.zolt.manifest.authored.AuthoredWorkspaceMembers;
 import sh.zolt.manifest.authored.AuthoredWorkspaceProjectDefaults;
+import sh.zolt.project.toolchain.GroovyToolchainVersion;
 import sh.zolt.project.toolchain.JavaDistribution;
 import sh.zolt.project.toolchain.JavaFeature;
 import sh.zolt.project.toolchain.JavaFeatureRelease;
@@ -123,7 +125,9 @@ final class EffectiveManifestComposerTest {
                 Optional.of(new AuthoredJavaTestToolchain(
                         Optional.of(new JavaFeatureRelease(25)),
                         Optional.empty(),
-                        Optional.empty())));
+                        Optional.empty())),
+                Optional.of(new AuthoredGroovyToolchain(
+                        new GroovyToolchainVersion("4.0.22"))));
         AuthoredBuildConfiguration build = new AuthoredBuildConfiguration(
                 Optional.empty(),
                 Optional.empty(),
@@ -166,6 +170,12 @@ final class EffectiveManifestComposerTest {
         assertSource(shared.commands().tasks().get(new LocalId("audit")), "tasks", "audit");
         assertSource(shared.commands().aliases().get(new LocalId("fast")), "aliases", "fast");
         assertSource(shared.toolchains().zolt().orElseThrow(), "toolchain", "zolt", "version");
+        assertEquals(
+                new GroovyToolchainVersion("4.0.22"),
+                shared.toolchains().groovy().orElseThrow().value());
+        assertSource(
+                shared.toolchains().groovy().orElseThrow(),
+                "toolchain", "groovy", "version");
 
         EffectiveJavaRuntime.Requested main = assertInstanceOf(
                 EffectiveJavaRuntime.Requested.class, shared.toolchains().mainJava().orElseThrow());

@@ -9,9 +9,11 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.tomlj.Toml;
 import sh.zolt.manifest.ZoltVersionPin;
+import sh.zolt.manifest.authored.AuthoredGroovyToolchain;
 import sh.zolt.manifest.authored.AuthoredJavaTestToolchain;
 import sh.zolt.manifest.authored.AuthoredJavaToolchain;
 import sh.zolt.manifest.authored.AuthoredToolchains;
+import sh.zolt.project.toolchain.GroovyToolchainVersion;
 import sh.zolt.project.toolchain.JavaDistribution;
 import sh.zolt.project.toolchain.JavaFeature;
 import sh.zolt.project.toolchain.JavaFeatureRelease;
@@ -49,7 +51,9 @@ final class ManifestToolchainWriterTest {
                 Optional.of(new AuthoredJavaTestToolchain(
                         Optional.of(new JavaFeatureRelease(17)),
                         Optional.of(JavaDistribution.TEMURIN),
-                        Optional.of(ToolchainPolicy.ALLOW_SYSTEM))));
+                        Optional.of(ToolchainPolicy.ALLOW_SYSTEM))),
+                Optional.of(new AuthoredGroovyToolchain(
+                        new GroovyToolchainVersion("4.0.22"))));
 
         String output = write(toolchains);
 
@@ -68,6 +72,9 @@ final class ManifestToolchainWriterTest {
                 version = 17
                 distribution = "temurin"
                 policy = "allow-system"
+
+                [toolchain.groovy]
+                version = "4.0.22"
                 """,
                 output);
         assertFalse(Toml.parse(output).hasErrors());

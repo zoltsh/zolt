@@ -23,6 +23,7 @@ final class FinalManifestSectionsTest extends FinalManifestSchemaTestSupport {
                         "toolchain.zolt",
                         "toolchain.java",
                         "toolchain.java.test",
+                        "toolchain.groovy",
                         "versions",
                         "repositories",
                         "repositories.<id>",
@@ -93,6 +94,7 @@ final class FinalManifestSectionsTest extends FinalManifestSchemaTestSupport {
                         3_000,
                         3_100,
                         3_200,
+                        3_300,
                         4_000,
                         4_100,
                         4_200,
@@ -163,6 +165,7 @@ final class FinalManifestSectionsTest extends FinalManifestSchemaTestSupport {
                         Map.entry("toolchain.zolt", SectionKind.SINGLETON),
                         Map.entry("toolchain.java", SectionKind.SINGLETON),
                         Map.entry("toolchain.java.test", SectionKind.SINGLETON),
+                        Map.entry("toolchain.groovy", SectionKind.SINGLETON),
                         Map.entry("versions", SectionKind.COLLECTION),
                         Map.entry("repositories", SectionKind.SINGLETON),
                         Map.entry("repositories.<id>", SectionKind.NAMED_ITEM),
@@ -257,7 +260,7 @@ final class FinalManifestSectionsTest extends FinalManifestSchemaTestSupport {
                 FinalManifestSymbols.builtInCommandNames(),
                 section("aliases").reservedChildren());
         assertEquals(
-                51,
+                52,
                 registry.sections().stream()
                         .filter(section -> section.reservedChildren().isEmpty())
                         .count());

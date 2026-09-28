@@ -5,9 +5,11 @@ import java.util.Optional;
 import java.util.Set;
 import sh.zolt.manifest.ManifestSource;
 import sh.zolt.manifest.ZoltVersionPin;
+import sh.zolt.manifest.authored.AuthoredGroovyToolchain;
 import sh.zolt.manifest.authored.AuthoredJavaTestToolchain;
 import sh.zolt.manifest.authored.AuthoredJavaToolchain;
 import sh.zolt.manifest.authored.AuthoredToolchains;
+import sh.zolt.project.toolchain.GroovyToolchainVersion;
 import sh.zolt.project.toolchain.JavaDistribution;
 import sh.zolt.project.toolchain.JavaFeature;
 import sh.zolt.project.toolchain.JavaFeatureRelease;
@@ -37,7 +39,12 @@ final class EffectiveToolchainsComposer {
                 .<EffectiveTestJavaRuntime>map(value -> requestedTest(
                         value, main, projectRelease, manifestPath))
                 .orElseGet(() -> new EffectiveTestJavaRuntime.SameAsMain(main));
-        return new EffectiveToolchains(zolt, Optional.of(main), Optional.of(test));
+        Optional<EffectiveValue<GroovyToolchainVersion>> groovy = authored.groovy()
+                .map(AuthoredGroovyToolchain::version)
+                .map(value -> EffectiveValue.authored(
+                        value, source(manifestPath, "toolchain", "groovy", "version")));
+        return new EffectiveToolchains(
+                zolt, Optional.of(main), Optional.of(test), groovy);
     }
 
     EffectiveToolchains composeWorkspaceMember(
@@ -73,7 +80,17 @@ final class EffectiveToolchainsComposer {
                         .<EffectiveTestJavaRuntime>map(value -> requestedTest(
                                 value, main, projectRelease, rootManifestPath, true))
                         .orElseGet(() -> new EffectiveTestJavaRuntime.SameAsMain(main)));
-        return new EffectiveToolchains(zolt, Optional.of(main), Optional.of(test));
+        Optional<EffectiveValue<GroovyToolchainVersion>> groovy = member.groovy()
+                .map(AuthoredGroovyToolchain::version)
+                .map(value -> EffectiveValue.authored(
+                        value, source(memberManifestPath, "toolchain", "groovy", "version")))
+                .or(() -> root.groovy()
+                        .map(AuthoredGroovyToolchain::version)
+                        .map(value -> EffectiveValue.inherited(
+                                value,
+                                source(rootManifestPath, "toolchain", "groovy", "version"))));
+        return new EffectiveToolchains(
+                zolt, Optional.of(main), Optional.of(test), groovy);
     }
 
     private static EffectiveJavaRuntime.Requested requestedMain(

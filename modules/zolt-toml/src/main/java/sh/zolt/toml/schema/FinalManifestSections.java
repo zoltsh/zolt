@@ -20,6 +20,7 @@ final class FinalManifestSections {
                 section(FinalManifestPaths.TOOLCHAIN_ZOLT, SectionKind.SINGLETON, 3_000, Set.of()),
                 section(FinalManifestPaths.TOOLCHAIN_JAVA, SectionKind.SINGLETON, 3_100, Set.of("test")),
                 section(FinalManifestPaths.TOOLCHAIN_JAVA_TEST, SectionKind.SINGLETON, 3_200, Set.of()),
+                section(FinalManifestPaths.TOOLCHAIN_GROOVY, SectionKind.SINGLETON, 3_300, Set.of()),
                 section(FinalManifestPaths.VERSIONS, SectionKind.COLLECTION, 4_000, Set.of()),
                 section(FinalManifestPaths.REPOSITORIES, SectionKind.SINGLETON, 4_100, Set.of("central", "order")),
                 section(FinalManifestPaths.REPOSITORY, SectionKind.NAMED_ITEM, 4_200, Set.of()),

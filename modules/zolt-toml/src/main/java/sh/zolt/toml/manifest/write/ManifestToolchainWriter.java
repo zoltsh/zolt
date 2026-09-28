@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import sh.zolt.manifest.ZoltVersionPin;
+import sh.zolt.manifest.authored.AuthoredGroovyToolchain;
 import sh.zolt.manifest.authored.AuthoredJavaTestToolchain;
 import sh.zolt.manifest.authored.AuthoredJavaToolchain;
 import sh.zolt.manifest.authored.AuthoredToolchains;
@@ -14,12 +15,13 @@ import sh.zolt.toml.schema.FinalManifestToolchainFields;
 import sh.zolt.toml.schema.ManifestPath;
 import sh.zolt.toml.schema.ManifestSection;
 
-/** Emits authored Zolt and Java toolchain requests without materializing defaults. */
+/** Emits authored Zolt, Java, and Groovy toolchain requests without materializing defaults. */
 final class ManifestToolchainWriter {
     private static final ManifestSection ZOLT = section(FinalManifestPaths.TOOLCHAIN_ZOLT);
     private static final ManifestSection JAVA = section(FinalManifestPaths.TOOLCHAIN_JAVA);
     private static final ManifestSection JAVA_TEST =
             section(FinalManifestPaths.TOOLCHAIN_JAVA_TEST);
+    private static final ManifestSection GROOVY = section(FinalManifestPaths.TOOLCHAIN_GROOVY);
 
     void write(ManifestTomlEmitter emitter, AuthoredToolchains toolchains) {
         Objects.requireNonNull(emitter, "Manifest TOML emitter is required.");
@@ -28,6 +30,7 @@ final class ManifestToolchainWriter {
         authored.zolt().ifPresent(value -> writeZolt(emitter, value));
         authored.mainJava().ifPresent(value -> writeJava(emitter, value));
         authored.testJava().ifPresent(value -> writeTestJava(emitter, value));
+        authored.groovy().ifPresent(value -> writeGroovy(emitter, value));
     }
 
     private static void writeZolt(ManifestTomlEmitter emitter, ZoltVersionPin zolt) {
@@ -68,6 +71,14 @@ final class ManifestToolchainWriter {
         java.policy().ifPresent(value -> emitter.field(
                 FinalManifestToolchainFields.JAVA_TEST_POLICY,
                 ManifestTomlValueEncoder.basicString(value.id())));
+    }
+
+    private static void writeGroovy(
+            ManifestTomlEmitter emitter, AuthoredGroovyToolchain groovy) {
+        emitter.section(GROOVY);
+        emitter.field(
+                FinalManifestToolchainFields.GROOVY_VERSION,
+                ManifestTomlValueEncoder.basicString(groovy.version().value()));
     }
 
     private static String features(Set<JavaFeature> values) {

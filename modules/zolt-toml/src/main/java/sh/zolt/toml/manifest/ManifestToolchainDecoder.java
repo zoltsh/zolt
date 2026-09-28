@@ -7,9 +7,11 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import sh.zolt.manifest.ZoltVersionPin;
+import sh.zolt.manifest.authored.AuthoredGroovyToolchain;
 import sh.zolt.manifest.authored.AuthoredJavaTestToolchain;
 import sh.zolt.manifest.authored.AuthoredJavaToolchain;
 import sh.zolt.manifest.authored.AuthoredToolchains;
+import sh.zolt.project.toolchain.GroovyToolchainVersion;
 import sh.zolt.project.toolchain.JavaDistribution;
 import sh.zolt.project.toolchain.JavaFeature;
 import sh.zolt.project.toolchain.JavaFeatureRelease;
@@ -18,12 +20,15 @@ import sh.zolt.toml.schema.FinalManifestPaths;
 import sh.zolt.toml.schema.FinalManifestToolchainFields;
 import sh.zolt.toml.schema.ManifestField;
 
-/** Decodes authored Zolt and Java toolchain requests without applying defaults or inheritance. */
+/** Decodes authored Zolt, Java, and Groovy toolchain requests without applying defaults or inheritance. */
 final class ManifestToolchainDecoder {
     AuthoredToolchains decode(ManifestDecodeIndex index) {
         Objects.requireNonNull(index, "Manifest decode index is required.");
         return new AuthoredToolchains(
-                decodeZolt(index), decodeMainJava(index), decodeTestJava(index));
+                decodeZolt(index),
+                decodeMainJava(index),
+                decodeTestJava(index),
+                decodeGroovy(index));
     }
 
     private static Optional<ZoltVersionPin> decodeZolt(ManifestDecodeIndex index) {
@@ -79,6 +84,14 @@ final class ManifestToolchainDecoder {
                         .orElseThrow(() -> new IllegalStateException(
                                 "Authored toolchain aggregate has no direct field evidence.")),
                 () -> new AuthoredJavaTestToolchain(version, distribution, policy)));
+    }
+
+    private static Optional<AuthoredGroovyToolchain> decodeGroovy(ManifestDecodeIndex index) {
+        return index.field(FinalManifestToolchainFields.GROOVY_VERSION)
+                .map(field -> ManifestSemanticDiagnostics.construct(
+                        field,
+                        () -> new AuthoredGroovyToolchain(new GroovyToolchainVersion(
+                                ManifestTomlValues.string(field)))));
     }
 
     private static Optional<JavaFeatureRelease> release(
