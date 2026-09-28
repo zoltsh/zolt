@@ -5,6 +5,9 @@ group = "com.example"
 java = 21
 main = "com.example.Calculator"
 
+[toolchain.groovy]
+version = "4.0.22"
+
 [dependencies.test]
 "org.apache.groovy:groovy" = "4.0.22"
 "org.junit.platform:junit-platform-console-standalone" = "1.14.4"

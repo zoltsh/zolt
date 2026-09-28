@@ -5,6 +5,9 @@ group = "com.example"
 java = 21
 main = "com.example.JavaGreeting"
 
+[toolchain.groovy]
+version = "4.0.22"
+
 [build]
 sources = ["src/main/java", "src/main/groovy"]
 

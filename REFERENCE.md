@@ -556,8 +556,8 @@ header — the source shape Zolt's failure-safe manifest editor requires.
 
 Authored main roots may contain both `.java` and `.groovy` files. The default
 main root remains `src/main/java`; a project that keeps the conventional Groovy
-layout declares both roots and puts the Groovy compiler/runtime on the compile
-classpath:
+layout declares both roots, pins the isolated Groovy compiler launcher, and
+puts the ordinary Groovy API/runtime on the compile classpath:
 
 ```toml
 [project]
@@ -567,12 +567,25 @@ group = "com.example"
 java = 21
 main = "com.example.JavaGreeting"
 
+[toolchain.groovy]
+version = "4.0.22"
+
 [build]
 sources = ["src/main/java", "src/main/groovy"]
 
 [dependencies]
 "org.apache.groovy:groovy" = "4.0.22"
 ```
+
+`[toolchain.groovy]` is compiler tooling, not an application dependency. A
+normal `zolt resolve` acquires its checksum-pinned closure in the isolated
+`tool-groovy` scope; `zolt toolchain sync` manages Java toolchains and does not
+install Groovy. The ordinary `org.apache.groovy:groovy` dependency remains
+required for the source API and runtime. Zolt requires that ordinary runtime
+and the isolated compiler core have the configured version and identical
+checksum-verified core content, and rejects a mismatch before restoring a build
+cache entry or cleaning compiled output. Compiler-tooling artifacts never enter
+the application compile, runtime, test-runtime, or packaged dependency lanes.
 
 When an authored main root contains any Groovy source, Zolt passes the complete
 Java/Groovy main source set to Groovy's joint compiler. Java may therefore refer
@@ -1621,6 +1634,9 @@ Resolution fails if a managed console conflicts with the resolved engine line.
 Declare a console artifact only to pin or override the launcher:
 
 ```toml
+[toolchain.groovy]
+version = "4.0.22"
+
 [dependencies.test]
 "org.apache.groovy:groovy" = "4.0.22"
 "org.spockframework:spock-core" = "2.3-groovy-4.0"
@@ -1630,6 +1646,11 @@ Declare a console artifact only to pin or override the launcher:
 [test.sources]
 groovy = ["src/test/groovy"]
 ```
+
+The isolated compiler closure is acquired by `zolt resolve`; the ordinary test
+dependency supplies Groovy to the test compilation and runtime classpaths. The
+configured compiler and ordinary runtime must match by version and verified
+core content, just as they do for main joint compilation.
 
 Test commands support class/method selection, glob patterns, JUnit tags, JVM
 arguments, XML reports, deterministic shards, named suites, and optional profile
