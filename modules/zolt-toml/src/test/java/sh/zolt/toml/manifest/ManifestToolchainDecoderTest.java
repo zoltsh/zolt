@@ -23,7 +23,7 @@ import sh.zolt.toml.schema.ManifestField;
 
 final class ManifestToolchainDecoderTest {
     @Test
-    void decodesAllNineAuthoredToolchainFieldsWithoutApplyingDefaults() {
+    void decodesAllTenAuthoredToolchainFieldsWithoutApplyingDefaults() {
         AuthoredToolchains toolchains = decode("""
                 [toolchain.zolt]
                 version = "0.1.0-rc.1"
@@ -41,6 +41,9 @@ final class ManifestToolchainDecoderTest {
 
                 [toolchain.groovy]
                 version = "4.0.22"
+
+                [toolchain.kotlin]
+                version = "2.2.0"
                 """);
 
         assertEquals("0.1.0-rc.1", toolchains.zolt().orElseThrow().value());
@@ -57,6 +60,7 @@ final class ManifestToolchainDecoderTest {
                 ToolchainPolicy.ALLOW_SYSTEM,
                 toolchains.testJava().orElseThrow().policy().orElseThrow());
         assertEquals("4.0.22", toolchains.groovy().orElseThrow().version().value());
+        assertEquals("2.2.0", toolchains.kotlin().orElseThrow().version().value());
     }
 
     @Test
@@ -153,6 +157,14 @@ final class ManifestToolchainDecoderTest {
                 [toolchain.groovy]
                 version = "4.0-SNAPSHOT"
                 """, "Use a fixed released version");
+        assertFailure("""
+                [toolchain.kotlin]
+                version = "latest"
+                """, "Invalid value for `toolchain.kotlin.version`: Invalid Kotlin toolchain version");
+        assertFailure("""
+                [toolchain.kotlin]
+                version = "2.2-SNAPSHOT"
+                """, "Use a fixed released version");
     }
 
     @Test
@@ -177,6 +189,10 @@ final class ManifestToolchainDecoderTest {
                 [toolchain.groovy]
                 distribution = "apache"
                 """, "Unknown manifest field `toolchain.groovy.distribution`");
+        assertFailure("""
+                [toolchain.kotlin]
+                distribution = "jetbrains"
+                """, "Unknown manifest field `toolchain.kotlin.distribution`");
 
         assertModelSymbols(
                 FinalManifestToolchainFields.JAVA_DISTRIBUTION,
@@ -209,6 +225,7 @@ final class ManifestToolchainDecoderTest {
         assertTrue(requests.testJava().orElseThrow().policy().isEmpty());
         assertFalse(requests.zolt().isPresent());
         assertFalse(requests.groovy().isPresent());
+        assertFalse(requests.kotlin().isPresent());
     }
 
     private static AuthoredToolchains decode(String source) {

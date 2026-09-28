@@ -17,6 +17,7 @@ import sh.zolt.manifest.authored.AuthoredBom;
 import sh.zolt.manifest.authored.AuthoredBuildConfiguration;
 import sh.zolt.manifest.authored.AuthoredGroovyToolchain;
 import sh.zolt.manifest.authored.AuthoredManifest;
+import sh.zolt.manifest.authored.AuthoredKotlinToolchain;
 import sh.zolt.manifest.authored.AuthoredPackaging;
 import sh.zolt.manifest.authored.AuthoredProject;
 import sh.zolt.manifest.authored.AuthoredProjectIdentity;
@@ -30,6 +31,7 @@ import sh.zolt.project.CompilerSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.toolchain.GroovyToolchainVersion;
 import sh.zolt.project.toolchain.JavaFeatureRelease;
+import sh.zolt.project.toolchain.KotlinToolchainVersion;
 
 final class EffectiveProjectConfigAdapterGroovyTest {
     private static final EffectiveManifestComposer COMPOSER = new EffectiveManifestComposer();
@@ -46,7 +48,15 @@ final class EffectiveProjectConfigAdapterGroovyTest {
     }
 
     @Test
-    void preservesLegacyCompilerDefaultsWhenGroovyIsAbsent() {
+    void carriesTheStandaloneAuthoredKotlinVersion() {
+        EffectiveManifest effective = COMPOSER.composeStandalone(
+                projectManifest("app", kotlinToolchains("2.2.0")));
+
+        assertEquals("2.2.0", adapt(effective).compilerSettings().kotlinVersion());
+    }
+
+    @Test
+    void preservesLegacyCompilerDefaultsWhenLanguageToolchainsAreAbsent() {
         EffectiveManifest effective = COMPOSER.composeStandalone(
                 projectManifest("app", AuthoredToolchains.empty()));
 
@@ -64,6 +74,16 @@ final class EffectiveProjectConfigAdapterGroovyTest {
     }
 
     @Test
+    void carriesTheKotlinVersionInheritedFromAWorkspaceRoot() {
+        AuthoredManifest root = workspaceRoot(kotlinToolchains("2.2.0"));
+        AuthoredManifest member = projectManifest("app", AuthoredToolchains.empty());
+
+        EffectiveManifest effective = COMPOSER.composeWorkspaceMember(root, MEMBER, member);
+
+        assertEquals("2.2.0", adapt(effective).compilerSettings().kotlinVersion());
+    }
+
+    @Test
     void carriesAMemberGroovyTableInsteadOfTheWorkspaceRootTable() {
         AuthoredManifest root = workspaceRoot(groovyToolchains("4.0.22"));
         AuthoredManifest member = projectManifest("app", groovyToolchains("4.0.23"));
@@ -74,8 +94,18 @@ final class EffectiveProjectConfigAdapterGroovyTest {
     }
 
     @Test
-    void leavesGroovyBlankForABomWithoutJavaEvenWhenTheRootCarriesIt() {
-        AuthoredManifest root = workspaceRoot(groovyToolchains("4.0.22"));
+    void carriesAMemberKotlinTableInsteadOfTheWorkspaceRootTable() {
+        AuthoredManifest root = workspaceRoot(kotlinToolchains("2.2.0"));
+        AuthoredManifest member = projectManifest("app", kotlinToolchains("2.2.10"));
+
+        EffectiveManifest effective = COMPOSER.composeWorkspaceMember(root, MEMBER, member);
+
+        assertEquals("2.2.10", adapt(effective).compilerSettings().kotlinVersion());
+    }
+
+    @Test
+    void leavesCompilerVersionsBlankForABomWithoutJavaEvenWhenTheRootCarriesThem() {
+        AuthoredManifest root = workspaceRoot(languageToolchains("4.0.22", "2.2.0"));
         AuthoredManifest bom = manifest(
                 Optional.empty(),
                 Optional.of(project("catalog", true)),
@@ -88,7 +118,9 @@ final class EffectiveProjectConfigAdapterGroovyTest {
         assertTrue(effective.project().shared().toolchains().mainJava().isEmpty());
         assertTrue(effective.project().shared().toolchains().testJava().isEmpty());
         assertTrue(effective.project().shared().toolchains().groovy().isEmpty());
+        assertTrue(effective.project().shared().toolchains().kotlin().isEmpty());
         assertEquals("", config.compilerSettings().groovyVersion());
+        assertEquals("", config.compilerSettings().kotlinVersion());
     }
 
     private static ProjectConfig adapt(EffectiveManifest manifest) {
@@ -140,6 +172,29 @@ final class EffectiveProjectConfigAdapterGroovyTest {
                 Optional.empty(),
                 Optional.of(new AuthoredGroovyToolchain(
                         new GroovyToolchainVersion(version))));
+    }
+
+    private static AuthoredToolchains kotlinToolchains(String version) {
+        return new AuthoredToolchains(
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(new AuthoredKotlinToolchain(
+                        new KotlinToolchainVersion(version))));
+    }
+
+    private static AuthoredToolchains languageToolchains(
+            String groovyVersion,
+            String kotlinVersion) {
+        return new AuthoredToolchains(
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(new AuthoredGroovyToolchain(
+                        new GroovyToolchainVersion(groovyVersion))),
+                Optional.of(new AuthoredKotlinToolchain(
+                        new KotlinToolchainVersion(kotlinVersion))));
     }
 
     private static AuthoredPackaging bomPackaging() {

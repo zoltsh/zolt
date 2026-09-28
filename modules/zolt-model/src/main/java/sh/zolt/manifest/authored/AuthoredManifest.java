@@ -111,6 +111,8 @@ public record AuthoredManifest(
             rejectBomDomain(toolchains.testJava().isPresent(), "project-local test Java toolchain");
             rejectBomDomain(
                     toolchains.groovy().isPresent(), "project-local Groovy compiler toolchain");
+            rejectBomDomain(
+                    toolchains.kotlin().isPresent(), "project-local Kotlin compiler toolchain");
         }
         rejectBomDomain(dependencies.isPresent(), "dependencies");
         rejectBomDomain(dependencyConstraints.isPresent(), "dependency constraints");

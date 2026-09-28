@@ -11,7 +11,8 @@ public record CompilerSettings(
         List<String> testArgs,
         String platformApi,
         String testPlatformApi,
-        String groovyVersion) {
+        String groovyVersion,
+        String kotlinVersion) {
     private static final String DEFAULT_GENERATED_SOURCES = "target/generated/sources/annotations";
     private static final String DEFAULT_GENERATED_TEST_SOURCES = "target/generated/test-sources/annotations";
 
@@ -31,6 +32,31 @@ public record CompilerSettings(
         platformApi = platformApiOrDefault(platformApi);
         testPlatformApi = stringOrEmpty(testPlatformApi);
         groovyVersion = stringOrEmpty(groovyVersion);
+        kotlinVersion = stringOrEmpty(kotlinVersion);
+    }
+
+    /** Compatibility constructor for callers that predate explicit Kotlin compiler selection. */
+    public CompilerSettings(
+            String generatedSources,
+            String generatedTestSources,
+            String release,
+            String encoding,
+            List<String> args,
+            List<String> testArgs,
+            String platformApi,
+            String testPlatformApi,
+            String groovyVersion) {
+        this(
+                generatedSources,
+                generatedTestSources,
+                release,
+                encoding,
+                args,
+                testArgs,
+                platformApi,
+                testPlatformApi,
+                groovyVersion,
+                "");
     }
 
     /** Compatibility constructor for callers that predate explicit Groovy compiler selection. */
@@ -52,6 +78,7 @@ public record CompilerSettings(
                 testArgs,
                 platformApi,
                 testPlatformApi,
+                "",
                 "");
     }
 

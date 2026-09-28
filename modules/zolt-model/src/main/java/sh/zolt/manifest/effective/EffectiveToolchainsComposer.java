@@ -8,11 +8,13 @@ import sh.zolt.manifest.ZoltVersionPin;
 import sh.zolt.manifest.authored.AuthoredGroovyToolchain;
 import sh.zolt.manifest.authored.AuthoredJavaTestToolchain;
 import sh.zolt.manifest.authored.AuthoredJavaToolchain;
+import sh.zolt.manifest.authored.AuthoredKotlinToolchain;
 import sh.zolt.manifest.authored.AuthoredToolchains;
 import sh.zolt.project.toolchain.GroovyToolchainVersion;
 import sh.zolt.project.toolchain.JavaDistribution;
 import sh.zolt.project.toolchain.JavaFeature;
 import sh.zolt.project.toolchain.JavaFeatureRelease;
+import sh.zolt.project.toolchain.KotlinToolchainVersion;
 import sh.zolt.project.toolchain.ToolchainPolicy;
 
 /** Applies project-derived and built-in defaults to standalone toolchain requests. */
@@ -43,8 +45,12 @@ final class EffectiveToolchainsComposer {
                 .map(AuthoredGroovyToolchain::version)
                 .map(value -> EffectiveValue.authored(
                         value, source(manifestPath, "toolchain", "groovy", "version")));
+        Optional<EffectiveValue<KotlinToolchainVersion>> kotlin = authored.kotlin()
+                .map(AuthoredKotlinToolchain::version)
+                .map(value -> EffectiveValue.authored(
+                        value, source(manifestPath, "toolchain", "kotlin", "version")));
         return new EffectiveToolchains(
-                zolt, Optional.of(main), Optional.of(test), groovy);
+                zolt, Optional.of(main), Optional.of(test), groovy, kotlin);
     }
 
     EffectiveToolchains composeWorkspaceMember(
@@ -89,8 +95,17 @@ final class EffectiveToolchainsComposer {
                         .map(value -> EffectiveValue.inherited(
                                 value,
                                 source(rootManifestPath, "toolchain", "groovy", "version"))));
+        Optional<EffectiveValue<KotlinToolchainVersion>> kotlin = member.kotlin()
+                .map(AuthoredKotlinToolchain::version)
+                .map(value -> EffectiveValue.authored(
+                        value, source(memberManifestPath, "toolchain", "kotlin", "version")))
+                .or(() -> root.kotlin()
+                        .map(AuthoredKotlinToolchain::version)
+                        .map(value -> EffectiveValue.inherited(
+                                value,
+                                source(rootManifestPath, "toolchain", "kotlin", "version"))));
         return new EffectiveToolchains(
-                zolt, Optional.of(main), Optional.of(test), groovy);
+                zolt, Optional.of(main), Optional.of(test), groovy, kotlin);
     }
 
     private static EffectiveJavaRuntime.Requested requestedMain(

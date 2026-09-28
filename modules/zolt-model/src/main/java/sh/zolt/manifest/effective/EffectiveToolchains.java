@@ -4,18 +4,21 @@ import java.util.Objects;
 import java.util.Optional;
 import sh.zolt.manifest.ZoltVersionPin;
 import sh.zolt.project.toolchain.GroovyToolchainVersion;
+import sh.zolt.project.toolchain.KotlinToolchainVersion;
 
 /** Effective Zolt and compiler/runtime requests for one project. */
 public record EffectiveToolchains(
         Optional<EffectiveValue<ZoltVersionPin>> zolt,
         Optional<EffectiveJavaRuntime> mainJava,
         Optional<EffectiveTestJavaRuntime> testJava,
-        Optional<EffectiveValue<GroovyToolchainVersion>> groovy) {
+        Optional<EffectiveValue<GroovyToolchainVersion>> groovy,
+        Optional<EffectiveValue<KotlinToolchainVersion>> kotlin) {
     public EffectiveToolchains {
         zolt = Objects.requireNonNull(zolt, "Effective Zolt toolchain must not be null.");
         mainJava = Objects.requireNonNull(mainJava, "Effective main Java runtime must not be null.");
         testJava = Objects.requireNonNull(testJava, "Effective test Java runtime must not be null.");
         groovy = Objects.requireNonNull(groovy, "Effective Groovy toolchain must not be null.");
+        kotlin = Objects.requireNonNull(kotlin, "Effective Kotlin toolchain must not be null.");
         if (mainJava.isPresent() != testJava.isPresent()) {
             throw new IllegalArgumentException(
                     "Effective main and test Java runtimes must both be present or both be absent.");
@@ -24,8 +27,13 @@ public record EffectiveToolchains(
             throw new IllegalArgumentException(
                     "An effective Groovy toolchain requires an effective Java runtime.");
         }
+        if (mainJava.isEmpty() && kotlin.isPresent()) {
+            throw new IllegalArgumentException(
+                    "An effective Kotlin toolchain requires an effective Java runtime.");
+        }
         zolt.ifPresent(value -> rejectBuiltIn(value, "Effective Zolt pin"));
         groovy.ifPresent(value -> rejectBuiltIn(value, "Effective Groovy toolchain version"));
+        kotlin.ifPresent(value -> rejectBuiltIn(value, "Effective Kotlin toolchain version"));
         if (mainJava.isPresent()
                 && testJava.orElseThrow() instanceof EffectiveTestJavaRuntime.SameAsMain same
                 && !same.main().equals(mainJava.orElseThrow())) {
@@ -34,19 +42,28 @@ public record EffectiveToolchains(
         }
     }
 
+    /** Compatibility constructor for callers that predate the Kotlin toolchain domain. */
+    public EffectiveToolchains(
+            Optional<EffectiveValue<ZoltVersionPin>> zolt,
+            Optional<EffectiveJavaRuntime> mainJava,
+            Optional<EffectiveTestJavaRuntime> testJava,
+            Optional<EffectiveValue<GroovyToolchainVersion>> groovy) {
+        this(zolt, mainJava, testJava, groovy, Optional.empty());
+    }
+
     /** Compatibility constructor for callers that predate the Groovy toolchain domain. */
     public EffectiveToolchains(
             Optional<EffectiveValue<ZoltVersionPin>> zolt,
             Optional<EffectiveJavaRuntime> mainJava,
             Optional<EffectiveTestJavaRuntime> testJava) {
-        this(zolt, mainJava, testJava, Optional.empty());
+        this(zolt, mainJava, testJava, Optional.empty(), Optional.empty());
     }
 
     /** A project such as a BOM that does not consume a Java runtime. */
     public static EffectiveToolchains withoutJava(
             Optional<EffectiveValue<ZoltVersionPin>> zolt) {
         return new EffectiveToolchains(
-                zolt, Optional.empty(), Optional.empty(), Optional.empty());
+                zolt, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     private static void rejectBuiltIn(EffectiveValue<?> value, String label) {

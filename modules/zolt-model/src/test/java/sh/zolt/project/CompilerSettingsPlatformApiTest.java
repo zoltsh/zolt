@@ -15,6 +15,7 @@ final class CompilerSettingsPlatformApiTest {
         assertEquals(CompilerSettings.PLATFORM_API_RELEASE, settings.platformApi());
         assertEquals("", settings.testPlatformApi());
         assertEquals("", settings.groovyVersion());
+        assertEquals("", settings.kotlinVersion());
         assertFalse(settings.mainHostPlatformApi());
         assertFalse(settings.testHostPlatformApi());
     }
@@ -26,6 +27,7 @@ final class CompilerSettingsPlatformApiTest {
 
         assertEquals(CompilerSettings.PLATFORM_API_RELEASE, settings.platformApi());
         assertEquals("", settings.groovyVersion());
+        assertEquals("", settings.kotlinVersion());
         assertFalse(settings.mainHostPlatformApi());
     }
 
@@ -57,6 +59,28 @@ final class CompilerSettingsPlatformApiTest {
         assertEquals(legacy, explicitBlank);
         assertEquals("", legacy.groovyVersion());
         assertEquals("4.0.22", groovy.groovyVersion());
+        assertEquals("", groovy.kotlinVersion());
+    }
+
+    @Test
+    void explicitKotlinVersionPreservesGroovyEraConstructorDefaults() {
+        CompilerSettings groovyEra = new CompilerSettings(
+                "gen", "gentest", "21", "UTF-8", List.of(), List.of(), "release", "", "4.0.22");
+        CompilerSettings kotlin = new CompilerSettings(
+                "gen",
+                "gentest",
+                "21",
+                "UTF-8",
+                List.of(),
+                List.of(),
+                "release",
+                "",
+                "4.0.22",
+                "2.2.0");
+
+        assertEquals("", groovyEra.kotlinVersion());
+        assertEquals("4.0.22", kotlin.groovyVersion());
+        assertEquals("2.2.0", kotlin.kotlinVersion());
     }
 
     @Test

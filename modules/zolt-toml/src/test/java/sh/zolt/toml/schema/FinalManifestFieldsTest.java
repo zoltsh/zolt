@@ -46,6 +46,7 @@ final class FinalManifestFieldsTest extends FinalManifestSchemaTestSupport {
                         "toolchain.java.test.distribution",
                         "toolchain.java.test.policy",
                         "toolchain.groovy.version",
+                        "toolchain.kotlin.version",
                         "versions.<id>",
                         "repositories.central",
                         "repositories.order",
@@ -266,6 +267,7 @@ final class FinalManifestFieldsTest extends FinalManifestSchemaTestSupport {
         assertEquals(ManifestValueKind.STRING, valueKinds.get("toolchain.java.test.distribution"));
         assertEquals(ManifestValueKind.STRING, valueKinds.get("toolchain.java.test.policy"));
         assertEquals(ManifestValueKind.STRING, valueKinds.get("toolchain.groovy.version"));
+        assertEquals(ManifestValueKind.STRING, valueKinds.get("toolchain.kotlin.version"));
         assertEquals(ManifestValueKind.STRING, valueKinds.get("versions.<id>"));
         assertEquals(
                 ManifestValueKind.BOOLEAN_OR_STRING_OR_INLINE_TABLE,

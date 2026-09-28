@@ -10,17 +10,19 @@ import sh.zolt.manifest.ZoltVersionPin;
 import sh.zolt.manifest.authored.AuthoredGroovyToolchain;
 import sh.zolt.manifest.authored.AuthoredJavaTestToolchain;
 import sh.zolt.manifest.authored.AuthoredJavaToolchain;
+import sh.zolt.manifest.authored.AuthoredKotlinToolchain;
 import sh.zolt.manifest.authored.AuthoredToolchains;
 import sh.zolt.project.toolchain.GroovyToolchainVersion;
 import sh.zolt.project.toolchain.JavaDistribution;
 import sh.zolt.project.toolchain.JavaFeature;
 import sh.zolt.project.toolchain.JavaFeatureRelease;
+import sh.zolt.project.toolchain.KotlinToolchainVersion;
 import sh.zolt.project.toolchain.ToolchainPolicy;
 import sh.zolt.toml.schema.FinalManifestPaths;
 import sh.zolt.toml.schema.FinalManifestToolchainFields;
 import sh.zolt.toml.schema.ManifestField;
 
-/** Decodes authored Zolt, Java, and Groovy toolchain requests without applying defaults or inheritance. */
+/** Decodes authored Zolt, Java, Groovy, and Kotlin requests without applying defaults or inheritance. */
 final class ManifestToolchainDecoder {
     AuthoredToolchains decode(ManifestDecodeIndex index) {
         Objects.requireNonNull(index, "Manifest decode index is required.");
@@ -28,7 +30,8 @@ final class ManifestToolchainDecoder {
                 decodeZolt(index),
                 decodeMainJava(index),
                 decodeTestJava(index),
-                decodeGroovy(index));
+                decodeGroovy(index),
+                decodeKotlin(index));
     }
 
     private static Optional<ZoltVersionPin> decodeZolt(ManifestDecodeIndex index) {
@@ -91,6 +94,14 @@ final class ManifestToolchainDecoder {
                 .map(field -> ManifestSemanticDiagnostics.construct(
                         field,
                         () -> new AuthoredGroovyToolchain(new GroovyToolchainVersion(
+                                ManifestTomlValues.string(field)))));
+    }
+
+    private static Optional<AuthoredKotlinToolchain> decodeKotlin(ManifestDecodeIndex index) {
+        return index.field(FinalManifestToolchainFields.KOTLIN_VERSION)
+                .map(field -> ManifestSemanticDiagnostics.construct(
+                        field,
+                        () -> new AuthoredKotlinToolchain(new KotlinToolchainVersion(
                                 ManifestTomlValues.string(field)))));
     }
 

@@ -7,6 +7,7 @@ import sh.zolt.manifest.ZoltVersionPin;
 import sh.zolt.manifest.authored.AuthoredGroovyToolchain;
 import sh.zolt.manifest.authored.AuthoredJavaTestToolchain;
 import sh.zolt.manifest.authored.AuthoredJavaToolchain;
+import sh.zolt.manifest.authored.AuthoredKotlinToolchain;
 import sh.zolt.manifest.authored.AuthoredToolchains;
 import sh.zolt.project.toolchain.JavaFeature;
 import sh.zolt.toml.schema.FinalManifestPaths;
@@ -15,13 +16,14 @@ import sh.zolt.toml.schema.FinalManifestToolchainFields;
 import sh.zolt.toml.schema.ManifestPath;
 import sh.zolt.toml.schema.ManifestSection;
 
-/** Emits authored Zolt, Java, and Groovy toolchain requests without materializing defaults. */
+/** Emits authored Zolt, Java, Groovy, and Kotlin toolchain requests without materializing defaults. */
 final class ManifestToolchainWriter {
     private static final ManifestSection ZOLT = section(FinalManifestPaths.TOOLCHAIN_ZOLT);
     private static final ManifestSection JAVA = section(FinalManifestPaths.TOOLCHAIN_JAVA);
     private static final ManifestSection JAVA_TEST =
             section(FinalManifestPaths.TOOLCHAIN_JAVA_TEST);
     private static final ManifestSection GROOVY = section(FinalManifestPaths.TOOLCHAIN_GROOVY);
+    private static final ManifestSection KOTLIN = section(FinalManifestPaths.TOOLCHAIN_KOTLIN);
 
     void write(ManifestTomlEmitter emitter, AuthoredToolchains toolchains) {
         Objects.requireNonNull(emitter, "Manifest TOML emitter is required.");
@@ -31,6 +33,7 @@ final class ManifestToolchainWriter {
         authored.mainJava().ifPresent(value -> writeJava(emitter, value));
         authored.testJava().ifPresent(value -> writeTestJava(emitter, value));
         authored.groovy().ifPresent(value -> writeGroovy(emitter, value));
+        authored.kotlin().ifPresent(value -> writeKotlin(emitter, value));
     }
 
     private static void writeZolt(ManifestTomlEmitter emitter, ZoltVersionPin zolt) {
@@ -79,6 +82,14 @@ final class ManifestToolchainWriter {
         emitter.field(
                 FinalManifestToolchainFields.GROOVY_VERSION,
                 ManifestTomlValueEncoder.basicString(groovy.version().value()));
+    }
+
+    private static void writeKotlin(
+            ManifestTomlEmitter emitter, AuthoredKotlinToolchain kotlin) {
+        emitter.section(KOTLIN);
+        emitter.field(
+                FinalManifestToolchainFields.KOTLIN_VERSION,
+                ManifestTomlValueEncoder.basicString(kotlin.version().value()));
     }
 
     private static String features(Set<JavaFeature> values) {
