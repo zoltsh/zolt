@@ -12,8 +12,8 @@ import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.framework.FrameworkDependencyRequestPlanRequestAssembler;
 import sh.zolt.resolve.framework.FrameworkDependencyRequestPlanner;
 import sh.zolt.resolve.graph.ResolutionGraph;
+import sh.zolt.resolve.lockfile.assembly.CompilerToolResolution;
 import sh.zolt.resolve.lockfile.assembly.ExecToolResolution;
-import sh.zolt.resolve.lockfile.assembly.GroovyToolResolution;
 import sh.zolt.resolve.lockfile.assembly.LockfileAssembler;
 import sh.zolt.resolve.lockfile.assembly.AuthoredDependencyRootPlanner;
 import sh.zolt.resolve.lockfile.persistence.ResolveLockfilePersistence;
@@ -33,7 +33,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 public final class ResolveService {
     private final CoordinateParser coordinateParser;
@@ -193,20 +192,17 @@ public final class ResolveService {
                 options.retryCommand(),
                 snapshotAllowance);
         directRequests = relocateDirectRequests(context, directRequests, options.retryCommand());
-        // Compiler and exec tools resolve in isolation: keep their scopes out of the shared project graph
-        // so their version lines never mediate against compile/runtime. Exec tools retain their per-tool
-        // group qualifier; the Groovy compiler remains an ordinary scope-qualified tool-groovy closure.
+        // Compiler and exec tools resolve in isolation, so their versions never mediate against the
+        // project's compile/runtime graph. Exec tools retain their per-tool group qualifier.
         List<DependencyRequest> mainRequests = directRequests.stream()
                 .filter(request -> request.scope() != DependencyScope.TOOL_EXEC
-                        && request.scope() != DependencyScope.TOOL_GROOVY)
+                        && !CompilerToolResolver.isCompilerToolScope(request.scope()))
                 .toList();
-        List<DependencyRequest> groovyToolRequests = directRequests.stream()
-                .filter(request -> request.scope() == DependencyScope.TOOL_GROOVY)
-                .toList();
-        Optional<GroovyToolResolution> groovyToolResolution = resolveGroovyTool(
+        List<CompilerToolResolution> compilerToolResolutions = CompilerToolResolver.resolve(
+                graphResolver,
                 context,
                 managedVersionDetails,
-                groovyToolRequests,
+                directRequests,
                 options,
                 snapshotAllowance);
         List<ExecToolResolution> execResolutions = resolveExecTools(
@@ -243,7 +239,7 @@ public final class ResolveService {
         List<String> warnings = VersionConflictPolicyEnforcer.enforce(
                 context.config().dependencyPolicy(),
                 resolved.selection(),
-                groovyToolResolution,
+                compilerToolResolutions,
                 execResolutions,
                 options.retryCommand());
         ZoltLockfile lockfile = lockfile(
@@ -251,7 +247,7 @@ public final class ResolveService {
                 resolved.graph(),
                 resolved.selection(),
                 allRequests,
-                groovyToolResolution,
+                compilerToolResolutions,
                 execResolutions);
         return new ResolveOutput(
                 lockfile,
@@ -259,27 +255,6 @@ public final class ResolveService {
                 context.metrics(),
                 ResolvedDependencyReachability.from(resolved.graph()),
                 warnings);
-    }
-
-    private Optional<GroovyToolResolution> resolveGroovyTool(
-            RepositorySession context,
-            Map<PackageId, ManagedVersion> managedVersionDetails,
-            List<DependencyRequest> requests,
-            ResolveOptions options,
-            SnapshotAllowance snapshotAllowance) {
-        if (requests.isEmpty()) {
-            return Optional.empty();
-        }
-        DependencyGraphResolution resolution = graphResolver.resolve(
-                context,
-                context.config().dependencyPolicy(),
-                managedVersionDetails,
-                requests,
-                context,
-                options.retryCommand(),
-                snapshotAllowance);
-        return Optional.of(new GroovyToolResolution(
-                resolution.graph(), resolution.selection(), requests));
     }
 
     private List<ExecToolResolution> resolveExecTools(
@@ -333,14 +308,14 @@ public final class ResolveService {
             ResolutionGraph graph,
             VersionSelectionResult selection,
             List<DependencyRequest> directRequests,
-            Optional<GroovyToolResolution> groovyToolResolution,
+            List<CompilerToolResolution> compilerToolResolutions,
             List<ExecToolResolution> execResolutions) {
         return lockfileAssembler.assemble(
                 context,
                 graph,
                 selection,
                 directRequests,
-                groovyToolResolution,
+                compilerToolResolutions,
                 execResolutions);
     }
 

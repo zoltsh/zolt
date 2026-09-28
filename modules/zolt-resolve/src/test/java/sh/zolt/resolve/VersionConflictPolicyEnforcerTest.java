@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import sh.zolt.dependency.ConflictSelectionReason;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
@@ -90,7 +89,7 @@ final class VersionConflictPolicyEnforcerTest {
         List<String> warnings = VersionConflictPolicyEnforcer.enforce(
                 policy(VersionConflictPolicy.WARN),
                 new VersionSelectionResult(List.of(), List.of()),
-                Optional.of(resolution),
+                List.of(resolution.asCompilerToolResolution()),
                 List.of(),
                 "zolt resolve");
 
@@ -102,7 +101,7 @@ final class VersionConflictPolicyEnforcerTest {
                 () -> VersionConflictPolicyEnforcer.enforce(
                         policy(VersionConflictPolicy.FAIL),
                         new VersionSelectionResult(List.of(), List.of()),
-                        Optional.of(resolution),
+                        List.of(resolution.asCompilerToolResolution()),
                         List.of(),
                         "zolt resolve"));
         assertTrue(failure.getMessage().contains("Groovy compiler toolchain closure"), failure.getMessage());

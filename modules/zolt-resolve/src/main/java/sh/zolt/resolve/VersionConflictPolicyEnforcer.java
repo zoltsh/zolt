@@ -2,20 +2,19 @@ package sh.zolt.resolve;
 
 import sh.zolt.dependency.ConflictSelectionReason;
 import sh.zolt.project.DependencyPolicySettings;
+import sh.zolt.resolve.lockfile.assembly.CompilerToolResolution;
 import sh.zolt.resolve.lockfile.assembly.ExecToolResolution;
-import sh.zolt.resolve.lockfile.assembly.GroovyToolResolution;
 import sh.zolt.resolve.version.VersionConflict;
 import sh.zolt.resolve.version.VersionSelectionResult;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 
 /**
  * Enforces {@code [dependencies.policy].conflicts} against every independently resolved selection. The
- * main graph is enforced first (its error and behaviour stay exactly as before), then the Groovy compiler
- * closure, then exec tools in sorted name order so the closure named in a failure is deterministic.
+ * main graph is enforced first (its error and behaviour stay exactly as before), then compiler closures
+ * in stable scope order, then exec tools in sorted name order.
  */
 final class VersionConflictPolicyEnforcer {
     private VersionConflictPolicyEnforcer() {
@@ -29,7 +28,7 @@ final class VersionConflictPolicyEnforcer {
         return enforce(
                 dependencyPolicy,
                 mainSelection,
-                Optional.empty(),
+                List.of(),
                 execResolutions,
                 retryCommand);
     }
@@ -37,7 +36,7 @@ final class VersionConflictPolicyEnforcer {
     static List<String> enforce(
             DependencyPolicySettings dependencyPolicy,
             VersionSelectionResult mainSelection,
-            Optional<GroovyToolResolution> groovyToolResolution,
+            List<CompilerToolResolution> compilerToolResolutions,
             List<ExecToolResolution> execResolutions,
             String retryCommand) {
         List<String> warnings = new ArrayList<>(enforce(
@@ -45,11 +44,11 @@ final class VersionConflictPolicyEnforcer {
                 mainSelection,
                 retryCommand,
                 ConflictLocation.main()));
-        groovyToolResolution.ifPresent(resolution -> warnings.addAll(enforce(
+        CompilerToolResolution.ordered(compilerToolResolutions).forEach(resolution -> warnings.addAll(enforce(
                 dependencyPolicy,
                 resolution.selection(),
                 retryCommand,
-                ConflictLocation.groovy())));
+                ConflictLocation.compiler(resolution.compilerName()))));
         execResolutions.stream()
                 .sorted(Comparator.comparing(ExecToolResolution::toolName))
                 .forEach(tool -> warnings.addAll(
@@ -159,11 +158,13 @@ final class VersionConflictPolicyEnforcer {
                     "the conflicting versions");
         }
 
-        private static ConflictLocation groovy() {
+        private static ConflictLocation compiler(String compilerName) {
             return new ConflictLocation(
-                    "Dependency version conflicts in the Groovy compiler toolchain closure were mediated",
-                    "Dependency version conflicts in the Groovy compiler toolchain closure",
-                    "the conflicting versions in the Groovy compiler toolchain");
+                    "Dependency version conflicts in the " + compilerName
+                            + " compiler toolchain closure were mediated",
+                    "Dependency version conflicts in the " + compilerName
+                            + " compiler toolchain closure",
+                    "the conflicting versions in the " + compilerName + " compiler toolchain");
         }
 
         private static ConflictLocation exec(String toolName) {

@@ -2,7 +2,6 @@ package sh.zolt.resolve.lockfile.assembly;
 
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
-import sh.zolt.lockfile.LockConflict;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.maven.ArtifactDescriptor;
@@ -14,7 +13,6 @@ import sh.zolt.project.GeneratedSourceKind;
 import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.OpenApiGenerationSettings;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.resolve.DependencyPolicyEffect;
 import sh.zolt.resolve.graph.PackageNode;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.resolve.graph.ResolutionGraph;
@@ -47,7 +45,7 @@ public final class LockfileAssembler {
             ResolutionGraph graph,
             VersionSelectionResult selection,
             List<DependencyRequest> directRequests) {
-        return assemble(context, graph, selection, directRequests, Optional.empty(), List.of());
+        return assemble(context, graph, selection, directRequests, List.of(), List.of());
     }
 
     public ZoltLockfile assemble(
@@ -56,7 +54,7 @@ public final class LockfileAssembler {
             VersionSelectionResult selection,
             List<DependencyRequest> directRequests,
             List<ExecToolResolution> execResolutions) {
-        return assemble(context, graph, selection, directRequests, Optional.empty(), execResolutions);
+        return assemble(context, graph, selection, directRequests, List.of(), execResolutions);
     }
 
     public ZoltLockfile assemble(
@@ -65,6 +63,24 @@ public final class LockfileAssembler {
             VersionSelectionResult selection,
             List<DependencyRequest> directRequests,
             Optional<GroovyToolResolution> groovyToolResolution,
+            List<ExecToolResolution> execResolutions) {
+        return assemble(
+                context,
+                graph,
+                selection,
+                directRequests,
+                groovyToolResolution.stream()
+                        .map(GroovyToolResolution::asCompilerToolResolution)
+                        .toList(),
+                execResolutions);
+    }
+
+    public ZoltLockfile assemble(
+            LockfileAssemblyContext context,
+            ResolutionGraph graph,
+            VersionSelectionResult selection,
+            List<DependencyRequest> directRequests,
+            List<CompilerToolResolution> compilerToolResolutions,
             List<ExecToolResolution> execResolutions) {
         long started = System.nanoTime();
         try {
@@ -78,8 +94,7 @@ public final class LockfileAssembler {
                             .stream()
                             .map(scope -> LockPackagePlan.of(node, scope, graph, selection, List.of())))
                     .toList());
-            groovyToolResolution.ifPresent(resolution ->
-                    packagePlans.addAll(GroovyToolLockPlanner.plans(resolution)));
+            packagePlans.addAll(CompilerToolLockPlanner.plans(compilerToolResolutions));
             packagePlans.addAll(ExecToolLockPlanner.plans(execResolutions));
             Map<ArtifactDescriptor, MaterializedArtifact> artifacts = context.getArtifacts(
                     packagePlans.stream().map(LockPackagePlan::artifactDescriptor).distinct().toList());
@@ -94,71 +109,22 @@ public final class LockfileAssembler {
                             managedVersionDetails,
                             context.config().dependencyMetadata()))
                     .toList();
-            List<LockConflict> conflicts = mergedConflicts(selection, groovyToolResolution, execResolutions);
             return new ZoltLockfile(
                     ZoltLockfile.CURRENT_VERSION,
                     aliasFingerprint(context.config()),
                     Optional.of(ProjectResolutionFingerprint.fingerprint(context.config())),
                     ProjectResolutionFingerprint.inputFingerprints(context.config()),
                     packages,
-                    conflicts,
+                    LockfileResolutionEvidence.conflicts(
+                            selection, compilerToolResolutions, execResolutions),
                     LockfilePolicyPlanner.lockPolicyEffects(
-                            mergedPolicyEffects(graph, groovyToolResolution, execResolutions)),
+                            LockfileResolutionEvidence.policyEffects(
+                                    graph, compilerToolResolutions, execResolutions)),
                     List.of(),
                     new AuthoredDependencyRootPlanner(coordinateParser).plan(context.config(), packages));
         } finally {
             context.addLockfileAssemblyNanos(elapsedSince(started));
         }
-    }
-
-    /**
-     * Every recorded mediation across the main graph, isolated Groovy compiler closure, and every
-     * isolated exec-tool closure (Hole 1). Main and Groovy conflicts keep an empty tool group; each exec
-     * tool's conflicts are tagged with the tool name so the audit trail names WHICH exec closure mediated.
-     * Tools are visited in sorted name order for deterministic assembly.
-     */
-    private static List<LockConflict> mergedConflicts(
-            VersionSelectionResult selection,
-            Optional<GroovyToolResolution> groovyToolResolution,
-            List<ExecToolResolution> execResolutions) {
-        List<LockConflict> conflicts = new ArrayList<>(lockConflicts(selection, Optional.empty()));
-        groovyToolResolution.ifPresent(resolution ->
-                conflicts.addAll(lockConflicts(resolution.selection(), Optional.empty())));
-        execResolutions.stream()
-                .sorted(Comparator.comparing(ExecToolResolution::toolName))
-                .forEach(tool -> conflicts.addAll(lockConflicts(tool.selection(), Optional.of(tool.toolName()))));
-        return conflicts;
-    }
-
-    private static List<LockConflict> lockConflicts(VersionSelectionResult selection, Optional<String> toolGroup) {
-        return selection.conflicts().stream()
-                .map(conflict -> new LockConflict(
-                        conflict.packageId(),
-                        conflict.selectedVersion(),
-                        conflict.requests().stream().map(DependencyRequest::requestedVersion).toList(),
-                        conflict.selectionReason(),
-                        toolGroup,
-                        conflict.variant().isDefault()
-                                ? Optional.empty()
-                                : Optional.of(conflict.variant())))
-                .toList();
-    }
-
-    /**
-     * Policy effects from the main graph, the isolated Groovy compiler closure, and every exec-tool
-     * closure, unioned. {@link LockfilePolicyPlanner#lockPolicyEffects} dedups and sorts, so an effect
-     * shared by several closures collapses to one entry and aggregate audit ordering stays deterministic.
-     */
-    private static List<DependencyPolicyEffect> mergedPolicyEffects(
-            ResolutionGraph graph,
-            Optional<GroovyToolResolution> groovyToolResolution,
-            List<ExecToolResolution> execResolutions) {
-        List<DependencyPolicyEffect> effects = new ArrayList<>(graph.policyEffects());
-        groovyToolResolution.ifPresent(resolution -> effects.addAll(resolution.graph().policyEffects()));
-        for (ExecToolResolution tool : execResolutions) {
-            effects.addAll(tool.graph().policyEffects());
-        }
-        return effects;
     }
 
     private static Optional<String> aliasFingerprint(ProjectConfig config) {

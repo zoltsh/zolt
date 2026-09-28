@@ -74,14 +74,27 @@ final class LockfileAssemblerGroovyToolTest {
                         List.of(compilerConflict)),
                 List.of(compilerRequest));
 
-        ZoltLockfile lockfile = assembler.assemble(
-                new FakeAssemblyContext(minimalConfig()),
-                new ResolutionGraph(List.of(compileGroovy), List.of(), List.of()),
-                new VersionSelectionResult(List.of(compileGroovy), List.of()),
-                List.of(new DependencyRequest(
-                        groovy, "4.0.22", DependencyScope.COMPILE, RequestOrigin.DIRECT)),
+        FakeAssemblyContext context = new FakeAssemblyContext(minimalConfig());
+        ResolutionGraph mainGraph = new ResolutionGraph(List.of(compileGroovy), List.of(), List.of());
+        VersionSelectionResult mainSelection = new VersionSelectionResult(List.of(compileGroovy), List.of());
+        List<DependencyRequest> mainRequests = List.of(new DependencyRequest(
+                groovy, "4.0.22", DependencyScope.COMPILE, RequestOrigin.DIRECT));
+        ZoltLockfile compatibilityLockfile = assembler.assemble(
+                context,
+                mainGraph,
+                mainSelection,
+                mainRequests,
                 Optional.of(compilerResolution),
                 List.of());
+        ZoltLockfile lockfile = assembler.assemble(
+                context,
+                mainGraph,
+                mainSelection,
+                mainRequests,
+                List.of(compilerResolution.asCompilerToolResolution()),
+                List.of());
+
+        assertEquals(compatibilityLockfile, lockfile);
 
         LockPackage compileRow = findPackage(lockfile, groovy, "4.0.22", DependencyScope.COMPILE);
         LockPackage compilerRow = findPackage(lockfile, groovy, "4.0.23", DependencyScope.TOOL_GROOVY);
