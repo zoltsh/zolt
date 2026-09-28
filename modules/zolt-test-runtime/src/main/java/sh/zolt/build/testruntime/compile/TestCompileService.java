@@ -221,6 +221,7 @@ public final class TestCompileService {
         }
         execGeneratedSourceService.generateTest(projectDirectory, config, classpathPackages);
         SourceDiscoveryResult sources = sourceDiscoverer.discover(projectDirectory, config.build());
+        sh.zolt.build.SourceLanguagePolicy.requireTestSupported(sources);
         List<GeneratedSourceProducerFingerprint>
                 generatedProducerFingerprints =
                         generatedProducerFingerprintService
@@ -357,7 +358,6 @@ public final class TestCompileService {
     private static long elapsedSince(long started) {
         return Math.max(0L, System.nanoTime() - started);
     }
-
     private static String compilerIdentity(
             JdkStatus jdkStatus,
             GroovyCompilerToolchain groovyCompilerToolchain) {

@@ -12,7 +12,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 final class PackageSupplementalInputFingerprint {
     private PackageSupplementalInputFingerprint() {
@@ -57,7 +59,7 @@ final class PackageSupplementalInputFingerprint {
         hash.value("schema", "zolt.package-sources-input.v2");
         for (String configuredRoot : build.sourceRoots()) {
             Path root = ProjectPaths.existingRoot(projectRoot, "[build].sources", configuredRoot);
-            for (Path file : sourceFiles(root, List.of(".java", ".groovy"))) {
+            for (Path file : sourceFiles(root, List.of(".java", ".groovy", ".kt"))) {
                 file(hash, projectRoot, "source", file);
             }
         }
@@ -123,6 +125,19 @@ final class PackageSupplementalInputFingerprint {
                 file(hash, projectRoot, "groovyTestSource", file);
             }
         }
+        Set<Path> kotlinTestSources = new LinkedHashSet<>();
+        addKotlinTestSources(
+                projectRoot,
+                "[test.sources].java",
+                build.testSources(),
+                kotlinTestSources);
+        addKotlinTestSources(
+                projectRoot,
+                "[test.sources].groovy",
+                build.groovyTestSources(),
+                kotlinTestSources);
+        kotlinTestSources.stream().sorted().forEach(
+                source -> file(hash, projectRoot, "kotlinTestSource", source));
         for (GeneratedSourceStep step : build.generatedTestSources().stream()
                 .sorted(Comparator.comparing(GeneratedSourceStep::id)
                         .thenComparing(value ->
@@ -157,6 +172,17 @@ final class PackageSupplementalInputFingerprint {
                 "testOutput",
                 PackageInputFingerprinting.applicationOutputFingerprint(testOutput));
         return hash.finish();
+    }
+
+    private static void addKotlinTestSources(
+            Path projectRoot,
+            String manifestKey,
+            List<String> configuredRoots,
+            Set<Path> sources) {
+        for (String configuredRoot : configuredRoots) {
+            Path root = ProjectPaths.existingRoot(projectRoot, manifestKey, configuredRoot);
+            sources.addAll(sourceFiles(root, List.of(".kt")));
+        }
     }
 
     private static List<Path> sourceFiles(Path root, List<String> extensions) {

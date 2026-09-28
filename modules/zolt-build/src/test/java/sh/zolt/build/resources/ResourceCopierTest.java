@@ -158,15 +158,19 @@ final class ResourceCopierTest extends ResourceCopierTestSupport {
         Path config = resource("src/main/resources/config/app.properties", "ok=true\n");
         resource("src/main/resources/com/example/NotAResource.java", "final class NotAResource {}\n");
         resource("src/main/resources/com/example/NotAResource.groovy", "class NotAResource {}\n");
+        resource("src/main/resources/com/example/NotAResource.kt", "class NotAResource\n");
+        Path kotlinScript = resource("src/main/resources/scripts/setup.kts", "println(\"setup\")\n");
         resource("src/main/resources/target/generated.txt", "target\n");
         resource("src/main/resources/build/generated.txt", "build\n");
 
         ResourceCopyResult result = copier.copyMainResources(projectDir, BuildSettings.defaults());
 
-        assertEquals(List.of(config), result.copiedResources());
+        assertEquals(List.of(config, kotlinScript), result.copiedResources());
         assertTrue(Files.exists(projectDir.resolve("target/classes/config/app.properties")));
         assertFalse(Files.exists(projectDir.resolve("target/classes/com/example/NotAResource.java")));
         assertFalse(Files.exists(projectDir.resolve("target/classes/com/example/NotAResource.groovy")));
+        assertFalse(Files.exists(projectDir.resolve("target/classes/com/example/NotAResource.kt")));
+        assertTrue(Files.exists(projectDir.resolve("target/classes/scripts/setup.kts")));
         assertFalse(Files.exists(projectDir.resolve("target/classes/target/generated.txt")));
         assertFalse(Files.exists(projectDir.resolve("target/classes/build/generated.txt")));
     }

@@ -69,16 +69,16 @@ final class BuildServiceConservativeCompilationTest {
         buildService.build(projectDir, config(), projectDir.resolve("cache"));
         Path fingerprint = projectDir.resolve("target/classes/.zolt-build-main.fingerprint");
         String oldFingerprint = Files.readString(fingerprint)
-                .replaceFirst("version=" + CompilationSemantics.VERSION, "version=4");
+                .replaceFirst("version=" + CompilationSemantics.VERSION, "version=6");
         Files.writeString(fingerprint, oldFingerprint);
         Path fingerprintState = fingerprint.resolveSibling(fingerprint.getFileName() + ".state");
         String oldState = Files.readString(fingerprintState).replaceFirst(
                 "fingerprintSha256=[0-9a-f]+",
                 "fingerprintSha256=" + sha256(oldFingerprint));
         Files.writeString(fingerprintState, oldState);
-        Path staleOutput = projectDir.resolve("target/classes/stale/PreviouslyCopied.groovy");
+        Path staleOutput = projectDir.resolve("target/classes/stale/PreviouslyCopied.kt");
         Files.createDirectories(staleOutput.getParent());
-        Files.writeString(staleOutput, "class PreviouslyCopied {}\n");
+        Files.writeString(staleOutput, "class PreviouslyCopied\n");
 
         BuildResult result = buildService.build(projectDir, config(), projectDir.resolve("cache"));
 

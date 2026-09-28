@@ -273,6 +273,8 @@ public final class PackageQualityCheck {
 
     private static boolean sourceLike(Path path) {
         String fileName = path.getFileName().toString();
-        return fileName.endsWith(".java") || fileName.endsWith(".groovy");
+        return fileName.endsWith(".java")
+                || fileName.endsWith(".groovy")
+                || fileName.endsWith(".kt");
     }
 }

@@ -42,6 +42,8 @@ final class BuildFingerprintContentTest {
         write("src/main/resources/application.properties", "name=demo\n");
         write("src/main/resources/Ignored.java", "class Ignored {}\n");
         write("src/main/resources/Ignored.groovy", "class Ignored {}\n");
+        write("src/main/resources/Ignored.kt", "class Ignored\n");
+        write("src/main/resources/setup.kts", "println(\"setup\")\n");
         write("src/main/resources/target/generated.txt", "ignored\n");
         write("api/openapi.yaml", "openapi: 3.0.0\n");
         write("target/generated/sources/annotations/com/example/Generated.java", "class Generated {}\n");
@@ -54,12 +56,14 @@ final class BuildFingerprintContentTest {
         assertTrue(first.startsWith("version=" + CompilationSemantics.VERSION + "\n"));
         assertTrue(first.contains("[resources]\n"));
         assertTrue(first.contains("src/main/resources/application.properties|"));
+        assertTrue(first.contains("src/main/resources/setup.kts|"));
         assertTrue(first.contains("[generatedSourceInputs]\napi/openapi.yaml|"));
         assertTrue(first.contains("[generatedSources]\ntarget/generated/sources/annotations/com/example/Generated.java|"));
         assertTrue(first.contains("[expectedClasses]\ntarget/classes/com/example/Alpha.class\n"));
         assertTrue(first.contains("target/classes/com/example/Beta.class\n"));
         assertFalse(first.contains("src/main/resources/Ignored.java|"));
         assertFalse(first.contains("src/main/resources/Ignored.groovy|"));
+        assertFalse(first.contains("src/main/resources/Ignored.kt|"));
         assertFalse(first.contains("src/main/resources/target/generated.txt|"));
     }
 

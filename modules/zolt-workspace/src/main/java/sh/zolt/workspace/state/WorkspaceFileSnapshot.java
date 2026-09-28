@@ -54,8 +54,8 @@ public final class WorkspaceFileSnapshot {
             List<String> groovyRoots) {
         Path projectRoot = projectDirectory.toAbsolutePath().normalize();
         List<Entry> files = new ArrayList<>();
-        addRootFiles(projectRoot, javaRoots, WorkspaceFileSnapshot::java, files);
-        addRootFiles(projectRoot, groovyRoots, WorkspaceFileSnapshot::groovy, files);
+        addRootFiles(projectRoot, javaRoots, WorkspaceFileSnapshot::javaOrKotlin, files);
+        addRootFiles(projectRoot, groovyRoots, WorkspaceFileSnapshot::groovyOrKotlin, files);
         hasher.sweep(member, kind);
         return digest(member, kind, projectRoot, files);
     }
@@ -267,8 +267,20 @@ public final class WorkspaceFileSnapshot {
         return path.getFileName().toString().endsWith(".groovy");
     }
 
+    private static boolean kotlin(Path path) {
+        return path.getFileName().toString().endsWith(".kt");
+    }
+
+    private static boolean javaOrKotlin(Path path) {
+        return java(path) || kotlin(path);
+    }
+
+    private static boolean groovyOrKotlin(Path path) {
+        return groovy(path) || kotlin(path);
+    }
+
     private static boolean source(Path path) {
-        return java(path) || groovy(path);
+        return java(path) || groovy(path) || kotlin(path);
     }
 
     private static Path confined(Path projectRoot, String configuredPath) {

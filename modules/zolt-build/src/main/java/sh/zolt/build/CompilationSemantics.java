@@ -9,8 +9,8 @@ package sh.zolt.build;
  * earlier version unsafe to reuse.
  */
 public final class CompilationSemantics {
-    /** Version 6 isolates and fingerprints the verified Groovy compiler launcher. */
-    public static final String VERSION = "6";
+    /** Version 7 cleans outputs that may contain Kotlin files copied as resources by version 6. */
+    public static final String VERSION = "7";
 
     private CompilationSemantics() {}
 }

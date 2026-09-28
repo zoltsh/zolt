@@ -107,6 +107,15 @@ final class WorkspaceDirtyPlannerReasonTest extends WorkspaceBuildServiceTestSup
     }
 
     @Test
+    void addedKotlinMainSourceIsReportedAsAMainSourceChange() throws IOException {
+        source("apps/api/src/main/java/com/acme/api/Extra.kt", "package com.acme.api\nclass Extra\n");
+
+        assertEquals(
+                List.of(WorkspaceDirtyReason.MAIN_SOURCE_CHANGED),
+                reasons().get("apps/api"));
+    }
+
+    @Test
     void resourceEditIsReportedAsAResourceChange() throws IOException {
         Files.writeString(
                 tempDir.resolve("apps/api/src/main/resources/application.properties"),
@@ -218,6 +227,15 @@ final class WorkspaceDirtyPlannerReasonTest extends WorkspaceBuildServiceTestSup
                 final class ApiSpec {
                 }
                 """);
+
+        assertFalse(reasons().get("apps/api").contains(WorkspaceDirtyReason.TEST_SOURCE_CHANGED));
+        assertTrue(testReasons().get("apps/api").contains(WorkspaceDirtyReason.TEST_SOURCE_CHANGED));
+    }
+
+    @Test
+    void kotlinTestSourceInAGroovyRootIsReportedOnlyWhenTheCommandCompilesTests()
+            throws IOException {
+        source("apps/api/src/test/groovy/com/acme/api/ApiSpec.kt", "package com.acme.api\nclass ApiSpec\n");
 
         assertFalse(reasons().get("apps/api").contains(WorkspaceDirtyReason.TEST_SOURCE_CHANGED));
         assertTrue(testReasons().get("apps/api").contains(WorkspaceDirtyReason.TEST_SOURCE_CHANGED));

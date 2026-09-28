@@ -62,7 +62,8 @@ final class PackageBuildInputFingerprint {
         // existing evidence without first entering BuildService, so the stored compile fingerprint
         // alone cannot force pre-fix output through the current compiler.
         // v3 classifies authored Groovy files as main sources rather than resources.
-        hash.value("schema", "zolt.package-build-input.v3");
+        // v4 gives authored Kotlin files the same source ownership before compiler support lands.
+        hash.value("schema", "zolt.package-build-input.v4");
         hash.value("compilationSemantics", compilationSemantics);
         hash.value(
                 "build",
@@ -161,7 +162,9 @@ final class PackageBuildInputFingerprint {
 
     private static boolean isSource(Path path) {
         String fileName = path.getFileName().toString();
-        return fileName.endsWith(".java") || fileName.endsWith(".groovy");
+        return fileName.endsWith(".java")
+                || fileName.endsWith(".groovy")
+                || fileName.endsWith(".kt");
     }
 
     private static List<Path> expand(Path path) {

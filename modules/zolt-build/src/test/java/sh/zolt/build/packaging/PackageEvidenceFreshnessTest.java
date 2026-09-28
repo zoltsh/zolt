@@ -148,6 +148,14 @@ final class PackageEvidenceFreshnessTest {
                 }
                 """);
 
+        Path kotlinTest = projectDir.resolve("src/test/java/com/example/KotlinTest.kt");
+        source(projectDir, "src/test/java/com/example/KotlinTest.kt", """
+                package com.example
+                class KotlinTest
+                """);
+        assertStale(config, evidence, "supplemental package input `tests` changed");
+        Files.delete(kotlinTest);
+
         Files.writeString(testClass, "changed test bytecode");
         assertStale(config, evidence, "supplemental package input `tests` changed");
     }
@@ -224,6 +232,40 @@ final class PackageEvidenceFreshnessTest {
 
                 class GroovyApi {
                 }
+                """);
+
+        assertStale(config, evidence, "build inputs changed");
+        assertStale(config, evidence, "supplemental package input `sources` changed");
+    }
+
+    @Test
+    void sourcesEvidenceTracksAuthoredKotlinAddedAfterPackaging() throws IOException {
+        writeLockfile(projectDir);
+        source(projectDir, "src/main/java/com/example/Main.java", """
+                package com.example;
+
+                public final class Main {
+                    public static void main(String[] args) {
+                    }
+                }
+                """);
+        ProjectConfig config = config(Optional.of("com.example.Main"))
+                .withPackageSettings(new PackageSettings(
+                        PackageMode.THIN,
+                        true,
+                        false,
+                        false,
+                        PublicationMetadata.empty()));
+        PackageResult result = packageService.packageJar(
+                projectDir,
+                config,
+                projectDir.resolve("cache"));
+        Path evidence = result.evidenceManifestPath().orElseThrow();
+
+        source(projectDir, "src/main/java/com/example/KotlinApi.kt", """
+                package com.example
+
+                class KotlinApi
                 """);
 
         assertStale(config, evidence, "build inputs changed");

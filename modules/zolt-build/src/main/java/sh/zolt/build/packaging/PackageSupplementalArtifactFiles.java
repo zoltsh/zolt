@@ -37,7 +37,9 @@ final class PackageSupplementalArtifactFiles {
 
     private static boolean isMainSource(Path path) {
         String fileName = path.getFileName().toString();
-        return fileName.endsWith(".java") || fileName.endsWith(".groovy");
+        return fileName.endsWith(".java")
+                || fileName.endsWith(".groovy")
+                || fileName.endsWith(".kt");
     }
 
     static List<Path> regularFiles(Path root) throws IOException {

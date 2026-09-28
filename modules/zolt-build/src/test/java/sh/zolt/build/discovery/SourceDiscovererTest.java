@@ -63,6 +63,35 @@ final class SourceDiscovererTest {
     }
 
     @Test
+    void findsKotlinInAuthoredMainAndBothAuthoredTestRootKindsDeterministically()
+            throws IOException {
+        Path main = source("src/main/java/com/example/Main.kt");
+        Path mainFromSecondRoot = source("src/main/shared/com/example/Second.kt");
+        Path javaRootTest = source("src/test/java/com/example/MainTest.kt");
+        Path groovyRootTest = source("src/test/groovy/com/example/MainSpec.kt");
+        source("src/main/java/com/example/Script.kts");
+        source("src/test/java/com/example/TestScript.kts");
+        BuildSettings defaults = BuildSettings.defaults();
+        BuildSettings settings = new BuildSettings(
+                defaults.source(),
+                List.of("src/main/shared", "src/main/java"),
+                defaults.test(),
+                defaults.outputRoot(),
+                defaults.output(),
+                defaults.testOutput(),
+                List.of("src/test/java"),
+                List.of("src/test/groovy"),
+                defaults.resourceRoots(),
+                defaults.testResourceRoots(),
+                defaults.metadata());
+
+        SourceDiscoveryResult result = discoverer.discover(projectDir, settings);
+
+        assertEquals(List.of(main, mainFromSecondRoot), result.kotlinMainSources());
+        assertEquals(List.of(groovyRootTest, javaRootTest), result.kotlinTestSources());
+    }
+
+    @Test
     void findsJavaTestsFromMultipleRootsDeterministically() throws IOException {
         Path unit = source("src/test/java/com/example/MainTest.java");
         Path integration = source("src/integration-test/java/com/example/MainIT.java");
@@ -200,6 +229,37 @@ final class SourceDiscovererTest {
                                 List.of()));
 
         assertEquals(List.of(main), result.groovyMainSources());
+    }
+
+    @Test
+    void doesNotTreatKotlinFilesInGeneratedJavaRootsAsSources() throws IOException {
+        source("target/generated/sources/openapi/com/example/Unexpected.kt");
+        source("target/generated/test-sources/fixtures/com/example/UnexpectedTest.kt");
+        source("src/main/openapi/api.yaml");
+        source("src/test/fixtures/schema.json");
+
+        SourceDiscoveryResult result = discoverer.discover(
+                projectDir,
+                BuildSettings.defaults().withGeneratedSources(
+                        List.of(new GeneratedSourceStep(
+                                "openapi",
+                                GeneratedSourceKind.DECLARED_ROOT,
+                                "java",
+                                "target/generated/sources/openapi",
+                                List.of("src/main/openapi/api.yaml"),
+                                true,
+                                false)),
+                        List.of(new GeneratedSourceStep(
+                                "fixtures",
+                                GeneratedSourceKind.DECLARED_ROOT,
+                                "java",
+                                "target/generated/test-sources/fixtures",
+                                List.of("src/test/fixtures/schema.json"),
+                                true,
+                                false))));
+
+        assertEquals(List.of(), result.kotlinMainSources());
+        assertEquals(List.of(), result.kotlinTestSources());
     }
 
     @Test

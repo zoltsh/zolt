@@ -53,6 +53,7 @@ final class BuildFingerprintExpectedClassesTest {
                 List.of("src/main", "src/main/java"),
                 List.of(
                         projectDir.resolve("src/main/java/com/example/Main.java"),
+                        projectDir.resolve("src/main/java/com/example/KotlinMain.kt"),
                         projectDir.resolve("src/main/java/com/example/readme.txt"),
                         projectDir.resolve("generated/Outside.java")),
                 output);

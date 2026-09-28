@@ -87,11 +87,14 @@ final class WorkspaceTestScheduleTest {
     }
 
     @Test
-    void weighsJavaAndGroovyTestSourcesWithoutCountingWrongLanguageFiles() throws IOException {
+    void weighsJavaGroovyAndKotlinTestSourcesWithoutCountingWrongLanguageFiles() throws IOException {
         Path directory = tempDir.resolve("mixed");
         write(directory.resolve("src/test/java/example/JavaTest.java"));
+        write(directory.resolve("src/test/java/example/KotlinTest.kt"));
         write(directory.resolve("src/test/java/example/Ignored.groovy"));
         write(directory.resolve("src/test/groovy/example/GroovySpec.groovy"));
+        write(directory.resolve("src/test/groovy/example/KotlinSpec.kt"));
+        write(directory.resolve("src/test/groovy/example/Ignored.kts"));
         write(directory.resolve("src/test/groovy/example/Ignored.java"));
         BuildSettings defaults = BuildSettings.defaults();
         BuildSettings build = new BuildSettings(
@@ -111,7 +114,7 @@ final class WorkspaceTestScheduleTest {
         Map<String, Integer> weights = WorkspaceTestSchedule.testSourceWeights(
                 List.of("mixed"), Map.of("mixed", mixed));
 
-        assertEquals(2, weights.get("mixed"));
+        assertEquals(4, weights.get("mixed"));
     }
 
     private WorkspaceMember member(String name, int testSources) throws IOException {

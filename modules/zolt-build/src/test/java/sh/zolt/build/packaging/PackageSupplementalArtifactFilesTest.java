@@ -24,11 +24,13 @@ final class PackageSupplementalArtifactFilesTest {
     private Path tempDir;
 
     @Test
-    void sourceArchiveFilesIncludeJavaAndGroovyInEntryOrder() throws IOException {
+    void sourceArchiveFilesIncludeJavaGroovyAndKotlinInEntryOrder() throws IOException {
         Path sourceRoot = tempDir.resolve("src/main/java");
         write(sourceRoot.resolve("com/example/Beta.java"));
         write(sourceRoot.resolve("com/example/Alpha.java"));
         write(sourceRoot.resolve("com/example/GroovyApi.groovy"));
+        write(sourceRoot.resolve("com/example/KotlinApi.kt"));
+        write(sourceRoot.resolve("com/example/setup.kts"));
         write(sourceRoot.resolve("com/example/application.properties"));
 
         List<Path> files = PackageSupplementalArtifactFiles.sourceArchiveFiles(sourceRoot);
@@ -36,7 +38,8 @@ final class PackageSupplementalArtifactFilesTest {
         assertEquals(List.of(
                 sourceRoot.resolve("com/example/Alpha.java"),
                 sourceRoot.resolve("com/example/Beta.java"),
-                sourceRoot.resolve("com/example/GroovyApi.groovy")), files);
+                sourceRoot.resolve("com/example/GroovyApi.groovy"),
+                sourceRoot.resolve("com/example/KotlinApi.kt")), files);
     }
 
     @Test
@@ -44,6 +47,7 @@ final class PackageSupplementalArtifactFilesTest {
         Path sourceRoot = tempDir.resolve("src/main/java");
         write(sourceRoot.resolve("com/example/App.java"));
         write(sourceRoot.resolve("com/example/GroovyApi.groovy"));
+        write(sourceRoot.resolve("com/example/KotlinApi.kt"));
 
         assertEquals(
                 List.of(sourceRoot.resolve("com/example/App.java")),
@@ -51,7 +55,7 @@ final class PackageSupplementalArtifactFilesTest {
     }
 
     @Test
-    void sourceJarIncludesGroovyWhileJavadocConsumesOnlyJava() throws IOException {
+    void sourceJarIncludesGroovyAndKotlinWhileJavadocConsumesOnlyJava() throws IOException {
         Path sourceRoot = tempDir.resolve("src/main/java/com/example");
         write(sourceRoot.resolve("App.java"), """
                 package com.example;
@@ -65,6 +69,10 @@ final class PackageSupplementalArtifactFilesTest {
                 class GroovyApi {
                     def answer() { 42 }
                 }
+                """);
+        write(sourceRoot.resolve("KotlinApi.kt"), """
+                package com.example
+                class KotlinApi
                 """);
         Path classes = tempDir.resolve("target/classes");
         Files.createDirectories(classes);
@@ -89,10 +97,12 @@ final class PackageSupplementalArtifactFilesTest {
         try (JarFile sources = new JarFile(tempDir.resolve("target/demo-0.1.0-sources.jar").toFile())) {
             assertNotNull(sources.getEntry("com/example/App.java"));
             assertNotNull(sources.getEntry("com/example/GroovyApi.groovy"));
+            assertNotNull(sources.getEntry("com/example/KotlinApi.kt"));
         }
         try (JarFile javadoc = new JarFile(tempDir.resolve("target/demo-0.1.0-javadoc.jar").toFile())) {
             assertTrue(javadoc.stream().anyMatch(entry -> entry.getName().endsWith("App.html")));
             assertFalse(javadoc.stream().anyMatch(entry -> entry.getName().contains("GroovyApi")));
+            assertFalse(javadoc.stream().anyMatch(entry -> entry.getName().contains("KotlinApi")));
         }
     }
 

@@ -27,17 +27,23 @@ public final class SourceDiscoverer {
                 .toList();
         List<SourceRoot> mainRoots = new ArrayList<>(authoredMainRoots);
         mainRoots.addAll(generatedRoots(projectRoot, settings.generatedMainSources(), "main"));
-        List<SourceRoot> testRoots = new ArrayList<>(settings.testSources().stream()
+        List<SourceRoot> authoredTestRoots = settings.testSources().stream()
                 .map(root -> inputRoot(projectRoot, "[test.sources].java", root))
-                .toList());
+                .toList();
+        List<SourceRoot> authoredGroovyTestRoots = settings.groovyTestSources().stream()
+                .map(root -> inputRoot(projectRoot, "[test.sources].groovy", root))
+                .toList();
+        List<SourceRoot> authoredKotlinTestRoots = new ArrayList<>(authoredTestRoots);
+        authoredKotlinTestRoots.addAll(authoredGroovyTestRoots);
+        List<SourceRoot> testRoots = new ArrayList<>(authoredTestRoots);
         testRoots.addAll(generatedRoots(projectRoot, settings.generatedTestSources(), "test"));
         return new SourceDiscoveryResult(
                 discoverSources(projectRoot, mainRoots, output, testOutput, ".java"),
                 discoverSources(projectRoot, authoredMainRoots, output, testOutput, ".groovy"),
+                discoverSources(projectRoot, authoredMainRoots, output, testOutput, ".kt"),
                 discoverSources(projectRoot, testRoots, output, testOutput, ".java"),
-                discoverSources(projectRoot, settings.groovyTestSources().stream()
-                        .map(root -> inputRoot(projectRoot, "[test.sources].groovy", root))
-                        .toList(), output, testOutput, ".groovy"));
+                discoverSources(projectRoot, authoredGroovyTestRoots, output, testOutput, ".groovy"),
+                discoverSources(projectRoot, authoredKotlinTestRoots, output, testOutput, ".kt"));
     }
 
     private static List<SourceRoot> generatedRoots(

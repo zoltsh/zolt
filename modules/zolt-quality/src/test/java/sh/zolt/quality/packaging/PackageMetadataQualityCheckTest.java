@@ -73,6 +73,25 @@ final class PackageMetadataQualityCheckTest extends PackageQualityCheckTestSuppo
     }
 
     @Test
+    void metadataTreatsKotlinAsAMainSourceForJavadocPolicy() throws IOException {
+        Path projectDir = tempDir.resolve("missing-javadoc-kotlin");
+        Files.createDirectories(projectDir.resolve("src/main/java/com/example"));
+        Files.writeString(
+                projectDir.resolve("src/main/java/com/example/Api.kt"),
+                "package com.example\nclass Api\n");
+        ProjectConfig config = parseProject(projectDir, """
+
+                [package]
+                sources = true
+                """);
+
+        QualityCheckResult result = check.checkMetadata(Optional.empty(), projectDir, config);
+
+        assertEquals("[package].javadoc", result.subject());
+        assertEquals(QualityCheckStatus.FAILED, result.status());
+    }
+
+    @Test
     void metadataRequiresTestsJarWhenTestSourcesExist() throws IOException {
         Path projectDir = tempDir.resolve("missing-tests");
         Files.createDirectories(projectDir.resolve("src/test/java/com/example"));
@@ -93,6 +112,26 @@ final class PackageMetadataQualityCheckTest extends PackageQualityCheckTestSuppo
                 "[package].testJar",
                 "Test sources are present, but tests jar generation is disabled for this library package.",
                 "Set [package].testJar = true or remove test sources from the library artifact story.");
+    }
+
+    @Test
+    void metadataTreatsKotlinAsATestSourceForTestsJarPolicy() throws IOException {
+        Path projectDir = tempDir.resolve("missing-tests-kotlin");
+        Files.createDirectories(projectDir.resolve("src/test/java/com/example"));
+        Files.writeString(
+                projectDir.resolve("src/test/java/com/example/ApiTest.kt"),
+                "package com.example\nclass ApiTest\n");
+        ProjectConfig config = parseProject(projectDir, """
+
+                [package]
+                sources = true
+                javadoc = true
+                """);
+
+        QualityCheckResult result = check.checkMetadata(Optional.empty(), projectDir, config);
+
+        assertEquals("[package].testJar", result.subject());
+        assertEquals(QualityCheckStatus.FAILED, result.status());
     }
 
     @Test

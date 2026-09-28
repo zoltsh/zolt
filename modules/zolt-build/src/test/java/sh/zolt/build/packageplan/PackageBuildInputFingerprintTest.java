@@ -95,6 +95,34 @@ final class PackageBuildInputFingerprintTest {
     }
 
     @Test
+    void kotlinMainSourceChangesBuildAndSourcesFingerprintsButNotJavadocSources()
+            throws IOException {
+        Path kotlin = projectRoot.resolve("src/main/java/com/example/KotlinApi.kt");
+        Files.createDirectories(kotlin.getParent());
+        Files.writeString(kotlin, "package com.example\nclass KotlinApi\n");
+        ProjectConfig config = config().withPackageSettings(new PackageSettings(
+                PackageMode.THIN,
+                true,
+                true,
+                false,
+                PublicationMetadata.empty()));
+
+        String buildBefore = fingerprint(config, List.of());
+        List<PackagePlanLiveInput> supplementalBefore = supplementalInputs(config);
+
+        Files.writeString(kotlin, "package com.example\nclass KotlinApi(val changed: Int)\n");
+
+        assertNotEquals(buildBefore, fingerprint(config, List.of()));
+        List<PackagePlanLiveInput> supplementalAfter = supplementalInputs(config);
+        assertNotEquals(
+                supplementalFingerprint(supplementalBefore, "sources"),
+                supplementalFingerprint(supplementalAfter, "sources"));
+        assertEquals(
+                supplementalFingerprint(supplementalBefore, "javadoc"),
+                supplementalFingerprint(supplementalAfter, "javadoc"));
+    }
+
+    @Test
     void groovyFilesUnderResourceRootsDoNotChangeBuildFingerprint()
             throws IOException {
         Path groovy = projectRoot.resolve("src/main/resources/com/example/NotAResource.groovy");
@@ -103,6 +131,18 @@ final class PackageBuildInputFingerprintTest {
 
         String before = fingerprint(config(), List.of());
         Files.writeString(groovy, "class NotAResource { int changed }\n");
+
+        assertEquals(before, fingerprint(config(), List.of()));
+    }
+
+    @Test
+    void kotlinFilesUnderResourceRootsDoNotChangeBuildFingerprint() throws IOException {
+        Path kotlin = projectRoot.resolve("src/main/resources/com/example/NotAResource.kt");
+        Files.createDirectories(kotlin.getParent());
+        Files.writeString(kotlin, "class NotAResource\n");
+
+        String before = fingerprint(config(), List.of());
+        Files.writeString(kotlin, "class NotAResource(val changed: Int)\n");
 
         assertEquals(before, fingerprint(config(), List.of()));
     }

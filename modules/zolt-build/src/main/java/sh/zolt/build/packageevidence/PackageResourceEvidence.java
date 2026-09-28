@@ -80,7 +80,9 @@ final class PackageResourceEvidence {
 
     private static boolean isSource(Path path) {
         String fileName = path.getFileName().toString();
-        return fileName.endsWith(".java") || fileName.endsWith(".groovy");
+        return fileName.endsWith(".java")
+                || fileName.endsWith(".groovy")
+                || fileName.endsWith(".kt");
     }
 
     private static String resourceFingerprint(

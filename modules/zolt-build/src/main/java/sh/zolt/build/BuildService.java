@@ -225,7 +225,6 @@ public final class BuildService {
                 .ensureCleanMemberCurrent(projectDirectory, config, classpaths)
                 .generatedOutputCount();
     }
-
     private BuildResult build(
             ProjectBuildContext context,
             ProjectConfig config,
@@ -243,6 +242,7 @@ public final class BuildService {
                     resolveResult, 0, 0, projectDirectory.resolve(config.build().output()), "", true);
         }
         SourceDiscoveryResult sources = sourceDiscoverer.discover(projectDirectory, config.build());
+        SourceLanguagePolicy.requireMainSupported(sources);
         JdkStatus jdkStatus = jdkDetector.detect(config.project().java());
         if (!jdkStatus.ok()) {
             throw BuildException.actionable("JDK check failed.", String.join(" ", jdkStatus.problems()));
