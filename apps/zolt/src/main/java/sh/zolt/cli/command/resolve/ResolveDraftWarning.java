@@ -68,20 +68,27 @@ final class ResolveDraftWarning {
                 continue;
             }
             Path root = projectRoot.resolve(sourceRoot);
-            if (containsJavaSource(root)) {
+            if (containsCompilableSource(root)) {
                 return true;
             }
         }
         return false;
     }
 
-    private static boolean containsJavaSource(Path root) {
+    private static boolean containsCompilableSource(Path root) {
         if (!Files.isDirectory(root)) {
             return false;
         }
         try (Stream<Path> walk = Files.walk(root)) {
-            return walk.anyMatch(path ->
-                    Files.isRegularFile(path) && path.getFileName().toString().endsWith(".java"));
+            return walk.anyMatch(path -> {
+                if (!Files.isRegularFile(path)) {
+                    return false;
+                }
+                String name = path.getFileName().toString();
+                return name.endsWith(".java")
+                        || name.endsWith(".groovy")
+                        || name.endsWith(".kt");
+            });
         } catch (IOException exception) {
             throw new UncheckedIOException(exception);
         }

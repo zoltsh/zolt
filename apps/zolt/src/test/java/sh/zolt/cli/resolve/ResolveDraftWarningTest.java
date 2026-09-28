@@ -115,6 +115,22 @@ final class ResolveDraftWarningTest {
     }
 
     @Test
+    void emptyGraphWithKotlinSourcesWarnsWithoutReviewMarkers() throws IOException {
+        assertEmptyGraphWithSourceWarns(
+                "kotlin",
+                "src/main/kotlin/com/example/Main.kt",
+                "package com.example\nobject Main\n");
+    }
+
+    @Test
+    void emptyGraphWithGroovySourcesWarnsWithoutReviewMarkers() throws IOException {
+        assertEmptyGraphWithSourceWarns(
+                "groovy",
+                "src/main/groovy/com/example/Main.groovy",
+                "package com.example\nfinal class Main {}\n");
+    }
+
+    @Test
     void emptyDependencyFreeProjectWithoutSourcesKeepsGreenHandoff() throws IOException {
         Path projectDir = tempDir.resolve("empty-no-sources");
         writeProjectConfig(projectDir, Map.of());
@@ -129,5 +145,31 @@ final class ResolveDraftWarningTest {
         assertTrue(result.stdout().contains("✔ Resolved 0 packages"));
         assertTrue(result.stdout().contains("Next: zolt build"));
         assertFalse(result.stdout().contains("warning:"));
+    }
+
+    private void assertEmptyGraphWithSourceWarns(
+            String language, String sourcePath, String source) throws IOException {
+        Path projectDir = tempDir.resolve("empty-graph-with-" + language + "-sources");
+        writeProjectConfig(projectDir, Map.of());
+        Path manifest = projectDir.resolve("zolt.toml");
+        Files.writeString(manifest, Files.readString(manifest) + """
+
+                [build]
+                sources = ["src/main/%s"]
+                """.formatted(language));
+        Path sourceFile = projectDir.resolve(sourcePath);
+        Files.createDirectories(sourceFile.getParent());
+        Files.writeString(sourceFile, source);
+
+        CommandResult result = execute(
+                "--color=never",
+                "resolve",
+                "--cwd", projectDir.toString(),
+                "--cache-root", tempDir.resolve("cache").toString());
+
+        assertEquals(0, result.exitCode());
+        assertTrue(result.stdout().contains("✔ Resolved 0 packages"));
+        assertTrue(result.stdout().contains("warning:"));
+        assertFalse(result.stdout().contains("Next: zolt build"));
     }
 }
