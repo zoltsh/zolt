@@ -30,7 +30,7 @@ final class LockfileAssemblerGroovyToolTest {
     private final LockfileAssembler assembler = new LockfileAssembler(new CoordinateParser());
 
     @Test
-    void locksGroovyCompilerClosureIndependentlyWithoutExecToolAttribution() {
+    void locksGroovyCompilerClosureWithStableCompilerAttribution() {
         PackageId groovy = new PackageId("org.apache.groovy", "groovy");
         PackageId helper = new PackageId("org.apache.groovy", "groovy-helper");
         PackageNode compileGroovy = new PackageNode(groovy, "4.0.22");
@@ -110,7 +110,9 @@ final class LockfileAssemblerGroovyToolTest {
 
         LockConflict conflict = lockfile.conflicts().getFirst();
         assertEquals(groovy, conflict.packageId());
-        assertEquals(Optional.empty(), conflict.toolGroup());
+        assertEquals(
+                Optional.of("compiler:tool-groovy:b3JnLmFwYWNoZS5ncm9vdnk6Z3Jvb3Z5.NC4wLjIz.amFy"),
+                conflict.toolGroup());
         assertTrue(lockfile.policyEffects().stream().anyMatch(effect ->
                 effect.packageId().equals(helper) && effect.kind().equals("strict-version")));
     }

@@ -3,7 +3,10 @@ package sh.zolt.tree;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import sh.zolt.dependency.ConflictSelectionReason;
+import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
+import sh.zolt.lockfile.LockConflict;
 import sh.zolt.lockfile.ZoltLockfile;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -78,6 +81,33 @@ final class DependencyWhyFormatterTest extends DependencyWhyTestSupport {
                 \\- com.example:app:1.0.0 (lane: implementation; resolved scope: compile)
                    \\- com.example:lib:2.0.0 (conflict: selected 2.0.0; requested 1.0.0, 2.0.0; newest version wins)
                 """, output);
+    }
+
+    @Test
+    void selectsTheMainConflictWhenACompilerClosureMediatesTheSamePackage() {
+        PackageId library = new PackageId("com.example", "lib");
+        ZoltLockfile lockfile = lockfile(
+                List.of(
+                        lockPackage("com.example", "app", "1.0.0", true, List.of("com.example:lib:2.0.0")),
+                        lockPackage("com.example", "lib", "2.0.0", false, List.of())),
+                List.of(
+                        new LockConflict(
+                                library,
+                                "2.0.0",
+                                List.of("1.0.0", "2.0.0"),
+                                ConflictSelectionReason.NEWEST_VERSION),
+                        new LockConflict(
+                                library,
+                                "2.0.0",
+                                List.of("1.5.0", "2.0.0"),
+                                ConflictSelectionReason.DIRECT_DEPENDENCY,
+                                java.util.Optional.of(LockConflict.compilerToolGroup(
+                                        DependencyScope.TOOL_GROOVY, "groovy-4.0.23")))));
+
+        String output = formatter.format(config(), lockfile, library);
+
+        assertEquals(1, output.split("requested 1.0.0, 2.0.0", -1).length - 1);
+        assertEquals(0, output.split("requested 1.5.0, 2.0.0", -1).length - 1);
     }
 
     @Test

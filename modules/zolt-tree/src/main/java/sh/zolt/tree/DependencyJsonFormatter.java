@@ -69,7 +69,9 @@ public final class DependencyJsonFormatter {
         List<LockPolicyEffect> effects = path.isPresent()
                 ? policyEffects(lockfile, target)
                 : exclusionEffects(lockfile, target);
-        List<LockConflict> conflicts = conflicts(lockfile, target);
+        List<LockConflict> conflicts = path
+                .map(packages -> new DependencyConflictIndex(lockfile, member).matching(packages.getLast()))
+                .orElseGet(() -> conflicts(lockfile, target, member));
         if (path.isEmpty() && effects.isEmpty() && conflicts.isEmpty()) {
             throw new DependencyWhyException(
                     "Package " + target + " is not present in zolt.lock. Run `"
@@ -178,7 +180,10 @@ public final class DependencyJsonFormatter {
         List<LockConflict> sorted = conflicts.stream()
                 .sorted(Comparator
                         .comparing((LockConflict conflict) -> conflict.packageId().toString())
-                        .thenComparing(conflict -> conflict.variant().map(LockArtifactVariant::key).orElse("")))
+                        .thenComparing(conflict -> conflict.variant().map(LockArtifactVariant::key).orElse(""))
+                        .thenComparing(conflict -> conflict.toolGroup().orElse(""))
+                        .thenComparing(LockConflict::selectedVersion)
+                        .thenComparing(conflict -> String.join("\u0000", conflict.members().stream().sorted().toList())))
                 .toList();
         if (!sorted.isEmpty()) {
             json.append('\n');
@@ -253,9 +258,11 @@ public final class DependencyJsonFormatter {
                 .toList();
     }
 
-    private static List<LockConflict> conflicts(ZoltLockfile lockfile, PackageId target) {
+    private static List<LockConflict> conflicts(ZoltLockfile lockfile, PackageId target, String member) {
         return lockfile.conflicts().stream()
                 .filter(conflict -> conflict.packageId().equals(target))
+                .filter(conflict -> conflict.toolGroup().isEmpty())
+                .filter(conflict -> conflict.members().isEmpty() || conflict.members().contains(member))
                 .sorted(Comparator.comparing(conflict ->
                         conflict.variant().map(LockArtifactVariant::key).orElse("")))
                 .toList();

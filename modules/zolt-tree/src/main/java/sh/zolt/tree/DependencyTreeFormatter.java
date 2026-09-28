@@ -22,7 +22,7 @@ public final class DependencyTreeFormatter {
         DependencyRootProjection roots = DependencyRootProjection.of(lockfile, member);
         DependencyTreeLines lines = new DependencyTreeLines(
                 new LockDependencyIndex(lockfile.packages()),
-                DependencyTreeLines.conflictsByPackage(lockfile),
+                new DependencyConflictIndex(lockfile, member),
                 DependencyTreeLines.lockView(),
                 roots.regenerateCommand());
 

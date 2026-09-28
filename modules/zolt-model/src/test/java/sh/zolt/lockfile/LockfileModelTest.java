@@ -167,6 +167,26 @@ final class LockfileModelTest {
     }
 
     @Test
+    void compilerConflictGroupsUseScopedPrefixesWhileUnknownValuesRemainReadable() {
+        String kotlin = LockConflict.compilerToolGroup(DependencyScope.TOOL_KOTLIN, "root-identity");
+        LockConflict future = new LockConflict(
+                new PackageId("com.example", "demo"),
+                "2.0.0",
+                List.of("1.0.0", "2.0.0"),
+                ConflictSelectionReason.NEWEST_VERSION,
+                Optional.of("compiler:tool-scala:opaque"));
+
+        assertEquals("compiler:tool-kotlin:root-identity", kotlin);
+        assertEquals("compiler:tool-kotlin:", LockConflict.compilerToolGroupPrefix(DependencyScope.TOOL_KOTLIN));
+        assertTrue(LockConflict.isCompilerToolGroup(kotlin, DependencyScope.TOOL_KOTLIN));
+        assertFalse(LockConflict.isCompilerToolGroup(kotlin, DependencyScope.TOOL_GROOVY));
+        assertEquals(Optional.of("compiler:tool-scala:opaque"), future.toolGroup());
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> LockConflict.compilerToolGroup(DependencyScope.COMPILE, "root-identity"));
+    }
+
+    @Test
     void memberQualifiedGraphMustCoverEveryAttributedMember() {
         LockPackage lockPackage = new LockPackage(
                 new PackageId("com.example", "root"),

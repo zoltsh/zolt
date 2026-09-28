@@ -83,6 +83,21 @@ final class DependencyConflictFormatterTest {
     }
 
     @Test
+    void rendersCompilerClosureIdentityWithoutCollapsingItToAnExecTool() {
+        String output = formatter.format(new ZoltLockfile(
+                ZoltLockfile.CURRENT_VERSION,
+                List.of(),
+                List.of(new LockConflict(
+                        new PackageId("com.example", "shared"),
+                        "2.0.0",
+                        List.of("1.0.0", "2.0.0"),
+                        ConflictSelectionReason.NEWEST_VERSION,
+                        Optional.of("compiler:tool-kotlin:kotlin-2.2.0")))));
+
+        assertTrue(output.contains("  tool: compiler:tool-kotlin:kotlin-2.2.0\n"));
+    }
+
+    @Test
     void reportsNoConflictsSuccessfully() {
         String output = formatter.format(new ZoltLockfile(ZoltLockfile.CURRENT_VERSION, List.of(), List.of()));
 

@@ -28,6 +28,8 @@ public final class ProjectResolutionFingerprint {
     private static final String KOTLIN_TOOLCHAIN_CATEGORY = "toolchain.kotlin";
     private static final String KOTLIN_COMPILER_COORDINATE =
             "org.jetbrains.kotlin:kotlin-compiler-embeddable";
+    private static final String COMPILER_TOOL_RESOLUTION_SEMANTICS =
+            "conflict-provenance-v1";
 
     /**
      * The fingerprint schema version, itself a fingerprint input so a bump restates every lock.
@@ -121,7 +123,7 @@ public final class ProjectResolutionFingerprint {
             String configuredVersion) {
         String version = configuredVersion == null ? "" : configuredVersion.strip();
         if (!version.isEmpty()) {
-            line(inputs, category, coordinate, version);
+            line(inputs, category, coordinate, version, COMPILER_TOOL_RESOLUTION_SEMANTICS);
         }
     }
 

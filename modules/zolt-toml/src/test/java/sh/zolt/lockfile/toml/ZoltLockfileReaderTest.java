@@ -61,6 +61,24 @@ final class ZoltLockfileReaderTest {
     }
 
     @Test
+    void preservesUnknownCompilerConflictAttributionForForwardCompatibility() {
+        ZoltLockfile lockfile = reader.read("""
+                version = 7
+
+                [[conflict]]
+                id = "com.example:shared"
+                tool = "compiler:tool-scala:opaque-root"
+                selected = "2.0.0"
+                requested = ["1.0.0", "2.0.0"]
+                reason = "newest version wins"
+                """);
+
+        assertEquals(
+                Optional.of("compiler:tool-scala:opaque-root"),
+                lockfile.conflicts().getFirst().toolGroup());
+    }
+
+    @Test
     void readsCurrentVersionWithoutResolutionMetadata() {
         ZoltLockfile lockfile = reader.read("version = 7\n");
 

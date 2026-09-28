@@ -20,8 +20,11 @@ final class LockfileResolutionEvidence {
             List<CompilerToolResolution> compilerTools,
             List<ExecToolResolution> execTools) {
         List<LockConflict> conflicts = new ArrayList<>(conflicts(mainSelection, Optional.empty()));
-        CompilerToolResolution.ordered(compilerTools).forEach(tool ->
-                conflicts.addAll(conflicts(tool.selection(), Optional.empty())));
+        CompilerToolResolution.ordered(compilerTools).stream()
+                .filter(tool -> !tool.selection().conflicts().isEmpty())
+                .forEach(tool -> conflicts.addAll(conflicts(
+                        tool.selection(),
+                        Optional.of(CompilerConflictResolutionKey.of(tool)))));
         execTools.stream()
                 .sorted(Comparator.comparing(ExecToolResolution::toolName))
                 .forEach(tool -> conflicts.addAll(conflicts(

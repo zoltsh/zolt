@@ -19,7 +19,7 @@ final class KotlinToolchainResolutionFingerprintTest {
         assertFalse(ProjectResolutionFingerprint.inputs(absent).stream()
                 .anyMatch(input -> input.startsWith("toolchain.kotlin\t")));
         assertEquals(
-                List.of("toolchain.kotlin\torg.jetbrains.kotlin:kotlin-compiler-embeddable\t2.2.0"),
+                List.of("toolchain.kotlin\torg.jetbrains.kotlin:kotlin-compiler-embeddable\t2.2.0\tconflict-provenance-v1"),
                 ProjectResolutionFingerprint.inputs(version22).stream()
                         .filter(input -> input.startsWith("toolchain.kotlin\t"))
                         .toList());

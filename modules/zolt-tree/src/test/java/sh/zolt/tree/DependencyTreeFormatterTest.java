@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import sh.zolt.lockfile.LockConflict;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.dependency.ConflictSelectionReason;
+import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -105,6 +106,31 @@ final class DependencyTreeFormatterTest extends DependencyTreeTestSupport {
                 com.example:demo:0.1.0
                 \\- org.slf4j:slf4j-api:2.0.16 (lane: implementation; resolved scope: compile) (conflict: selected 2.0.16; requested 1.7.36, 2.0.16; direct dependency wins)
                 """, output);
+    }
+
+    @Test
+    void doesNotAnnotateMainPackagesWithCompilerClosureConflicts() {
+        PackageId packageId = new PackageId("org.slf4j", "slf4j-api");
+        ZoltLockfile lockfile = lockfile(
+                List.of(lockPackage("org.slf4j", "slf4j-api", "2.0.16", true, List.of())),
+                List.of(
+                        new LockConflict(
+                                packageId,
+                                "2.0.16",
+                                List.of("1.7.36", "2.0.16"),
+                                ConflictSelectionReason.DIRECT_DEPENDENCY),
+                        new LockConflict(
+                                packageId,
+                                "2.0.16",
+                                List.of("2.0.0", "2.0.16"),
+                                ConflictSelectionReason.NEWEST_VERSION,
+                                java.util.Optional.of(LockConflict.compilerToolGroup(
+                                        DependencyScope.TOOL_KOTLIN, "kotlin-2.2.0")))));
+
+        String output = formatter.format(config(), lockfile);
+
+        assertEquals(1, output.split("requested 1.7.36, 2.0.16", -1).length - 1);
+        assertEquals(0, output.split("requested 2.0.0, 2.0.16", -1).length - 1);
     }
 
     @Test
