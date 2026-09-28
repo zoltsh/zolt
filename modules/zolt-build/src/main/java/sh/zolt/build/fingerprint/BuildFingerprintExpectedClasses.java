@@ -1,11 +1,15 @@
 package sh.zolt.build.fingerprint;
 
+import sh.zolt.build.BuildException;
+import java.io.IOException;
+import java.nio.file.LinkOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 final class BuildFingerprintExpectedClasses {
     List<String> entries(
@@ -13,7 +17,10 @@ final class BuildFingerprintExpectedClasses {
             List<String> sourceRoots,
             List<Path> sources,
             Path outputDirectory) {
-        return files(projectRoot, sourceRoots, sources, outputDirectory).stream()
+        List<Path> outputs = hasKotlinSource(sources)
+                ? compilerOutputs(outputDirectory)
+                : files(projectRoot, sourceRoots, sources, outputDirectory);
+        return outputs.stream()
                 .filter(path -> !isPackageInfo(path) || Files.isRegularFile(path))
                 .sorted()
                 .map(path -> relative(projectRoot, path))
@@ -41,6 +48,11 @@ final class BuildFingerprintExpectedClasses {
         return List.copyOf(missing);
     }
 
+    boolean recordedOutputsCurrent(Path projectRoot, String fingerprint) {
+        return fingerprint.lines().anyMatch("[expectedClasses]"::equals)
+                && missing(projectRoot, fingerprint).isEmpty();
+    }
+
     List<Path> files(
             Path projectRoot,
             List<String> sourceRoots,
@@ -55,6 +67,41 @@ final class BuildFingerprintExpectedClasses {
                 .flatMap(Optional::stream)
                 .sorted()
                 .toList();
+    }
+
+    private static List<Path> compilerOutputs(Path outputDirectory) {
+        Path outputRoot = outputDirectory.toAbsolutePath().normalize();
+        if (!Files.isDirectory(outputRoot, LinkOption.NOFOLLOW_LINKS)) {
+            return List.of();
+        }
+        try (Stream<Path> paths = Files.walk(outputRoot)) {
+            return paths.filter(path -> Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
+                    .map(Path::normalize)
+                    .filter(path -> isClassFile(path) || isKotlinModule(outputRoot, path))
+                    .sorted()
+                    .toList();
+        } catch (IOException exception) {
+            throw new BuildException(
+                    "Could not inventory compiler outputs under "
+                            + outputRoot
+                            + ". Check that the directory is readable.",
+                    exception);
+        }
+    }
+
+    private static boolean hasKotlinSource(List<Path> sources) {
+        return sources.stream().anyMatch(path -> path.getFileName().toString().endsWith(".kt"));
+    }
+
+    private static boolean isClassFile(Path path) {
+        return path.getFileName().toString().endsWith(".class");
+    }
+
+    private static boolean isKotlinModule(Path outputRoot, Path path) {
+        Path relative = outputRoot.relativize(path);
+        return relative.getNameCount() == 2
+                && "META-INF".equals(relative.getName(0).toString())
+                && relative.getFileName().toString().endsWith(".kotlin_module");
     }
 
     private static Optional<Path> classFile(Optional<Path> sourceRoot, Path source, Path outputDirectory) {

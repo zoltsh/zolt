@@ -82,6 +82,9 @@ final class BuildFingerprintExpectedClassesTest {
         Path packageInfo = projectDir.resolve("src/main/java/com/example/package-info.java");
         Files.createDirectories(output.resolve("com/example"));
         Files.writeString(output.resolve("com/example/Main.class"), "compiled");
+        Files.writeString(output.resolve("com/example/Unrelated.class"), "stale");
+        Files.createDirectories(output.resolve("META-INF"));
+        Files.writeString(output.resolve("META-INF/ignored.kotlin_module"), "unrelated");
 
         assertEquals(List.of("target/classes/com/example/Main.class"), expectedClasses.entries(
                 projectDir,

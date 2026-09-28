@@ -174,9 +174,11 @@ final class BuildFingerprintEngine {
                     projectDirectory.toAbsolutePath().normalize(),
                     existing);
             if (!missingExpectedClasses.isEmpty()) {
-                return BuildFingerprintCheck.miss("missing-expected-class:" + relative(
-                        projectDirectory,
-                        missingExpectedClasses.getFirst()));
+                Path missing = missingExpectedClasses.getFirst();
+                String reason = missing.getFileName().toString().endsWith(".class")
+                        ? "missing-expected-class:"
+                        : "missing-expected-compiler-output:";
+                return BuildFingerprintCheck.miss(reason + relative(projectDirectory, missing));
             }
             Optional<BuildFingerprintState> state = stateStore.readState(fingerprintPath);
             if (state.isPresent() && state.orElseThrow().matchesFingerprint(existing)) {

@@ -1,5 +1,6 @@
 package sh.zolt.workspace.service;
 
+import sh.zolt.build.fingerprint.BuildFingerprintOutputValidator;
 import sh.zolt.build.incremental.IncrementalCompileState;
 import sh.zolt.build.incremental.IncrementalCompileStateCodec;
 import sh.zolt.project.PackageMode;
@@ -24,6 +25,8 @@ final class WorkspaceDirtyPlanner {
     private final WorkspaceStateStore stateStore = new WorkspaceStateStore();
     private final IncrementalCompileStateCodec compileStateCodec =
             new IncrementalCompileStateCodec();
+    private final BuildFingerprintOutputValidator fingerprintOutputs =
+            new BuildFingerprintOutputValidator();
 
     WorkspaceDirtyPlan plan(
             WorkspaceExecutionContext context,
@@ -281,7 +284,8 @@ final class WorkspaceDirtyPlanner {
                 .resolve(member.config().build().output())
                 .toAbsolutePath()
                 .normalize();
-        return outputsCurrent(output, IncrementalCompileState.mainStatePath(output));
+        return outputsCurrent(output, IncrementalCompileState.mainStatePath(output))
+                && fingerprintOutputs.mainOutputsCurrent(member.directory(), output);
     }
 
     /** One recorded state read plus a stat per recorded class: the whole output-existence check. */

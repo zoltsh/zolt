@@ -10,6 +10,7 @@ import sh.zolt.workspace.state.WorkspaceState;
 import sh.zolt.workspace.state.WorkspaceStateStore;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -146,6 +147,35 @@ final class WorkspaceDirtyPlannerReasonTest extends WorkspaceBuildServiceTestSup
         assertEquals(
                 List.of(WorkspaceDirtyReason.OUTPUT_MISSING),
                 reasons().get("modules/core"));
+    }
+
+    @Test
+    void deletedKotlinModuleRecordedByTheFingerprintIsReportedAsAMissingOutput()
+            throws IOException {
+        Path module = outputFile("apps/api/target/classes/META-INF/api.kotlin_module", "module");
+        recordMainFingerprintOutput("apps/api", module);
+        assertEquals(List.of(), reasons().get("apps/api"));
+
+        Files.delete(module);
+
+        assertEquals(
+                List.of(WorkspaceDirtyReason.OUTPUT_MISSING),
+                reasons().get("apps/api"));
+    }
+
+    @Test
+    void deletedClassRecordedOnlyByTheFingerprintIsReportedAsAMissingOutput()
+            throws IOException {
+        Path generatedClass = outputFile(
+                "apps/api/target/classes/com/acme/api/KotlinGenerated.class", "compiled");
+        recordMainFingerprintOutput("apps/api", generatedClass);
+        assertEquals(List.of(), reasons().get("apps/api"));
+
+        Files.delete(generatedClass);
+
+        assertEquals(
+                List.of(WorkspaceDirtyReason.OUTPUT_MISSING),
+                reasons().get("apps/api"));
     }
 
     /**
@@ -291,5 +321,22 @@ final class WorkspaceDirtyPlannerReasonTest extends WorkspaceBuildServiceTestSup
         dirtyPlan.members().forEach((member, memberPlan) ->
                 byMember.put(member, memberPlan.reasons()));
         return byMember;
+    }
+
+    private Path outputFile(String relativePath, String content) throws IOException {
+        Path output = tempDir.resolve(relativePath);
+        Files.createDirectories(output.getParent());
+        Files.writeString(output, content);
+        return output;
+    }
+
+    private void recordMainFingerprintOutput(String memberPath, Path output) throws IOException {
+        Path memberDirectory = tempDir.resolve(memberPath);
+        Path fingerprint = memberDirectory.resolve("target/classes/.zolt-build-main.fingerprint");
+        Files.writeString(
+                fingerprint,
+                Files.readString(fingerprint)
+                        + memberDirectory.relativize(output).toString().replace('\\', '/')
+                        + "\n");
     }
 }

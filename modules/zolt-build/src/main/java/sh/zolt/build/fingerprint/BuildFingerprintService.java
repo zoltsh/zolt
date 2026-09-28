@@ -261,8 +261,9 @@ public final class BuildFingerprintService {
     /**
      * The inputs-only fingerprint SHA-256 for the main compile scope: the content component of a
      * build-output cache key. Computed from the same input sections the skip-gate hashes, minus the
-     * {@code [expectedClasses]} output section. Stable across the compile it keys (inputs do not change
-     * while javac runs), so the value taken before a compile matches the one implied after it.
+     * {@code [expectedClasses]} output-only section. Stable across the compile it keys (inputs do not
+     * change while a compiler runs), so the value taken before a compile matches the one implied
+     * after it.
      */
     public String mainInputsFingerprintSha256(
             Path projectDirectory,
