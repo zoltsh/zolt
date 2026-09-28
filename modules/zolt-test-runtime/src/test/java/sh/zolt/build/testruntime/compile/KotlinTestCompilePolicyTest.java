@@ -185,30 +185,46 @@ final class KotlinTestCompilePolicyTest {
     }
 
     @Test
-    void rejectsGeneratedJavaButAllowsResourceAndIntermediateExecSteps() {
-        KotlinCompileException generatedJavaFailure = assertThrows(
-                KotlinCompileException.class,
-                () -> KotlinTestCompilePolicy.options(
-                        configWithGeneratedTestStep(execStep(ProducesLane.TEST_SOURCES)),
-                        sources(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(KOTLIN_TEST)),
-                        classpaths(List.of()),
-                        jdkStatus(),
-                        null));
-        KotlinCompileException declaredRootFailure = assertThrows(
-                KotlinCompileException.class,
-                () -> KotlinTestCompilePolicy.options(
-                        configWithGeneratedTestStep(new GeneratedSourceStep(
-                                "declared",
-                                GeneratedSourceKind.DECLARED_ROOT,
-                                "java",
-                                "target/generated-test/declared",
-                                List.of(),
-                                true,
-                                true)),
-                        sources(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(KOTLIN_TEST)),
-                        classpaths(List.of()),
-                        jdkStatus(),
-                        null));
+    void acceptsDeclaredJavaRootsButRejectsOwnedJavaGeneration() {
+        KotlinCompilerRunner.Options declaredRoot = KotlinTestCompilePolicy.options(
+                configWithGeneratedTestStep(generatedStep(GeneratedSourceKind.DECLARED_ROOT)),
+                sources(
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(Path.of("generated/test/com/example/DeclaredTest.java")),
+                        List.of(),
+                        List.of(KOTLIN_TEST)),
+                classpaths(List.of()),
+                jdkStatus(),
+                null);
+
+        for (GeneratedSourceKind kind : List.of(GeneratedSourceKind.OPENAPI, GeneratedSourceKind.PROTOBUF)) {
+            KotlinCompileException failure = assertThrows(
+                    KotlinCompileException.class,
+                    () -> KotlinTestCompilePolicy.options(
+                            configWithGeneratedTestStep(generatedStep(kind)),
+                            sources(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(KOTLIN_TEST)),
+                            classpaths(List.of()),
+                            jdkStatus(),
+                            null));
+
+            assertTrue(failure.getMessage().contains("owned Java test-source generation"));
+            assertTrue(failure.getMessage().contains("kind = \"declared-root\""));
+        }
+
+        for (ProducesLane lane : List.of(ProducesLane.JAVA_SOURCES, ProducesLane.TEST_SOURCES)) {
+            KotlinCompileException failure = assertThrows(
+                    KotlinCompileException.class,
+                    () -> KotlinTestCompilePolicy.options(
+                            configWithGeneratedTestStep(execStep(lane)),
+                            sources(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(KOTLIN_TEST)),
+                            classpaths(List.of()),
+                            jdkStatus(),
+                            null));
+
+            assertTrue(failure.getMessage().contains("owned Java test-source generation"));
+        }
 
         for (ProducesLane lane : List.of(ProducesLane.TEST_RESOURCES, ProducesLane.INTERMEDIATE)) {
             KotlinCompilerRunner.Options options = KotlinTestCompilePolicy.options(
@@ -220,8 +236,7 @@ final class KotlinTestCompilePolicyTest {
 
             assertEquals("21", options.release());
         }
-        assertTrue(generatedJavaFailure.getMessage().contains("generated test sources"));
-        assertTrue(declaredRootFailure.getMessage().contains("generated test sources"));
+        assertEquals("21", declaredRoot.release());
     }
 
     @Test
@@ -311,6 +326,17 @@ final class KotlinTestCompilePolicyTest {
     private static ProjectConfig configWithGeneratedTestStep(GeneratedSourceStep step) {
         ProjectConfig config = config(CompilerSettings.defaults(), Map.of(), Map.of(), Map.of());
         return config.withBuildSettings(config.build().withGeneratedSources(List.of(), List.of(step)));
+    }
+
+    private static GeneratedSourceStep generatedStep(GeneratedSourceKind kind) {
+        return new GeneratedSourceStep(
+                "generated",
+                kind,
+                "java",
+                "generated/test",
+                List.of(),
+                true,
+                false);
     }
 
     private static GeneratedSourceStep execStep(ProducesLane lane) {

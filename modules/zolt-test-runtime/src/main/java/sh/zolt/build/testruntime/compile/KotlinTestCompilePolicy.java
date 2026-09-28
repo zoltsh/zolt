@@ -37,12 +37,12 @@ final class KotlinTestCompilePolicy {
                             + " Kotlin/Java joint compilation is supported.");
         }
         if (config.build().generatedTestSources().stream()
-                .anyMatch(KotlinTestCompilePolicy::producesJavaSources)) {
+                .anyMatch(KotlinTestCompilePolicy::producesOwnedJavaSources)) {
             throw unsupported(
-                    "generated test sources are configured",
-                    "Move generated Java tests into a separate member or keep this test source set"
-                            + " Java-only until generated-source ownership is qualified for Kotlin/Java"
-                            + " joint compilation.");
+                    "owned Java test-source generation is configured",
+                    "Use kind = \"declared-root\" for pre-generated Java tests, move generated Java"
+                            + " tests into a separate member, or keep this test source set Java-only"
+                            + " until generator ownership is qualified for Kotlin/Java joint compilation.");
         }
         if (!classpaths.testProcessor().entries().isEmpty()) {
             throw unsupported(
@@ -75,10 +75,13 @@ final class KotlinTestCompilePolicy {
         return options.withFriendPath(mainOutputDirectory);
     }
 
-    private static boolean producesJavaSources(GeneratedSourceStep step) {
-        return step.kind() != GeneratedSourceKind.EXEC
-                || step.exec().produces() == ProducesLane.JAVA_SOURCES
-                || step.exec().produces() == ProducesLane.TEST_SOURCES;
+    private static boolean producesOwnedJavaSources(GeneratedSourceStep step) {
+        return switch (step.kind()) {
+            case DECLARED_ROOT -> false;
+            case OPENAPI, PROTOBUF -> true;
+            case EXEC -> step.exec().produces() == ProducesLane.JAVA_SOURCES
+                    || step.exec().produces() == ProducesLane.TEST_SOURCES;
+        };
     }
 
     private static KotlinCompileException unsupported(String reason, String remediation) {
