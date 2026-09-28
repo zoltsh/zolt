@@ -67,7 +67,7 @@ final class CliNativeReflectionConfigTest {
     }
 
     @Test
-    void requiredTypeScannerIncludesCommandsMixinsAndOptionEnums() {
+    void requiredTypeScannerIncludesCommandsMixinsOptionEnumsAndConverters() {
         Set<String> requiredTypes = requiredReflectionTypes(new CommandLine(new FixtureCommand()));
 
         assertTrue(requiredTypes.contains(FixtureCommand.class.getName()));
@@ -75,6 +75,7 @@ final class CliNativeReflectionConfigTest {
         assertTrue(requiredTypes.contains(FixtureCommand.NestedCommand.class.getName()));
         assertTrue(requiredTypes.contains(FixtureMixin.class.getName()));
         assertTrue(requiredTypes.contains(FixtureMode.class.getName()));
+        assertTrue(requiredTypes.contains(FixtureModeConverter.class.getName()));
     }
 
     private static Set<String> requiredReflectionTypes(CommandLine root) {
@@ -110,8 +111,16 @@ final class CliNativeReflectionConfigTest {
                 if (field.isAnnotationPresent(Mixin.class)) {
                     addAnnotatedType(field.getType(), types);
                 }
-                if (field.isAnnotationPresent(Option.class) || field.isAnnotationPresent(Parameters.class)) {
+                Option option = field.getAnnotation(Option.class);
+                Parameters parameters = field.getAnnotation(Parameters.class);
+                if (option != null || parameters != null) {
                     addOptionValueType(field.getType(), types);
+                }
+                if (option != null) {
+                    addConverters(option.converter(), types);
+                }
+                if (parameters != null) {
+                    addConverters(parameters.converter(), types);
                 }
             }
             current = current.getSuperclass();
@@ -132,6 +141,12 @@ final class CliNativeReflectionConfigTest {
     private static void addOptionValueType(Class<?> type, Set<String> types) {
         if (type.isEnum()) {
             types.add(type.getName());
+        }
+    }
+
+    private static void addConverters(Class<?>[] converters, Set<String> types) {
+        for (Class<?> converter : converters) {
+            types.add(converter.getName());
         }
     }
 
@@ -163,7 +178,7 @@ final class CliNativeReflectionConfigTest {
             lines.add("Stale command reflection metadata:");
             staleCommandTypes.forEach(type -> lines.add("- " + type));
         }
-        lines.add("Update reflect-config.json when command classes, subcommands, option enums, or Picocli mixins change.");
+        lines.add("Update reflect-config.json when commands, option enums or converters, or Picocli mixins change.");
         return String.join(System.lineSeparator(), lines);
     }
 
@@ -193,12 +208,19 @@ final class CliNativeReflectionConfigTest {
     }
 
     static final class FixtureMixin {
-        @Option(names = "--mode")
+        @Option(names = "--mode", converter = FixtureModeConverter.class)
         private FixtureMode mode = FixtureMode.FAST;
     }
 
     enum FixtureMode {
         FAST,
         SLOW
+    }
+
+    static final class FixtureModeConverter implements CommandLine.ITypeConverter<FixtureMode> {
+        @Override
+        public FixtureMode convert(String value) {
+            return FixtureMode.valueOf(value);
+        }
     }
 }

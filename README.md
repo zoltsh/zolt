@@ -56,6 +56,9 @@ zolt package
 Zolt creates the project, resolves `zolt.lock`, runs its JUnit test, and
 packages it.
 
+Start a Kotlin/JVM project with `zolt init hello --language kotlin`. Java remains
+the default.
+
 ## Model
 
 ```txt

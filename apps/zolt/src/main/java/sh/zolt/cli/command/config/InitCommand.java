@@ -4,14 +4,17 @@ import sh.zolt.cli.CommandHumanOutput;
 import sh.zolt.cli.command.CommandFailures;
 import sh.zolt.cli.command.CommandProjectDirectory;
 import sh.zolt.init.ProjectInitException;
+import sh.zolt.init.ProjectInitLanguage;
 import sh.zolt.init.ProjectInitResult;
 import sh.zolt.init.ProjectInitializer;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.ITypeConverter;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Spec;
+import picocli.CommandLine.TypeConversionException;
 
 @Command(name = "init", description = "Create a new Zolt project.")
 public final class InitCommand implements Runnable {
@@ -25,6 +28,12 @@ public final class InitCommand implements Runnable {
 
     @Option(names = "--java", description = "Java version for zolt.toml.")
     private String javaVersion = "21";
+
+    @Option(
+            names = "--language",
+            converter = ProjectInitLanguageConverter.class,
+            description = "Source language: java or kotlin.")
+    private ProjectInitLanguage language = ProjectInitLanguage.JAVA;
 
     @Option(names = "--workspace", description = "Create a workspace root with a default app member.")
     private boolean workspace;
@@ -51,6 +60,19 @@ public final class InitCommand implements Runnable {
         this.projectInitializer = projectInitializer;
     }
 
+    public static final class ProjectInitLanguageConverter
+            implements ITypeConverter<ProjectInitLanguage> {
+        @Override
+        public ProjectInitLanguage convert(String value) {
+            for (ProjectInitLanguage candidate : ProjectInitLanguage.values()) {
+                if (candidate.id().equalsIgnoreCase(value)) {
+                    return candidate;
+                }
+            }
+            throw new TypeConversionException("expected one of: java, kotlin");
+        }
+    }
+
     @Override
     public void run() {
         if (allMembers && !workspace) {
@@ -60,8 +82,9 @@ public final class InitCommand implements Runnable {
         try {
             ProjectInitResult result = workspace
                     ? projectInitializer.initWorkspace(
-                            projectDirectory.path(), name, group, javaVersion, !noTests, allMembers)
-                    : projectInitializer.init(projectDirectory.path(), name, group, javaVersion, !noTests);
+                            projectDirectory.path(), name, group, javaVersion, !noTests, allMembers, language)
+                    : projectInitializer.init(
+                            projectDirectory.path(), name, group, javaVersion, !noTests, language);
             CommandHumanOutput output = CommandHumanOutput.of(spec);
             output.summary("Created Zolt " + (workspace ? "workspace" : "project") + " at " + result.projectDirectory());
             output.pointer("cd", result.projectDirectory().getFileName().toString());

@@ -5,6 +5,7 @@ import sh.zolt.toml.manifest.write.ManifestCanonicalWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Objects;
 
 public final class ProjectInitializer {
     private final ManifestCanonicalWriter writer;
@@ -27,6 +28,17 @@ public final class ProjectInitializer {
             String group,
             String javaVersion,
             boolean includeTests) {
+        return init(baseDirectory, name, group, javaVersion, includeTests, ProjectInitLanguage.JAVA);
+    }
+
+    public ProjectInitResult init(
+            Path baseDirectory,
+            String name,
+            String group,
+            String javaVersion,
+            boolean includeTests,
+            ProjectInitLanguage language) {
+        language = Objects.requireNonNull(language, "Project language is required.");
         validateProjectName(name);
         validateJavaPackage(group);
         int javaRelease = javaRelease(javaVersion);
@@ -39,20 +51,28 @@ public final class ProjectInitializer {
 
         String mainClass = group + ".Main";
         AuthoredManifest config =
-                InitManifests.project(name, group, javaRelease, mainClass, includeTests);
+                InitManifests.project(name, group, javaRelease, mainClass, includeTests, language);
 
         Path packagePath = Path.of(group.replace('.', '/'));
-        Path mainSource = projectDirectory.resolve("src/main/java").resolve(packagePath).resolve("Main.java");
-        Path testSource = projectDirectory.resolve("src/test/java").resolve(packagePath).resolve("MainTest.java");
+        Path mainSource = projectDirectory
+                .resolve("src/main/" + language.id())
+                .resolve(packagePath)
+                .resolve("Main." + language.sourceExtension());
+        Path testSource = projectDirectory
+                .resolve("src/test/" + language.id())
+                .resolve(packagePath)
+                .resolve("MainTest." + language.sourceExtension());
         Path configFile = projectDirectory.resolve("zolt.toml");
 
         try {
             Files.createDirectories(mainSource.getParent());
             writeManifest(configFile, config);
-            Files.writeString(mainSource, mainSource(name, group));
+            Files.writeString(
+                    mainSource, ProjectSourceTemplates.mainSource(name, group, language));
             if (includeTests) {
                 Files.createDirectories(testSource.getParent());
-                Files.writeString(testSource, testSource(name, group));
+                Files.writeString(
+                        testSource, ProjectSourceTemplates.testSource(name, group, language));
             }
             Files.writeString(projectDirectory.resolve(".gitignore"), gitignore());
         } catch (IOException exception) {
@@ -87,6 +107,25 @@ public final class ProjectInitializer {
             String javaVersion,
             boolean includeTests,
             boolean allMembers) {
+        return initWorkspace(
+                baseDirectory,
+                name,
+                group,
+                javaVersion,
+                includeTests,
+                allMembers,
+                ProjectInitLanguage.JAVA);
+    }
+
+    public ProjectInitResult initWorkspace(
+            Path baseDirectory,
+            String name,
+            String group,
+            String javaVersion,
+            boolean includeTests,
+            boolean allMembers,
+            ProjectInitLanguage language) {
+        language = Objects.requireNonNull(language, "Project language is required.");
         validateProjectName(name);
         validateJavaPackage(group);
         int javaRelease = javaRelease(javaVersion);
@@ -100,13 +139,19 @@ public final class ProjectInitializer {
         String memberPath = "apps/" + name;
         Path projectDirectory = workspaceDirectory.resolve(memberPath).normalize();
         String mainClass = group + ".Main";
-        AuthoredManifest config = InitManifests.member(name, mainClass, includeTests);
+        AuthoredManifest config = InitManifests.member(name, mainClass, includeTests, language);
         AuthoredManifest workspaceConfig =
-                InitManifests.workspaceRoot(name, group, javaRelease, memberPath, allMembers);
+                InitManifests.workspaceRoot(name, group, javaRelease, memberPath, allMembers, language);
 
         Path packagePath = Path.of(group.replace('.', '/'));
-        Path mainSource = projectDirectory.resolve("src/main/java").resolve(packagePath).resolve("Main.java");
-        Path testSource = projectDirectory.resolve("src/test/java").resolve(packagePath).resolve("MainTest.java");
+        Path mainSource = projectDirectory
+                .resolve("src/main/" + language.id())
+                .resolve(packagePath)
+                .resolve("Main." + language.sourceExtension());
+        Path testSource = projectDirectory
+                .resolve("src/test/" + language.id())
+                .resolve(packagePath)
+                .resolve("MainTest." + language.sourceExtension());
         Path rootConfigFile = workspaceDirectory.resolve("zolt.toml");
         Path memberConfigFile = projectDirectory.resolve("zolt.toml");
 
@@ -114,10 +159,12 @@ public final class ProjectInitializer {
             Files.createDirectories(mainSource.getParent());
             writeManifest(rootConfigFile, workspaceConfig);
             writeManifest(memberConfigFile, config);
-            Files.writeString(mainSource, mainSource(name, group));
+            Files.writeString(
+                    mainSource, ProjectSourceTemplates.mainSource(name, group, language));
             if (includeTests) {
                 Files.createDirectories(testSource.getParent());
-                Files.writeString(testSource, testSource(name, group));
+                Files.writeString(
+                        testSource, ProjectSourceTemplates.testSource(name, group, language));
             }
             Files.writeString(workspaceDirectory.resolve(".gitignore"), gitignore());
         } catch (IOException exception) {
@@ -139,42 +186,6 @@ public final class ProjectInitializer {
             throw new ProjectInitException(
                     "Could not inspect project directory " + directory + ". Check filesystem permissions.");
         }
-    }
-
-    private static String mainSource(String projectName, String group) {
-        return """
-                package %s;
-
-                public final class Main {
-                    private Main() {
-                    }
-
-                    public static void main(String[] args) {
-                        System.out.println(greeting());
-                    }
-
-                    static String greeting() {
-                        return "Hello from %s!";
-                    }
-                }
-                """.formatted(group, escapeJavaString(projectName));
-    }
-
-    private static String testSource(String projectName, String group) {
-        return """
-                package %s;
-
-                import static org.junit.jupiter.api.Assertions.assertEquals;
-
-                import org.junit.jupiter.api.Test;
-
-                final class MainTest {
-                    @Test
-                    void greets() {
-                        assertEquals("Hello from %s!", Main.greeting());
-                    }
-                }
-                """.formatted(group, escapeJavaString(projectName));
     }
 
     private static String gitignore() {
@@ -237,12 +248,4 @@ public final class ProjectInitializer {
         return true;
     }
 
-    private static String escapeJavaString(String value) {
-        return value
-                .replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-                .replace("\r", "\\r")
-                .replace("\t", "\\t");
-    }
 }

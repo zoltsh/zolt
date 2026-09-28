@@ -13,6 +13,10 @@ zolt package
 ```
 
 `init` includes JUnit and a passing test. Use `--no-tests` for a bare project.
+Pass `--language kotlin` to generate a Kotlin/JVM application with an aligned
+compiler, standard library, and explicit Kotlin main root. The default template
+also includes a Kotlin test root and passing JUnit test; `--no-tests` omits them.
+Java is the default language.
 
 ## Build
 

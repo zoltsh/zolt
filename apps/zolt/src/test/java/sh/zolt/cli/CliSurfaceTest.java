@@ -119,6 +119,38 @@ final class CliSurfaceTest {
     }
 
     @Test
+    void initCreatesKotlinProjectWhenSelected() throws IOException {
+        CommandResult result = execute(
+                "init",
+                "--language", "kotlin",
+                "--directory", tempDir.toString(),
+                "hello-kotlin");
+
+        Path project = tempDir.resolve("hello-kotlin");
+        assertEquals(0, result.exitCode());
+        assertEquals("", result.stderr());
+        assertTrue(Files.exists(project.resolve("src/main/kotlin/com/example/Main.kt")));
+        assertTrue(Files.exists(project.resolve("src/test/kotlin/com/example/MainTest.kt")));
+        String manifest = Files.readString(project.resolve("zolt.toml"));
+        assertTrue(manifest.contains("[toolchain.kotlin]"), manifest);
+        assertTrue(manifest.contains("sources = [\"src/main/kotlin\"]"), manifest);
+    }
+
+    @Test
+    void initRejectsUnknownProjectLanguageBeforeWriting() {
+        CommandResult result = execute(
+                "init",
+                "--language", "scala",
+                "--directory", tempDir.toString(),
+                "hello-scala");
+
+        assertEquals(2, result.exitCode());
+        assertTrue(result.stderr().contains("Invalid value for option '--language'"));
+        assertTrue(result.stderr().contains("expected one of: java, kotlin"));
+        assertFalse(Files.exists(tempDir.resolve("hello-scala")));
+    }
+
+    @Test
     void initCreatesWorkspaceAndDefaultAppMember() {
         CommandResult result = execute("init", "--workspace", "--directory", tempDir.toString(), "platform");
 
@@ -128,6 +160,28 @@ final class CliSurfaceTest {
         assertTrue(Files.exists(tempDir.resolve("platform/zolt.toml")));
         assertTrue(Files.exists(tempDir.resolve("platform/apps/platform/zolt.toml")));
         assertTrue(Files.exists(tempDir.resolve("platform/apps/platform/src/main/java/com/example/Main.java")));
+    }
+
+    @Test
+    void initCreatesKotlinWorkspaceWithoutTestsWhenSelected() throws IOException {
+        CommandResult result = execute(
+                "init",
+                "--workspace",
+                "--language", "kotlin",
+                "--no-tests",
+                "--directory", tempDir.toString(),
+                "kotlin-platform");
+
+        Path workspace = tempDir.resolve("kotlin-platform");
+        Path member = workspace.resolve("apps/kotlin-platform");
+        assertEquals(0, result.exitCode());
+        assertEquals("", result.stderr());
+        assertTrue(Files.readString(workspace.resolve("zolt.toml"))
+                .contains("[toolchain.kotlin]"));
+        assertTrue(Files.exists(member.resolve("src/main/kotlin/com/example/Main.kt")));
+        assertFalse(Files.exists(member.resolve("src/test")));
+        assertFalse(Files.readString(member.resolve("zolt.toml")).contains("junit"));
+        assertFalse(Files.exists(member.resolve("src/main/java")));
     }
 
     @Test

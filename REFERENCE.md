@@ -15,6 +15,11 @@ zolt run-package
 ```
 
 `init` includes JUnit and a passing test. Use `--no-tests` for a bare project.
+Use `--language kotlin` for a Kotlin/JVM project; Java remains the default. The
+Kotlin template pins the compiler and standard library to the same version,
+declares an explicit Kotlin main root, and works for standalone projects and the
+default member created by `--workspace`. Unless `--no-tests` is passed, it also
+declares a Kotlin test root and emits a passing JUnit test.
 `test` resolves the lockfile before compiling and running the suite.
 
 ## Command Map
@@ -23,6 +28,7 @@ Common project commands:
 
 ```sh
 zolt init NAME
+zolt init NAME --language kotlin
 zolt init NAME --no-tests
 zolt resolve
 zolt build
@@ -629,6 +635,12 @@ during this preview: the default main root remains `src/main/java`, so declare
 `src/main/kotlin` (or another root) under `[build].sources`. Zolt discovers `.kt`
 files, but not Kotlin scripts (`.kts`). A mixed executable project looks like
 this:
+
+`zolt init NAME --language kotlin` emits a Kotlin-only executable with the
+required toolchain, standard-library dependency, and main source root already
+aligned. By default it also emits a matching JUnit test and test root;
+`--no-tests` omits both. Add Java roots explicitly when evolving that template
+into a mixed project.
 
 ```toml
 [project]
