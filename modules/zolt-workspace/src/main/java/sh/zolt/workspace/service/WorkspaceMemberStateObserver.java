@@ -162,6 +162,30 @@ final class WorkspaceMemberStateObserver {
                 abiDigest(context.memberGraph().test(member.path()))));
     }
 
+    TestCompilationState successfulTestCompilation(
+            WorkspaceMember member,
+            String mainManifestDigest) {
+        var build = member.config().build();
+        String resources = context.fileSnapshot()
+                .resources(
+                        member.path(),
+                        WorkspaceFileKind.TEST_RESOURCE,
+                        member.directory(),
+                        build.testResourceRoots())
+                .digest();
+        String manifest = context.abiIndex()
+                .refreshTest(member.directory()
+                        .resolve(build.testOutput())
+                        .toAbsolutePath()
+                        .normalize())
+                .map(IncrementalCompileSummary::outputManifestDigest)
+                .orElse("");
+        return new TestCompilationState(
+                testCompileKey(member, mainManifestDigest),
+                resources,
+                manifest);
+    }
+
     int sourceCount(WorkspaceMember member) {
         return context.fileSnapshot()
                 .mainSources(
@@ -286,6 +310,12 @@ final class WorkspaceMemberStateObserver {
                                 member.directory(),
                                 inputs)
                         .digest());
+    }
+
+    record TestCompilationState(
+            String compileKey,
+            String resourceTreeDigest,
+            String outputManifestDigest) {
     }
 
 }

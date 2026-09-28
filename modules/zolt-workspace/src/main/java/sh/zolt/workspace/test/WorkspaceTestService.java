@@ -18,6 +18,7 @@ import sh.zolt.workspace.service.WorkspaceJdkCheckerResolver;
 import sh.zolt.workspace.service.WorkspaceMutationLock;
 import sh.zolt.workspace.service.WorkspacePlanTarget;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
+import sh.zolt.workspace.service.WorkspaceTestStateCommitter;
 import sh.zolt.workspace.testpool.WorkspaceTestConcurrency;
 import java.nio.file.Path;
 import java.util.List;
@@ -25,6 +26,8 @@ import java.util.List;
 public final class WorkspaceTestService {
     private final WorkspaceBuildService workspaceBuildService;
     private final WorkspaceTestRunServiceResolver testRunServices;
+    private final WorkspaceTestStateCommitter testStateCommitter =
+            new WorkspaceTestStateCommitter();
 
     public WorkspaceTestService() {
         this(new JdkDetector());
@@ -127,8 +130,10 @@ public final class WorkspaceTestService {
             WorkspaceBuildResult buildResult) {
         try (WorkspaceMutationLock ignored =
                 WorkspaceMutationLock.acquire(plan.workspace().root())) {
-            return new WorkspaceTestCompileExecutor(testRunServices)
+            WorkspaceTestCompileResult result = new WorkspaceTestCompileExecutor(testRunServices)
                     .compile(plan.requireInputsCurrent(), buildResult);
+            commitTestState(plan, buildResult);
+            return result;
         }
     }
 
@@ -256,7 +261,7 @@ public final class WorkspaceTestService {
             WorkspaceTestConcurrency concurrency) {
         try (WorkspaceMutationLock ignored =
                 WorkspaceMutationLock.acquire(plan.workspace().root())) {
-            return new WorkspaceTestRunner(testRunServices, concurrency).runUnit(
+            WorkspaceTestResult result = new WorkspaceTestRunner(testRunServices, concurrency).runUnit(
                     plan,
                     buildResult,
                     testSelection,
@@ -266,6 +271,8 @@ public final class WorkspaceTestService {
                     suiteName,
                     shard,
                     profileSettings);
+            commitTestState(plan, buildResult);
+            return result;
         }
     }
 
@@ -307,5 +314,13 @@ public final class WorkspaceTestService {
                     reportSettings,
                     cliEvents);
         }
+    }
+
+    private void commitTestState(
+            WorkspaceBuildPlan plan,
+            WorkspaceBuildResult buildResult) {
+        testStateCommitter.commitSelected(
+                plan,
+                buildResult.membersRequiringTestCompile());
     }
 }

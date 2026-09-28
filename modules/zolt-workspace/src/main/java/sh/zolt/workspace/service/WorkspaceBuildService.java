@@ -234,6 +234,10 @@ public final class WorkspaceBuildService {
                 execution.admitted(),
                 execution.pipelineInvocations(),
                 execution.finalizations());
+        Set<String> pendingTestCompiles = WorkspaceMemberBuildInputs.testCompileRequired(
+                selection,
+                dirtyPlan,
+                execution.executedMembers());
         dirtyPlanner.writeCurrent(
                 context,
                 selection,
@@ -241,17 +245,15 @@ public final class WorkspaceBuildService {
                 inputs.requirements(),
                 inputs.toolchainIdentities(),
                 dirtyPlan,
-                execution.executedMembers());
+                execution.executedMembers(),
+                pendingTestCompiles);
         return new WorkspaceBuildResult(
                 plan.resolveResult(),
                 execution.results(),
                 execution.waveCount(),
                 execution.maxWorkers(),
                 context.metrics(),
-                WorkspaceMemberBuildInputs.testCompileRequired(
-                        selection,
-                        dirtyPlan,
-                        execution.executedMembers()));
+                pendingTestCompiles);
     }
 
     /**

@@ -9,8 +9,8 @@ package sh.zolt.build;
  * earlier version unsafe to reuse.
  */
 public final class CompilationSemantics {
-    /** Version 7 cleans outputs that may contain Kotlin files copied as resources by version 6. */
-    public static final String VERSION = "7";
+    /** Version 8 invalidates workspace test keys written before Kotlin test compilation was enabled. */
+    public static final String VERSION = "8";
 
     private CompilationSemantics() {}
 }

@@ -120,7 +120,8 @@ final class WorkspaceDirtyPlanner {
             Map<String, WorkspaceBuildRequirements> requirementsByMember,
             Map<String, String> toolchainIdentitiesByMember,
             WorkspaceDirtyPlan plan,
-            Set<String> executedMembers) {
+            Set<String> executedMembers,
+            Set<String> pendingTestCompiles) {
         Map<String, WorkspaceMemberState> current =
                 new LinkedHashMap<>(plan.previousState().members());
         WorkspaceMemberStateObserver observer =
@@ -131,7 +132,12 @@ final class WorkspaceDirtyPlanner {
                     memberPath,
                     WorkspaceBuildRequirements.mainBuild());
             if (!executedMembers.contains(memberPath)) {
-                current.put(memberPath, plan.member(memberPath).candidateState());
+                current.put(
+                        memberPath,
+                        preservePendingTestLane(
+                                plan.member(memberPath).candidateState(),
+                                plan.previousState().member(memberPath),
+                                pendingTestCompiles.contains(memberPath)));
                 continue;
             }
             context.fileSnapshot().forget(memberPath, WorkspaceFileKind.GENERATED_OUTPUT);
@@ -141,17 +147,34 @@ final class WorkspaceDirtyPlanner {
                 context.abiIndex().refreshTest(
                         member.directory().resolve(member.config().build().testOutput()));
             }
+            WorkspaceMemberState observed = observer.observe(
+                    member,
+                    requirements,
+                    toolchainIdentitiesByMember.getOrDefault(memberPath, ""),
+                    plan.previousState().member(memberPath));
             current.put(
                     memberPath,
-                    observer.observe(
-                            member,
-                            requirements,
-                            toolchainIdentitiesByMember.getOrDefault(memberPath, ""),
-                            plan.previousState().member(memberPath)));
+                    preservePendingTestLane(
+                            observed,
+                            plan.previousState().member(memberPath),
+                            pendingTestCompiles.contains(memberPath)));
         }
         stateStore.write(
                 context.workspace().root(),
                 new WorkspaceState(current, context.fileSnapshot().state()));
+    }
+
+    private static WorkspaceMemberState preservePendingTestLane(
+            WorkspaceMemberState observed,
+            Optional<WorkspaceMemberState> previous,
+            boolean pending) {
+        if (!pending) {
+            return observed;
+        }
+        return observed.withTestCompilation(
+                previous.map(WorkspaceMemberState::testCompileKey).orElse(""),
+                previous.map(WorkspaceMemberState::testResourceTreeDigest).orElse(""),
+                previous.map(WorkspaceMemberState::testOutputManifestDigest).orElse(""));
     }
 
     private List<WorkspaceDirtyReason> reasons(
@@ -271,7 +294,8 @@ final class WorkspaceDirtyPlanner {
                 .resolve(member.config().build().testOutput())
                 .toAbsolutePath()
                 .normalize();
-        if (!outputsCurrent(testOutput, IncrementalCompileState.testStatePath(testOutput))) {
+        if (!outputsCurrent(testOutput, IncrementalCompileState.testStatePath(testOutput))
+                || !fingerprintOutputs.testOutputsCurrent(member.directory(), testOutput)) {
             reasons.add(WorkspaceDirtyReason.TEST_OUTPUT_MISSING);
         }
     }
