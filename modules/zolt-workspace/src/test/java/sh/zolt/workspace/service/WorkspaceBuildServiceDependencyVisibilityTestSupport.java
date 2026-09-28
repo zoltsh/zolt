@@ -103,6 +103,17 @@ abstract class WorkspaceBuildServiceDependencyVisibilityTestSupport {
                 dependencyVersion);
     }
 
+    final void addPrebuiltJarArtifact(
+            String groupId,
+            String artifactId,
+            String version,
+            Path jar) throws IOException {
+        String base = "/maven2/%s/%s/%s/%s-%s"
+                .formatted(groupId.replace('.', '/'), artifactId, version, artifactId, version);
+        responses.put(base + ".pom", pom(groupId, artifactId, version).getBytes(StandardCharsets.UTF_8));
+        responses.put(base + ".jar", Files.readAllBytes(jar));
+    }
+
     private void addJarArtifact(
             String groupId,
             String artifactId,
