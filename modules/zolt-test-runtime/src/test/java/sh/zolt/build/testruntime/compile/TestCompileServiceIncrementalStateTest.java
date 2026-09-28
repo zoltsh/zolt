@@ -6,8 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.build.JavacException;
+import sh.zolt.build.compile.EffectiveCompilerIdentity;
 import sh.zolt.build.incremental.IncrementalCompileState;
 import sh.zolt.build.incremental.IncrementalCompileStateCodec;
+import sh.zolt.doctor.JdkDetector;
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectConfigs;
@@ -51,6 +53,12 @@ final class TestCompileServiceIncrementalStateTest {
         assertTrue(Files.exists(projectDir.resolve("target/classes/.zolt-build-main.fingerprint.state")));
         assertTrue(Files.exists(projectDir.resolve("target/test-classes/.zolt-build-test.fingerprint.state")));
         assertTrue(Files.exists(projectDir.resolve("target/test-classes/com/example/MainTest.class")));
+        IncrementalCompileState state = new IncrementalCompileStateCodec()
+                .read(projectDir.resolve("target/test-classes/.zolt-incremental-test.state"))
+                .orElseThrow();
+        assertEquals(
+                EffectiveCompilerIdentity.of(new JdkDetector().detect(config().project().java())),
+                state.compilerIdentity());
     }
 
     @Test

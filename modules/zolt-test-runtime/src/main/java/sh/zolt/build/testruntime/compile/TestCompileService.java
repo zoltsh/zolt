@@ -16,6 +16,8 @@ import sh.zolt.build.cache.BuildCacheService;
 import sh.zolt.build.compile.CompileOutputLayoutValidator;
 import sh.zolt.build.compile.EffectiveCompilerIdentity;
 import sh.zolt.build.compile.GroovyCompilerRunner;
+import sh.zolt.build.compile.GroovyCompilerToolchain;
+import sh.zolt.build.compile.GroovyCompilerToolchainResolver;
 import sh.zolt.build.compile.JavacRunner;
 import sh.zolt.build.fingerprint.BuildFingerprintCheck;
 import sh.zolt.build.resources.ResourceCopier;
@@ -56,6 +58,8 @@ public final class TestCompileService {
     private final TestCompileSourceExecutor sourceExecutor;
     private final BuildCacheService buildCacheService;
     private final TestCompileCacheGate cacheGate;
+    private final GroovyCompilerToolchainResolver groovyCompilerToolchainResolver =
+            new GroovyCompilerToolchainResolver();
 
     public TestCompileService() {
         this(new JdkDetector());
@@ -228,7 +232,12 @@ public final class TestCompileService {
         if (!jdkStatus.ok()) {
             throw new BuildException("JDK check failed. " + String.join(" ", jdkStatus.problems()));
         }
-        String compilerIdentity = EffectiveCompilerIdentity.of(jdkStatus);
+        GroovyCompilerToolchain groovyCompilerToolchain = sources.groovyTestSources().isEmpty()
+                ? null
+                : groovyCompilerToolchainResolver.resolve(
+                        classpathPackages,
+                        GroovyCompilerToolchainResolver.SourceSet.TEST);
+        String compilerIdentity = compilerIdentity(jdkStatus, groovyCompilerToolchain);
 
         List<Path> testCompileEntries = new ArrayList<>();
         testCompileEntries.add(buildResult.outputDirectory());
@@ -239,6 +248,9 @@ public final class TestCompileService {
         groovyCompileEntries.add(outputDirectory);
         groovyCompileEntries.addAll(testCompileEntries);
         Classpath groovyCompileClasspath = new Classpath(groovyCompileEntries);
+        Classpath groovyCompilerLauncherClasspath = groovyCompilerToolchain == null
+                ? new Classpath(List.of())
+                : groovyCompilerToolchain.launcherClasspath();
         Path generatedSourcesDirectory = GeneratedSourcesDirectory.test(
                 projectDirectory, config.compilerSettings().generatedTestSources());
         Path lockfilePath = context.lockfilePath();
@@ -278,10 +290,12 @@ public final class TestCompileService {
                 sources,
                 classpaths,
                 testCompileClasspath,
+                groovyCompilerLauncherClasspath,
                 groovyCompileClasspath,
                 outputDirectory,
                 generatedSourcesDirectory,
-                jdkStatus);
+                jdkStatus,
+                compilerIdentity);
         // Post-compile exec steps run after test compilation, before test resource copy consumes them.
         execGeneratedSourceService.generateTestPostCompile(projectDirectory, config, classpathPackages, false);
         ResourceCopyResult resourceResult = resourceCopier.copyTestResources(projectDirectory, config);
@@ -341,6 +355,15 @@ public final class TestCompileService {
 
     private static long elapsedSince(long started) {
         return Math.max(0L, System.nanoTime() - started);
+    }
+
+    private static String compilerIdentity(
+            JdkStatus jdkStatus,
+            GroovyCompilerToolchain groovyCompilerToolchain) {
+        if (groovyCompilerToolchain == null) {
+            return EffectiveCompilerIdentity.of(jdkStatus);
+        }
+        return EffectiveCompilerIdentity.of(jdkStatus, groovyCompilerToolchain);
     }
 
 }

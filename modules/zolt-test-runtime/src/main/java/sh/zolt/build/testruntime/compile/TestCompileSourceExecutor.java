@@ -3,7 +3,6 @@ package sh.zolt.build.testruntime.compile;
 import sh.zolt.build.CompileDiagnostics;
 import sh.zolt.build.compile.CompileOutputCleaner;
 import sh.zolt.build.compile.CompilerPlatformApi;
-import sh.zolt.build.compile.EffectiveCompilerIdentity;
 import sh.zolt.build.compile.GroovyCompilerRunner;
 import sh.zolt.build.JavacException;
 import sh.zolt.build.compile.IncrementalJavacExecution;
@@ -50,10 +49,12 @@ final class TestCompileSourceExecutor {
             SourceDiscoveryResult sources,
             ClasspathSet classpaths,
             Classpath testCompileClasspath,
+            Classpath groovyCompilerLauncherClasspath,
             Classpath groovyCompileClasspath,
             Path outputDirectory,
             Path generatedSourcesDirectory,
-            JdkStatus jdkStatus) {
+            JdkStatus jdkStatus,
+            String compilerIdentity) {
         if (compileSkipped) {
             return new Attempt(
                     new JavacResult(sources.testSources().size(), outputDirectory, ""),
@@ -75,7 +76,7 @@ final class TestCompileSourceExecutor {
                 classpaths.testProcessor(),
                 outputDirectory,
                 generatedSourcesDirectory,
-                EffectiveCompilerIdentity.of(jdkStatus));
+                compilerIdentity);
         if (plan.incremental()) {
             return withPlatformApiWarning(
                     incrementalCompile(
@@ -84,6 +85,7 @@ final class TestCompileSourceExecutor {
                             jdkStatus,
                             sources,
                             testCompileClasspath,
+                            groovyCompilerLauncherClasspath,
                             groovyCompileClasspath,
                             outputDirectory,
                             generatedSourcesDirectory,
@@ -100,6 +102,7 @@ final class TestCompileSourceExecutor {
                         jdkStatus,
                         sources,
                         testCompileClasspath,
+                        groovyCompilerLauncherClasspath,
                         groovyCompileClasspath,
                         outputDirectory,
                         generatedSourcesDirectory,
@@ -135,6 +138,7 @@ final class TestCompileSourceExecutor {
             JdkStatus jdkStatus,
             SourceDiscoveryResult sources,
             Classpath testCompileClasspath,
+            Classpath groovyCompilerLauncherClasspath,
             Classpath groovyCompileClasspath,
             Path outputDirectory,
             Path generatedSourcesDirectory,
@@ -159,6 +163,7 @@ final class TestCompileSourceExecutor {
                     jdkStatus,
                     sources,
                     testCompileClasspath,
+                    groovyCompilerLauncherClasspath,
                     groovyCompileClasspath,
                     outputDirectory,
                     generatedSourcesDirectory,
@@ -177,6 +182,7 @@ final class TestCompileSourceExecutor {
                     jdkStatus,
                     sources,
                     testCompileClasspath,
+                    groovyCompilerLauncherClasspath,
                     groovyCompileClasspath,
                     outputDirectory,
                     generatedSourcesDirectory, classpaths, options, plan, waves.validation().fallbackReason());
@@ -188,6 +194,7 @@ final class TestCompileSourceExecutor {
                     jdkStatus,
                     sources,
                     testCompileClasspath,
+                    groovyCompilerLauncherClasspath,
                     groovyCompileClasspath,
                     outputDirectory,
                     generatedSourcesDirectory, classpaths, options, plan, "processor-unattributed-output");
@@ -212,6 +219,7 @@ final class TestCompileSourceExecutor {
             JdkStatus jdkStatus,
             SourceDiscoveryResult sources,
             Classpath testCompileClasspath,
+            Classpath groovyCompilerLauncherClasspath,
             Classpath groovyCompileClasspath,
             Path outputDirectory,
             Path generatedSourcesDirectory,
@@ -226,6 +234,7 @@ final class TestCompileSourceExecutor {
                 jdkStatus,
                 sources,
                 testCompileClasspath,
+                groovyCompilerLauncherClasspath,
                 groovyCompileClasspath,
                 outputDirectory,
                 generatedSourcesDirectory,
@@ -242,6 +251,7 @@ final class TestCompileSourceExecutor {
             JdkStatus jdkStatus,
             SourceDiscoveryResult sources,
             Classpath testCompileClasspath,
+            Classpath groovyCompilerLauncherClasspath,
             Classpath groovyCompileClasspath,
             Path outputDirectory,
             Path generatedSourcesDirectory,
@@ -264,6 +274,7 @@ final class TestCompileSourceExecutor {
         JavacResult groovyResult = groovyCompilerRunner.compile(
                 jdkStatus.java().orElseThrow(),
                 sources.groovyTestSources(),
+                groovyCompilerLauncherClasspath,
                 groovyCompileClasspath,
                 outputDirectory);
         return new Attempt(
