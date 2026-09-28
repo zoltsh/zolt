@@ -9,8 +9,8 @@ package sh.zolt.build;
  * earlier version unsafe to reuse.
  */
 public final class CompilationSemantics {
-    /** Version 8 invalidates workspace test keys written before Kotlin test compilation was enabled. */
-    public static final String VERSION = "8";
+    /** Version 9 invalidates reuse state that omitted Kotlin module metadata from output digests. */
+    public static final String VERSION = "9";
 
     private CompilationSemantics() {}
 }

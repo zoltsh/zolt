@@ -178,6 +178,7 @@ public final class IncrementalCompileStateRecorder {
         Map<Path, String> generatedStepIds = generatedStepIds(projectRoot, generatedSteps);
         List<ClassFileAbi> classFiles = classFiles(outputDirectory, stateFallbackReasons);
         List<IncrementalCompileState.ClassRecord> classRecords = classRecords(classFiles);
+        IncrementalCompileOutputDigests digests = IncrementalCompileOutputDigests.capture(outputDirectory, classRecords);
         List<IncrementalCompileState.SourceRecord> baseRecords = sourceRecordBuilder.sourceRecords(
                 projectRoot,
                 sources,
@@ -198,9 +199,9 @@ public final class IncrementalCompileStateRecorder {
                         hashText(config.compilerSettings().toString()),
                         compilerIdentity,
                         hash(fingerprintPath),
-                        "",
-                        "",
-                        "",
+                        digests.publicAbiDigest(),
+                        digests.packagePrivateAbiDigest(),
+                        digests.outputManifestDigest(),
                         stateFallbackReasons,
                         sourceRoots.stream().map(path -> relative(projectRoot, path)).toList(),
                         generatedSteps.stream().map(GeneratedSourceStep::output).sorted().toList(),

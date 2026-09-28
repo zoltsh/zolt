@@ -63,13 +63,13 @@ final class BuildServiceConservativeCompilationTest {
     }
 
     @Test
-    void priorSemanticsFingerprintForcesOneCleanFullCompileOnUpgrade() throws IOException {
+    void immediatePriorSemanticsFingerprintForcesOneCleanFullCompileOnUpgrade() throws IOException {
         writeLockfile(projectDir, "version = 7\n");
         source(projectDir, "src/main/java/p/Main.java", "package p; public final class Main {}\n");
         buildService.build(projectDir, config(), projectDir.resolve("cache"));
         Path fingerprint = projectDir.resolve("target/classes/.zolt-build-main.fingerprint");
         String oldFingerprint = Files.readString(fingerprint)
-                .replaceFirst("version=" + CompilationSemantics.VERSION, "version=6");
+                .replaceFirst("version=" + CompilationSemantics.VERSION, "version=8");
         Files.writeString(fingerprint, oldFingerprint);
         Path fingerprintState = fingerprint.resolveSibling(fingerprint.getFileName() + ".state");
         String oldState = Files.readString(fingerprintState).replaceFirst(
