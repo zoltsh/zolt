@@ -1,8 +1,8 @@
 version = 7
-aliasFingerprint = "sha256:82cab685fd1652d9906ce0840c560e4dd63a5885bea25bb8b2f3ee9eb837a511"
-projectResolutionFingerprint = "sha256:6a131c0d01b3d55953ed695d55044180ecaef1c43016471c13fd0b6c33b253ab"
-projectResolutionInputFingerprints = ["dependencies.api.workspace=sha256:e278f2c880bafff02f44f9d403dd68e11930a5f8e5c1d8c49e6cb9ae74963d17", "dependencies.api=sha256:4ce39b687df3a02e2eb24d4b1b2d55903971a2cfeb8593fba3cb52c81fd3bd9c", "dependencies.compile.workspace=sha256:5fa3d40686774c104593200c7c73594199c08f78e75617df760f179128c91d86", "dependencies.compile=sha256:1fe5ba2691695db8da4e166c2015e5ba3a85d075109bcc23012709fcfcd89645", "dependencies.provided=sha256:ee9fd5151af21151e1229a58161679fb2d82e7365fd91fa9b04205c966c8416a", "dependencies.test=sha256:59f3bada438a52e34eb4820056be6528f8f9e0b61b2a47cf743b0b10691c3634", "dependencyMetadata=sha256:e2e29d7d9398f5d79dd11617185c4c357193b8dcde44bba41cd2f4a32a0e1b17", "framework.quarkus=sha256:1a03038e3b6c11a6598e959b5526786bc942bd2d0e7cb6aec2401dcd36bafc1b", "framework.springBoot.native=sha256:cf597ee2519b656c8bdeb8a1aaaf81b8c9da20d7b82a94cb0643edd20e98e19f", "java=sha256:c822ebc7e176990dd66771c2496f47b8ee0f6451df7ddfa87c44aebff0a6edf6", "package=sha256:ba2fd61e998d4fab4a9205d2785ca9a48464a401346bebf655e28156a0a304c1", "repositories=sha256:e50e1129945e4af12f6d6b822fe1b5548c9425f8a3f0cfeadfb1fb4a646902e1", "schema=sha256:a08549d13c2f16087cfcaf4458dbe9436970632fe503bb7217f88c16428d2ddd", "versions=sha256:a3a7ef936f988c00f60b99522f005b051faac338f9c2e7d8b2671592a72b925f"]
-workspaceResolutionInputFingerprint = "sha256:f8fd9ac7cf7dda97a16b5cc133f8852120b4f8202a34febefd7f2cfbe83fa06f"
+aliasFingerprint = "sha256:c87d52d0f53b8c56813f0280aa91731bdf10838f4fef9d5bb93cdf3ac224883a"
+projectResolutionFingerprint = "sha256:399b90a33b4e46159fcc0be79d2fcce1cd37a6d6436af1e8af5c4705274bcfb1"
+projectResolutionInputFingerprints = ["dependencies.api.workspace=sha256:e278f2c880bafff02f44f9d403dd68e11930a5f8e5c1d8c49e6cb9ae74963d17", "dependencies.api=sha256:4ce39b687df3a02e2eb24d4b1b2d55903971a2cfeb8593fba3cb52c81fd3bd9c", "dependencies.compile.workspace=sha256:5fa3d40686774c104593200c7c73594199c08f78e75617df760f179128c91d86", "dependencies.compile=sha256:1fe5ba2691695db8da4e166c2015e5ba3a85d075109bcc23012709fcfcd89645", "dependencies.provided=sha256:ee9fd5151af21151e1229a58161679fb2d82e7365fd91fa9b04205c966c8416a", "dependencies.test=sha256:6a0f0ba9e08916fc7b2bcbd9b4b512a3e83a8e4e8f766dcca1f05da565a530a0", "dependencyMetadata=sha256:c4e14068ec033f2b0f920a6ce399e3c513dd2c5a4836a6002063f792f2b3d844", "framework.quarkus=sha256:1a03038e3b6c11a6598e959b5526786bc942bd2d0e7cb6aec2401dcd36bafc1b", "framework.springBoot.native=sha256:cf597ee2519b656c8bdeb8a1aaaf81b8c9da20d7b82a94cb0643edd20e98e19f", "java=sha256:c822ebc7e176990dd66771c2496f47b8ee0f6451df7ddfa87c44aebff0a6edf6", "package=sha256:ba2fd61e998d4fab4a9205d2785ca9a48464a401346bebf655e28156a0a304c1", "repositories=sha256:e50e1129945e4af12f6d6b822fe1b5548c9425f8a3f0cfeadfb1fb4a646902e1", "schema=sha256:a08549d13c2f16087cfcaf4458dbe9436970632fe503bb7217f88c16428d2ddd", "versions=sha256:c5cc2848143df9e14e5df892377e085d7ca0f62f9ce51bcc4b3018b32ff47ecb"]
+workspaceResolutionInputFingerprint = "sha256:c95c41af64a7152a1bd46969b8d8c3cc8764e9d798f73079b00e0f718eba3588"
 
 [[dependencyRoot]]
 member = "apps/zolt"
@@ -281,6 +281,13 @@ resolvedScope = "compile"
 member = "modules/zolt-build"
 id = "org.apache.groovy:groovy"
 version = "4.0.22"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-build"
+id = "org.jetbrains.kotlin:kotlin-compiler-embeddable"
+version = "2.2.0"
 lane = "test"
 resolvedScope = "test"
 
@@ -1996,6 +2003,98 @@ members = ["modules/zolt-quarkus"]
 dependencies = ["io.smallrye.common:smallrye-common-annotation:2.20.0:jar:test", "io.smallrye.common:smallrye-common-constraint:2.20.0:jar:test", "io.smallrye.common:smallrye-common-cpu:2.15.0:jar:test", "io.smallrye.common:smallrye-common-function:2.20.0:jar:test", "org.jboss.logging:jboss-logging:3.6.3.Final:jar:test", "org.wildfly.common:wildfly-common:2.0.1:jar:test"]
 
 [[package]]
+id = "org.jetbrains.kotlin:kotlin-compiler-embeddable"
+version = "2.2.0"
+source = "central"
+scope = "test"
+direct = true
+jar = "blobs/v2/sha256/b2f743ea5ba12f69e0f35e5d8d46069d74c8e2861087548a7e0e14a784bc4cf1/kotlin-compiler-embeddable-2.2.0.jar"
+pom = "blobs/v2/sha256/16a15dd197cf2413494f788cb96144d9a146267c3d6f7f1c15b7a3c1e052346a/kotlin-compiler-embeddable-2.2.0.pom"
+jarSha256 = "b2f743ea5ba12f69e0f35e5d8d46069d74c8e2861087548a7e0e14a784bc4cf1"
+pomSha256 = "16a15dd197cf2413494f788cb96144d9a146267c3d6f7f1c15b7a3c1e052346a"
+members = ["modules/zolt-build"]
+policies = ["version-ref: org.jetbrains.kotlin:kotlin-compiler-embeddable -> 2.2.0 from [versions].kotlin"]
+dependencies = ["org.jetbrains.kotlin:kotlin-daemon-embeddable:2.2.0:jar:test", "org.jetbrains.kotlin:kotlin-reflect:1.6.10:jar:test", "org.jetbrains.kotlin:kotlin-script-runtime:2.2.0:jar:test", "org.jetbrains.kotlin:kotlin-stdlib:2.2.0:jar:test", "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.8.0:jar:test"]
+
+[[package]]
+id = "org.jetbrains.kotlin:kotlin-daemon-embeddable"
+version = "2.2.0"
+source = "central"
+scope = "test"
+direct = false
+jar = "blobs/v2/sha256/a26cc8e2d8619197cc4d115bea7766e9aa8e0f1e7876ea044ee1b9f305654601/kotlin-daemon-embeddable-2.2.0.jar"
+pom = "blobs/v2/sha256/bd2ae4e2c91605654a8a5527da757f2b2276580d1f5eaebeabd3343af8d5c467/kotlin-daemon-embeddable-2.2.0.pom"
+jarSha256 = "a26cc8e2d8619197cc4d115bea7766e9aa8e0f1e7876ea044ee1b9f305654601"
+pomSha256 = "bd2ae4e2c91605654a8a5527da757f2b2276580d1f5eaebeabd3343af8d5c467"
+members = ["modules/zolt-build"]
+dependencies = []
+
+[[package]]
+id = "org.jetbrains.kotlin:kotlin-reflect"
+version = "1.6.10"
+source = "central"
+scope = "test"
+direct = false
+jar = "blobs/v2/sha256/3277ac102ae17aad10a55abec75ff5696c8d109790396434b496e75087854203/kotlin-reflect-1.6.10.jar"
+pom = "blobs/v2/sha256/57905524274a00ae028aaccc27283f6bc5925a934a046c1cc5d06c8ee4d6d5a9/kotlin-reflect-1.6.10.pom"
+jarSha256 = "3277ac102ae17aad10a55abec75ff5696c8d109790396434b496e75087854203"
+pomSha256 = "57905524274a00ae028aaccc27283f6bc5925a934a046c1cc5d06c8ee4d6d5a9"
+members = ["modules/zolt-build"]
+dependencies = []
+
+[[package]]
+id = "org.jetbrains.kotlin:kotlin-script-runtime"
+version = "2.2.0"
+source = "central"
+scope = "test"
+direct = false
+jar = "blobs/v2/sha256/4ed97fd1e0c9bb1d0948ed5e63cc91456313a59518295b92b2c1514aef556150/kotlin-script-runtime-2.2.0.jar"
+pom = "blobs/v2/sha256/e50748bf4674f654603e7b1bb830634ec99ebd9c330deba4cadceec0767cbb56/kotlin-script-runtime-2.2.0.pom"
+jarSha256 = "4ed97fd1e0c9bb1d0948ed5e63cc91456313a59518295b92b2c1514aef556150"
+pomSha256 = "e50748bf4674f654603e7b1bb830634ec99ebd9c330deba4cadceec0767cbb56"
+members = ["modules/zolt-build"]
+dependencies = []
+
+[[package]]
+id = "org.jetbrains.kotlin:kotlin-stdlib"
+version = "2.2.0"
+source = "central"
+scope = "test"
+direct = false
+jar = "blobs/v2/sha256/65d12d85a3b865c160db9147851712a64b10dadd68b22eea22a95bf8a8670dca/kotlin-stdlib-2.2.0.jar"
+pom = "blobs/v2/sha256/8c3c821007c13411558739b9f3d5382eb81551db3895cffb89561e56c0f4dc16/kotlin-stdlib-2.2.0.pom"
+jarSha256 = "65d12d85a3b865c160db9147851712a64b10dadd68b22eea22a95bf8a8670dca"
+pomSha256 = "8c3c821007c13411558739b9f3d5382eb81551db3895cffb89561e56c0f4dc16"
+members = ["modules/zolt-build"]
+dependencies = ["org.jetbrains:annotations:13.0:jar:test"]
+
+[[package]]
+id = "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm"
+version = "1.8.0"
+source = "central"
+scope = "test"
+direct = false
+jar = "blobs/v2/sha256/9860906a1937490bf5f3b06d2f0e10ef451e65b95b269f22daf68a3d1f5065c5/kotlinx-coroutines-core-jvm-1.8.0.jar"
+pom = "blobs/v2/sha256/a5633abd53467ceb91622d81f2e982080877145e0b76e1b75788715434885d0b/kotlinx-coroutines-core-jvm-1.8.0.pom"
+jarSha256 = "9860906a1937490bf5f3b06d2f0e10ef451e65b95b269f22daf68a3d1f5065c5"
+pomSha256 = "a5633abd53467ceb91622d81f2e982080877145e0b76e1b75788715434885d0b"
+members = ["modules/zolt-build"]
+dependencies = []
+
+[[package]]
+id = "org.jetbrains:annotations"
+version = "13.0"
+source = "central"
+scope = "test"
+direct = false
+jar = "blobs/v2/sha256/ace2a10dc8e2d5fd34925ecac03e4988b2c0f851650c94b8cef49ba1bd111478/annotations-13.0.jar"
+pom = "blobs/v2/sha256/965aeb2bedff369819bdde1bf7a0b3b89b8247dd69c88b86375d76163bb8c397/annotations-13.0.pom"
+jarSha256 = "ace2a10dc8e2d5fd34925ecac03e4988b2c0f851650c94b8cef49ba1bd111478"
+pomSha256 = "965aeb2bedff369819bdde1bf7a0b3b89b8247dd69c88b86375d76163bb8c397"
+members = ["modules/zolt-build"]
+dependencies = []
+
+[[package]]
 id = "org.junit.platform:junit-platform-console-standalone"
 version = "1.14.4"
 source = "central"
@@ -2513,6 +2612,27 @@ id = "org.jboss.modules:jboss-modules"
 requested = "2.3.0"
 source = "org.jboss.logmanager:jboss-logmanager:3.2.2.Final"
 policy = "dependency edge exclusion from org.jboss.logmanager:jboss-logmanager:3.2.2.Final to org.jboss.modules:jboss-modules"
+
+[[policy]]
+kind = "edge-exclusion"
+id = "org.jetbrains.kotlin:kotlin-stdlib"
+requested = "1.6.10"
+source = "org.jetbrains.kotlin:kotlin-reflect:1.6.10"
+policy = "dependency edge exclusion from org.jetbrains.kotlin:kotlin-reflect:1.6.10 to org.jetbrains.kotlin:kotlin-stdlib"
+
+[[policy]]
+kind = "edge-exclusion"
+id = "org.jetbrains.kotlin:kotlin-stdlib"
+requested = "1.9.21"
+source = "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.8.0"
+policy = "dependency edge exclusion from org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.8.0 to org.jetbrains.kotlin:kotlin-stdlib"
+
+[[policy]]
+kind = "edge-exclusion"
+id = "org.jetbrains:annotations"
+requested = "23.0.0"
+source = "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.8.0"
+policy = "dependency edge exclusion from org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.8.0 to org.jetbrains:annotations"
 
 [[policy]]
 kind = "edge-exclusion"
