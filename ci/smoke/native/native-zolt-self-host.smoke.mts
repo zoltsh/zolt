@@ -1,4 +1,5 @@
 import { expect, smoke, type SmokeContext } from "smoque";
+import { readdir } from "node:fs/promises";
 
 import { writeFakeNativeImage } from "../../../smoke/support/fake-native-image.mts";
 import { buildNativeZolt } from "../../../smoke/support/native-zolt.mts";
@@ -9,6 +10,7 @@ smoke.suite("native Zolt self-host smoke", { tags: ["native", "self-host", "cli"
   const root = t.repoRoot();
   const work = await t.tempDir("zolt-native-self-host");
   const bootstrap = await packagedZolt(t);
+  const kotlinProject = work.path("hello-kotlin");
   let zolt = bootstrap;
 
   await t.step("builds the current Zolt CLI with real Native Image", async () => {
@@ -21,10 +23,9 @@ smoke.suite("native Zolt self-host smoke", { tags: ["native", "self-host", "cli"
     await runZolt(t, zolt, [
       "--no-progress", "init", "--cwd", work.path(), "--language", "kotlin", "hello-kotlin",
     ]);
-    const project = work.path("hello-kotlin");
-    await expect.file(`${project}/src/main/kotlin/com/example/Main.kt`).toExist();
-    await expect.file(`${project}/src/test/kotlin/com/example/MainTest.kt`).toExist();
-    await expectTextFile(`${project}/zolt.toml`, {
+    await expect.file(`${kotlinProject}/src/main/kotlin/com/example/Main.kt`).toExist();
+    await expect.file(`${kotlinProject}/src/test/kotlin/com/example/MainTest.kt`).toExist();
+    await expectTextFile(`${kotlinProject}/zolt.toml`, {
       contains: [
         "[toolchain.kotlin]",
         'version = "2.2.0"',
@@ -34,6 +35,23 @@ smoke.suite("native Zolt self-host smoke", { tags: ["native", "self-host", "cli"
         'kotlin = ["src/test/kotlin"]',
       ],
     });
+  });
+
+  await t.step("builds and runs generated Kotlin through native Zolt", async () => {
+    await runZolt(t, zolt, [
+      "--no-progress", "resolve", "--cwd", kotlinProject, "--cache-root", zolt.cacheRoot,
+    ]);
+    await runZolt(t, zolt, [
+      "--no-progress", "build", "--no-build-cache", "--cwd", kotlinProject, "--cache-root", zolt.cacheRoot,
+    ]);
+    await expect.file(`${kotlinProject}/target/classes/com/example/Main.class`).toExist();
+    const metadata = await readdir(`${kotlinProject}/target/classes/META-INF`);
+    expect.value(metadata.some((name) => name.endsWith(".kotlin_module"))).toBe(true);
+
+    const result = await runZolt(t, zolt, [
+      "--no-progress", "run", "--cwd", kotlinProject, "--cache-root", zolt.cacheRoot,
+    ]);
+    expect.value(result.stdout).toContain("Hello from hello-kotlin!");
   });
 
   await t.step("runs a packaged Java lifecycle through native Zolt", async () => {
