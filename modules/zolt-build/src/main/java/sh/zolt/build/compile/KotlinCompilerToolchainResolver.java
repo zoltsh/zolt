@@ -12,6 +12,7 @@ import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import sh.zolt.build.KotlinCompileException;
@@ -22,7 +23,7 @@ import sh.zolt.classpath.ResolvedPackage;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
 
-/** Resolves the explicitly configured, isolated Kotlin compiler closure for main sources. */
+/** Resolves the explicitly configured, isolated Kotlin compiler closure for one source set. */
 public final class KotlinCompilerToolchainResolver {
     private static final PackageId KOTLIN_COMPILER =
             new PackageId("org.jetbrains.kotlin", "kotlin-compiler-embeddable");
@@ -35,6 +36,16 @@ public final class KotlinCompilerToolchainResolver {
     public KotlinCompilerToolchain resolve(
             List<ResolvedClasspathPackage> packages,
             String configuredVersion) {
+        return resolve(packages, configuredVersion, KotlinCompilationScope.MAIN);
+    }
+
+    public KotlinCompilerToolchain resolve(
+            List<ResolvedClasspathPackage> packages,
+            String configuredVersion,
+            KotlinCompilationScope scope) {
+        KotlinCompilationScope compilationScope = Objects.requireNonNull(
+                scope,
+                "Kotlin compilation scope is required.");
         String version = normalize(configuredVersion);
         if (version.isEmpty()) {
             throw invalid("`[toolchain.kotlin].version` is required");
@@ -62,7 +73,7 @@ public final class KotlinCompilerToolchainResolver {
         VerifiedCompilerArtifact root = verifiedClosureArtifact(rootDependency, true);
         List<VerifiedCompilerArtifact> closure = orderedClosure(toolClosure, rootDependency, root);
         inspectRoot(version, root.jar());
-        VerifiedCompilerArtifact runtime = requireRuntime(all, version);
+        VerifiedCompilerArtifact runtime = requireRuntime(all, version, compilationScope);
         revalidate(closure);
         revalidate(List.of(runtime));
 
@@ -158,10 +169,11 @@ public final class KotlinCompilerToolchainResolver {
 
     private static VerifiedCompilerArtifact requireRuntime(
             List<ResolvedClasspathPackage> packages,
-            String configuredVersion) {
+            String configuredVersion,
+            KotlinCompilationScope scope) {
         List<ResolvedClasspathPackage> visibleMatches = packages.stream()
                 .filter(dependency -> dependency.scope() != DependencyScope.TOOL_KOTLIN)
-                .filter(dependency -> dependency.scope().entersMainCompileClasspath())
+                .filter(dependency -> scope.includesRuntime(dependency.scope()))
                 .filter(dependency -> dependency.resolvedPackage().packageId().equals(KOTLIN_STDLIB))
                 .toList();
         for (ResolvedClasspathPackage runtime : visibleMatches) {
@@ -175,7 +187,8 @@ public final class KotlinCompilerToolchainResolver {
                 .filter(KotlinCompilerToolchainResolver::isExternalDefaultJar)
                 .toList();
         if (defaultRuntimes.isEmpty()) {
-            throw invalid("no ordinary main-source-set-visible external default JAR for "
+            throw invalid("no ordinary " + scope.label()
+                    + "-source-set-visible external default JAR for "
                     + KOTLIN_STDLIB + " is present at configured version `"
                     + configuredVersion + "`");
         }
@@ -187,7 +200,8 @@ public final class KotlinCompilerToolchainResolver {
                     resolved.jarPath().toAbsolutePath().normalize()), runtime);
         }
         if (distinct.size() != 1) {
-            throw invalid("ordinary main-source-set-visible external default " + KOTLIN_STDLIB
+            throw invalid("ordinary " + scope.label()
+                    + "-source-set-visible external default " + KOTLIN_STDLIB
                     + " runtime is ambiguous: " + selections(List.copyOf(distinct.values())));
         }
         ResolvedClasspathPackage runtime = distinct.values().iterator().next();
@@ -313,9 +327,10 @@ public final class KotlinCompilerToolchainResolver {
 
     private static KotlinCompileException invalid(String reason) {
         return new KotlinCompileException(
-                "Configured Kotlin main compiler toolchain is invalid because " + reason + ". "
+                "Configured Kotlin compiler toolchain is invalid because " + reason + ". "
                         + "Keep `[toolchain.kotlin].version`, the `tool-kotlin` closure, and ordinary "
-                        + KOTLIN_STDLIB + " in [dependencies] aligned, run `zolt resolve`, and retry.");
+                        + KOTLIN_STDLIB + " aligned; declare the runtime in [dependencies] or "
+                        + "[dependencies.test] as appropriate, run `zolt resolve`, and retry.");
     }
 
     private record VerifiedCompilerArtifact(

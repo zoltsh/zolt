@@ -129,11 +129,12 @@ final class BuildCommandDiagnosticsTest {
 
         assertEquals(1, result.exitCode());
         assertTrue(result.stderr().contains(
-                "error: Configured Kotlin main compiler toolchain is invalid because "
+                "error: Configured Kotlin compiler toolchain is invalid because "
                         + "`[toolchain.kotlin].version` is required"), result.stderr());
         assertTrue(result.stderr().contains(
                 "Keep `[toolchain.kotlin].version`, the `tool-kotlin` closure, and ordinary "
-                        + "org.jetbrains.kotlin:kotlin-stdlib in [dependencies] aligned"), result.stderr());
+                        + "org.jetbrains.kotlin:kotlin-stdlib aligned; declare the runtime in "
+                        + "[dependencies] or [dependencies.test] as appropriate"), result.stderr());
         assertFalse(result.stderr().contains("KotlinCompileException"), result.stderr());
         assertFalse(result.stderr().contains("\tat "), result.stderr());
         assertEquals("preserve", Files.readString(outputMarker));

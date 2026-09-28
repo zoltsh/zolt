@@ -56,6 +56,29 @@ final class KotlinCompilerRuntimeSelectionTest
     }
 
     @Test
+    void testCompilationAcceptsATestVisibleRuntimeWithoutMakingItMainVisible() throws IOException {
+        VerifiedJar root = compilerJar("kotlin-compiler-embeddable", VERSION, true);
+        VerifiedJar runtime = plainJar(STDLIB, VERSION, "test-stdlib");
+        List<ResolvedClasspathPackage> packages = List.of(
+                toolRoot(root),
+                dependency(
+                        STDLIB,
+                        runtime,
+                        VERSION,
+                        DependencyScope.TEST,
+                        true,
+                        stdlibIdentity(VERSION)));
+
+        assertDoesNotThrow(() -> resolver.resolve(
+                packages,
+                VERSION,
+                KotlinCompilationScope.TEST));
+        assertMessageContains(
+                () -> resolver.resolve(packages, VERSION),
+                "no ordinary main-source-set-visible external default JAR");
+    }
+
+    @Test
     void acceptsOneExternalDefaultRuntimeAndIgnoresOtherVariants() throws IOException {
         VerifiedJar root = compilerJar("kotlin-compiler-embeddable", VERSION, true);
         VerifiedJar runtime = plainJar(STDLIB, VERSION, "stdlib-is-not-compiler-root");

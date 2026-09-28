@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.StringJoiner;
 import sh.zolt.build.KotlinCompileException;
 import sh.zolt.cancel.BuildCancellation;
@@ -36,8 +37,32 @@ public final class KotlinCompilerRunner {
             Classpath compilationClasspath,
             Path outputDirectory,
             Options options) {
+        return compile(
+                javaExecutable,
+                jdkHome,
+                sources,
+                compilerLauncherClasspath,
+                compilationClasspath,
+                outputDirectory,
+                options,
+                KotlinCompilationScope.MAIN);
+    }
+
+    public JavacResult compile(
+            Path javaExecutable,
+            Path jdkHome,
+            List<Path> sources,
+            Classpath compilerLauncherClasspath,
+            Classpath compilationClasspath,
+            Path outputDirectory,
+            Options options,
+            KotlinCompilationScope scope) {
+        KotlinCompilationScope compilationScope = Objects.requireNonNull(
+                scope,
+                "Kotlin compilation scope is required.");
         if (options == null) {
-            throw new KotlinCompileException("Kotlin main compilation options are required.");
+            throw new KotlinCompileException(
+                    "Kotlin " + compilationScope.label() + " compilation options are required.");
         }
         List<Path> sortedSources = sources == null
                 ? List.of()
@@ -46,7 +71,8 @@ public final class KotlinCompilerRunner {
             Files.createDirectories(outputDirectory);
         } catch (IOException exception) {
             throw new KotlinCompileException(
-                    "Could not create Kotlin main compilation output directory " + outputDirectory
+                    "Could not create Kotlin " + compilationScope.label()
+                            + " compilation output directory " + outputDirectory
                             + ". Check that the project directory is writable.",
                     exception);
         }
@@ -64,11 +90,12 @@ public final class KotlinCompilerRunner {
                 options));
         if (result.exitCode() != 0) {
             throw new KotlinCompileException(
-                    "Kotlin main compilation failed with exit code " + result.exitCode()
+                    "Kotlin " + compilationScope.label() + " compilation failed with exit code "
+                            + result.exitCode()
                             + ". Fix the Kotlin compilation errors and try again. Ensure "
                             + KotlinCompilerToolchain.COORDINATE
                             + " is selected in [toolchain.kotlin] and kotlin-stdlib is declared in"
-                            + " [dependencies].\n"
+                            + " " + compilationScope.runtimeDeclaration() + ".\n"
                             + result.output().stripTrailing());
         }
         return new JavacResult(sortedSources.size(), outputDirectory, result.output());

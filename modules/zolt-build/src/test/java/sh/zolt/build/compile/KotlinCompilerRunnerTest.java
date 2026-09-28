@@ -150,6 +150,28 @@ final class KotlinCompilerRunnerTest {
     }
 
     @Test
+    void testFailureNamesTheTestScopeAndItsRuntimeDeclarations() {
+        KotlinCompilerRunner runner = new KotlinCompilerRunner(":", command ->
+                new KotlinCompilerRunner.ProcessResult(1, "test source failed\n"));
+
+        KotlinCompileException failure = assertThrows(
+                KotlinCompileException.class,
+                () -> runner.compile(
+                        Path.of("/jdk/bin/java"),
+                        Path.of("/jdk"),
+                        List.of(Path.of("src/Test.kt")),
+                        new Classpath(List.of(Path.of("compiler.jar"))),
+                        new Classpath(List.of(Path.of("stdlib.jar"))),
+                        tempDir.resolve("failed-test"),
+                        new KotlinCompilerRunner.Options("21", "failed_test", false),
+                        KotlinCompilationScope.TEST));
+
+        assertTrue(failure.getMessage().contains("Kotlin test compilation failed"));
+        assertTrue(failure.getMessage().contains("[dependencies.test]"));
+        assertTrue(failure.getMessage().contains("test source failed"));
+    }
+
+    @Test
     void optionsRejectBlankReleaseAndModuleName() {
         assertThrows(
                 KotlinCompileException.class,
