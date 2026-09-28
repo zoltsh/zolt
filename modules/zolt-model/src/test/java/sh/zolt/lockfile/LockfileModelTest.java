@@ -34,6 +34,21 @@ final class LockfileModelTest {
     }
 
     @Test
+    void changedInputsNamesResolutionInputCategoriesRemovedFromCandidate() {
+        ZoltLockfile existing = lockfileWithInputs(List.of(
+                "schema=same",
+                "dependencies.test=present",
+                "repositories=same"));
+        ZoltLockfile candidate = lockfileWithInputs(List.of(
+                "schema=same",
+                "repositories=same"));
+
+        assertEquals(
+                " Changed inputs: dependencies.test.",
+                LockfileFreshnessSummary.changedInputs(existing, candidate));
+    }
+
+    @Test
     void changedInputsIsEmptyWhenFingerprintsAreUnavailableOrUnchanged() {
         assertEquals("", LockfileFreshnessSummary.changedInputs(lockfileWithInputs(List.of()), lockfileWithInputs(List.of("zolt.toml=aaa"))));
         assertEquals("", LockfileFreshnessSummary.changedInputs(lockfileWithInputs(List.of("zolt.toml=aaa")), lockfileWithInputs(List.of())));
