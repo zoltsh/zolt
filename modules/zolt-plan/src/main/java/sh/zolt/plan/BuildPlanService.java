@@ -132,7 +132,7 @@ public final class BuildPlanService {
             Set<String> lockedExecToolGroups) {
         BuildSettings build = config.build();
         nodes.addAll(generatedSourceNodePlanner.nodes(root, generatedSources, "main"));
-        nodes.addAll(execStepNodePlanner.nodes(root, generatedSources, "main", outputRoot(build), lockedExecToolGroups));
+        nodes.addAll(execStepNodePlanner.nodes(root, generatedSources, "main", build, lockedExecToolGroups));
         addResourceNode(
                 nodes,
                 "process-main-resources",
@@ -162,7 +162,7 @@ public final class BuildPlanService {
             Optional<TestRuntimePlan> testRuntime) {
         BuildSettings build = config.build();
         nodes.addAll(generatedSourceNodePlanner.nodes(root, generatedSources, "test"));
-        nodes.addAll(execStepNodePlanner.nodes(root, generatedSources, "test", outputRoot(build), lockedExecToolGroups));
+        nodes.addAll(execStepNodePlanner.nodes(root, generatedSources, "test", build, lockedExecToolGroups));
         addResourceNode(
                 nodes,
                 "process-test-resources",

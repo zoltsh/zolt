@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.generated.GeneratedSourceEvidence;
+import sh.zolt.project.BuildSettings;
 import sh.zolt.project.ExecGenerationSettings;
 import sh.zolt.project.ExecToolCoordinate;
 import sh.zolt.project.ExecToolSettings;
@@ -145,6 +146,23 @@ final class BuildPlanExecStepNodePlannerTest {
     }
 
     @Test
+    void customCompileOutputUsesTheSamePostCompileClassificationAsExecution() {
+        GeneratedSourceStep step = execStep("model", "target/generated/sources/jooq",
+                List.of("out/main/com/example/App.class"), ProducesLane.JAVA_SOURCES, JVM_TOOL);
+        BuildSettings build = new BuildSettings(
+                "src/main/java",
+                "src/test/java",
+                "target",
+                "out/main",
+                "out/test");
+
+        PlanNode node = node(step, build, true, false, "missing");
+
+        assertBlocker(node, "post-compile-produces-sources");
+        assertTrue(node.details().contains("derivedPosition: after compile, before resource copy"));
+    }
+
+    @Test
     void blocksUnresolvedTool() throws IOException {
         writeInput("src/main/jooq/config.xml");
         GeneratedSourceStep step = execStep("model", "target/generated/sources/jooq",
@@ -164,7 +182,7 @@ final class BuildPlanExecStepNodePlannerTest {
                 tempDir.normalize(),
                 List.of(evidence("main", a, false, "missing"), evidence("main", b, false, "missing")),
                 "main",
-                "target",
+                BuildSettings.defaults(),
                 Set.of("tool"));
 
         assertEquals(2, nodes.size());
@@ -172,11 +190,20 @@ final class BuildPlanExecStepNodePlannerTest {
     }
 
     private PlanNode node(GeneratedSourceStep step, boolean toolLocked, boolean outputExists, String freshness) {
+        return node(step, BuildSettings.defaults(), toolLocked, outputExists, freshness);
+    }
+
+    private PlanNode node(
+            GeneratedSourceStep step,
+            BuildSettings build,
+            boolean toolLocked,
+            boolean outputExists,
+            String freshness) {
         List<PlanNode> nodes = planner.nodes(
                 tempDir.normalize(),
                 List.of(evidence("main", step, outputExists, freshness)),
                 "main",
-                "target",
+                build,
                 toolLocked ? Set.of("tool") : Set.of());
         assertEquals(1, nodes.size());
         return nodes.getFirst();

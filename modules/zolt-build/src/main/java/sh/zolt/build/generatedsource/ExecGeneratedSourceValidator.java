@@ -1,6 +1,7 @@
 package sh.zolt.build.generatedsource;
 
 import sh.zolt.build.BuildException;
+import sh.zolt.project.BuildSettings;
 import sh.zolt.project.ExecGenerationSettings;
 import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.ProducesLane;
@@ -16,12 +17,12 @@ final class ExecGeneratedSourceValidator {
     private ExecGeneratedSourceValidator() {
     }
 
-    static void validateStep(Path projectRoot, String outputRoot, String scope, GeneratedSourceStep step) {
+    static void validateStep(Path projectRoot, BuildSettings build, String scope, GeneratedSourceStep step) {
         ExecGenerationSettings exec = step.exec();
         String subject = "[generated." + scope + "." + step.id() + "]";
         validateTool(exec, subject);
         validateLane(scope, step, subject);
-        validatePostCompileLane(projectRoot, outputRoot, scope, step, subject);
+        validatePostCompileLane(projectRoot, build, scope, step, subject);
         validateInputs(projectRoot, scope, step, subject);
     }
 
@@ -96,8 +97,8 @@ final class ExecGeneratedSourceValidator {
     }
 
     private static void validatePostCompileLane(
-            Path projectRoot, String outputRoot, String scope, GeneratedSourceStep step, String subject) {
-        if (!ExecStepClassification.isPostCompile(step, projectRoot, outputRoot)) {
+            Path projectRoot, BuildSettings build, String scope, GeneratedSourceStep step, String subject) {
+        if (!ExecStepClassification.isPostCompile(step, projectRoot, build)) {
             return;
         }
         ProducesLane produces = step.exec().produces();

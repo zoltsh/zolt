@@ -16,6 +16,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -73,7 +74,7 @@ final class BuildServiceBuildCacheTest {
     }
 
     @Test
-    void editingAfterRestoreForcesOneFullRecompileThenIncrementalTakesOver() throws IOException {
+    void editsAfterRestoreAndWarmStateUseConservativeFullCompilation() throws IOException {
         BuildService service = cacheEnabledService();
         writeProject("hello");
         service.build(projectDir, config(), artifactCache());
@@ -89,11 +90,44 @@ final class BuildServiceBuildCacheTest {
         assertEquals("missing-state", afterEdit.mainIncrementalFallbackReason());
         assertTrue(Files.exists(incrementalStateFile()), "the full recompile re-establishes incremental state");
 
-        // Second edit: warm incremental state is present, so incremental compilation drives the build.
+        // Warm ownership state does not make the bytecode dependency graph complete. Stable builds keep
+        // recompiling the full scope when a source changes.
         writeProject("edited-two");
-        BuildResult incremental = service.build(projectDir, config(), artifactCache());
-        assertFalse(incremental.mainCompilationRestored());
-        assertEquals("incremental", incremental.mainCompilationMode());
+        BuildResult conservative = service.build(projectDir, config(), artifactCache());
+        assertFalse(conservative.mainCompilationRestored());
+        assertEquals("full", conservative.mainCompilationMode());
+        assertEquals("source-changed", conservative.mainIncrementalFallbackReason());
+    }
+
+    @Test
+    void fullCompileAfterCacheRestoreRemovesDeletedSourceOutputLikeCleanBuild() throws IOException {
+        BuildService service = cacheEnabledService();
+        writeProject("hello");
+        Path obsoleteSource = projectDir.resolve("src/main/java/com/example/Obsolete.java");
+        source("src/main/java/com/example/Obsolete.java", """
+                package com.example;
+
+                public final class Obsolete {
+                }
+                """);
+        service.build(projectDir, config(), artifactCache());
+        wipeTarget();
+        assertTrue(service.build(projectDir, config(), artifactCache()).mainCompilationRestored());
+        assertTrue(Files.exists(projectDir.resolve("target/classes/com/example/Obsolete.class")));
+        Files.delete(obsoleteSource);
+
+        BuildResult rebuilt = service.build(projectDir, config(), artifactCache());
+
+        assertEquals("full", rebuilt.mainCompilationMode());
+        assertEquals("missing-state", rebuilt.mainIncrementalFallbackReason());
+        assertFalse(Files.exists(projectDir.resolve("target/classes/com/example/Obsolete.class")));
+        List<String> rebuiltClasses = classFiles();
+
+        wipeTarget();
+        BuildService cleanService = new BuildService().withBuildCache(BuildCacheService.disabled());
+        cleanService.build(projectDir, config(), artifactCache());
+
+        assertEquals(classFiles(), rebuiltClasses);
     }
 
     @Test
@@ -140,6 +174,18 @@ final class BuildServiceBuildCacheTest {
 
     private Path artifactCache() {
         return projectDir.resolve("cache");
+    }
+
+    private List<String> classFiles() throws IOException {
+        Path output = projectDir.resolve("target/classes");
+        try (Stream<Path> paths = Files.walk(output)) {
+            return paths.filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().endsWith(".class"))
+                    .map(output::relativize)
+                    .map(Path::toString)
+                    .sorted()
+                    .toList();
+        }
     }
 
     private void wipeTarget() throws IOException {

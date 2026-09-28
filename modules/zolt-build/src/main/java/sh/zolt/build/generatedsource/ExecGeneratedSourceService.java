@@ -106,13 +106,12 @@ public final class ExecGeneratedSourceService {
             return;
         }
         Path root = ProjectPaths.root(projectDirectory);
-        String outputRoot = config.build().outputRoot();
-        List<GeneratedSourceStep> ordered = ExecStepScheduler.order(root, outputRoot, scope, execSteps);
+        List<GeneratedSourceStep> ordered = ExecStepScheduler.order(root, config.build(), scope, execSteps);
         // Structural lane check across both phases up front, so a post-compile step that produces sources
         // fails with a clear cycle error before source discovery reports a confusing "root missing".
-        validateLaneStructure(root, outputRoot, scope, ordered);
+        validateLaneStructure(root, config, scope, ordered);
         List<GeneratedSourceStep> phaseSteps = ordered.stream()
-                .filter(step -> phase.matches(ExecStepClassification.isPostCompile(step, root, outputRoot)))
+                .filter(step -> phase.matches(ExecStepClassification.isPostCompile(step, root, config.build())))
                 .toList();
         if (phaseSteps.isEmpty()) {
             return;
@@ -124,9 +123,9 @@ public final class ExecGeneratedSourceService {
     }
 
     private static void validateLaneStructure(
-            Path root, String outputRoot, String scope, List<GeneratedSourceStep> steps) {
+            Path root, ProjectConfig config, String scope, List<GeneratedSourceStep> steps) {
         for (GeneratedSourceStep step : steps) {
-            if (!ExecStepClassification.isPostCompile(step, root, outputRoot)) {
+            if (!ExecStepClassification.isPostCompile(step, root, config.build())) {
                 continue;
             }
             ProducesLane produces = step.exec().produces();
@@ -172,7 +171,7 @@ public final class ExecGeneratedSourceService {
 
     private void generateStep(StepContext context, GeneratedSourceStep step, boolean offline) {
         String scope = context.scope();
-        ExecGeneratedSourceValidator.validateStep(context.root(), context.config().build().outputRoot(), scope, step);
+        ExecGeneratedSourceValidator.validateStep(context.root(), context.config().build(), scope, step);
         String subject = "[generated." + scope + "." + step.id() + "]";
         String cache = step.exec().cache();
         if ("none".equals(cache) && offline) {

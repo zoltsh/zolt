@@ -123,6 +123,45 @@ final class IntegrationTestCommandTest extends TestCommandTestSupport {
         assertTrue(Files.exists(projectDir.resolve("target/it-classes/com/example/AppIT.class")));
     }
 
+    @Test
+    void integrationTestRejectsOutputThatOverlapsUnitTestOutputBeforeProjection() throws IOException {
+        Path projectDir = tempDir.resolve("overlapping-integration-output");
+        Path cacheRoot = tempDir.resolve("cache-overlap");
+        writeFakeConsoleJar(cacheRoot.resolve(
+                "org/junit/platform/junit-platform-console-standalone/1.11.4/junit-platform-console-standalone-1.11.4.jar"));
+        Files.createDirectories(projectDir);
+        Files.writeString(projectDir.resolve("zolt.toml"), """
+                [project]
+                name = "overlapping-integration-output"
+                version = "0.1.0"
+                group = "com.example"
+                java = %s
+
+                [dependencies]
+
+                [dependencies.test]
+
+                [build.output]
+                root = "target"
+                test = "tests"
+                integration = "tests/integration"
+                """.formatted(currentJavaMajorVersion()));
+        writeJUnitConsoleLockfile(projectDir, cacheRoot);
+        Path unitSentinel = projectDir.resolve("target/tests/com/example/Unit.class");
+        Files.createDirectories(unitSentinel.getParent());
+        Files.write(unitSentinel, new byte[] {1, 2, 3});
+
+        CommandResult result = execute(
+                "integration-test",
+                "--cwd", projectDir.toString(),
+                "--cache-root", cacheRoot.toString());
+
+        assertEquals(1, result.exitCode());
+        assertTrue(result.stderr().contains("Unsafe compile output layout"), result.stderr());
+        assertTrue(result.stderr().contains("[build.output].integration"), result.stderr());
+        assertTrue(Files.exists(unitSentinel), "validation must happen before any output cleanup");
+    }
+
     private static String currentJavaMajorVersion() {
         String version = System.getProperty("java.version");
         String[] parts = version.split("[._+-]", -1);

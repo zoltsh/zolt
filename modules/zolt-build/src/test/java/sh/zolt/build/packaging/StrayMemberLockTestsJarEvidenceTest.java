@@ -106,6 +106,7 @@ final class StrayMemberLockTestsJarEvidenceTest {
         new BuildFingerprintService().writeTestCompileFingerprint(
                 memberDirectory,
                 config,
+                "test-compiler",
                 context.lockfilePath(),
                 new SourceDiscoverer().discover(memberDirectory, config.build()),
                 new GeneratedSourceProducerFingerprintService()

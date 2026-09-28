@@ -34,6 +34,61 @@ final class CleanCommandTest {
     }
 
     @Test
+    void cleanPreservesAuthoredSourceInsideSharedOutputRoot() throws IOException {
+        Path projectDir = tempDir.resolve("source-under-target");
+        writeProjectConfig(projectDir, "https://repo.maven.apache.org/maven2");
+        Files.writeString(projectDir.resolve("zolt.toml"), Files.readString(projectDir.resolve("zolt.toml")) + """
+
+                [build]
+                sources = ["target/src"]
+                """);
+        Path source = projectDir.resolve("target/src/com/example/Important.java");
+        Files.createDirectories(source.getParent());
+        Files.writeString(source, "package com.example; public final class Important {}\n");
+        writeOutput(projectDir, "target/classes/com/example/Main.class");
+        writeOutput(projectDir, "target/test-classes/com/example/MainTest.class");
+
+        CommandResult result = execute("clean", "--cwd", projectDir.toString());
+
+        assertEquals(0, result.exitCode(), result.stderr());
+        assertTrue(result.stdout().contains("Deleted 2 build output paths"), result.stdout());
+        assertTrue(Files.isRegularFile(source));
+        assertEquals("package com.example; public final class Important {}\n", Files.readString(source));
+        assertFalse(Files.exists(projectDir.resolve("target/classes")));
+        assertFalse(Files.exists(projectDir.resolve("target/test-classes")));
+    }
+
+    @Test
+    void cleanRejectsGeneratedTargetAtProjectLockfileWithoutDeletingIt() throws IOException {
+        Path projectDir = tempDir.resolve("lockfile-clean-target");
+        writeProjectConfig(projectDir, "https://repo.maven.apache.org/maven2");
+        Files.writeString(projectDir.resolve("zolt.toml"), Files.readString(projectDir.resolve("zolt.toml")) + """
+
+                [generated.main.lockfile]
+                kind = "declared-root"
+                language = "java"
+                output = "zolt.lock"
+                inputs = ["schema.txt"]
+                required = false
+                clean = true
+                """);
+        Path lockfile = projectDir.resolve("zolt.lock");
+        Files.writeString(lockfile, "sentinel lock\n");
+        Path existingOutput = projectDir.resolve("target/classes/com/example/Main.class");
+        writeOutput(projectDir, "target/classes/com/example/Main.class");
+
+        CommandResult result = execute("clean", "--cwd", projectDir.toString());
+
+        assertEquals(1, result.exitCode());
+        assertTrue(result.stderr().contains("Unsafe clean output layout"), result.stderr());
+        assertTrue(result.stderr().contains("project lockfile"), result.stderr());
+        assertTrue(Files.isRegularFile(lockfile));
+        assertEquals("sentinel lock\n", Files.readString(lockfile));
+        assertTrue(Files.isRegularFile(existingOutput));
+        assertEquals("output", Files.readString(existingOutput));
+    }
+
+    @Test
     void cleanAcceptsVisibleProjectDirectoryOption() throws IOException {
         Path projectDir = tempDir.resolve("directory-demo");
         writeProjectConfig(projectDir, "https://repo.maven.apache.org/maven2");

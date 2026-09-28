@@ -7,7 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import sh.zolt.cancel.BuildCancellation;
+import java.io.File;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -164,7 +166,22 @@ final class ProcessSupervisorTest {
     }
 
     private static String testClasspath() {
-        return System.getProperty("java.class.path");
+        return String.join(
+                File.pathSeparator,
+                classLocation(ProcessSupervisorTest.class),
+                classLocation(ProcessSupervisor.class));
+    }
+
+    private static String classLocation(Class<?> type) {
+        try {
+            return Path.of(type.getProtectionDomain()
+                            .getCodeSource()
+                            .getLocation()
+                            .toURI())
+                    .toString();
+        } catch (URISyntaxException exception) {
+            throw new AssertionError("Could not resolve class location for " + type.getName(), exception);
+        }
     }
 
     private static boolean isWindows() {

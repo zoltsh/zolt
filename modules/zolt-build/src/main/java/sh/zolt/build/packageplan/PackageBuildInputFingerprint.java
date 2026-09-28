@@ -1,5 +1,6 @@
 package sh.zolt.build.packageplan;
 
+import sh.zolt.build.CompilationSemantics;
 import sh.zolt.build.PackageException;
 import sh.zolt.build.fingerprint.BuildFingerprintService;
 import sh.zolt.build.generatedsource.GeneratedSourceProducerFingerprint;
@@ -40,8 +41,28 @@ final class PackageBuildInputFingerprint {
             List<PackagePlanWorkspaceInput> workspaceInputs,
             List<GeneratedSourceProducerFingerprint>
                     generatedSourceFingerprints) {
+        return fingerprint(
+                projectRoot,
+                config,
+                lockfile,
+                workspaceInputs,
+                generatedSourceFingerprints,
+                CompilationSemantics.VERSION);
+    }
+
+    static String fingerprint(
+            Path projectRoot,
+            ProjectConfig config,
+            ZoltLockfile lockfile,
+            List<PackagePlanWorkspaceInput> workspaceInputs,
+            List<GeneratedSourceProducerFingerprint> generatedSourceFingerprints,
+            String compilationSemantics) {
         PackageCanonicalHash hash = new PackageCanonicalHash();
-        hash.value("schema", "zolt.package-build-input.v1");
+        // v2 adds the shared compilation-semantics token. Package/publish paths can validate
+        // existing evidence without first entering BuildService, so the stored compile fingerprint
+        // alone cannot force pre-fix output through the current compiler.
+        hash.value("schema", "zolt.package-build-input.v2");
+        hash.value("compilationSemantics", compilationSemantics);
         hash.value(
                 "build",
                 PackageBuildSettingsIdentity.main(config.build()));

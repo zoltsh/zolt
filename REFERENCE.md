@@ -1246,17 +1246,23 @@ cache does. Classpath dependencies contribute a content hash of their compiled
 bytes (not their location), so a build keys identically whether a dependency was
 itself compiled or restored, and regardless of where artifacts live on disk.
 
-### Incremental state (v1 tradeoff)
+### Local compile state (v1 tradeoff)
 
-Zolt's warm incremental compiler keeps machine-local state files
-(`.zolt-incremental-*.state`) that record per-source ownership using absolute
-paths. Those are never cached. A restored module therefore has no incremental
-state: the skip-gate works immediately (a no-op rebuild still skips), but the
-**next source edit does one full recompile**, which re-establishes incremental
-state and re-stores the cache entry. Subsequent edits are incremental as usual.
-The build cache is aimed at clean and CI builds; warm incremental development
-stays entirely local, and the cache is not consulted while incremental state is
-present.
+Zolt keeps machine-local state files (`.zolt-incremental-*.state`) that record
+per-source ownership using absolute paths. Those files support output validation
+and diagnostics, but the stable compiler does not treat their bytecode-derived
+dependency graph as complete: **when any source changes, Zolt recompiles the
+affected compile scope into cleaned owned output directories**. Unchanged-input
+fingerprint skips and qualified build-cache restoration remain separate fast
+paths.
+
+The local state is never cached. A restored module therefore has no ownership
+state, although the skip-gate works immediately and a no-op rebuild still skips.
+The next source edit performs a cleaned full-scope compile and re-establishes the
+state. The selective source scheduler remains an internal experimental path
+until Zolt records source-only and name-lookup dependencies; it is not part of
+the stable CLI contract. The build cache remains aimed at clean and CI builds and
+is not consulted while local compile state is present.
 
 ### What is never cached
 

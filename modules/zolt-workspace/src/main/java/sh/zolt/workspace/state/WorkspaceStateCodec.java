@@ -9,17 +9,17 @@ import java.util.Optional;
 /**
  * Reads and writes {@code .zolt/workspace-state-v1}.
  *
- * <p>Version 3 adds the per-file table beside the per-member digests. Version 2 states are still
- * read — their member rows are exactly what version 3 writes — and simply arrive with an empty file
- * table, which makes the first command after an upgrade hash every input once and then persist a
- * version 3 state. Nothing recompiles for the migration: the member digests it decides from are
- * carried across unchanged.
+ * <p>Version 5 invalidates version 4 compile keys after the shared compilation-semantics token was
+ * added to workspace main and test keys. Version 4 could otherwise declare a member clean before
+ * the canonical build fingerprint had a chance to reject output produced under older compilation
+ * semantics. Earlier versions are likewise intentionally not migrated because they can carry ABI or
+ * compile-reuse decisions that are no longer sound.
  *
  * <p>Anything older, corrupt, or unrecognised parses to empty and is treated as no state at all.
  */
 public final class WorkspaceStateCodec {
-    private static final String VERSION = "3";
-    private static final List<String> READABLE_VERSIONS = List.of("3", "2");
+    private static final String VERSION = "5";
+    private static final List<String> READABLE_VERSIONS = List.of("5");
     private static final String MEMBER_TAG = "member";
     /** Version 2 wrote twelve digests per member; version 3 appends two more. */
     private static final int MINIMUM_MEMBER_FIELDS = 14;

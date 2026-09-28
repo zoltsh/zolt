@@ -52,6 +52,13 @@ final class TestCompileServiceDependencies {
     }
 
     static TestCompileServiceDependencies create(JdkChecker jdkDetector, ResolveService resolveService) {
+        return create(jdkDetector, resolveService, new IncrementalCompilePlanner());
+    }
+
+    static TestCompileServiceDependencies create(
+            JdkChecker jdkDetector,
+            ResolveService resolveService,
+            IncrementalCompilePlanner incrementalCompilePlanner) {
         return create(
                 new BuildService(jdkDetector, resolveService),
                 new SourceDiscoverer(),
@@ -60,7 +67,8 @@ final class TestCompileServiceDependencies {
                 jdkDetector,
                 new JavacRunner(),
                 new GroovyCompilerRunner(),
-                new OpenApiGeneratedSourceService(jdkDetector));
+                new OpenApiGeneratedSourceService(jdkDetector),
+                incrementalCompilePlanner);
     }
 
     static TestCompileServiceDependencies create(
@@ -72,6 +80,28 @@ final class TestCompileServiceDependencies {
             JavacRunner javacRunner,
             GroovyCompilerRunner groovyCompilerRunner,
             OpenApiGeneratedSourceService openApiGeneratedSourceService) {
+        return create(
+                buildService,
+                sourceDiscoverer,
+                resourceCopier,
+                buildFingerprintService,
+                jdkDetector,
+                javacRunner,
+                groovyCompilerRunner,
+                openApiGeneratedSourceService,
+                new IncrementalCompilePlanner());
+    }
+
+    private static TestCompileServiceDependencies create(
+            BuildService buildService,
+            SourceDiscoverer sourceDiscoverer,
+            ResourceCopier resourceCopier,
+            BuildFingerprintService buildFingerprintService,
+            JdkChecker jdkDetector,
+            JavacRunner javacRunner,
+            GroovyCompilerRunner groovyCompilerRunner,
+            OpenApiGeneratedSourceService openApiGeneratedSourceService,
+            IncrementalCompilePlanner incrementalCompilePlanner) {
         IncrementalCompileStateRecorder incrementalCompileStateRecorder = new IncrementalCompileStateRecorder();
         return new TestCompileServiceDependencies(
                 new TestInputDependencies(
@@ -91,7 +121,7 @@ final class TestCompileServiceDependencies {
                                 javacRunner,
                                 groovyCompilerRunner,
                                 incrementalCompileStateRecorder,
-                                new IncrementalCompilePlanner())),
+                                incrementalCompilePlanner)),
                 BuildCacheService.disabled());
     }
 

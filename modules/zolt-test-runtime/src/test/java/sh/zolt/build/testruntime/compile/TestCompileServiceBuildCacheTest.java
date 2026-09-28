@@ -16,6 +16,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -55,8 +56,69 @@ final class TestCompileServiceBuildCacheTest {
                 "restored test output carries no incremental state (v1 tradeoff)");
     }
 
+    @Test
+    void fullCompileAfterCacheRestoreRemovesDeletedTestOutputLikeCleanBuild() throws IOException {
+        TestCompileService service = cacheEnabledService();
+        writeLockfile("version = 7\n");
+        source("src/main/java/com/example/Main.java", "package com.example; public final class Main {}\n");
+        source("src/test/java/com/example/MainTest.java", """
+                package com.example;
+
+                public final class MainTest {
+                    static final class Kept {
+                    }
+                }
+                """);
+        Path obsolete = source("src/test/java/com/example/ObsoleteTest.java", """
+                package com.example;
+
+                public final class ObsoleteTest {
+                    static final class Nested {
+                    }
+                }
+                """);
+        service.compileTests(projectDir, config(), projectDir.resolve("cache"));
+        wipeTarget();
+        TestCompileResult restored = service.compileTests(projectDir, config(), projectDir.resolve("cache"));
+        assertEquals("restored", restored.testCompilationMode());
+        assertTrue(Files.exists(projectDir.resolve("target/test-classes/com/example/ObsoleteTest$Nested.class")));
+        Files.delete(obsolete);
+
+        TestCompileResult rebuilt = service.compileTests(projectDir, config(), projectDir.resolve("cache"));
+
+        assertEquals("full", rebuilt.testCompilationMode());
+        assertEquals("missing-state", rebuilt.testIncrementalFallbackReason());
+        assertFalse(Files.exists(projectDir.resolve("target/test-classes/com/example/ObsoleteTest.class")));
+        assertFalse(Files.exists(projectDir.resolve("target/test-classes/com/example/ObsoleteTest$Nested.class")));
+        List<String> rebuiltClasses = testClassFiles();
+
+        wipeTarget();
+        new TestCompileService()
+                .withBuildCache(BuildCacheService.disabled())
+                .compileTests(projectDir, config(), projectDir.resolve("cache"));
+        assertEquals(testClassFiles(), rebuiltClasses);
+    }
+
+    private TestCompileService cacheEnabledService() {
+        return new TestCompileService()
+                .withBuildCache(BuildCacheService.create(
+                        new BuildCacheSettings(true, cacheHome.resolve("build-cache"), 0L), "test-version"));
+    }
+
     private Path testClassFile() {
         return projectDir.resolve("target/test-classes/com/example/MainTest.class");
+    }
+
+    private List<String> testClassFiles() throws IOException {
+        Path output = projectDir.resolve("target/test-classes");
+        try (Stream<Path> paths = Files.walk(output)) {
+            return paths.filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().endsWith(".class"))
+                    .map(output::relativize)
+                    .map(Path::toString)
+                    .sorted()
+                    .toList();
+        }
     }
 
     private void wipeTarget() throws IOException {

@@ -99,6 +99,7 @@ public final class PackageServiceTestSupport {
         new BuildFingerprintService().writeTestCompileFingerprint(
                 projectDir,
                 config,
+                "test-compiler",
                 projectDir.resolve("zolt.lock"),
                 sources,
                 new GeneratedSourceProducerFingerprintService()

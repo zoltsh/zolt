@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.project.BuildMetadataSettings;
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.CompilerSettings;
 import sh.zolt.project.GeneratedSourceKind;
@@ -26,6 +27,53 @@ final class CleanServiceOutputTest extends CleanServiceTestSupport {
         assertEquals(1, result.deletedCount());
         assertEquals(projectDir.resolve("target"), result.deletedPaths().getFirst());
         assertFalse(Files.exists(projectDir.resolve("target")));
+    }
+
+    @Test
+    void sharedTargetCleanPreservesConfiguredSourceDescendant() throws IOException {
+        file("target/src/p/Main.java");
+        file("target/classes/p/Main.class");
+        file("target/test-classes/p/MainTest.class");
+        file("target/integration-test-classes/p/MainIT.class");
+        BuildSettings settings = new BuildSettings(
+                "target/src",
+                "src/test/java",
+                "target",
+                "target/classes",
+                "target/test-classes");
+
+        CleanResult result = cleanService.clean(projectDir, settings);
+
+        assertEquals(3, result.deletedCount());
+        assertTrue(Files.exists(projectDir.resolve("target/src/p/Main.java")));
+        assertFalse(Files.exists(projectDir.resolve("target/classes")));
+        assertFalse(Files.exists(projectDir.resolve("target/test-classes")));
+        assertFalse(Files.exists(projectDir.resolve("target/integration-test-classes")));
+    }
+
+    @Test
+    void sharedTargetCleanPreservesConfiguredResourceDescendant() throws IOException {
+        file("target/resources/application.properties");
+        file("target/classes/p/Main.class");
+        file("target/test-classes/p/MainTest.class");
+        BuildSettings settings = new BuildSettings(
+                "src/main/java",
+                "src/test/java",
+                "target",
+                "target/classes",
+                "target/test-classes",
+                List.of("src/test/java"),
+                List.of(),
+                List.of("target/resources"),
+                List.of("src/test/resources"),
+                BuildMetadataSettings.defaults());
+
+        CleanResult result = cleanService.clean(projectDir, settings);
+
+        assertEquals(2, result.deletedCount());
+        assertTrue(Files.exists(projectDir.resolve("target/resources/application.properties")));
+        assertFalse(Files.exists(projectDir.resolve("target/classes")));
+        assertFalse(Files.exists(projectDir.resolve("target/test-classes")));
     }
 
     @Test
@@ -84,6 +132,41 @@ final class CleanServiceOutputTest extends CleanServiceTestSupport {
         assertEquals(4, result.deletedCount());
         assertFalse(Files.exists(projectDir.resolve("build/generated/main")));
         assertFalse(Files.exists(projectDir.resolve("build/generated/test")));
+    }
+
+    @Test
+    void deletesChainedExecOutputsWithoutDeletingAuthoredInputs() throws IOException {
+        Path script = projectDir.resolve("scripts/stage.sh");
+        Path seed = projectDir.resolve("src/main/exec/seed.txt");
+        file("scripts/stage.sh");
+        file("src/main/exec/seed.txt");
+        file("target/generated/exec/stage/staged.txt");
+        file("target/generated/exec/resource/generated.properties");
+        GeneratedSourceStep stage = new GeneratedSourceStep(
+                "stage",
+                GeneratedSourceKind.EXEC,
+                "java",
+                "target/generated/exec/stage",
+                List.of("scripts/stage.sh", "src/main/exec/seed.txt"),
+                true,
+                true);
+        GeneratedSourceStep bundle = new GeneratedSourceStep(
+                "bundle",
+                GeneratedSourceKind.EXEC,
+                "java",
+                "target/generated/exec/resource",
+                List.of("scripts/stage.sh", "target/generated/exec/stage"),
+                true,
+                true);
+        BuildSettings settings = BuildSettings.defaults().withGeneratedSources(
+                List.of(stage, bundle),
+                List.of());
+
+        cleanService.clean(projectDir, settings);
+
+        assertFalse(Files.exists(projectDir.resolve("target")));
+        assertEquals("x", Files.readString(script));
+        assertEquals("x", Files.readString(seed));
     }
 
     @Test
