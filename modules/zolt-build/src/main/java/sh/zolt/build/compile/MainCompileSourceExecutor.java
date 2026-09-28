@@ -1,7 +1,6 @@
 package sh.zolt.build.compile;
 
 import sh.zolt.build.CompileDiagnostics;
-import sh.zolt.build.GroovyCompileException;
 import sh.zolt.build.JavacException;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.build.incremental.GeneratedOutputAttribution;
@@ -17,7 +16,7 @@ import java.util.List;
 
 public final class MainCompileSourceExecutor {
     private final JavacRunner javacRunner;
-    private final GroovyCompilerRunner groovyCompilerRunner;
+    private final MainLanguageCompileExecutor mainLanguageCompileExecutor;
     private final IncrementalCompileStateRecorder incrementalCompileStateRecorder;
     private final IncrementalCompilePlanner incrementalCompilePlanner;
     private final IncrementalJavacExecution incrementalJavacExecution;
@@ -39,7 +38,8 @@ public final class MainCompileSourceExecutor {
             IncrementalCompileStateRecorder incrementalCompileStateRecorder,
             IncrementalCompilePlanner incrementalCompilePlanner) {
         this.javacRunner = javacRunner;
-        this.groovyCompilerRunner = groovyCompilerRunner;
+        this.mainLanguageCompileExecutor = new MainLanguageCompileExecutor(
+                groovyCompilerRunner, incrementalCompileStateRecorder);
         this.incrementalCompileStateRecorder = incrementalCompileStateRecorder;
         this.incrementalCompilePlanner = incrementalCompilePlanner;
         this.incrementalJavacExecution = new IncrementalJavacExecution(javacRunner, incrementalCompilePlanner);
@@ -124,9 +124,8 @@ public final class MainCompileSourceExecutor {
             Path generatedSourcesDirectory,
             JdkStatus jdkStatus,
             GroovyCompilerToolchain groovyToolchain) {
-        GroovyCompilerRunner.JointOptions groovyOptions = groovyOptions(
-                config, sources, classpaths, jdkStatus);
-        requireGroovyToolchain(groovyOptions, groovyToolchain);
+        MainLanguageCompileExecutor.Plan languagePlan = mainLanguageCompileExecutor.preflight(
+                config, sources, classpaths, jdkStatus, groovyToolchain);
         if (compileSkipped) {
             return new Attempt(
                     new JavacResult(sources.allMainSources().size(), outputDirectory, ""),
@@ -134,17 +133,16 @@ public final class MainCompileSourceExecutor {
                     "",
                     CompileDiagnostics.empty());
         }
-        if (groovyOptions != null) {
-            return jointGroovyCompile(
+        if (languagePlan.active()) {
+            return mainLanguageCompileExecutor.compile(
+                    languagePlan,
                     projectDirectory,
                     config,
                     sources,
                     classpaths,
                     outputDirectory,
                     generatedSourcesDirectory,
-                    jdkStatus,
-                    groovyOptions,
-                    groovyToolchain);
+                    jdkStatus);
         }
         boolean hostMode = config.compilerSettings().mainHostPlatformApi()
                 && !MainCompileOptions.effectiveRelease(config).isBlank();
@@ -209,68 +207,11 @@ public final class MainCompileSourceExecutor {
             ClasspathSet classpaths,
             JdkStatus jdkStatus,
             GroovyCompilerToolchain groovyToolchain) {
-        GroovyCompilerRunner.JointOptions options = groovyOptions(config, sources, classpaths, jdkStatus);
-        requireGroovyToolchain(options, groovyToolchain);
+        mainLanguageCompileExecutor.preflight(
+                config, sources, classpaths, jdkStatus, groovyToolchain);
     }
 
-    private static GroovyCompilerRunner.JointOptions groovyOptions(
-            ProjectConfig config,
-            SourceDiscoveryResult sources,
-            ClasspathSet classpaths,
-            JdkStatus jdkStatus) {
-        if (sources.groovyMainSources().isEmpty()) {
-            return null;
-        }
-        return GroovyJointCompilePolicy.options(
-                config, sources.allMainSources(), classpaths, jdkStatus);
-    }
-
-    private static void requireGroovyToolchain(
-            GroovyCompilerRunner.JointOptions options,
-            GroovyCompilerToolchain groovyToolchain) {
-        if (options != null && groovyToolchain == null) {
-            throw new GroovyCompileException(
-                    "Groovy main compilation requires a checksum-verified compiler toolchain before "
-                            + "cached output can be reused or compile output can be cleaned. Resolve verified "
-                            + "org.apache.groovy:groovy package metadata and retry.");
-        }
-    }
-
-    private Attempt jointGroovyCompile(
-            Path projectDirectory,
-            ProjectConfig config,
-            SourceDiscoveryResult sources,
-            ClasspathSet classpaths,
-            Path outputDirectory,
-            Path generatedSourcesDirectory,
-            JdkStatus jdkStatus,
-            GroovyCompilerRunner.JointOptions options,
-            GroovyCompilerToolchain groovyToolchain) {
-        List<Path> allSources = sources.allMainSources();
-        String platformApiWarning = CompilerPlatformApi.determinismWarning(
-                options.hostPlatformApi(), "main", jdkStatus);
-        incrementalCompileStateRecorder.deleteMainState(outputDirectory);
-        CompileOutputCleaner.resetMain(
-                projectDirectory, config, outputDirectory, generatedSourcesDirectory);
-        JavacResult result = groovyCompilerRunner.compileJoint(
-                jdkStatus.java().orElseThrow(),
-                allSources,
-                groovyToolchain.launcherClasspath(),
-                classpaths.compile(),
-                outputDirectory,
-                options);
-        return withPlatformApiWarning(
-                new Attempt(
-                        result,
-                        "full",
-                        "groovy-main-sources",
-                        CompileDiagnostics.legacy(allSources.size(), false),
-                        GeneratedOutputAttribution.absent(),
-                        allSources),
-                platformApiWarning);
-    }
-
-    private static Attempt withPlatformApiWarning(Attempt attempt, String warning) {
+    static Attempt withPlatformApiWarning(Attempt attempt, String warning) {
         if (warning == null || warning.isBlank()) {
             return attempt;
         }
