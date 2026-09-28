@@ -13,6 +13,8 @@ import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import sh.zolt.build.KotlinCompileException;
+import sh.zolt.build.compile.JavacOptions;
+import sh.zolt.build.compile.KotlinCompileOptionsPolicy;
 import sh.zolt.build.compile.KotlinCompilerRunner;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.classpath.Classpath;
