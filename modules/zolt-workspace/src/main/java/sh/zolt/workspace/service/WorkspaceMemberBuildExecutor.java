@@ -3,6 +3,7 @@ package sh.zolt.workspace.service;
 import sh.zolt.build.BuildResult;
 import sh.zolt.build.BuildService;
 import sh.zolt.build.JavacException;
+import sh.zolt.build.SourceCompileException;
 import sh.zolt.build.cache.BuildCacheService;
 import sh.zolt.build.incremental.IncrementalCompileSummary;
 import sh.zolt.classpath.ClasspathSet;
@@ -195,6 +196,13 @@ final class WorkspaceMemberBuildExecutor {
                             + "\nWorkspace member `"
                             + member.path()
                             + "` failed to compile. If the missing type comes from a dependency of another workspace member, declare it directly in this member or move it to [dependencies.api] in the member that exposes it.",
+                    exception);
+        } catch (SourceCompileException exception) {
+            throw new WorkspaceMemberCompileException(
+                    exception.getMessage()
+                            + "\nWorkspace member `"
+                            + member.path()
+                            + "` failed to compile.",
                     exception);
         }
     }
