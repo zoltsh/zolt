@@ -248,7 +248,7 @@ public final class BuildService {
             throw BuildException.actionable("JDK check failed.", String.join(" ", jdkStatus.problems()));
         }
         GroovyCompilerToolchain groovyToolchain = mainGroovyToolchain(
-                sources, classpathPackages, verifiedPackageMetadataAvailable);
+                sources, config, classpathPackages, verifiedPackageMetadataAvailable);
         sourceExecutor.preflight(config, sources, classpaths, jdkStatus, groovyToolchain);
         String compilerIdentity = groovyToolchain == null
                 ? EffectiveCompilerIdentity.of(jdkStatus)
@@ -358,6 +358,7 @@ public final class BuildService {
 
     private GroovyCompilerToolchain mainGroovyToolchain(
             SourceDiscoveryResult sources,
+            ProjectConfig config,
             List<ResolvedClasspathPackage> classpathPackages,
             boolean verifiedPackageMetadataAvailable) {
         if (sources.groovyMainSources().isEmpty()) {
@@ -372,7 +373,8 @@ public final class BuildService {
         }
         return groovyCompilerToolchainResolver.resolve(
                 classpathPackages,
-                GroovyCompilerToolchainResolver.SourceSet.MAIN);
+                GroovyCompilerToolchainResolver.SourceSet.MAIN,
+                config.compilerSettings().groovyVersion());
     }
 
     private static long elapsedSince(long started) {
