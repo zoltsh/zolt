@@ -4,7 +4,6 @@ import sh.zolt.build.BuildResultWithClasspaths;
 import sh.zolt.build.testruntime.TestRunService;
 import sh.zolt.build.testruntime.compile.TestCompileResult;
 import sh.zolt.cli.CommandHumanOutput;
-import sh.zolt.cli.command.CommandBuildCache;
 import sh.zolt.cli.command.CommandBuildProvenance;
 import sh.zolt.cli.command.CommandLockfiles;
 import sh.zolt.cli.command.CommandServiceBundles.TestRunServiceFactory;
@@ -28,6 +27,7 @@ final class TestCompileCommandRunner {
     private final TestRunServiceFactory testRunServiceFactory;
     private final CommandLockfiles lockfiles;
     private final CommandToolchainOptions toolchainOptions;
+    private final CommandTestBuildCacheSupport buildCache;
     private final CommandSpec spec;
 
     TestCompileCommandRunner(
@@ -35,11 +35,13 @@ final class TestCompileCommandRunner {
             TestRunServiceFactory testRunServiceFactory,
             CommandLockfiles lockfiles,
             CommandToolchainOptions toolchainOptions,
+            CommandTestBuildCacheSupport buildCache,
             CommandSpec spec) {
         this.workspaceTestService = workspaceTestService;
         this.testRunServiceFactory = testRunServiceFactory;
         this.lockfiles = lockfiles;
         this.toolchainOptions = toolchainOptions;
+        this.buildCache = buildCache;
         this.spec = spec;
     }
 
@@ -53,9 +55,10 @@ final class TestCompileCommandRunner {
                 toolchainOptions.workspaceTestToolchains(
                         testRunServiceFactory,
                         "test");
-        WorkspaceTestService projectWorkspaceTestService = workspaceTestService.withMemberServices(
-                workspaceToolchains.mainCheckers(),
-                workspaceToolchains.testRunServices());
+        WorkspaceTestService projectWorkspaceTestService = buildCache.applyTo(
+                workspaceTestService.withMemberServices(
+                        workspaceToolchains.mainCheckers(),
+                        workspaceToolchains.testRunServices()));
         CommandHumanOutput output = CommandHumanOutput.of(spec);
         WorkspaceTestCompileResult result = WorkspaceMutationLock.withWorkspaceLock(
                 workspaceRoot,
@@ -102,16 +105,14 @@ final class TestCompileCommandRunner {
     void compileSingle(
             ProjectCommandContext context,
             Path cacheRoot,
-            boolean noBuildCache,
             TimingRecorder timings,
             ProgressWriter progress) {
         Path projectRoot = context.projectRoot();
         ProjectConfig config = context.config();
         var compileChecker = toolchainOptions.jdkChecker(context, "test");
-        TestRunService projectTestRunService = testRunServiceFactory.create(
-                        compileChecker,
-                        toolchainOptions.testRuntimeRunChecker(context, compileChecker))
-                .withBuildCache(CommandBuildCache.service(noBuildCache, false));
+        TestRunService projectTestRunService = buildCache.applyTo(testRunServiceFactory.create(
+                compileChecker,
+                toolchainOptions.testRuntimeRunChecker(context, compileChecker)));
         var artifactIndex = lockfiles.requireFreshLockfile(context, cacheRoot, false);
         progress.start("Compiling tests");
         CommandHumanOutput output = CommandHumanOutput.of(spec);
