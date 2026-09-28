@@ -14,6 +14,8 @@ import java.util.StringJoiner;
 
 public final class GroovyCompilerRunner {
     private static final String GROOVY_COMPILER_MAIN = "org.codehaus.groovy.tools.FileSystemCompiler";
+    private static final String GRAPE_ENABLE_PROPERTY = "-Dgroovy.grape.enable=false";
+    private static final String GRAPE_AUTO_DOWNLOAD_PROPERTY = "-Dgroovy.grape.autoDownload=false";
 
     private final String pathSeparator;
     private final ProcessRunner processRunner;
@@ -32,10 +34,20 @@ public final class GroovyCompilerRunner {
             List<Path> sources,
             Classpath classpath,
             Path outputDirectory) {
+        return compile(javaExecutable, sources, classpath, classpath, outputDirectory);
+    }
+
+    public JavacResult compile(
+            Path javaExecutable,
+            List<Path> sources,
+            Classpath compilerLauncherClasspath,
+            Classpath compilationClasspath,
+            Path outputDirectory) {
         return compile(
                 javaExecutable,
                 sources,
-                classpath,
+                compilerLauncherClasspath,
+                compilationClasspath,
                 outputDirectory,
                 CompilationMode.TEST,
                 null);
@@ -47,13 +59,30 @@ public final class GroovyCompilerRunner {
             Classpath classpath,
             Path outputDirectory,
             JointOptions options) {
+        return compileJoint(
+                javaExecutable,
+                sources,
+                classpath,
+                classpath,
+                outputDirectory,
+                options);
+    }
+
+    public JavacResult compileJoint(
+            Path javaExecutable,
+            List<Path> sources,
+            Classpath compilerLauncherClasspath,
+            Classpath compilationClasspath,
+            Path outputDirectory,
+            JointOptions options) {
         if (options == null) {
             throw new GroovyCompileException("Groovy joint compilation options are required.");
         }
         return compile(
                 javaExecutable,
                 sources,
-                classpath,
+                compilerLauncherClasspath,
+                compilationClasspath,
                 outputDirectory,
                 CompilationMode.MAIN_JOINT,
                 options);
@@ -62,7 +91,8 @@ public final class GroovyCompilerRunner {
     private JavacResult compile(
             Path javaExecutable,
             List<Path> sources,
-            Classpath classpath,
+            Classpath compilerLauncherClasspath,
+            Classpath compilationClasspath,
             Path outputDirectory,
             CompilationMode mode,
             JointOptions options) {
@@ -85,7 +115,8 @@ public final class GroovyCompilerRunner {
         ProcessResult result = processRunner.run(command(
                 javaExecutable,
                 sortedSources,
-                classpath,
+                compilerLauncherClasspath,
+                compilationClasspath,
                 outputDirectory,
                 mode,
                 options));
@@ -106,22 +137,26 @@ public final class GroovyCompilerRunner {
     private List<String> command(
             Path javaExecutable,
             List<Path> sources,
-            Classpath classpath,
+            Classpath compilerLauncherClasspath,
+            Classpath compilationClasspath,
             Path outputDirectory,
             CompilationMode mode,
             JointOptions options) {
-        List<Path> classpathEntries = orderedEntries(classpath);
+        List<Path> compilerLauncherEntries = orderedEntries(compilerLauncherClasspath);
+        List<Path> compilationEntries = orderedEntries(compilationClasspath);
         List<String> command = new ArrayList<>();
         command.add(javaExecutable.toString());
+        command.add(GRAPE_ENABLE_PROPERTY);
+        command.add(GRAPE_AUTO_DOWNLOAD_PROPERTY);
         if (mode == CompilationMode.MAIN_JOINT) {
             command.add("-Dgroovy.target.bytecode=" + options.release());
         }
         command.add("-cp");
-        command.add(joinedPath(classpathEntries));
+        command.add(joinedPath(compilerLauncherEntries));
         command.add(GROOVY_COMPILER_MAIN);
-        if (!classpathEntries.isEmpty()) {
+        if (!compilationEntries.isEmpty()) {
             command.add("-classpath");
-            command.add(joinedPath(classpathEntries));
+            command.add(joinedPath(compilationEntries));
         }
         if (mode == CompilationMode.MAIN_JOINT) {
             command.add("-j");

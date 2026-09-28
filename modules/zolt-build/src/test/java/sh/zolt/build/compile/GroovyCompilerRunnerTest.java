@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 
 final class GroovyCompilerRunnerTest {
     @Test
-    void invokesProjectProvidedGroovyCompilerFromClasspath() {
+    void keepsProjectAndOutputPathsOffTheCompilerLauncherClasspath() {
         List<List<String>> commands = new ArrayList<>();
         GroovyCompilerRunner runner = new GroovyCompilerRunner(":", command -> {
             commands.add(command);
@@ -24,18 +24,21 @@ final class GroovyCompilerRunnerTest {
         JavacResult result = runner.compile(
                 Path.of("/jdk/bin/java"),
                 List.of(Path.of("src/test/groovy/com/example/MainSpec.groovy")),
-                new Classpath(List.of(Path.of("target/test-classes"), Path.of("cache/groovy.jar"))),
+                new Classpath(List.of(Path.of("cache/groovy.jar"), Path.of("cache/ivy.jar"))),
+                new Classpath(List.of(Path.of("target/test-classes"), Path.of("cache/dependency.jar"))),
                 Path.of("target/test-classes"));
 
         assertEquals(1, result.sourceCount());
         assertEquals("compiled groovy\n", result.output());
         List<String> command = commands.getFirst();
         assertEquals("/jdk/bin/java", command.get(0));
-        assertEquals("-cp", command.get(1));
-        assertEquals("target/test-classes:cache/groovy.jar", command.get(2));
-        assertEquals("org.codehaus.groovy.tools.FileSystemCompiler", command.get(3));
-        assertEquals("-classpath", command.get(4));
-        assertEquals("target/test-classes:cache/groovy.jar", command.get(5));
+        assertEquals("-Dgroovy.grape.enable=false", command.get(1));
+        assertEquals("-Dgroovy.grape.autoDownload=false", command.get(2));
+        assertEquals("-cp", command.get(3));
+        assertEquals("cache/groovy.jar:cache/ivy.jar", command.get(4));
+        assertEquals("org.codehaus.groovy.tools.FileSystemCompiler", command.get(5));
+        assertEquals("-classpath", command.get(6));
+        assertEquals("target/test-classes:cache/dependency.jar", command.get(7));
         assertTrue(command.contains("-d"));
         assertTrue(command.contains("target/test-classes"));
         assertTrue(command.contains("-classpath"));
@@ -73,7 +76,8 @@ final class GroovyCompilerRunnerTest {
                 List.of(
                         Path.of("src/main/groovy/com/example/GroovyApi.groovy"),
                         Path.of("src/main/java/com/example/JavaApi.java")),
-                new Classpath(List.of(Path.of("cache/groovy.jar"), Path.of("cache/dependency.jar"))),
+                new Classpath(List.of(Path.of("cache/groovy.jar"), Path.of("cache/ivy.jar"))),
+                new Classpath(List.of(Path.of("target/classes"), Path.of("cache/dependency.jar"))),
                 Path.of("target/classes"),
                 new GroovyCompilerRunner.JointOptions("21", "UTF-16", false));
 
@@ -81,12 +85,14 @@ final class GroovyCompilerRunnerTest {
         assertEquals("compiled jointly\n", result.output());
         assertEquals(List.of(
                 "/managed-jdk/bin/java",
+                "-Dgroovy.grape.enable=false",
+                "-Dgroovy.grape.autoDownload=false",
                 "-Dgroovy.target.bytecode=21",
                 "-cp",
-                "cache/groovy.jar:cache/dependency.jar",
+                "cache/groovy.jar:cache/ivy.jar",
                 "org.codehaus.groovy.tools.FileSystemCompiler",
                 "-classpath",
-                "cache/groovy.jar:cache/dependency.jar",
+                "target/classes:cache/dependency.jar",
                 "-j",
                 "-d",
                 "target/classes",
