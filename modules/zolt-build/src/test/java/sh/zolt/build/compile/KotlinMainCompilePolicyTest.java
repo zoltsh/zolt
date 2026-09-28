@@ -131,14 +131,22 @@ final class KotlinMainCompilePolicyTest {
     }
 
     @Test
-    void rejectsWorkspaceCompileDependenciesAndNonUtf8Sources() {
-        KotlinCompileException workspaceFailure = assertThrows(
-                KotlinCompileException.class,
-                () -> KotlinMainCompilePolicy.options(
-                        config(CompilerSettings.defaults(), Map.of("api", "../api"), Map.of(), "demo"),
-                        sources(List.of(), List.of(), List.of(KOTLIN)),
-                        classpaths(List.of()),
-                        jdkStatus("21.0.11", "21")));
+    void acceptsApiAndImplementationWorkspaceDependencies() {
+        KotlinCompilerRunner.Options options = KotlinMainCompilePolicy.options(
+                config(
+                        CompilerSettings.defaults(),
+                        Map.of("api", "../api"),
+                        Map.of("implementation", "../implementation"),
+                        "demo"),
+                sources(List.of(), List.of(), List.of(KOTLIN)),
+                classpaths(List.of()),
+                jdkStatus("21.0.11", "21"));
+
+        assertEquals("demo_main", options.moduleName());
+    }
+
+    @Test
+    void rejectsNonUtf8Sources() {
         CompilerSettings latin1 = new CompilerSettings(
                 null, null, "", "ISO-8859-1", List.of(), List.of());
         KotlinCompileException encodingFailure = assertThrows(
@@ -149,7 +157,6 @@ final class KotlinMainCompilePolicyTest {
                         classpaths(List.of()),
                         jdkStatus("21.0.11", "21")));
 
-        assertTrue(workspaceFailure.getMessage().contains("workspace compile dependencies"));
         assertTrue(encodingFailure.getMessage().contains("not UTF-8"));
     }
 

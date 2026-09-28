@@ -48,7 +48,7 @@ final class KotlinTestCompilePolicy {
             throw unsupported(
                     "workspace compile dependencies are configured",
                     "Keep the Kotlin preview member independent of workspace compile dependencies"
-                            + " until Kotlin module metadata participates in workspace and test cache keys.");
+                            + " until workspace-dependent Kotlin test compilation is qualified.");
         }
         if (config.frameworkSettings().quarkus().enabled()) {
             throw unsupported(

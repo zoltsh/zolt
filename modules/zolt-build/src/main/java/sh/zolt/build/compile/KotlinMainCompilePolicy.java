@@ -40,13 +40,6 @@ final class KotlinMainCompilePolicy {
                     "Remove the custom javac arguments or keep this member Java-only; Zolt does not"
                             + " forward javac flags to kotlinc.");
         }
-        if (!config.workspaceApiDependencies().isEmpty()
-                || !config.workspaceDependencies().isEmpty()) {
-            throw unsupported(
-                    "compile-scoped workspace dependencies are configured",
-                    "Keep the Kotlin preview member independent of workspace compile dependencies"
-                            + " until Kotlin module metadata participates in workspace ABI keys.");
-        }
         return KotlinCompileOptionsPolicy.options(
                 config,
                 jdkStatus,

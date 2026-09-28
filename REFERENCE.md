@@ -659,12 +659,16 @@ Compiler artifacts do not enter application or package classpaths.
 This is intentionally a bounded preview. It supports Kotlin-only authored main
 sources and fails before cache restoration or output cleanup when the member
 also has Java or Groovy main sources, annotation processors, custom
-`[compiler].args`, generated Java sources, or compile-scoped workspace member
-dependencies. Kotlin unit tests use the separate bounded path described under
-Tests and Coverage; Kotlin-only main and unit-test source sets may coexist in
-one member. Tests may use public main APIs, but Zolt does not pass Kotlin
-`-Xfriend-paths`, so `internal` main declarations are not visible to tests.
-Kotlin integration-test compilation, generated Kotlin, KAPT, and
+`[compiler].args`, or generated Java sources. Kotlin main compilation supports
+workspace API and implementation dependencies; dependency class ABI and Kotlin
+module metadata participate in downstream workspace invalidation. Kotlin unit
+tests use the separate bounded path described under Tests and Coverage, which
+still rejects workspace dependencies; Kotlin-only main and unit-test source
+sets may otherwise coexist in one member. A workspace-dependent Kotlin main
+member therefore cannot yet declare Kotlin test sources.
+Tests may use public main APIs, but Zolt does not pass Kotlin `-Xfriend-paths`,
+so `internal` main declarations are not visible to tests. Kotlin
+integration-test compilation, generated Kotlin, KAPT, and
 migration-manifest drafting are not supported. Sources are read as UTF-8. The
 effective Java release must not exceed the selected complete JDK;
 `[compiler].jdkApi = "host"` selects host-platform API semantics instead of

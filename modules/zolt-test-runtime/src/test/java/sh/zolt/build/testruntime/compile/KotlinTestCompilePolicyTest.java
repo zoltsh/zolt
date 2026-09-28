@@ -56,6 +56,8 @@ final class KotlinTestCompilePolicyTest {
                         jdkStatus()));
 
         assertTrue(workspaceFailure.getMessage().contains("workspace compile dependencies"));
+        assertTrue(workspaceFailure.getMessage().contains(
+                "until workspace-dependent Kotlin test compilation is qualified"));
     }
 
     @Test
