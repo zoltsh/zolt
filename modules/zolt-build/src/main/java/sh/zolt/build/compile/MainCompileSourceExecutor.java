@@ -53,7 +53,10 @@ public final class MainCompileSourceExecutor {
             IncrementalCompilePlanner incrementalCompilePlanner) {
         this.javacRunner = javacRunner;
         this.mainLanguageCompileExecutor = new MainLanguageCompileExecutor(
-                groovyCompilerRunner, kotlinCompilerRunner, incrementalCompileStateRecorder);
+                javacRunner,
+                groovyCompilerRunner,
+                kotlinCompilerRunner,
+                incrementalCompileStateRecorder);
         this.incrementalCompileStateRecorder = incrementalCompileStateRecorder;
         this.incrementalCompilePlanner = incrementalCompilePlanner;
         this.incrementalJavacExecution = new IncrementalJavacExecution(javacRunner, incrementalCompilePlanner);

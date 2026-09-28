@@ -2,6 +2,7 @@ package sh.zolt.build;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -40,12 +41,17 @@ final class BuildServiceKotlinMainIntegrationTest {
         KotlinCompilerIntegrationArtifacts.Prepared artifacts = KotlinCompilerIntegrationArtifacts.prepare(
                 cacheRoot,
                 projectDir.resolve("zolt.lock"));
+        String javaSourceContent = javaApiSource("\"real\"");
+        Path javaSource = source("src/main/java/com/example/JavaApi.java", javaSourceContent);
         Path kotlinSource = source("src/main/kotlin/com/example/KotlinApi.kt", """
                 package com.example
 
                 object KotlinApi {
                     @JvmStatic
-                    fun message(): String = listOf("real", "kotlin").joinToString("-")
+                    fun message(): String = JavaApi.javaValue() + "-" + kotlinValue()
+
+                    @JvmStatic
+                    fun kotlinValue(): String = listOf("kotlin").joinToString()
                 }
                 """);
         Path obsoleteSource = source("src/main/kotlin/com/example/Obsolete.kt", """
@@ -64,14 +70,16 @@ final class BuildServiceKotlinMainIntegrationTest {
                 true);
 
         assertTrue(first.buildResult().resolveResult().isEmpty());
-        assertEquals(2, first.buildResult().sourceCount());
+        assertEquals(3, first.buildResult().sourceCount());
         assertEquals("full", first.buildResult().mainCompilationMode());
         assertEquals("kotlin-main-sources", first.buildResult().mainIncrementalFallbackReason());
         assertEquals("stored", first.buildResult().mainBuildCacheOutcome());
         assertTrue(Files.isRegularFile(classFile("KotlinApi.class")));
+        assertTrue(Files.isRegularFile(classFile("JavaApi.class")));
         assertTrue(Files.isRegularFile(classFile("Obsolete.class")));
         assertTrue(hasKotlinModuleMetadata());
         assertEquals("real-kotlin", invokeKotlinApi(artifacts.applicationClasspath()));
+        assertEquals("kotlin", invokeJavaApi(artifacts.applicationClasspath()));
         assertIsolatedCompilerClasspath(first, artifacts);
 
         BuildResultWithClasspaths warm = service.buildWithClasspaths(
@@ -81,7 +89,7 @@ final class BuildServiceKotlinMainIntegrationTest {
                 true);
         assertTrue(warm.buildResult().resolveResult().isEmpty());
         assertTrue(warm.buildResult().mainCompilationSkipped());
-        assertEquals(2, warm.buildResult().sourceCount());
+        assertEquals(3, warm.buildResult().sourceCount());
 
         wipeTarget();
         BuildResultWithClasspaths restored = service.buildWithClasspaths(
@@ -92,9 +100,47 @@ final class BuildServiceKotlinMainIntegrationTest {
         assertTrue(restored.buildResult().mainCompilationRestored());
         assertEquals("restored", restored.buildResult().mainBuildCacheOutcome());
         assertTrue(Files.isRegularFile(classFile("KotlinApi.class")));
+        assertTrue(Files.isRegularFile(classFile("JavaApi.class")));
         assertTrue(Files.isRegularFile(classFile("Obsolete.class")));
         assertTrue(hasKotlinModuleMetadata());
         assertEquals("real-kotlin", invokeKotlinApi(artifacts.applicationClasspath()));
+
+        Files.writeString(javaSource, javaApiSource("\"changed\""));
+        BuildResultWithClasspaths javaChanged = service.buildWithClasspaths(
+                projectDir,
+                config(),
+                cacheRoot,
+                true);
+        assertEquals("full", javaChanged.buildResult().mainCompilationMode());
+        assertEquals(3, javaChanged.buildResult().sourceCount());
+        assertEquals("changed-kotlin", invokeKotlinApi(artifacts.applicationClasspath()));
+
+        Files.writeString(javaSource, javaApiSource("Missing.symbol()"));
+        JavacException javacFailure = assertThrows(
+                JavacException.class,
+                () -> service.buildWithClasspaths(projectDir, config(), cacheRoot, true));
+        assertTrue(javacFailure.getMessage().contains("javac failed"), javacFailure.getMessage());
+
+        Files.writeString(javaSource, javaApiSource("\"recovered\""));
+        BuildResultWithClasspaths recovered = service.buildWithClasspaths(
+                projectDir,
+                config(),
+                cacheRoot,
+                true);
+        assertFalse(recovered.buildResult().mainCompilationRestored());
+        assertEquals("full", recovered.buildResult().mainCompilationMode());
+        assertEquals("recovered-kotlin", invokeKotlinApi(artifacts.applicationClasspath()));
+
+        Files.writeString(javaSource, javaSourceContent);
+        BuildResultWithClasspaths reverted = service.buildWithClasspaths(
+                projectDir,
+                config(),
+                cacheRoot,
+                true);
+        assertFalse(reverted.buildResult().mainCompilationSkipped());
+        assertEquals(3, reverted.buildResult().sourceCount());
+        assertEquals("real-kotlin", invokeKotlinApi(artifacts.applicationClasspath()));
+        assertEquals("kotlin", invokeJavaApi(artifacts.applicationClasspath()));
 
         Files.delete(obsoleteSource);
         BuildResultWithClasspaths rebuilt = service.buildWithClasspaths(
@@ -106,10 +152,12 @@ final class BuildServiceKotlinMainIntegrationTest {
         assertFalse(rebuilt.buildResult().mainCompilationRestored());
         assertEquals("full", rebuilt.buildResult().mainCompilationMode());
         assertEquals("kotlin-main-sources", rebuilt.buildResult().mainIncrementalFallbackReason());
-        assertEquals(1, rebuilt.buildResult().sourceCount());
+        assertEquals(2, rebuilt.buildResult().sourceCount());
         assertFalse(Files.exists(classFile("Obsolete.class")));
+        assertTrue(Files.isRegularFile(classFile("JavaApi.class")));
         assertTrue(Files.isRegularFile(kotlinSource));
         assertEquals("real-kotlin", invokeKotlinApi(artifacts.applicationClasspath()));
+        assertEquals("kotlin", invokeJavaApi(artifacts.applicationClasspath()));
     }
 
     private void assertIsolatedCompilerClasspath(
@@ -136,6 +184,17 @@ final class BuildServiceKotlinMainIntegrationTest {
     }
 
     private String invokeKotlinApi(List<Path> applicationClasspath) throws Exception {
+        return (String) invokeApi(applicationClasspath, "com.example.KotlinApi", "message");
+    }
+
+    private String invokeJavaApi(List<Path> applicationClasspath) throws Exception {
+        return (String) invokeApi(applicationClasspath, "com.example.JavaApi", "callKotlin");
+    }
+
+    private Object invokeApi(
+            List<Path> applicationClasspath,
+            String className,
+            String methodName) throws Exception {
         URL[] urls = Stream.concat(
                         Stream.of(projectDir.resolve("target/classes")),
                         applicationClasspath.stream())
@@ -148,9 +207,27 @@ final class BuildServiceKotlinMainIntegrationTest {
                 })
                 .toArray(URL[]::new);
         try (URLClassLoader loader = new URLClassLoader(urls, ClassLoader.getPlatformClassLoader())) {
-            Class<?> api = Class.forName("com.example.KotlinApi", true, loader);
-            return (String) api.getMethod("message").invoke(null);
+            Class<?> api = Class.forName(className, true, loader);
+            return api.getMethod(methodName).invoke(null);
         }
+    }
+
+    private static String javaApiSource(String javaValueExpression) {
+        return """
+                package com.example;
+
+                public final class JavaApi {
+                    private JavaApi() {}
+
+                    public static String javaValue() {
+                        return %s;
+                    }
+
+                    public static String callKotlin() {
+                        return KotlinApi.kotlinValue();
+                    }
+                }
+                """.formatted(javaValueExpression);
     }
 
     private boolean hasKotlinModuleMetadata() throws IOException {
@@ -199,7 +276,7 @@ final class BuildServiceKotlinMainIntegrationTest {
                 java = 21
 
                 [build]
-                sources = ["src/main/kotlin"]
+                sources = ["src/main/java", "src/main/kotlin"]
 
                 [toolchain.kotlin]
                 version = "2.2.0"

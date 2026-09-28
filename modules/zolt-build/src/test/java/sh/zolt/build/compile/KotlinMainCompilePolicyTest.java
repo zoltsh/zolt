@@ -18,11 +18,18 @@ import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.doctor.JdkStatus;
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.CompilerSettings;
+import sh.zolt.project.ExecGenerationSettings;
+import sh.zolt.project.ExecToolSettings;
+import sh.zolt.project.GeneratedSourceKind;
+import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.NativeSettings;
+import sh.zolt.project.OpenApiGenerationSettings;
 import sh.zolt.project.PackageSettings;
+import sh.zolt.project.ProtobufGenerationSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectConfigs;
 import sh.zolt.project.ProjectMetadata;
+import sh.zolt.project.ProducesLane;
 
 final class KotlinMainCompilePolicyTest {
     private static final Path KOTLIN = Path.of("src/main/kotlin/com/example/Main.kt");
@@ -62,6 +69,8 @@ final class KotlinMainCompilePolicyTest {
         assertEquals("8", options.release());
         assertTrue(options.hostPlatformApi());
         assertFalse(options.useJdkRelease());
+        assertTrue(KotlinMainCompilePolicy.javacOptions(options).hostPlatformApi());
+        assertFalse(KotlinMainCompilePolicy.javacOptions(options).useJdkRelease());
     }
 
     @Test
@@ -84,17 +93,30 @@ final class KotlinMainCompilePolicyTest {
 
         assertFalse(options.hostPlatformApi());
         assertFalse(options.useJdkRelease());
+        assertFalse(KotlinMainCompilePolicy.javacOptions(options).hostPlatformApi());
+        assertFalse(KotlinMainCompilePolicy.javacOptions(options).useJdkRelease());
     }
 
     @Test
-    void rejectsJavaAndGroovyComposition() {
-        KotlinCompileException javaFailure = assertThrows(
-                KotlinCompileException.class,
-                () -> KotlinMainCompilePolicy.options(
-                        config(CompilerSettings.defaults(), Map.of(), Map.of(), "demo"),
-                        sources(List.of(Path.of("src/main/java/Main.java")), List.of(), List.of(KOTLIN)),
-                        classpaths(List.of()),
-                        jdkStatus("21.0.11", "21")));
+    void acceptsJavaCompositionWithDeterministicJavacOptions() {
+        KotlinCompilerRunner.Options options = KotlinMainCompilePolicy.options(
+                config(CompilerSettings.defaults(), Map.of(), Map.of(), "demo"),
+                sources(List.of(Path.of("src/main/java/Main.java")), List.of(), List.of(KOTLIN)),
+                classpaths(List.of()),
+                jdkStatus("21.0.11", "21"));
+
+        JavacOptions javac = KotlinMainCompilePolicy.javacOptions(options);
+
+        assertEquals("21", javac.release());
+        assertEquals("UTF-8", javac.encoding());
+        assertEquals(List.of(), javac.arguments());
+        assertEquals(List.of(), javac.modulePath());
+        assertFalse(javac.hostPlatformApi());
+        assertTrue(javac.useJdkRelease());
+    }
+
+    @Test
+    void rejectsGroovyComposition() {
         KotlinCompileException groovyFailure = assertThrows(
                 KotlinCompileException.class,
                 () -> KotlinMainCompilePolicy.options(
@@ -103,8 +125,20 @@ final class KotlinMainCompilePolicyTest {
                         classpaths(List.of()),
                         jdkStatus("21.0.11", "21")));
 
-        assertTrue(javaFailure.getMessage().contains("also contains Java"));
         assertTrue(groovyFailure.getMessage().contains("also contains Groovy"));
+    }
+
+    @Test
+    void rejectsModuleInfoInJointSources() {
+        KotlinCompileException failure = assertThrows(
+                KotlinCompileException.class,
+                () -> KotlinMainCompilePolicy.options(
+                        config(CompilerSettings.defaults(), Map.of(), Map.of(), "demo"),
+                        sources(List.of(Path.of("src/main/java/module-info.java")), List.of(), List.of(KOTLIN)),
+                        classpaths(List.of()),
+                        jdkStatus("21.0.11", "21")));
+
+        assertTrue(failure.getMessage().contains("module-info.java"));
     }
 
     @Test
@@ -128,6 +162,64 @@ final class KotlinMainCompilePolicyTest {
 
         assertTrue(processorFailure.getMessage().contains("[dependencies.processor]"));
         assertTrue(argumentFailure.getMessage().contains("[compiler].args"));
+    }
+
+    @Test
+    void rejectsGeneratedJavaButAllowsResourceAndIntermediateExecSteps() {
+        KotlinCompileException generatedJavaFailure = assertThrows(
+                KotlinCompileException.class,
+                () -> KotlinMainCompilePolicy.options(
+                        configWithGeneratedStep(execStep(ProducesLane.JAVA_SOURCES)),
+                        sources(List.of(), List.of(), List.of(KOTLIN)),
+                        classpaths(List.of()),
+                        jdkStatus("21.0.11", "21")));
+        KotlinCompileException declaredRootFailure = assertThrows(
+                KotlinCompileException.class,
+                () -> KotlinMainCompilePolicy.options(
+                        configWithGeneratedStep(new GeneratedSourceStep(
+                                "declared",
+                                GeneratedSourceKind.DECLARED_ROOT,
+                                "java",
+                                "target/generated/declared",
+                                List.of(),
+                                true,
+                                true)),
+                        sources(List.of(), List.of(), List.of(KOTLIN)),
+                        classpaths(List.of()),
+                        jdkStatus("21.0.11", "21")));
+
+        for (ProducesLane lane : List.of(ProducesLane.RESOURCES, ProducesLane.INTERMEDIATE)) {
+            KotlinCompilerRunner.Options options = KotlinMainCompilePolicy.options(
+                    configWithGeneratedStep(execStep(lane)),
+                    sources(List.of(), List.of(), List.of(KOTLIN)),
+                    classpaths(List.of()),
+                    jdkStatus("21.0.11", "21"));
+
+            assertEquals("21", options.release());
+        }
+        assertTrue(generatedJavaFailure.getMessage().contains("generated main sources"));
+        assertTrue(declaredRootFailure.getMessage().contains("generated main sources"));
+    }
+
+    @Test
+    void rejectsMixedCompilationWithoutJavac() {
+        JdkStatus runtimeOnly = new JdkStatus(
+                Optional.of(Path.of("/managed-jdk")),
+                Optional.of(Path.of("/managed-jdk/bin/java")),
+                Optional.empty(),
+                Optional.of(Path.of("/managed-jdk/bin/jar")),
+                Optional.of("21.0.11"),
+                "21");
+
+        KotlinCompileException failure = assertThrows(
+                KotlinCompileException.class,
+                () -> KotlinMainCompilePolicy.options(
+                        config(CompilerSettings.defaults(), Map.of(), Map.of(), "demo"),
+                        sources(List.of(Path.of("src/main/java/Main.java")), List.of(), List.of(KOTLIN)),
+                        classpaths(List.of()),
+                        runtimeOnly));
+
+        assertTrue(failure.getMessage().contains("no javac executable"));
     }
 
     @Test
@@ -221,6 +313,32 @@ final class KotlinMainCompilePolicyTest {
                 NativeSettings.defaults(),
                 compiler,
                 PackageSettings.defaults());
+    }
+
+    private static ProjectConfig configWithGeneratedStep(GeneratedSourceStep step) {
+        ProjectConfig config = config(CompilerSettings.defaults(), Map.of(), Map.of(), "demo");
+        return config.withBuildSettings(config.build().withGeneratedSources(List.of(step), List.of()));
+    }
+
+    private static GeneratedSourceStep execStep(ProducesLane lane) {
+        return new GeneratedSourceStep(
+                "generate",
+                GeneratedSourceKind.EXEC,
+                "java",
+                "target/generated/generate",
+                List.of(),
+                true,
+                true,
+                OpenApiGenerationSettings.empty(),
+                ProtobufGenerationSettings.empty(),
+                new ExecGenerationSettings(
+                        "generator",
+                        ExecToolSettings.empty(),
+                        List.of(),
+                        lane,
+                        Optional.empty(),
+                        Map.of(),
+                        "content"));
     }
 
     private static ClasspathSet classpaths(List<Path> processors) {

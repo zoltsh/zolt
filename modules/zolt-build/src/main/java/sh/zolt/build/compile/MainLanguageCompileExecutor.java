@@ -1,6 +1,7 @@
 package sh.zolt.build.compile;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import sh.zolt.build.CompileDiagnostics;
 import sh.zolt.build.GroovyCompileException;
@@ -8,20 +9,24 @@ import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.build.incremental.GeneratedOutputAttribution;
 import sh.zolt.build.incremental.IncrementalCompileStateRecorder;
+import sh.zolt.classpath.Classpath;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.doctor.JdkStatus;
 import sh.zolt.project.ProjectConfig;
 
 /** Preflights and executes non-javac main-language compilation. */
 final class MainLanguageCompileExecutor {
+    private final JavacRunner javacRunner;
     private final GroovyCompilerRunner groovyCompilerRunner;
     private final KotlinCompilerRunner kotlinCompilerRunner;
     private final IncrementalCompileStateRecorder incrementalCompileStateRecorder;
 
     MainLanguageCompileExecutor(
+            JavacRunner javacRunner,
             GroovyCompilerRunner groovyCompilerRunner,
             KotlinCompilerRunner kotlinCompilerRunner,
             IncrementalCompileStateRecorder incrementalCompileStateRecorder) {
+        this.javacRunner = javacRunner;
         this.groovyCompilerRunner = groovyCompilerRunner;
         this.kotlinCompilerRunner = kotlinCompilerRunner;
         this.incrementalCompileStateRecorder = incrementalCompileStateRecorder;
@@ -75,9 +80,7 @@ final class MainLanguageCompileExecutor {
             throw new IllegalArgumentException(
                     "Main language compilation requires an active preflight plan.");
         }
-        List<Path> compiledSources = plan.kotlin()
-                ? sources.kotlinMainSources()
-                : sources.allMainSources();
+        List<Path> compiledSources = sources.allMainSources();
         boolean hostPlatformApi = plan.kotlin()
                 ? plan.kotlinOptions().hostPlatformApi()
                 : plan.groovyOptions().hostPlatformApi();
@@ -87,14 +90,12 @@ final class MainLanguageCompileExecutor {
         CompileOutputCleaner.resetMain(
                 projectDirectory, config, outputDirectory, generatedSourcesDirectory);
         JavacResult result = plan.kotlin()
-                ? kotlinCompilerRunner.compile(
-                        jdkStatus.java().orElseThrow(),
-                        jdkStatus.javaHome().orElseThrow(),
-                        compiledSources,
-                        plan.kotlinToolchain().launcherClasspath(),
-                        classpaths.compile(),
+                ? compileKotlinAndJava(
+                        sources,
+                        classpaths,
                         outputDirectory,
-                        plan.kotlinOptions())
+                        jdkStatus,
+                        plan)
                 : groovyCompilerRunner.compileJoint(
                         jdkStatus.java().orElseThrow(),
                         compiledSources,
@@ -112,6 +113,47 @@ final class MainLanguageCompileExecutor {
                         GeneratedOutputAttribution.absent(),
                         compiledSources),
                 platformApiWarning);
+    }
+
+    private JavacResult compileKotlinAndJava(
+            SourceDiscoveryResult sources,
+            ClasspathSet classpaths,
+            Path outputDirectory,
+            JdkStatus jdkStatus,
+            Plan plan) {
+        List<Path> allSources = sources.allMainSources();
+        JavacResult kotlin = kotlinCompilerRunner.compile(
+                jdkStatus.java().orElseThrow(),
+                jdkStatus.javaHome().orElseThrow(),
+                allSources,
+                plan.kotlinToolchain().launcherClasspath(),
+                classpaths.compile(),
+                outputDirectory,
+                plan.kotlinOptions());
+        if (sources.mainSources().isEmpty()) {
+            return kotlin;
+        }
+        JavacResult java = javacRunner.compile(
+                jdkStatus.javac().orElseThrow(),
+                sources.mainSources(),
+                kotlinJavacClasspath(outputDirectory, classpaths.compile()),
+                outputDirectory,
+                new Classpath(List.of()),
+                null,
+                KotlinMainCompilePolicy.javacOptions(plan.kotlinOptions()));
+        return new JavacResult(
+                allSources.size(),
+                outputDirectory,
+                IncrementalJavacExecution.combinedOutput(kotlin.output(), java.output()));
+    }
+
+    private static Classpath kotlinJavacClasspath(
+            Path outputDirectory,
+            Classpath compileClasspath) {
+        List<Path> entries = new ArrayList<>();
+        entries.add(outputDirectory);
+        entries.addAll(compileClasspath.entries());
+        return new Classpath(entries);
     }
 
     private static GroovyCompilerToolchain requireGroovyToolchain(

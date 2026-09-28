@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -96,7 +97,7 @@ final class MainCompileSourceExecutorKotlinTest {
         assertEquals("kotlin-main-sources", result.fallbackReason());
         assertEquals(2, result.diagnostics().sourcesRecompiled());
         assertFalse(result.attribution().present());
-        assertEquals(List.of(first, second), result.compiledSources());
+        assertEquals(sources.allMainSources(), result.compiledSources());
         assertEquals("compiled kotlin\n", result.output());
         List<String> command = commands.getFirst();
         assertEquals("/managed-jdk/bin/java", command.getFirst());
@@ -132,27 +133,64 @@ final class MainCompileSourceExecutorKotlinTest {
     }
 
     @Test
-    void rejectsMixedJavaAndKotlinBeforeMutatingOutput() throws IOException {
+    void compilesMixedJavaAndKotlinInTwoPhasesWithoutDoubleCountingSources() throws IOException {
         Path output = outputWithStaleClass();
         Path java = source("src/main/java/com/example/JavaApi.java", "class JavaApi {}");
         Path kotlin = source("src/main/java/com/example/Main.kt", "class Main");
+        Path applicationJar = projectDir.resolve("cache/application.jar");
+        Path kotlinMarker = output.resolve("com/example/Main.class");
+        List<String> phases = new ArrayList<>();
+        List<List<String>> kotlinCommands = new ArrayList<>();
+        List<List<String>> javacCommands = new ArrayList<>();
+        KotlinCompilerRunner kotlinRunner = new KotlinCompilerRunner(":", command -> {
+            assertFalse(Files.exists(output.resolve("com/example/StillHere.class")));
+            phases.add("kotlin");
+            kotlinCommands.add(command);
+            try {
+                Files.createDirectories(kotlinMarker.getParent());
+                Files.write(kotlinMarker, new byte[] {1});
+            } catch (IOException exception) {
+                throw new UncheckedIOException(exception);
+            }
+            return new KotlinCompilerRunner.ProcessResult(0, "compiled kotlin\n");
+        });
+        JavacRunner javacRunner = new JavacRunner(":", command -> {
+            assertTrue(Files.exists(kotlinMarker), "javac must see the Kotlin phase output");
+            phases.add("javac");
+            javacCommands.add(command);
+            return new JavacRunner.ProcessResult(0, "compiled java\n");
+        });
+        SourceDiscoveryResult sources = sources(List.of(java), List.of(kotlin));
 
-        KotlinCompileException exception = assertThrows(
-                KotlinCompileException.class,
-                () -> executor(runnerThatMustNotRun()).compile(
-                        false,
-                        "source-changed",
-                        projectDir,
-                        config(),
-                        sources(List.of(java), List.of(kotlin)),
-                        classpaths(List.of(), List.of()),
-                        output,
-                        projectDir.resolve("target/generated/sources/annotations"),
-                        jdkStatus(),
-                        selection()));
+        MainCompileSourceExecutor.Attempt result = executor(javacRunner, kotlinRunner).compile(
+                false,
+                "source-changed",
+                projectDir,
+                config(),
+                sources,
+                classpaths(List.of(applicationJar), List.of()),
+                output,
+                projectDir.resolve("target/generated/sources/annotations"),
+                jdkStatus(),
+                selection());
 
-        assertTrue(exception.getMessage().contains("also contains Java"));
-        assertTrue(Files.exists(output.resolve("com/example/StillHere.class")));
+        assertEquals(List.of("kotlin", "javac"), phases);
+        assertEquals(2, result.sourceCount());
+        assertEquals(2, result.diagnostics().sourcesRecompiled());
+        assertEquals(sources.allMainSources(), result.compiledSources());
+        assertEquals("compiled kotlin\ncompiled java\n", result.output());
+        List<String> kotlinCommand = kotlinCommands.getFirst();
+        assertTrue(kotlinCommand.contains(java.toString()), kotlinCommand.toString());
+        assertTrue(kotlinCommand.contains(kotlin.toString()), kotlinCommand.toString());
+        List<String> javacCommand = javacCommands.getFirst();
+        assertTrue(javacCommand.contains(java.toString()), javacCommand.toString());
+        assertFalse(javacCommand.contains(kotlin.toString()), javacCommand.toString());
+        assertEquals(
+                output + ":" + applicationJar,
+                javacCommand.get(javacCommand.indexOf("-classpath") + 1));
+        assertEquals("21", javacCommand.get(javacCommand.indexOf("--release") + 1));
+        assertEquals("UTF-8", javacCommand.get(javacCommand.indexOf("-encoding") + 1));
+        assertTrue(javacCommand.contains("-proc:none"), javacCommand.toString());
     }
 
     @Test
@@ -179,19 +217,23 @@ final class MainCompileSourceExecutorKotlinTest {
     }
 
     @Test
-    void compilerFailurePreservesExitCodeAndDiagnostics() throws IOException {
+    void kotlinFailurePreservesDiagnosticsAndDoesNotLaunchJavac() throws IOException {
+        Path java = source("src/main/java/com/example/JavaApi.java", "class JavaApi {}");
         Path kotlin = source("src/main/java/com/example/Main.kt", "class Main");
         KotlinCompilerRunner runner = new KotlinCompilerRunner(":", command ->
                 new KotlinCompilerRunner.ProcessResult(2, "compiler diagnostics\n"));
+        JavacRunner javac = new JavacRunner(":", command -> {
+            throw new AssertionError("javac must not run after a failed Kotlin phase");
+        });
 
         KotlinCompileException exception = assertThrows(
                 KotlinCompileException.class,
-                () -> executor(runner).compile(
+                () -> executor(javac, runner).compile(
                         false,
                         "source-changed",
                         projectDir,
                         config(),
-                        sources(List.of(), List.of(kotlin)),
+                        sources(List.of(java), List.of(kotlin)),
                         classpaths(List.of(), List.of()),
                         projectDir.resolve("target/classes"),
                         projectDir.resolve("target/generated/sources/annotations"),
@@ -203,8 +245,14 @@ final class MainCompileSourceExecutorKotlinTest {
     }
 
     private MainCompileSourceExecutor executor(KotlinCompilerRunner runner) {
+        return executor(new JavacRunner(), runner);
+    }
+
+    private MainCompileSourceExecutor executor(
+            JavacRunner javacRunner,
+            KotlinCompilerRunner runner) {
         return new MainCompileSourceExecutor(
-                new JavacRunner(),
+                javacRunner,
                 new GroovyCompilerRunner(),
                 runner,
                 new IncrementalCompileStateRecorder(),
