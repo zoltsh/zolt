@@ -278,7 +278,7 @@ public record BuildSettings(
         return new BuildSettings(source, sourceRoots,
                 integrationTestSources.isEmpty() ? "src/integration-test/java" : integrationTestSources.getFirst(),
                 outputRoot, output, integrationTestOutput,
-                new TestSourceRoots(integrationTestSources, List.of(), List.of()), integrationTestOutput,
+                new TestSourceRoots(integrationTestSources, List.of(), integrationTestSources), integrationTestOutput,
                 integrationTestSources, integrationTestResourceRoots, resourceRoots, integrationTestResourceRoots,
                 resourceFiltering, testRuntime, testSuites, metadata, generatedMainSources, generatedTestSources);
     }

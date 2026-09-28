@@ -115,7 +115,7 @@ final class ManifestTestRootsDecoder {
         }
 
         List<ManifestRelativePath> sources = sourcesField
-                .map(field -> sourcePaths(
+                .map(field -> integrationSourcePaths(
                         field, prefix -> new AuthoredTests.Integration(prefix, List.of())))
                 .orElse(List.of());
         List<ManifestRelativePath> resources = resourcesField
@@ -143,6 +143,12 @@ final class ManifestTestRootsDecoder {
             ValidatedManifestField field,
             Function<List<ManifestRelativePath>, Object> probe) {
         return paths(field, probe, SourceRootLanguage::requireKotlinTestSupported);
+    }
+
+    private static List<ManifestRelativePath> integrationSourcePaths(
+            ValidatedManifestField field,
+            Function<List<ManifestRelativePath>, Object> probe) {
+        return paths(field, probe, SourceRootLanguage::requireIntegrationSupported);
     }
 
     private static List<ManifestRelativePath> paths(

@@ -262,12 +262,13 @@ final class ProjectValueObjectsTest {
         assertEquals(List.of(), settings.generatedTestSources());
         assertEquals(List.of("src/test/kotlin"), settings.kotlinTestSources());
         assertThrows(UnsupportedOperationException.class, () -> settings.generatedMainSources().add(generated));
-
         BuildSettings integration = settings.asIntegrationTestBuild();
         assertEquals("src/integration-test/java", integration.test());
         assertEquals("target/integration-test-classes", integration.testOutput());
+        assertEquals(List.of("src/integration-test/java"), integration.testSources());
+        assertEquals(List.of(), integration.groovyTestSources());
+        assertEquals(List.of("src/integration-test/java"), integration.kotlinTestSources());
         assertEquals(List.of("src/integration-test/resources"), integration.testResourceRoots());
-        assertEquals(List.of(), integration.kotlinTestSources());
     }
 
     @Test

@@ -46,8 +46,7 @@ public final class SourceDiscoverer {
                 authoredGroovyTestRoots,
                 kotlinTestSources,
                 output,
-                testOutput,
-                isIntegrationProjection(settings));
+                testOutput);
         return new SourceDiscoveryResult(
                 discoverSources(projectRoot, mainRoots, output, testOutput, ".java"),
                 discoverSources(projectRoot, authoredMainRoots, output, testOutput, ".groovy"),
@@ -63,8 +62,7 @@ public final class SourceDiscoverer {
             List<SourceRoot> groovyRoots,
             List<Path> configuredKotlinSources,
             Path output,
-            Path testOutput,
-            boolean integrationProjection) {
+            Path testOutput) {
         List<SourceRoot> legacyRoots = new ArrayList<>(javaRoots);
         legacyRoots.addAll(groovyRoots);
         Set<Path> admitted = Set.copyOf(configuredKotlinSources);
@@ -77,23 +75,10 @@ public final class SourceDiscoverer {
         }
         Path first = misplaced.getFirst();
         String displayed = projectRoot.relativize(first).toString().replace('\\', '/');
-        if (integrationProjection) {
-            throw new SourceDiscoveryException(
-                    "Kotlin integration-test source `" + displayed
-                            + "` is not supported. Keep integration-test sources Java-only; "
-                            + "[test.sources].kotlin configures unit tests only.");
-        }
         throw new SourceDiscoveryException(
                 "Kotlin test source `" + displayed
                         + "` is under a Java or Groovy test root, but Kotlin test roots are explicit. "
                         + "Move it under a root declared in [test.sources].kotlin or declare its current root there.");
-    }
-
-    private static boolean isIntegrationProjection(BuildSettings settings) {
-        return settings.testOutput().equals(settings.integrationTestOutput())
-                && settings.testSources().equals(settings.integrationTestSources())
-                && settings.kotlinTestSources().isEmpty()
-                && settings.testResourceRoots().equals(settings.integrationTestResourceRoots());
     }
 
     private static List<SourceRoot> generatedRoots(

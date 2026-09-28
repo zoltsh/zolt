@@ -48,6 +48,7 @@ final class ManifestTestsDecoderTest {
                 events = ["failed"]
 
                 [test.integration]
+                sources = ["src/custom-integration/java", "src/custom-integration/kotlin"]
                 resources = ["src/custom-integration/resources"]
 
                 [test.suites.zeta]
@@ -67,7 +68,11 @@ final class ManifestTestsDecoderTest {
         assertTrue(runtime.env().isEmpty());
         assertEquals(List.of(AuthoredTestRuntime.Event.FAILED), runtime.events());
         AuthoredTests.Integration integration = tests.integration().orElseThrow();
-        assertTrue(integration.sources().isEmpty());
+        assertEquals(
+                List.of(
+                        path("src/custom-integration/java"),
+                        path("src/custom-integration/kotlin")),
+                integration.sources());
         assertEquals(
                 List.of(path("src/custom-integration/resources")),
                 integration.resources());
@@ -115,7 +120,7 @@ final class ManifestTestsDecoderTest {
     }
 
     @Test
-    void rejectsTestSourceRootsForLanguagesZoltDoesNotBuild() {
+    void enforcesLanguageSpecificUnitAndIntegrationRootGuards() {
         // §10.1: unsupported roots fail actionably. Groovy test sources stay legal per §10.6.
         assertFailure(
                 "[test.sources]\njava = [\"src/test/kotlin\"]\n",
@@ -133,11 +138,6 @@ final class ManifestTestsDecoderTest {
                 "[test.integration]\nsources = [\"src/android/integration-test\"]\n",
                 "`test.integration.sources[0]`",
                 "Unsupported Android source root");
-        assertFailure(
-                "[test.integration]\nsources = [\"src/integration-test/kotlin\"]\n",
-                "`test.integration.sources[0]`",
-                "Unsupported Kotlin source root",
-                "automatic migration are not supported yet");
     }
 
     @Test

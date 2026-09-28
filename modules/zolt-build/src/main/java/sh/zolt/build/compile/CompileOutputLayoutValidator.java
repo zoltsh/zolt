@@ -101,7 +101,8 @@ public final class CompileOutputLayoutValidator {
     private static boolean isIntegrationProjection(BuildSettings build) {
         return build.testOutput().equals(build.integrationTestOutput())
                 && build.testSources().equals(build.integrationTestSources())
-                && build.kotlinTestSources().isEmpty()
+                && build.groovyTestSources().isEmpty()
+                && build.kotlinTestSources().equals(build.integrationTestSources())
                 && build.testResourceRoots().equals(build.integrationTestResourceRoots());
     }
 
@@ -155,8 +156,7 @@ public final class CompileOutputLayoutValidator {
      * build output root carves an owned subtree out of that catch-all input, so conventional
      * {@code target/...} outputs remain valid. Narrower source/resource roots do not confer that ownership:
      * placing an output below one would make discovery hide files that cleanup can then erase. Neither a
-     * source-root alias back to the project root nor an output-root alias into an authored tree can create
-     * ownership.
+     * source-root alias back to the project root nor an output-root alias into an authored tree can create ownership.
      */
     private static boolean isOwnedProjectRootSubtree(
             Path root,

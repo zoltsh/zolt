@@ -713,17 +713,18 @@ output cleanup when any of these conditions applies:
 
 Kotlin main compilation supports workspace API and implementation dependencies;
 dependency class ABI and Kotlin module metadata participate in downstream
-workspace invalidation. Kotlin unit tests use the separate bounded path described
-under Tests and Coverage and may consume workspace API, implementation, and test
-dependencies. Authored Kotlin tests may compile alone or together with authored
-Java tests and may coexist with a Kotlin-only or mixed Java/Kotlin main source
-set.
+workspace invalidation. Kotlin unit and integration tests use the separate
+bounded path described under Tests and Coverage and may consume workspace API,
+implementation, and test dependencies. Authored Kotlin tests may compile alone
+or together with authored Java tests and may coexist with a Kotlin-only or mixed
+Java/Kotlin main source set.
 
 Tests may use their own member's `internal` main declarations: Zolt passes only
 that member's main output as a Kotlin friend path. Internal declarations from
 workspace dependency members remain inaccessible. Kotlin integration-test
-compilation, generated Kotlin, KAPT, and migration-manifest drafting are not
-supported. Sources are read as UTF-8. The
+roots are admitted through `[test.integration].sources`; generated Kotlin,
+KAPT, and migration-manifest drafting are not supported. Sources are read as
+UTF-8. The
 effective Java release must not exceed the selected complete JDK;
 `[compiler].jdkApi = "host"` selects host-platform API semantics instead of
 Kotlin `-Xjdk-release` and javac `--release`. When the selected JDK itself is
@@ -1756,14 +1757,26 @@ observe that change, and paranoid mode does not help there either.
 
 Zolt runs JUnit Platform based tests and can compile Java and Groovy test
 sources when configured. A bounded preview also compiles authored Kotlin/JVM
-unit tests alone or together with authored Java tests; Groovy/Kotlin test source
-sets remain unsupported. Kotlin test roots are explicit: declare them under
-`[test.sources].kotlin`. Zolt discovers `.kt` files, but not Kotlin scripts
-(`.kts`), only from those roots. A `.kt` file found under a Java or Groovy test
-root fails with guidance to declare or move it; explicitly declaring the same
-directory as a Kotlin root admits it. Kotlin integration-test sources remain
-unsupported. Supported test sources cover examples such as JUnit Jupiter,
-JUnit Vintage, and Spock:
+unit and integration tests alone or together with authored Java tests;
+Groovy/Kotlin test source sets remain unsupported. Kotlin unit-test roots are
+explicit: declare them under `[test.sources].kotlin`. Zolt discovers `.kt`
+files, but not Kotlin scripts (`.kts`), only from those roots. A `.kt` file found
+under a Java or Groovy unit-test root fails with guidance to declare or move it;
+explicitly declaring the same directory as a Kotlin root admits it.
+
+Integration-test roots are intentionally polyglot. List both conventional roots
+when Java and Kotlin integration tests coexist; Zolt discovers each supported
+source type from the configured roots and writes their classes and Kotlin module
+metadata to the independently owned integration-test output:
+
+```toml
+[test.integration]
+sources = ["src/integration-test/java", "src/integration-test/kotlin"]
+resources = ["src/integration-test/resources"]
+```
+
+Supported test sources cover examples such as JUnit Jupiter, JUnit Vintage, and
+Spock:
 
 Zolt treats test engines as project dependencies and the JUnit Platform console
 launcher as build tooling. When test dependencies are configured and no console
@@ -1792,27 +1805,27 @@ dependency supplies Groovy to the test compilation and runtime classpaths. The
 configured compiler and ordinary runtime must match by version and verified
 core content, just as they do for main joint compilation.
 
-Kotlin unit tests use the same isolated `[toolchain.kotlin]` compiler and need
-the ordinary `org.jetbrains.kotlin:kotlin-stdlib` dependency on the test
-classpath. The preview accepts Kotlin-only and mixed authored Java/Kotlin test
-source sets with an empty, Java-only, Kotlin-only, or mixed Java/Kotlin main
-source set. Mixed tests use the same cleaned two-phase model as mixed main
-sources: `kotlinc` first analyzes all Java and Kotlin test sources and emits the
-Kotlin bytecode, then `javac` compiles the Java tests with the test output first
-on its classpath. Circular cross-language test references are therefore
-supported.
+Kotlin unit and integration tests use the same isolated `[toolchain.kotlin]`
+compiler and need the ordinary `org.jetbrains.kotlin:kotlin-stdlib` dependency
+on the applicable test classpath. The preview accepts Kotlin-only and mixed
+authored Java/Kotlin test source sets with an empty, Java-only, Kotlin-only, or
+mixed Java/Kotlin main source set. Mixed tests use the same cleaned two-phase
+model as mixed main sources: `kotlinc` first analyzes all Java and Kotlin test
+sources and emits the Kotlin bytecode, then `javac` compiles the Java tests with
+the test output first on its classpath. Circular cross-language unit and
+integration-test references are therefore supported.
 
-With Kotlin main sources, tests may use public and `internal` APIs from their own
-member because its main output is the sole Kotlin friend path. Workspace API,
-implementation, and test dependency outputs stay ordinary classpath entries, so
-their `internal` declarations remain inaccessible. The preview rejects Groovy
-test sources, `module-info.java`, test annotation processors, custom
-`[compiler].testArgs`, Java-source-producing generated-test steps, and Quarkus in
-the same member. Exec generation steps that produce test resources or
-intermediate outputs remain compatible. Test dependencies remain isolated from
-main compilation and main runtime. Any source change in a Kotlin-bearing test
-source set uses cleaned full-scope compilation rather than incremental javac
-state.
+With Kotlin main sources, unit and integration tests may use public and
+`internal` APIs from their own member because its main output is the sole Kotlin
+friend path. Workspace API, implementation, and test dependency outputs stay
+ordinary classpath entries, so their `internal` declarations remain
+inaccessible. The preview rejects Groovy test sources, `module-info.java`, test
+annotation processors, custom `[compiler].testArgs`, Java-source-producing
+generated-test steps, and Quarkus in the same member. Exec generation steps that
+produce test resources or intermediate outputs remain compatible. Test
+dependencies remain isolated from main compilation and main runtime. Any source
+change in a Kotlin-bearing test source set uses cleaned full-scope compilation
+rather than incremental javac state.
 
 Test commands support class/method selection, glob patterns, JUnit tags, JVM
 arguments, XML reports, deterministic shards, named suites, and optional profile

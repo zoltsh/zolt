@@ -126,19 +126,18 @@ final class SourceDiscovererTest {
     }
 
     @Test
-    void rejectsKotlinIntegrationSourcesWithoutUnitTestRootGuidance() throws IOException {
-        source("src/integration-test/java/com/example/MainIT.kt");
+    void discoversJavaAndKotlinFromProjectedPolyglotIntegrationRoots() throws IOException {
+        Path java = source("src/integration-test/java/com/example/JavaIT.java");
+        Path kotlin = source("src/integration-test/java/com/example/KotlinIT.kt");
+        source("src/integration-test/java/com/example/Script.kts");
 
-        SourceDiscoveryException failure = assertThrows(
-                SourceDiscoveryException.class,
-                () -> discoverer.discover(
-                        projectDir,
-                        BuildSettings.defaults().asIntegrationTestBuild()));
+        SourceDiscoveryResult result = discoverer.discover(
+                projectDir,
+                BuildSettings.defaults().asIntegrationTestBuild());
 
-        assertTrue(failure.getMessage().contains(
-                "Kotlin integration-test source `src/integration-test/java/com/example/MainIT.kt` is not supported"));
-        assertTrue(failure.getMessage().contains("[test.sources].kotlin configures unit tests only"));
-        assertTrue(!failure.getMessage().contains("declare its current root"));
+        assertEquals(List.of(java), result.testSources());
+        assertEquals(List.of(kotlin), result.kotlinTestSources());
+        assertEquals(List.of(java, kotlin), result.allTestSources());
     }
 
     @Test

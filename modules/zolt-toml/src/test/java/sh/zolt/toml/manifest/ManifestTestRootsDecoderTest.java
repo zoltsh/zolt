@@ -31,7 +31,7 @@ final class ManifestTestRootsDecoderTest {
                 kotlin = ["src/z-test/kotlin", "src/a-test/kotlin"]
 
                 [test.integration]
-                sources = ["src/z-integration/java", "src/a-integration/java"]
+                sources = ["src/z-integration/java", "src/a-integration/kotlin"]
                 resources = ["src/z-integration/resources", "src/a-integration/resources"]
                 """);
 
@@ -46,7 +46,7 @@ final class ManifestTestRootsDecoderTest {
         assertEquals(
                 List.of(path("src/z-test/kotlin"), path("src/a-test/kotlin")), sources.kotlin());
         assertEquals(
-                List.of(path("src/z-integration/java"), path("src/a-integration/java")),
+                List.of(path("src/z-integration/java"), path("src/a-integration/kotlin")),
                 integration.sources());
         assertEquals(
                 List.of(
