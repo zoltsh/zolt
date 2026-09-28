@@ -30,6 +30,7 @@ public final class ProjectResolutionFingerprint {
             "org.jetbrains.kotlin:kotlin-compiler-embeddable";
     private static final String COMPILER_TOOL_RESOLUTION_SEMANTICS =
             "conflict-provenance-v1";
+    private static final String COMPILER_TOOL_ROOT_SEMANTICS = "exact-root-v1";
 
     /**
      * The fingerprint schema version, itself a fingerprint input so a bump restates every lock.
@@ -123,7 +124,13 @@ public final class ProjectResolutionFingerprint {
             String configuredVersion) {
         String version = configuredVersion == null ? "" : configuredVersion.strip();
         if (!version.isEmpty()) {
-            line(inputs, category, coordinate, version, COMPILER_TOOL_RESOLUTION_SEMANTICS);
+            line(
+                    inputs,
+                    category,
+                    coordinate,
+                    version,
+                    COMPILER_TOOL_RESOLUTION_SEMANTICS,
+                    COMPILER_TOOL_ROOT_SEMANTICS);
         }
     }
 

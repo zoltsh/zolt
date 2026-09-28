@@ -48,7 +48,7 @@ final class ProjectResolutionFingerprintTest {
         assertTrue(ProjectResolutionFingerprint.inputs(absent).stream()
                 .noneMatch(input -> input.startsWith("toolchain.groovy\t")));
         assertEquals(
-                List.of("toolchain.groovy\torg.apache.groovy:groovy\t4.0.22\tconflict-provenance-v1"),
+                List.of("toolchain.groovy\torg.apache.groovy:groovy\t4.0.22\tconflict-provenance-v1\texact-root-v1"),
                 ProjectResolutionFingerprint.inputs(version22).stream()
                         .filter(input -> input.startsWith("toolchain.groovy\t"))
                         .toList());

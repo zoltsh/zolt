@@ -296,6 +296,7 @@ public final class ResolveService {
         List<DependencyRequest> relocated = new ArrayList<>();
         for (DependencyRequest request : directRequests) {
             DependencyRequest target = relocator.relocate(request);
+            CompilerToolResolver.requireUnrelocatedRoot(request, target, retryCommand);
             roots.requireNoDirectRelocation(
                     context.config(), request, target, retryCommand);
             relocated.add(target);
