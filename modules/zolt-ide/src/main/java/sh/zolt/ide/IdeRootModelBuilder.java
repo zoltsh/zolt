@@ -37,15 +37,17 @@ final class IdeRootModelBuilder {
         for (int index = 0; index < settings.sourceRoots().size(); index++) {
             Path sourceRoot = inputRoot(
                     root, "[build].sources", settings.sourceRoots().get(index), diagnostics);
-            String language = mainSourceLanguage(settings.sourceRoots().get(index), sourceRoot);
             resolvedMainRoots.add(sourceRoot);
-            addSourceRoot(
-                    roots,
-                    mainSourceRootId(language, index),
-                    "main",
-                    language,
-                    sourceRoot,
-                    false);
+            for (String language : mainSourceLanguages(
+                    settings.sourceRoots().get(index), sourceRoot)) {
+                addSourceRoot(
+                        roots,
+                        mainSourceRootId(language, index),
+                        "main",
+                        language,
+                        sourceRoot,
+                        false);
+            }
         }
         for (int index = 0; index < settings.sourceRoots().size(); index++) {
             Path sourceRoot = resolvedMainRoots.get(index);
@@ -157,10 +159,19 @@ final class IdeRootModelBuilder {
         return index == 0 ? prefix : prefix + "-" + (index + 1);
     }
 
-    private static String mainSourceLanguage(String configuredRoot, Path sourceRoot) {
+    private static List<String> mainSourceLanguages(
+            String configuredRoot, Path sourceRoot) {
+        boolean containsJava = containsSource(sourceRoot, ".java");
+        boolean containsKotlin = containsSource(sourceRoot, ".kt");
         boolean configuredKotlin = SourceRootLanguage.unsupported(configuredRoot).orElse(null)
                 == SourceRootLanguage.KOTLIN;
-        return configuredKotlin || containsSource(sourceRoot, ".kt") ? "kotlin" : "java";
+        if (containsJava && (containsKotlin || configuredKotlin)) {
+            return List.of("java", "kotlin");
+        }
+        if (containsKotlin || configuredKotlin) {
+            return List.of("kotlin");
+        }
+        return List.of("java");
     }
 
     private static boolean isGroovyMainRoot(String configuredRoot, Path sourceRoot) {

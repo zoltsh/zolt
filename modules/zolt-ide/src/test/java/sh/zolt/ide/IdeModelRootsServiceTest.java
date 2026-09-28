@@ -229,6 +229,65 @@ final class IdeModelRootsServiceTest {
     }
 
     @Test
+    void exportsMixedJavaAndKotlinMainRootDeterministically() throws IOException {
+        Path projectDir = tempDir.resolve("mixed-java-kotlin-main-root");
+        Path sourceRoot = projectDir.resolve("src/main/java/com/example");
+        Files.createDirectories(sourceRoot);
+        Files.writeString(sourceRoot.resolve("JavaApi.java"), "package com.example; final class JavaApi {}\n");
+        Files.writeString(sourceRoot.resolve("KotlinApi.kt"), "package com.example\ninternal object KotlinApi\n");
+        Files.writeString(projectDir.resolve("zolt.toml"), """
+                [project]
+                name = "mixed-java-kotlin-main-root"
+                version = "0.1.0"
+                group = "com.example"
+                java = 21
+                """);
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
+
+        IdeModel first = service.export(projectDir, tempDir.resolve("cache"));
+        IdeModel second = service.export(projectDir, tempDir.resolve("cache"));
+
+        Path root = projectDir.toAbsolutePath().normalize().resolve("src/main/java");
+        List<IdeModel.SourceRoot> expected = List.of(
+                new IdeModel.SourceRoot("main-java", "main", "java", root, false),
+                new IdeModel.SourceRoot("main-kotlin", "main", "kotlin", root, false));
+        assertEquals(expected, authoredMainRoots(first));
+        assertEquals(expected, authoredMainRoots(second));
+        String json = new IdeModelJsonWriter().write(first);
+        assertTrue(json.contains("\"id\": \"main-java\""));
+        assertTrue(json.contains("\"language\": \"java\""));
+        assertTrue(json.contains("\"id\": \"main-kotlin\""));
+        assertTrue(json.contains("\"language\": \"kotlin\""));
+    }
+
+    @Test
+    void preservesConfiguredKotlinIdentityWhenRootContainsJava() throws IOException {
+        Path projectDir = tempDir.resolve("java-file-in-kotlin-main-root");
+        Path sourceRoot = projectDir.resolve("src/main/kotlin/com/example");
+        Files.createDirectories(sourceRoot);
+        Files.writeString(sourceRoot.resolve("JavaApi.java"), "package com.example; final class JavaApi {}\n");
+        Files.writeString(projectDir.resolve("zolt.toml"), """
+                [project]
+                name = "java-file-in-kotlin-main-root"
+                version = "0.1.0"
+                group = "com.example"
+                java = 21
+
+                [build]
+                sources = ["src/main/kotlin"]
+                """);
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
+
+        IdeModel model = service.export(projectDir, tempDir.resolve("cache"));
+
+        Path root = projectDir.toAbsolutePath().normalize().resolve("src/main/kotlin");
+        assertEquals(List.of(
+                new IdeModel.SourceRoot("main-java", "main", "java", root, false),
+                new IdeModel.SourceRoot("main-kotlin", "main", "kotlin", root, false)),
+                authoredMainRoots(model));
+    }
+
+    @Test
     void preservesJavaAndCustomKotlinMainRootsInAuthoredOrder() throws IOException {
         Path projectDir = tempDir.resolve("custom-kotlin-main-root");
         Files.createDirectories(projectDir.resolve("src/main/java"));
