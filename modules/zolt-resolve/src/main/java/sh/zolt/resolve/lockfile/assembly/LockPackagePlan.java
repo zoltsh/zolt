@@ -11,8 +11,8 @@ import java.util.Optional;
 
 /**
  * One planned lock package: a selected node under a single scope, its artifact descriptor, the graph its
- * dependency edges are read from (the main graph, or a per-tool graph for isolated exec tools), and the
- * exec tool groups it belongs to (empty for non-tool packages).
+ * dependency edges are read from (the main graph or an isolated tool graph), and the exec tool groups it
+ * belongs to (empty for main and Groovy compiler packages).
  */
 record LockPackagePlan(
         PackageNode node,

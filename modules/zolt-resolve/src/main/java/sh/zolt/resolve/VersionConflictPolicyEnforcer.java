@@ -3,19 +3,19 @@ package sh.zolt.resolve;
 import sh.zolt.dependency.ConflictSelectionReason;
 import sh.zolt.project.DependencyPolicySettings;
 import sh.zolt.resolve.lockfile.assembly.ExecToolResolution;
+import sh.zolt.resolve.lockfile.assembly.GroovyToolResolution;
 import sh.zolt.resolve.version.VersionConflict;
 import sh.zolt.resolve.version.VersionSelectionResult;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 /**
- * Enforces {@code [dependencies.policy].conflicts} against a resolved selection. Each isolated
- * exec-tool closure (Hole 1) resolves in its own right, so a conflict inside a tool never mediates against
- * the main graph or another tool; it must therefore be enforced per tool closure too, or a conflict inside
- * a tool would silently evade the policy. The main graph is enforced first (its error and behaviour stay
- * exactly as before) and tools follow in sorted name order, so the tool named in a failure is deterministic.
+ * Enforces {@code [dependencies.policy].conflicts} against every independently resolved selection. The
+ * main graph is enforced first (its error and behaviour stay exactly as before), then the Groovy compiler
+ * closure, then exec tools in sorted name order so the closure named in a failure is deterministic.
  */
 final class VersionConflictPolicyEnforcer {
     private VersionConflictPolicyEnforcer() {
@@ -26,11 +26,38 @@ final class VersionConflictPolicyEnforcer {
             VersionSelectionResult mainSelection,
             List<ExecToolResolution> execResolutions,
             String retryCommand) {
-        List<String> warnings = new ArrayList<>(enforce(dependencyPolicy, mainSelection, retryCommand, null));
+        return enforce(
+                dependencyPolicy,
+                mainSelection,
+                Optional.empty(),
+                execResolutions,
+                retryCommand);
+    }
+
+    static List<String> enforce(
+            DependencyPolicySettings dependencyPolicy,
+            VersionSelectionResult mainSelection,
+            Optional<GroovyToolResolution> groovyToolResolution,
+            List<ExecToolResolution> execResolutions,
+            String retryCommand) {
+        List<String> warnings = new ArrayList<>(enforce(
+                dependencyPolicy,
+                mainSelection,
+                retryCommand,
+                ConflictLocation.main()));
+        groovyToolResolution.ifPresent(resolution -> warnings.addAll(enforce(
+                dependencyPolicy,
+                resolution.selection(),
+                retryCommand,
+                ConflictLocation.groovy())));
         execResolutions.stream()
                 .sorted(Comparator.comparing(ExecToolResolution::toolName))
                 .forEach(tool -> warnings.addAll(
-                        enforce(dependencyPolicy, tool.selection(), retryCommand, tool.toolName())));
+                        enforce(
+                                dependencyPolicy,
+                                tool.selection(),
+                                retryCommand,
+                                ConflictLocation.exec(tool.toolName()))));
         return List.copyOf(warnings);
     }
 
@@ -38,7 +65,7 @@ final class VersionConflictPolicyEnforcer {
             DependencyPolicySettings dependencyPolicy,
             VersionSelectionResult selection,
             String retryCommand,
-            String toolName) {
+            ConflictLocation location) {
         if (dependencyPolicy == null
                 || !(dependencyPolicy.failOnVersionConflict() || dependencyPolicy.warnOnVersionConflict())
                 || selection.conflicts().isEmpty()) {
@@ -55,9 +82,9 @@ final class VersionConflictPolicyEnforcer {
             return List.of();
         }
         if (dependencyPolicy.warnOnVersionConflict()) {
-            return List.of(warning(toolName, conflicts));
+            return List.of(warning(location, conflicts));
         }
-        throw ResolveException.actionable(message(toolName), remediation(toolName, retryCommand, conflicts));
+        throw ResolveException.actionable(message(location), remediation(location, retryCommand, conflicts));
     }
 
     /**
@@ -65,30 +92,23 @@ final class VersionConflictPolicyEnforcer {
      * {@code fail} remediation would have named, so the two policies differ only in whether the
      * mediated resolution stands.
      */
-    private static String warning(String toolName, List<String> conflicts) {
-        String where = toolName == null
-                ? "Dependency version conflicts were mediated"
-                : "Dependency version conflicts in the `" + toolName + "` exec-tool closure were mediated";
-        return where
+    private static String warning(ConflictLocation location, List<String> conflicts) {
+        return location.mediatedSubject()
                 + " and reported by [dependencies.policy].conflicts = \"warn\". Conflicts: "
                 + String.join("; ", conflicts);
     }
 
-    private static String message(String toolName) {
-        if (toolName == null) {
-            return "Dependency version conflicts are disallowed by [dependencies.policy].conflicts.";
-        }
-        return "Dependency version conflicts in the `"
-                + toolName
-                + "` exec-tool closure are disallowed by [dependencies.policy].conflicts.";
+    private static String message(ConflictLocation location) {
+        return location.disallowedSubject()
+                + " are disallowed by [dependencies.policy].conflicts.";
     }
 
-    private static String remediation(String toolName, String retryCommand, List<String> conflicts) {
-        String where = toolName == null
-                ? "the conflicting versions"
-                : "the conflicting versions in the `" + toolName + "` exec tool";
+    private static String remediation(
+            ConflictLocation location,
+            String retryCommand,
+            List<String> conflicts) {
         return "Align "
-                + where
+                + location.alignmentSubject()
                 + " with a [platforms] BOM, a direct dependency, or a "
                 + "[dependencies.constraints] strict constraint, then run `"
                 + retryCommand
@@ -126,5 +146,31 @@ final class VersionConflictPolicyEnforcer {
             case NEWEST_VERSION -> "newest version wins";
             case SELECTED_GRAPH -> "selected materialized graph wins";
         };
+    }
+
+    private record ConflictLocation(
+            String mediatedSubject,
+            String disallowedSubject,
+            String alignmentSubject) {
+        private static ConflictLocation main() {
+            return new ConflictLocation(
+                    "Dependency version conflicts were mediated",
+                    "Dependency version conflicts",
+                    "the conflicting versions");
+        }
+
+        private static ConflictLocation groovy() {
+            return new ConflictLocation(
+                    "Dependency version conflicts in the Groovy compiler toolchain closure were mediated",
+                    "Dependency version conflicts in the Groovy compiler toolchain closure",
+                    "the conflicting versions in the Groovy compiler toolchain");
+        }
+
+        private static ConflictLocation exec(String toolName) {
+            return new ConflictLocation(
+                    "Dependency version conflicts in the `" + toolName + "` exec-tool closure were mediated",
+                    "Dependency version conflicts in the `" + toolName + "` exec-tool closure",
+                    "the conflicting versions in the `" + toolName + "` exec tool");
+        }
     }
 }
