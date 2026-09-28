@@ -1,6 +1,7 @@
 package sh.zolt.build.compile;
 
 import sh.zolt.build.CompileDiagnostics;
+import sh.zolt.build.GroovyCompileException;
 import sh.zolt.build.JavacException;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.build.incremental.GeneratedOutputAttribution;
@@ -61,6 +62,7 @@ public final class MainCompileSourceExecutor {
             Path outputDirectory,
             Path generatedSourcesDirectory,
             JdkStatus jdkStatus) {
+        rejectUnsupportedGroovyMainSources(sources);
         if (compileSkipped) {
             return new Attempt(
                     new JavacResult(sources.mainSources().size(), outputDirectory, ""),
@@ -113,6 +115,14 @@ public final class MainCompileSourceExecutor {
                         plan.fullDiagnostics(sources.mainSources().size()),
                         plan.captureProcessorAttribution()),
                 platformApiWarning);
+    }
+
+    private static void rejectUnsupportedGroovyMainSources(SourceDiscoveryResult sources) {
+        if (!sources.groovyMainSources().isEmpty()) {
+            throw new GroovyCompileException(
+                    "Groovy main sources are not supported yet. Remove them from [build].sources"
+                            + " or keep them in a separate project until main Groovy compilation is enabled.");
+        }
     }
 
     private static Attempt withPlatformApiWarning(Attempt attempt, String warning) {

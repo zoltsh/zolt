@@ -45,6 +45,24 @@ final class SourceDiscovererTest {
     }
 
     @Test
+    void findsMainGroovySourcesFromConfiguredRootsDeterministically() throws IOException {
+        Path generated = source("src/generated/groovy/com/example/Generated.groovy");
+        Path main = source("src/main/groovy/com/example/Main.groovy");
+        Path java = source("src/main/java/com/example/JavaMain.java");
+
+        SourceDiscoveryResult result = discoverer.discover(
+                projectDir,
+                buildSettingsWithSourceRoots(List.of(
+                        "src/generated/groovy",
+                        "src/main/groovy",
+                        "src/main/java")));
+
+        assertEquals(List.of(generated, main), result.groovyMainSources());
+        assertEquals(List.of(java), result.mainSources());
+        assertEquals(List.of(generated, main, java), result.allMainSources());
+    }
+
+    @Test
     void findsJavaTestsFromMultipleRootsDeterministically() throws IOException {
         Path unit = source("src/test/java/com/example/MainTest.java");
         Path integration = source("src/integration-test/java/com/example/MainIT.java");
@@ -135,6 +153,7 @@ final class SourceDiscovererTest {
 
         assertTrue(result.empty());
         assertTrue(result.mainSources().isEmpty());
+        assertTrue(result.groovyMainSources().isEmpty());
         assertTrue(result.testSources().isEmpty());
     }
 
@@ -158,6 +177,29 @@ final class SourceDiscovererTest {
                         List.of()));
 
         assertEquals(List.of(main, generated), result.mainSources());
+    }
+
+    @Test
+    void doesNotTreatGroovyFilesInJavaGeneratedRootsAsMainSources() throws IOException {
+        Path main = source("src/main/groovy/com/example/Main.groovy");
+        source("target/generated/sources/openapi/com/example/Unexpected.groovy");
+        source("src/main/openapi/api.yaml");
+
+        SourceDiscoveryResult result = discoverer.discover(
+                projectDir,
+                buildSettingsWithSourceRoots(List.of("src/main/groovy"))
+                        .withGeneratedSources(
+                                List.of(new GeneratedSourceStep(
+                                        "openapi",
+                                        GeneratedSourceKind.DECLARED_ROOT,
+                                        "java",
+                                        "target/generated/sources/openapi",
+                                        List.of("src/main/openapi/api.yaml"),
+                                        true,
+                                        false)),
+                                List.of()));
+
+        assertEquals(List.of(main), result.groovyMainSources());
     }
 
     @Test

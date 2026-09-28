@@ -22,9 +22,10 @@ public final class SourceDiscoverer {
         Path projectRoot = ProjectPaths.root(projectDirectory);
         Path output = outputPath(projectRoot, "[build.output].main", settings.output());
         Path testOutput = outputPath(projectRoot, "[build.output].test", settings.testOutput());
-        List<SourceRoot> mainRoots = new ArrayList<>(settings.sourceRoots().stream()
+        List<SourceRoot> authoredMainRoots = settings.sourceRoots().stream()
                 .map(root -> inputRoot(projectRoot, "[build].sources", root))
-                .toList());
+                .toList();
+        List<SourceRoot> mainRoots = new ArrayList<>(authoredMainRoots);
         mainRoots.addAll(generatedRoots(projectRoot, settings.generatedMainSources(), "main"));
         List<SourceRoot> testRoots = new ArrayList<>(settings.testSources().stream()
                 .map(root -> inputRoot(projectRoot, "[test.sources].java", root))
@@ -32,6 +33,7 @@ public final class SourceDiscoverer {
         testRoots.addAll(generatedRoots(projectRoot, settings.generatedTestSources(), "test"));
         return new SourceDiscoveryResult(
                 discoverSources(projectRoot, mainRoots, output, testOutput, ".java"),
+                discoverSources(projectRoot, authoredMainRoots, output, testOutput, ".groovy"),
                 discoverSources(projectRoot, testRoots, output, testOutput, ".java"),
                 discoverSources(projectRoot, settings.groovyTestSources().stream()
                         .map(root -> inputRoot(projectRoot, "[test.sources].groovy", root))
