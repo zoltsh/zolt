@@ -2,4 +2,12 @@
 # Allowances are intentionally strict: remove the entry when the file drops back under budget.
 apps/zolt-junit-worker/src/test/java/sh/zolt/junit/JunitLauncherWorkerTest.java|477|worker-process coverage still shares setup fixtures
 apps/zolt/src/test/java/sh/zolt/cli/publish/PublishWorkspaceResumeTest.java|460|immutable workspace resume scenarios share one repository fixture
+modules/zolt-build/src/main/java/sh/zolt/build/BuildService.java|384|verified compiler selection and cache fingerprinting remain one transactional build pipeline
+modules/zolt-build/src/main/java/sh/zolt/build/compile/MainCompileSourceExecutor.java|447|full and experimental incremental compilation share cleanup and output attribution contracts
+modules/zolt-build/src/main/java/sh/zolt/build/incremental/IncrementalCompileStateRecorder.java|351|main and test state recording share ABI attribution and persisted schema construction
+modules/zolt-model/src/test/java/sh/zolt/manifest/authored/AuthoredManifestTest.java|480|authored manifest invariants share one exhaustive construction fixture
+modules/zolt-plan/src/test/java/sh/zolt/plan/BuildPlanServiceTest.java|463|plan node scenarios share one project fixture and node assertion vocabulary
+modules/zolt-resolve/src/main/java/sh/zolt/resolve/ResolveService.java|359|ordinary and isolated tool resolution share one session and policy enforcement boundary
+modules/zolt-resolve/src/main/java/sh/zolt/resolve/lockfile/assembly/LockfileAssembler.java|358|lock metadata and graph assembly share one deterministic package projection
+modules/zolt-test-runtime/src/main/java/sh/zolt/build/testruntime/compile/TestCompileService.java|370|test generation compiler selection caching and state recording remain one transaction
 modules/zolt-workspace/src/test/java/sh/zolt/workspace/resolve/WorkspaceResolutionInputFingerprintTest.java|508|every fingerprint scenario mutates one shared two-member workspace fixture
