@@ -662,10 +662,9 @@ also has Java or Groovy main sources, annotation processors, custom
 `[compiler].args`, or generated Java sources. Kotlin main compilation supports
 workspace API and implementation dependencies; dependency class ABI and Kotlin
 module metadata participate in downstream workspace invalidation. Kotlin unit
-tests use the separate bounded path described under Tests and Coverage, which
-still rejects workspace dependencies; Kotlin-only main and unit-test source
-sets may otherwise coexist in one member. A workspace-dependent Kotlin main
-member therefore cannot yet declare Kotlin test sources.
+tests use the separate bounded path described under Tests and Coverage and may
+consume workspace API, implementation, and test dependencies. Kotlin-only main
+and unit-test source sets may coexist in one member.
 Tests may use public main APIs, but Zolt does not pass Kotlin `-Xfriend-paths`,
 so `internal` main declarations are not visible to tests. Kotlin
 integration-test compilation, generated Kotlin, KAPT, and
@@ -1736,10 +1735,11 @@ classpath. The preview accepts a Kotlin-only test source set with an empty,
 Java-only, or Kotlin-only main source set. With Kotlin main sources, tests may
 use public main APIs only: Zolt does not pass `-Xfriend-paths`, so `internal`
 main declarations remain inaccessible. It rejects Java or Groovy test sources,
-test annotation processors, custom `[compiler].testArgs`, workspace API,
-compile, or test dependencies, and Quarkus in the same member. Kotlin test
-source changes use cleaned full-scope compilation rather than incremental javac
-state.
+test annotation processors, custom `[compiler].testArgs`, and Quarkus in the
+same member. Workspace API, implementation, and test dependencies are accepted;
+test dependencies remain isolated from main compilation and main runtime.
+Kotlin test source changes use cleaned full-scope compilation rather than
+incremental javac state.
 
 Test commands support class/method selection, glob patterns, JUnit tags, JVM
 arguments, XML reports, deterministic shards, named suites, and optional profile

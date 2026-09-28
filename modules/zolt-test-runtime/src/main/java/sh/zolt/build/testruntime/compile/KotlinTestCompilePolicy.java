@@ -42,14 +42,6 @@ final class KotlinTestCompilePolicy {
                     "Remove the custom javac test arguments or keep the test source set Java-only; "
                             + "Zolt does not forward javac flags to kotlinc.");
         }
-        if (!config.workspaceApiDependencies().isEmpty()
-                || !config.workspaceDependencies().isEmpty()
-                || !config.workspaceTestDependencies().isEmpty()) {
-            throw unsupported(
-                    "workspace compile dependencies are configured",
-                    "Keep the Kotlin preview member independent of workspace compile dependencies"
-                            + " until workspace-dependent Kotlin test compilation is qualified.");
-        }
         if (config.frameworkSettings().quarkus().enabled()) {
             throw unsupported(
                     "Quarkus is enabled",

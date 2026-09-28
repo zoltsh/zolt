@@ -8,7 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static sh.zolt.cli.CliTestSupport.execute;
 
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
@@ -17,14 +16,11 @@ import java.util.Map;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.junit.platform.console.ConsoleLauncher;
 import sh.zolt.cli.CliTestRepository;
 import sh.zolt.cli.CliTestSupport.CommandResult;
 
 /** CLI canary for explicit Kotlin unit-test roots, real compilation, and JUnit execution. */
 final class TestCommandKotlinIntegrationTest {
-    private static final String JUNIT_VERSION = "1.14.4";
-
     @TempDir
     private Path tempDir;
 
@@ -164,7 +160,7 @@ final class TestCommandKotlinIntegrationTest {
                 KotlinCompilerCliFixture.KOTLIN_VERSION,
                 repository.baseUri(),
                 KotlinCompilerCliFixture.KOTLIN_VERSION,
-                JUNIT_VERSION));
+                JUnitConsoleCliFixture.VERSION));
         Files.writeString(projectDirectory.resolve("src/main/java/com/example/Main.java"), """
                 package com.example;
 
@@ -214,7 +210,7 @@ final class TestCommandKotlinIntegrationTest {
                 KotlinCompilerCliFixture.KOTLIN_VERSION,
                 repository.baseUri(),
                 KotlinCompilerCliFixture.KOTLIN_VERSION,
-                JUNIT_VERSION));
+                JUnitConsoleCliFixture.VERSION));
         writeKotlinMain(projectDirectory, "String");
         Files.writeString(projectDirectory.resolve("src/test/kotlin/com/example/DemoTest.kt"), """
                 package com.example
@@ -248,7 +244,7 @@ final class TestCommandKotlinIntegrationTest {
     private static void seed(CliTestRepository repository, Path projectDirectory, Path onlineCache,
             Path offlineCache, boolean kotlinMain) throws IOException {
         KotlinCompilerCliFixture.publish(repository);
-        publishJUnitConsole(repository);
+        JUnitConsoleCliFixture.publish(repository);
         if (kotlinMain) {
             writeKotlinMainProject(projectDirectory, repository);
         } else {
@@ -281,39 +277,6 @@ final class TestCommandKotlinIntegrationTest {
                     }
                 }
                 """.formatted(expected, variant));
-    }
-
-    private static void publishJUnitConsole(CliTestRepository repository) throws IOException {
-        repository.addArtifact(
-                "org.junit.platform",
-                "junit-platform-console-standalone",
-                JUNIT_VERSION,
-                """
-                <project>
-                  <modelVersion>4.0.0</modelVersion>
-                  <groupId>org.junit.platform</groupId>
-                  <artifactId>junit-platform-console-standalone</artifactId>
-                  <version>%s</version>
-                </project>
-                """.formatted(JUNIT_VERSION),
-                Files.readAllBytes(junitConsoleJar()));
-    }
-
-    private static Path junitConsoleJar() {
-        try {
-            Path location = Path.of(ConsoleLauncher.class.getProtectionDomain()
-                            .getCodeSource()
-                            .getLocation()
-                            .toURI())
-                    .toAbsolutePath()
-                    .normalize();
-            if (!Files.isRegularFile(location) || !location.getFileName().toString().endsWith(".jar")) {
-                throw new IllegalStateException("JUnit console is not loaded from a JAR: " + location);
-            }
-            return location;
-        } catch (URISyntaxException exception) {
-            throw new IllegalStateException("Could not locate the JUnit console JAR.", exception);
-        }
     }
 
     private static Path kotlinModule(Path outputDirectory) throws IOException {

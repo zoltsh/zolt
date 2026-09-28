@@ -46,18 +46,18 @@ final class KotlinTestCompilePolicyTest {
     }
 
     @Test
-    void rejectsWorkspaceCompileDependencies() {
-        KotlinCompileException workspaceFailure = assertThrows(
-                KotlinCompileException.class,
-                () -> KotlinTestCompilePolicy.options(
-                        config(CompilerSettings.defaults(), Map.of("api", "../api"), Map.of(), Map.of()),
-                        sources(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(KOTLIN_TEST)),
-                        classpaths(List.of()),
-                        jdkStatus()));
+    void acceptsWorkspaceApiImplementationAndTestDependencies() {
+        KotlinCompilerRunner.Options options = KotlinTestCompilePolicy.options(
+                config(
+                        CompilerSettings.defaults(),
+                        Map.of("api", "../api"),
+                        Map.of("implementation", "../implementation"),
+                        Map.of("test-support", "../test-support")),
+                sources(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(KOTLIN_TEST)),
+                classpaths(List.of()),
+                jdkStatus());
 
-        assertTrue(workspaceFailure.getMessage().contains("workspace compile dependencies"));
-        assertTrue(workspaceFailure.getMessage().contains(
-                "until workspace-dependent Kotlin test compilation is qualified"));
+        assertEquals("demo_test", options.moduleName());
     }
 
     @Test
