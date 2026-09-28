@@ -1,5 +1,6 @@
 package sh.zolt.build.incremental;
 
+import static sh.zolt.build.incremental.IncrementalCompileInputHasher.classpathEntries;
 import static sh.zolt.build.incremental.IncrementalCompileInputHasher.hash;
 import static sh.zolt.build.incremental.IncrementalCompileInputHasher.hashText;
 import static sh.zolt.build.incremental.IncrementalCompileInputHasher.relative;
@@ -78,6 +79,7 @@ public final class IncrementalCompileStateRecorder {
                 classpaths,
                 outputDirectory,
                 generatedSourcesDirectory,
+                "unspecified",
                 GeneratedOutputAttribution.absent(),
                 List.of());
     }
@@ -89,6 +91,7 @@ public final class IncrementalCompileStateRecorder {
             ClasspathSet classpaths,
             Path outputDirectory,
             Path generatedSourcesDirectory,
+            String compilerIdentity,
             GeneratedOutputAttribution attribution,
             List<Path> compiledSources) {
         record(
@@ -104,6 +107,7 @@ public final class IncrementalCompileStateRecorder {
                 generatedSourcesDirectory,
                 IncrementalCompileState.mainStatePath(outputDirectory),
                 outputDirectory.resolve(MAIN_FINGERPRINT_FILE),
+                compilerIdentity,
                 processorFallbackReasons(classpaths.processor()),
                 attribution,
                 compiledSources);
@@ -122,6 +126,7 @@ public final class IncrementalCompileStateRecorder {
             Classpath processorClasspath,
             Path outputDirectory,
             Path generatedSourcesDirectory,
+            String compilerIdentity,
             GeneratedOutputAttribution attribution,
             List<Path> compiledSources) {
         List<String> fallbackReasons = new ArrayList<>(processorFallbackReasons(processorClasspath));
@@ -141,6 +146,7 @@ public final class IncrementalCompileStateRecorder {
                 generatedSourcesDirectory,
                 IncrementalCompileState.testStatePath(outputDirectory),
                 outputDirectory.resolve(TEST_FINGERPRINT_FILE),
+                compilerIdentity,
                 fallbackReasons,
                 attribution,
                 compiledSources);
@@ -159,6 +165,7 @@ public final class IncrementalCompileStateRecorder {
             Path generatedSourcesDirectory,
             Path statePath,
             Path fingerprintPath,
+            String compilerIdentity,
             List<String> fallbackReasons,
             GeneratedOutputAttribution attribution,
             List<Path> compiledSources) {
@@ -187,7 +194,11 @@ public final class IncrementalCompileStateRecorder {
                         outputDirectory,
                         generatedSourcesDirectory,
                         hashText(config.compilerSettings().toString()),
+                        compilerIdentity,
                         hash(fingerprintPath),
+                        "",
+                        "",
+                        "",
                         stateFallbackReasons,
                         sourceRoots.stream().map(path -> relative(projectRoot, path)).toList(),
                         generatedSteps.stream().map(GeneratedSourceStep::output).sorted().toList(),
@@ -295,18 +306,6 @@ public final class IncrementalCompileStateRecorder {
             }
         }
         return reverseDependencies;
-    }
-
-    private static List<IncrementalCompileState.ClasspathEntry> classpathEntries(
-            Classpath classpath,
-            List<IncrementalCompileState.ClasspathEntry> previousEntries) {
-        Map<Path, IncrementalCompileState.ClasspathEntry> previous = new LinkedHashMap<>();
-        previousEntries.forEach(entry -> previous.put(entry.path(), entry));
-        return classpath.entries().stream()
-                .map(path -> path.toAbsolutePath().normalize())
-                .sorted()
-                .map(path -> IncrementalCompileInputHasher.classpathEntry(path, previous.get(path)))
-                .toList();
     }
 
     private static List<Path> sourceRoots(

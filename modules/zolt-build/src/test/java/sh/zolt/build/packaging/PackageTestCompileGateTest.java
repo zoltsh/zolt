@@ -155,6 +155,7 @@ final class PackageTestCompileGateTest {
         new BuildFingerprintService().writeTestCompileFingerprint(
                 project,
                 config,
+                "test-compiler",
                 project.resolve("zolt.lock"),
                 sources,
                 new GeneratedSourceProducerFingerprintService()

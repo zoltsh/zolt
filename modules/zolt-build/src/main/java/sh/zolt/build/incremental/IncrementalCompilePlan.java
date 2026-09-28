@@ -45,13 +45,22 @@ public record IncrementalCompilePlan(
     }
 
     public static IncrementalCompilePlan full(String reason, List<Path> outputsToDelete, int sourcesDeleted) {
+        return full(reason, outputsToDelete, 0, 0, sourcesDeleted);
+    }
+
+    public static IncrementalCompilePlan full(
+            String reason,
+            List<Path> outputsToDelete,
+            int sourcesAdded,
+            int sourcesChanged,
+            int sourcesDeleted) {
         return new IncrementalCompilePlan(
                 false,
                 List.of(),
                 reason,
                 outputsToDelete.stream().map(path -> path.toAbsolutePath().normalize()).sorted().toList(),
-                0,
-                0,
+                sourcesAdded,
+                sourcesChanged,
                 sourcesDeleted,
                 List.of(),
                 Map.of(),

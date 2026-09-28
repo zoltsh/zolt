@@ -1,6 +1,7 @@
 package sh.zolt.build.generatedsource;
 
 import sh.zolt.build.BuildException;
+import sh.zolt.project.BuildSettings;
 import sh.zolt.project.GeneratedSourceStep;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -23,7 +24,7 @@ final class ExecStepScheduler {
 
     static List<GeneratedSourceStep> order(
             Path projectRoot,
-            String outputRoot,
+            BuildSettings build,
             String scope,
             List<GeneratedSourceStep> steps) {
         Map<String, Path> outputs = new LinkedHashMap<>();
@@ -48,7 +49,7 @@ final class ExecStepScheduler {
                     }
                     if (inputBase.startsWith(outputs.get(producer.id()))
                             && successors.get(producer.id()).stream().noneMatch(consumer.id()::equals)) {
-                        rejectPostFeedingPre(projectRoot, outputRoot, scope, producer, consumer);
+                        rejectPostFeedingPre(projectRoot, build, scope, producer, consumer);
                         successors.get(producer.id()).add(consumer.id());
                         indegree.merge(consumer.id(), 1, Integer::sum);
                     }
@@ -92,12 +93,12 @@ final class ExecStepScheduler {
 
     private static void rejectPostFeedingPre(
             Path projectRoot,
-            String outputRoot,
+            BuildSettings build,
             String scope,
             GeneratedSourceStep producer,
             GeneratedSourceStep consumer) {
-        if (ExecStepClassification.isPostCompile(producer, projectRoot, outputRoot)
-                && !ExecStepClassification.isPostCompile(consumer, projectRoot, outputRoot)) {
+        if (ExecStepClassification.isPostCompile(producer, projectRoot, build)
+                && !ExecStepClassification.isPostCompile(consumer, projectRoot, build)) {
             throw BuildException.actionable(
                     "Exec step [generated." + scope + "." + consumer.id() + "] consumes the output of post-compile step ["
                             + "generated." + scope + "." + producer.id() + "], but runs before compilation.",

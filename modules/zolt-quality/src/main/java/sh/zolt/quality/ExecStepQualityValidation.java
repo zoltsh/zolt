@@ -1,5 +1,6 @@
 package sh.zolt.quality;
 
+import sh.zolt.project.BuildSettings;
 import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.ProducesLane;
 import java.nio.file.Path;
@@ -18,7 +19,7 @@ final class ExecStepQualityValidation {
     static Optional<QualityCheckResult> invalid(
             Optional<String> member,
             Path projectRoot,
-            String outputRoot,
+            BuildSettings build,
             String scope,
             GeneratedSourceStep step) {
         String subject = "[generated." + scope + "." + step.id() + "]";
@@ -30,7 +31,7 @@ final class ExecStepQualityValidation {
         if (invalidLane.isPresent()) {
             return invalidLane;
         }
-        if (isPostCompile(step, projectRoot, outputRoot)
+        if (isPostCompile(step, projectRoot, build)
                 && (step.exec().produces() == ProducesLane.JAVA_SOURCES
                         || step.exec().produces() == ProducesLane.TEST_SOURCES)) {
             return Optional.of(QualityCheckResult.failed(
@@ -112,15 +113,18 @@ final class ExecStepQualityValidation {
                 "Move it to " + otherSection + " or set produces = \"" + otherLane + "\".");
     }
 
-    private static boolean isPostCompile(GeneratedSourceStep step, Path projectRoot, String outputRoot) {
+    private static boolean isPostCompile(GeneratedSourceStep step, Path projectRoot, BuildSettings build) {
         if ("project".equals(step.exec().tool().runner())) {
             return true;
         }
-        Path classes = projectRoot.resolve(outputRoot).resolve("classes").normalize();
-        Path testClasses = projectRoot.resolve(outputRoot).resolve("test-classes").normalize();
+        Path mainClasses = projectRoot.resolve(build.output()).normalize();
+        Path testClasses = projectRoot.resolve(build.testOutput()).normalize();
+        Path integrationTestClasses = projectRoot.resolve(build.integrationTestOutput()).normalize();
         for (String input : step.inputs()) {
             Path base = projectRoot.resolve(literalBase(input)).normalize();
-            if (base.startsWith(classes) || base.startsWith(testClasses)) {
+            if (base.startsWith(mainClasses)
+                    || base.startsWith(testClasses)
+                    || base.startsWith(integrationTestClasses)) {
                 return true;
             }
         }

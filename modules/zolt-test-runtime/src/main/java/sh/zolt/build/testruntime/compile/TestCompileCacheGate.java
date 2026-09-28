@@ -1,6 +1,5 @@
 package sh.zolt.build.testruntime.compile;
 
-import sh.zolt.build.cache.BuildCacheJdkIdentity;
 import sh.zolt.build.cache.BuildCacheKey;
 import sh.zolt.build.cache.BuildCacheModulePolicy;
 import sh.zolt.build.cache.BuildCacheScope;
@@ -10,7 +9,6 @@ import sh.zolt.build.fingerprint.BuildFingerprintService;
 import sh.zolt.build.generatedsource.GeneratedSourceProducerFingerprint;
 import sh.zolt.build.incremental.IncrementalCompileState;
 import sh.zolt.classpath.Classpath;
-import sh.zolt.doctor.JdkStatus;
 import sh.zolt.project.ProjectConfig;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -38,7 +36,7 @@ final class TestCompileCacheGate {
             Classpath processorClasspath,
             Path outputDirectory,
             Path generatedSourcesDirectory,
-            JdkStatus jdkStatus) {
+            String compilerIdentity) {
         if (compileSkipped
                 || !cache.enabled()
                 || Files.exists(IncrementalCompileState.testStatePath(outputDirectory))
@@ -48,6 +46,7 @@ final class TestCompileCacheGate {
         String inputsSha = fingerprints.testInputsFingerprintSha256(
                 projectDirectory,
                 config,
+                compilerIdentity,
                 lockfilePath,
                 sources,
                 generatedProducerFingerprints,
@@ -58,6 +57,6 @@ final class TestCompileCacheGate {
         return BuildCacheKey.of(
                 BuildCacheScope.TEST,
                 inputsSha,
-                BuildCacheJdkIdentity.of(jdkStatus));
+                compilerIdentity);
     }
 }

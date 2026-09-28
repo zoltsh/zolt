@@ -11,6 +11,7 @@ public record JdkStatus(
         Optional<Path> javac,
         Optional<Path> jar,
         Optional<String> version,
+        Optional<String> compilerIdentity,
         String requiredVersion) {
     public JdkStatus {
         javaHome = javaHome == null ? Optional.empty() : javaHome;
@@ -18,6 +19,17 @@ public record JdkStatus(
         javac = javac == null ? Optional.empty() : javac;
         jar = jar == null ? Optional.empty() : jar;
         version = version == null ? Optional.empty() : version;
+        compilerIdentity = compilerIdentity == null ? Optional.empty() : compilerIdentity;
+    }
+
+    public JdkStatus(
+            Optional<Path> javaHome,
+            Optional<Path> java,
+            Optional<Path> javac,
+            Optional<Path> jar,
+            Optional<String> version,
+            String requiredVersion) {
+        this(javaHome, java, javac, jar, version, Optional.empty(), requiredVersion);
     }
 
     public boolean complete() {
@@ -92,9 +104,17 @@ public record JdkStatus(
                     return Optional.empty();
                 }
             }
+            return Optional.empty();
+        }
+        int index = 0;
+        while (index < normalized.length() && Character.isDigit(normalized.charAt(index))) {
+            index++;
+        }
+        if (index == 0) {
+            return Optional.empty();
         }
         try {
-            return Optional.of(Integer.parseInt(normalized));
+            return Optional.of(Integer.parseInt(normalized.substring(0, index)));
         } catch (NumberFormatException exception) {
             return Optional.empty();
         }

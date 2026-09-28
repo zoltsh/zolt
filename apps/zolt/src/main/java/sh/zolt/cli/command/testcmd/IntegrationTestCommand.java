@@ -2,6 +2,7 @@ package sh.zolt.cli.command.testcmd;
 
 import sh.zolt.build.BuildException;
 import sh.zolt.build.BuildResultWithClasspaths;
+import sh.zolt.build.compile.CompileOutputLayoutValidator;
 import sh.zolt.build.GroovyCompileException;
 import sh.zolt.build.JavaRunException;
 import sh.zolt.build.JavacException;
@@ -264,6 +265,8 @@ public final class IntegrationTestCommand implements Runnable {
         Path projectRoot = context.projectRoot();
         ProjectConfig config = context.config();
         var artifactIndex = lockfiles.requireFreshLockfile(context, cacheRoot, false);
+        // Validate before projection while the independently owned unit-test output is still present.
+        CompileOutputLayoutValidator.validateTest(projectRoot, config);
         ProjectConfig integrationConfig = config.withBuildSettings(config.build().asIntegrationTestBuild());
         var compileChecker = toolchainOptions.jdkChecker(context, integrationConfig, "integration-test");
         TestRunService projectTestRunService =

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.generated.GeneratedSourceEvidenceService;
+import sh.zolt.project.BuildSettings;
 import sh.zolt.project.GeneratedSourceKind;
 import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.ProjectConfig;
@@ -254,6 +255,31 @@ final class GeneratedSourceQualityCheckTest extends QualityCheckServiceTestSuppo
                 "[generated.main.model]",
                 "Exec step produces test-sources but is declared in the wrong lane.",
                 "Move it to [generated.test.model] or set produces = \"java-sources\".");
+    }
+
+    @Test
+    void customCompileOutputStillBlocksPostCompileSourceProduction() throws IOException {
+        Path projectDir = tempDir.resolve("exec-custom-output");
+        ProjectConfig parsed = parseProject(
+                projectDir,
+                execConfig("java-sources").replace(
+                        "src/main/jooq/config.xml",
+                        "out/main/com/example/App.class"));
+        BuildSettings custom = new BuildSettings(
+                        "src/main/java",
+                        "src/test/java",
+                        "target",
+                        "out/main",
+                        "out/test")
+                .withGeneratedSources(
+                        parsed.build().generatedMainSources(),
+                        parsed.build().generatedTestSources());
+        ProjectConfig config = parsed.withBuildSettings(custom);
+
+        QualityCheckResult result = check.check(Optional.empty(), projectDir, config).getFirst();
+
+        assertEquals(QualityCheckStatus.FAILED, result.status());
+        assertTrue(result.message().contains("runs after compilation"), result.message());
     }
 
     @Test

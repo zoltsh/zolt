@@ -8,6 +8,7 @@ import sh.zolt.build.AnnotationProcessorFixture;
 import sh.zolt.build.WorkerAttributionTestSupport;
 import sh.zolt.build.incremental.IncrementalCompileState;
 import sh.zolt.build.incremental.IncrementalCompileStateCodec;
+import sh.zolt.build.incremental.IncrementalCompilePlanner;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -25,7 +26,8 @@ import org.junit.jupiter.api.io.TempDir;
 final class TestCompileServiceProcessorIncrementalTest {
     private static WorkerAttributionTestSupport worker;
 
-    private final TestCompileService testCompileService = new TestCompileService();
+    private final TestCompileService testCompileService =
+            new TestCompileService(IncrementalCompilePlanner.experimentalSelective());
 
     @TempDir
     private Path projectDir;

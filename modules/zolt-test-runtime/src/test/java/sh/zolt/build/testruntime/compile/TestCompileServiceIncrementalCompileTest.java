@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.build.incremental.IncrementalCompilePlanner;
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectConfigs;
@@ -17,7 +18,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 final class TestCompileServiceIncrementalCompileTest {
-    private final TestCompileService testCompileService = new TestCompileService();
+    private final TestCompileService testCompileService =
+            new TestCompileService(IncrementalCompilePlanner.experimentalSelective());
 
     @TempDir
     private Path projectDir;

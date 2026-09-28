@@ -1,6 +1,7 @@
 package sh.zolt.build.fingerprint;
 
 import sh.zolt.build.BuildException;
+import sh.zolt.build.CompilationSemantics;
 import sh.zolt.build.generatedsource.ExecStepClassification;
 import sh.zolt.build.generatedsource.GeneratedSourceProducerFingerprint;
 import sh.zolt.classpath.Classpath;
@@ -20,7 +21,6 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 final class BuildFingerprintContent {
-    private static final String VERSION = "1";
     private static final List<String> OUTPUT_DIRECTORY_NAMES = List.of("build", "target");
 
     private final BuildFingerprintExpectedClasses expectedClasses = new BuildFingerprintExpectedClasses();
@@ -29,6 +29,7 @@ final class BuildFingerprintContent {
     String fingerprint(
             Path projectDirectory,
             ProjectConfig config,
+            String compilerIdentity,
             Path lockfilePath,
             List<String> sourceRoots,
             List<String> resourceRoots,
@@ -46,6 +47,7 @@ final class BuildFingerprintContent {
         return fingerprint(
                 projectDirectory,
                 config,
+                compilerIdentity,
                 lockfilePath,
                 sourceRoots,
                 resourceRoots,
@@ -66,6 +68,7 @@ final class BuildFingerprintContent {
     String fingerprint(
             Path projectDirectory,
             ProjectConfig config,
+            String compilerIdentity,
             Path lockfilePath,
             List<String> sourceRoots,
             List<String> resourceRoots,
@@ -83,21 +86,24 @@ final class BuildFingerprintContent {
             boolean cacheKeyMode) {
         Path projectRoot = projectDirectory.toAbsolutePath().normalize();
         StringBuilder content = new StringBuilder();
-        line(content, "version", VERSION);
+        line(content, "version", CompilationSemantics.VERSION);
         line(content, "projectJava", config.project().java());
+        line(content, "compilerIdentity", compilerIdentity);
         line(content, "zoltToml", fileHasher.fileHash(projectRoot.resolve("zolt.toml"), cachedState, collectedState));
         line(content, "lockfile", fileHasher.fileHash(lockfilePath, cachedState, collectedState));
         section(content, "sourceRoots", sourceRoots.stream().map(BuildFingerprintContent::normalize).toList());
         line(content, "outputDirectory", normalize(outputDirectoryName));
         line(content, "generatedSourcesDirectory", fileHasher.relative(projectRoot, generatedSourcesDirectory));
         line(content, "compilerSettings", config.compilerSettings().toString());
-        section(content, "compileClasspath", classpathEntries(compileClasspath, cachedState, collectedState, cacheKeyMode));
-        section(content, "processorClasspath", processorClasspathEntries(processorClasspath, cachedState, collectedState, cacheKeyMode));
+        orderedSection(content, "compileClasspath", classpathEntries(
+                compileClasspath, cachedState, collectedState, cacheKeyMode));
+        orderedSection(content, "processorClasspath", processorClasspathEntries(
+                processorClasspath, cachedState, collectedState, cacheKeyMode));
         section(content, "sources", fileEntries(projectRoot, sources, cachedState, collectedState));
         section(content, "generatedProducerFingerprints", generatedProducerEntries(generatedProducerFingerprints));
         section(content, "generatedSourceInputs", generatedSourceInputEntries(projectRoot, generatedSteps, cachedState, collectedState));
         section(content, "generatedSources", generatedSourceEntries(projectRoot, generatedSourcesDirectory, cachedState, collectedState));
-        section(content, "execOutputs", execOutputEntries(projectRoot, config.build().outputRoot(), generatedSteps, cachedState, collectedState));
+        section(content, "execOutputs", execOutputEntries(projectRoot, config.build(), generatedSteps, cachedState, collectedState));
         section(content, "resources", resourceEntries(
                 projectRoot,
                 resourceRoots,
@@ -128,19 +134,15 @@ final class BuildFingerprintContent {
             Map<Path, BuildFingerprintCachedFileHash> collectedState,
             boolean cacheKeyMode) {
         if (cacheKeyMode) {
-            // Content-only, path-free entries: two builds with the same compiled dependencies key
-            // identically regardless of where those artifacts live (machine, checkout) or whether a
-            // dependency output was compiled or restored. Sorted by content so order does not matter,
-            // which the skip-gate fingerprint already disregards (it sorts entries too).
+            // Content-only, path-free entries retain lookup precedence while remaining relocatable
+            // across machines and checkouts.
             return classpath.entries().stream()
                     .map(path -> path.toAbsolutePath().normalize())
                     .map(path -> fileHasher.classpathKeyHash(path, cachedState, collectedState))
-                    .sorted()
                     .toList();
         }
         return classpath.entries().stream()
                 .map(path -> path.toAbsolutePath().normalize())
-                .sorted()
                 .map(path -> path + "|" + fileHasher.classpathHash(path, cachedState, collectedState))
                 .toList();
     }
@@ -164,7 +166,6 @@ final class BuildFingerprintContent {
         }
         return classpath.entries().stream()
                 .map(path -> path.toAbsolutePath().normalize())
-                .sorted()
                 .map(path -> path + "|" + fileHasher.classpathKeyHash(path, cachedState, collectedState))
                 .toList();
     }
@@ -225,7 +226,7 @@ final class BuildFingerprintContent {
 
     private List<String> execOutputEntries(
             Path projectRoot,
-            String outputRoot,
+            BuildSettings build,
             List<GeneratedSourceStep> steps,
             BuildFingerprintState cachedState,
             Map<Path, BuildFingerprintCachedFileHash> collectedState) {
@@ -237,7 +238,7 @@ final class BuildFingerprintContent {
             // Post-compile exec outputs (project runner / inputs under compiled classes) are produced
             // AFTER compile; hashing them into the compile fingerprint that gates compile would create a
             // cycle and break the double-build skip. Their consumer fence lives in package/test evidence.
-            if (ExecStepClassification.isPostCompile(step, projectRoot, outputRoot)) {
+            if (ExecStepClassification.isPostCompile(step, projectRoot, build)) {
                 continue;
             }
             Path output = outputPath(projectRoot, "[generated." + step.id() + "].output", step.output());
@@ -292,6 +293,11 @@ final class BuildFingerprintContent {
     private static void section(StringBuilder content, String name, List<String> entries) {
         content.append('[').append(name).append(']').append('\n');
         entries.stream().sorted(Comparator.naturalOrder()).forEach(entry -> content.append(entry).append('\n'));
+    }
+
+    private static void orderedSection(StringBuilder content, String name, List<String> entries) {
+        content.append('[').append(name).append(']').append('\n');
+        entries.forEach(entry -> content.append(entry).append('\n'));
     }
 
     private static void line(StringBuilder content, String name, String value) {

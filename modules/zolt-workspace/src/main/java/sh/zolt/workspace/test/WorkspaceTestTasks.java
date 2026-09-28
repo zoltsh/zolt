@@ -1,6 +1,7 @@
 package sh.zolt.workspace.test;
 
 import sh.zolt.build.BuildResultWithClasspaths;
+import sh.zolt.build.compile.CompileOutputLayoutValidator;
 import sh.zolt.build.profile.TestProfileSettings;
 import sh.zolt.build.testruntime.TestReportSettings;
 import sh.zolt.build.testruntime.TestRunService;
@@ -87,6 +88,9 @@ final class WorkspaceTestTasks {
                     WorkspaceMember member = membersByPath.get(memberPath);
                     WorkspaceBuildResult.MemberBuildResult memberBuild =
                             buildsByPath.get(memberPath);
+                    // Validate before projection while the independently owned unit-test output is
+                    // still present in the settings.
+                    CompileOutputLayoutValidator.validateTest(member.directory(), member.config());
                     ProjectConfig integrationConfig =
                             member.config().withBuildSettings(
                                     member.config().build().asIntegrationTestBuild());

@@ -13,20 +13,39 @@ final class JunitLauncherClasspathTest {
     private final JunitLauncherClasspath launcherClasspath = new JunitLauncherClasspath();
 
     @Test
-    void standaloneConsoleLaunchesWithStandaloneJarAndJbossLogManagerOnly() {
+    void standaloneConsoleKeepsMinimalLauncherWithoutBootstrapDependencies() {
+        List<Path> runnerClasspath = List.of(
+                Path.of("target/test-classes"),
+                Path.of("target/classes"),
+                Path.of("cache/junit-platform-console-standalone-1.11.4.jar"),
+                Path.of("cache/junit-jupiter-engine-5.11.4.jar"));
+
+        List<Path> result = launcherClasspath.launcherClasspath(runnerClasspath);
+
+        assertEquals(List.of(
+                Path.of("cache/junit-platform-console-standalone-1.11.4.jar")), result);
+    }
+
+    @Test
+    void jbossLogManagerLaunchIncludesItsRuntimeDependencyClosure() {
         List<Path> runnerClasspath = List.of(
                 Path.of("target/test-classes"),
                 Path.of("target/classes"),
                 Path.of("cache/junit-platform-console-standalone-1.11.4.jar"),
                 Path.of("cache/junit-jupiter-engine-5.11.4.jar"),
-                Path.of("cache/jboss-logmanager-3.1.2.Final.jar"));
+                Path.of("cache/jboss-logmanager-3.1.2.Final.jar"),
+                Path.of("cache/smallrye-common-ref-2.15.0.jar"));
 
         List<Path> result = launcherClasspath.launcherClasspath(runnerClasspath);
 
         assertTrue(launcherClasspath.hasConsoleJar(runnerClasspath));
         assertEquals(List.of(
                 Path.of("cache/junit-platform-console-standalone-1.11.4.jar"),
-                Path.of("cache/jboss-logmanager-3.1.2.Final.jar")), result);
+                Path.of("cache/jboss-logmanager-3.1.2.Final.jar"),
+                Path.of("target/test-classes"),
+                Path.of("target/classes"),
+                Path.of("cache/junit-jupiter-engine-5.11.4.jar"),
+                Path.of("cache/smallrye-common-ref-2.15.0.jar")), result);
     }
 
     @Test

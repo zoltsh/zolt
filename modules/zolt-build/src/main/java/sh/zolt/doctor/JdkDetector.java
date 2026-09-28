@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Base64;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Function;
@@ -54,6 +55,9 @@ public final class JdkDetector implements JdkChecker {
                 detected.javac(),
                 detected.jar(),
                 detected.version(),
+                detected.compilerIdentity().isBlank()
+                        ? Optional.empty()
+                        : Optional.of(detected.compilerIdentity()),
                 requiredVersion);
     }
 
@@ -70,8 +74,14 @@ public final class JdkDetector implements JdkChecker {
                 Optional<Path> jar = findTool("jar", javaHome);
                 Optional<String> version = java
                         .flatMap(this::readVersion)
-                        .flatMap(JdkDetector::majorVersion);
-                toolchain = new Toolchain(javaHome, java, javac, jar, version);
+                        .flatMap(JdkDetector::fullVersion);
+                toolchain = new Toolchain(
+                        javaHome,
+                        java,
+                        javac,
+                        jar,
+                        version,
+                        compilerIdentity(javaHome, java, javac, version));
             }
             return toolchain;
         }
@@ -112,8 +122,11 @@ public final class JdkDetector implements JdkChecker {
     }
 
     static Optional<String> majorVersion(String versionOutput) {
-        Matcher matcher = VERSION_PATTERN.matcher(versionOutput);
-        String rawVersion = matcher.find() ? matcher.group(1) : versionOutput.strip();
+        Optional<String> fullVersion = fullVersion(versionOutput);
+        if (fullVersion.isEmpty()) {
+            return Optional.empty();
+        }
+        String rawVersion = fullVersion.orElseThrow();
         if (rawVersion.isBlank()) {
             return Optional.empty();
         }
@@ -122,6 +135,70 @@ public final class JdkDetector implements JdkChecker {
             return Optional.of(parts[1]);
         }
         return Optional.of(parts[0]);
+    }
+
+    static Optional<String> fullVersion(String versionOutput) {
+        if (versionOutput == null) {
+            return Optional.empty();
+        }
+        Matcher matcher = VERSION_PATTERN.matcher(versionOutput);
+        String rawVersion = matcher.find() ? matcher.group(1) : versionOutput.strip();
+        return rawVersion.isBlank() ? Optional.empty() : Optional.of(rawVersion);
+    }
+
+    private String compilerIdentity(
+            Optional<Path> configuredJavaHome,
+            Optional<Path> java,
+            Optional<Path> javac,
+            Optional<String> version) {
+        if (javac.isEmpty()) {
+            return "";
+        }
+        Path compiler = javac.orElseThrow().toAbsolutePath().normalize();
+        Path detectedJavaHome = java.flatMap(JdkDetector::javaHome)
+                .or(() -> configuredJavaHome)
+                .map(path -> path.toAbsolutePath().normalize())
+                .orElse(null);
+        String release = detectedJavaHome == null
+                ? "missing"
+                : releaseIdentity(detectedJavaHome.resolve("release"));
+        return String.join(
+                "\n",
+                "source=system",
+                "version=" + version.orElse("unknown"),
+                "javaHome=" + (detectedJavaHome == null ? "missing" : detectedJavaHome),
+                "javac=" + compiler,
+                "javacSize=" + fileSize(compiler),
+                "javacModified=" + lastModified(compiler),
+                "release=" + release,
+                "os=" + osName,
+                "arch=" + System.getProperty("os.arch", "unknown"));
+    }
+
+    private static String releaseIdentity(Path release) {
+        try {
+            return Files.isRegularFile(release)
+                    ? Base64.getEncoder().encodeToString(Files.readAllBytes(release))
+                    : "missing";
+        } catch (IOException exception) {
+            return "unreadable";
+        }
+    }
+
+    private static long fileSize(Path path) {
+        try {
+            return Files.size(path);
+        } catch (IOException exception) {
+            return -1L;
+        }
+    }
+
+    private static long lastModified(Path path) {
+        try {
+            return Files.getLastModifiedTime(path).toMillis();
+        } catch (IOException exception) {
+            return -1L;
+        }
     }
 
     static Optional<Path> runtimeJavaHome(String value) {
@@ -202,13 +279,15 @@ public final class JdkDetector implements JdkChecker {
             Optional<Path> java,
             Optional<Path> javac,
             Optional<Path> jar,
-            Optional<String> version) {
+            Optional<String> version,
+            String compilerIdentity) {
         private Toolchain {
             javaHome = javaHome == null ? Optional.empty() : javaHome;
             java = java == null ? Optional.empty() : java;
             javac = javac == null ? Optional.empty() : javac;
             jar = jar == null ? Optional.empty() : jar;
             version = version == null ? Optional.empty() : version;
+            compilerIdentity = compilerIdentity == null ? "" : compilerIdentity;
         }
     }
 }

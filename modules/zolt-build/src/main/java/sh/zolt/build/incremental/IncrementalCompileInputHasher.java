@@ -2,6 +2,7 @@ package sh.zolt.build.incremental;
 
 import sh.zolt.build.BuildException;
 import sh.zolt.build.lockfile.VerifiedArtifactHashes;
+import sh.zolt.classpath.Classpath;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -10,6 +11,9 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -89,6 +93,17 @@ final class IncrementalCompileInputHasher {
                         && classpathEntryCurrent(cached)
                 ? cached
                 : classpathEntry(normalized);
+    }
+
+    static List<IncrementalCompileState.ClasspathEntry> classpathEntries(
+            Classpath classpath,
+            List<IncrementalCompileState.ClasspathEntry> previousEntries) {
+        Map<Path, IncrementalCompileState.ClasspathEntry> previous = new LinkedHashMap<>();
+        previousEntries.forEach(entry -> previous.put(entry.path(), entry));
+        return classpath.entries().stream()
+                .map(path -> path.toAbsolutePath().normalize())
+                .map(path -> classpathEntry(path, previous.get(path)))
+                .toList();
     }
 
     static boolean classpathEntryCurrent(IncrementalCompileState.ClasspathEntry entry) {

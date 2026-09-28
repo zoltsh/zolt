@@ -209,6 +209,7 @@ final class PackageTestGeneratedProducerFreshnessTest {
                 .writeTestCompileFingerprint(
                         project,
                         config,
+                        "test-compiler",
                         project.resolve("zolt.lock"),
                         sources,
                         producerService.fingerprintsTest(

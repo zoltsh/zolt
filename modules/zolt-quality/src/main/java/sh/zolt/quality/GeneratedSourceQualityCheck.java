@@ -44,12 +44,11 @@ final class GeneratedSourceQualityCheck {
 
         List<QualityCheckResult> results = new ArrayList<>();
         Path normalizedRoot = projectRoot.toAbsolutePath().normalize();
-        String outputRoot = config.build().outputRoot();
         Map<String, GeneratedSourceEvidence> evidenceByKey = generatedSourceEvidenceByKey(normalizedRoot, config);
         for (GeneratedSourceCheckStep checkStep : steps) {
             GeneratedSourceStep step = checkStep.step();
             Optional<QualityCheckResult> invalid =
-                    invalidGeneratedSourceStep(member, normalizedRoot, outputRoot, checkStep);
+                    invalidGeneratedSourceStep(member, normalizedRoot, config.build(), checkStep);
             if (invalid.isPresent()) {
                 results.add(invalid.orElseThrow());
                 continue;
@@ -162,7 +161,7 @@ final class GeneratedSourceQualityCheck {
     private static Optional<QualityCheckResult> invalidGeneratedSourceStep(
             Optional<String> member,
             Path projectRoot,
-            String outputRoot,
+            BuildSettings build,
             GeneratedSourceCheckStep checkStep) {
         GeneratedSourceStep step = checkStep.step();
         String subject = generatedSection(checkStep);
@@ -179,7 +178,7 @@ final class GeneratedSourceQualityCheck {
         }
         if (step.kind() == GeneratedSourceKind.EXEC) {
             Optional<QualityCheckResult> invalidExec =
-                    ExecStepQualityValidation.invalid(member, projectRoot, outputRoot, checkStep.scope(), step);
+                    ExecStepQualityValidation.invalid(member, projectRoot, build, checkStep.scope(), step);
             if (invalidExec.isPresent()) {
                 return invalidExec;
             }

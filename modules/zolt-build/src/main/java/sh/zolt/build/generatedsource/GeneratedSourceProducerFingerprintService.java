@@ -143,7 +143,7 @@ public final class GeneratedSourceProducerFingerprintService {
             GeneratedSourceStep step) {
         ExecGeneratedSourceValidator.validateStep(
                 root,
-                config.build().outputRoot(),
+                config.build(),
                 scope,
                 step);
         String subject = "[generated." + scope + "." + step.id() + "]";
