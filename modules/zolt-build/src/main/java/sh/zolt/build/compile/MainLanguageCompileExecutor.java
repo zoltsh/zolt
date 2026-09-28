@@ -140,7 +140,7 @@ final class MainLanguageCompileExecutor {
                 outputDirectory,
                 new Classpath(List.of()),
                 null,
-                KotlinMainCompilePolicy.javacOptions(plan.kotlinOptions()));
+                KotlinCompileOptionsPolicy.javacOptions(plan.kotlinOptions()));
         return new JavacResult(
                 allSources.size(),
                 outputDirectory,

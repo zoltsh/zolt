@@ -2,6 +2,7 @@ package sh.zolt.build.compile;
 
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import sh.zolt.build.KotlinCompileException;
@@ -53,6 +54,20 @@ public final class KotlinCompileOptionsPolicy {
                 moduleName(config.project().name(), compilationScope),
                 hostPlatformApi,
                 !hostPlatformApi && jdkFeature >= 9);
+    }
+
+    /** Maps Kotlin platform targeting onto the matching deterministic javac phase. */
+    public static JavacOptions javacOptions(KotlinCompilerRunner.Options kotlinOptions) {
+        KotlinCompilerRunner.Options options = Objects.requireNonNull(
+                kotlinOptions,
+                "Kotlin compilation options are required.");
+        return new JavacOptions(
+                options.release(),
+                StandardCharsets.UTF_8.name(),
+                List.of(),
+                List.of(),
+                options.hostPlatformApi(),
+                options.useJdkRelease());
     }
 
     private static void requireUtf8(

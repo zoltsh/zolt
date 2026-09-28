@@ -13,6 +13,8 @@ import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import sh.zolt.build.KotlinCompileException;
+import sh.zolt.build.compile.JavacOptions;
+import sh.zolt.build.compile.KotlinCompileOptionsPolicy;
 import sh.zolt.build.compile.KotlinCompilerRunner;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.classpath.Classpath;
@@ -20,12 +22,19 @@ import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.doctor.JdkStatus;
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.CompilerSettings;
+import sh.zolt.project.ExecGenerationSettings;
+import sh.zolt.project.ExecToolSettings;
 import sh.zolt.project.FrameworkSettings;
+import sh.zolt.project.GeneratedSourceKind;
+import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.NativeSettings;
+import sh.zolt.project.OpenApiGenerationSettings;
 import sh.zolt.project.PackageSettings;
+import sh.zolt.project.ProtobufGenerationSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectConfigs;
 import sh.zolt.project.ProjectMetadata;
+import sh.zolt.project.ProducesLane;
 import sh.zolt.project.QuarkusSettings;
 
 final class KotlinTestCompilePolicyTest {
@@ -63,6 +72,178 @@ final class KotlinTestCompilePolicyTest {
 
         assertEquals("demo_test", options.moduleName());
         assertNull(options.friendPath());
+    }
+
+    @Test
+    void acceptsJavaCompositionWithDeterministicJavacOptions() {
+        KotlinCompilerRunner.Options options = KotlinTestCompilePolicy.options(
+                config(CompilerSettings.defaults(), Map.of(), Map.of(), Map.of()),
+                sources(
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(Path.of("src/test/java/com/example/DemoTest.java")),
+                        List.of(),
+                        List.of(KOTLIN_TEST)),
+                classpaths(List.of()),
+                jdkStatus(),
+                null);
+
+        JavacOptions javac = KotlinCompileOptionsPolicy.javacOptions(options);
+
+        assertEquals("21", javac.release());
+        assertEquals("UTF-8", javac.encoding());
+        assertEquals(List.of(), javac.arguments());
+        assertFalse(javac.hostPlatformApi());
+        assertTrue(javac.useJdkRelease());
+    }
+
+    @Test
+    void mapsSelectedJdk8ToJvmTargetAndSourceTargetWithoutHostMode() {
+        CompilerSettings compiler = new CompilerSettings(
+                null,
+                null,
+                "8",
+                "",
+                List.of(),
+                List.of());
+        KotlinCompilerRunner.Options options = KotlinTestCompilePolicy.options(
+                config(compiler, Map.of(), Map.of(), Map.of()),
+                sources(
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(Path.of("src/test/java/com/example/DemoTest.java")),
+                        List.of(),
+                        List.of(KOTLIN_TEST)),
+                classpaths(List.of()),
+                jdkStatus("1.8.0_412", "8"),
+                null);
+
+        JavacOptions javac = KotlinCompileOptionsPolicy.javacOptions(options);
+
+        assertEquals("8", options.release());
+        assertFalse(options.hostPlatformApi());
+        assertFalse(options.useJdkRelease());
+        assertFalse(javac.hostPlatformApi());
+        assertFalse(javac.useJdkRelease());
+    }
+
+    @Test
+    void mapsExplicitTestHostModeWithoutJdkRelease() {
+        CompilerSettings compiler = new CompilerSettings(
+                null,
+                null,
+                "",
+                "",
+                List.of(),
+                List.of(),
+                CompilerSettings.PLATFORM_API_RELEASE,
+                CompilerSettings.PLATFORM_API_HOST,
+                "",
+                "");
+        KotlinCompilerRunner.Options options = KotlinTestCompilePolicy.options(
+                config(compiler, Map.of(), Map.of(), Map.of()),
+                sources(
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(Path.of("src/test/java/com/example/DemoTest.java")),
+                        List.of(),
+                        List.of(KOTLIN_TEST)),
+                classpaths(List.of()),
+                jdkStatus(),
+                null);
+
+        JavacOptions javac = KotlinCompileOptionsPolicy.javacOptions(options);
+
+        assertEquals("21", options.release());
+        assertTrue(options.hostPlatformApi());
+        assertFalse(options.useJdkRelease());
+        assertTrue(javac.hostPlatformApi());
+        assertFalse(javac.useJdkRelease());
+    }
+
+    @Test
+    void rejectsModuleInfoAndMissingJavacForMixedTests() {
+        KotlinCompileException moduleFailure = assertThrows(
+                KotlinCompileException.class,
+                () -> KotlinTestCompilePolicy.options(
+                        config(CompilerSettings.defaults(), Map.of(), Map.of(), Map.of()),
+                        sources(
+                                List.of(),
+                                List.of(),
+                                List.of(),
+                                List.of(Path.of("src/test/java/module-info.java")),
+                                List.of(),
+                                List.of(KOTLIN_TEST)),
+                        classpaths(List.of()),
+                        jdkStatus(),
+                        null));
+        JdkStatus runtimeOnly = new JdkStatus(
+                Optional.of(Path.of("/managed-jdk")),
+                Optional.of(Path.of("/managed-jdk/bin/java")),
+                Optional.empty(),
+                Optional.of(Path.of("/managed-jdk/bin/jar")),
+                Optional.of("21.0.11"),
+                "21");
+        KotlinCompileException javacFailure = assertThrows(
+                KotlinCompileException.class,
+                () -> KotlinTestCompilePolicy.options(
+                        config(CompilerSettings.defaults(), Map.of(), Map.of(), Map.of()),
+                        sources(
+                                List.of(),
+                                List.of(),
+                                List.of(),
+                                List.of(Path.of("src/test/java/com/example/DemoTest.java")),
+                                List.of(),
+                                List.of(KOTLIN_TEST)),
+                        classpaths(List.of()),
+                        runtimeOnly,
+                        null));
+
+        assertTrue(moduleFailure.getMessage().contains("module-info.java"));
+        assertTrue(javacFailure.getMessage().contains("no javac executable"));
+    }
+
+    @Test
+    void rejectsGeneratedJavaButAllowsResourceAndIntermediateExecSteps() {
+        KotlinCompileException generatedJavaFailure = assertThrows(
+                KotlinCompileException.class,
+                () -> KotlinTestCompilePolicy.options(
+                        configWithGeneratedTestStep(execStep(ProducesLane.TEST_SOURCES)),
+                        sources(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(KOTLIN_TEST)),
+                        classpaths(List.of()),
+                        jdkStatus(),
+                        null));
+        KotlinCompileException declaredRootFailure = assertThrows(
+                KotlinCompileException.class,
+                () -> KotlinTestCompilePolicy.options(
+                        configWithGeneratedTestStep(new GeneratedSourceStep(
+                                "declared",
+                                GeneratedSourceKind.DECLARED_ROOT,
+                                "java",
+                                "target/generated-test/declared",
+                                List.of(),
+                                true,
+                                true)),
+                        sources(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(KOTLIN_TEST)),
+                        classpaths(List.of()),
+                        jdkStatus(),
+                        null));
+
+        for (ProducesLane lane : List.of(ProducesLane.TEST_RESOURCES, ProducesLane.INTERMEDIATE)) {
+            KotlinCompilerRunner.Options options = KotlinTestCompilePolicy.options(
+                    configWithGeneratedTestStep(execStep(lane)),
+                    sources(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(KOTLIN_TEST)),
+                    classpaths(List.of()),
+                    jdkStatus(),
+                    null);
+
+            assertEquals("21", options.release());
+        }
+        assertTrue(generatedJavaFailure.getMessage().contains("generated test sources"));
+        assertTrue(declaredRootFailure.getMessage().contains("generated test sources"));
     }
 
     @Test
@@ -160,13 +341,43 @@ final class KotlinTestCompilePolicyTest {
                 empty);
     }
 
+    private static ProjectConfig configWithGeneratedTestStep(GeneratedSourceStep step) {
+        ProjectConfig config = config(CompilerSettings.defaults(), Map.of(), Map.of(), Map.of());
+        return config.withBuildSettings(config.build().withGeneratedSources(List.of(), List.of(step)));
+    }
+
+    private static GeneratedSourceStep execStep(ProducesLane lane) {
+        return new GeneratedSourceStep(
+                "generate",
+                GeneratedSourceKind.EXEC,
+                "java",
+                "target/generated-test/generate",
+                List.of(),
+                true,
+                true,
+                OpenApiGenerationSettings.empty(),
+                ProtobufGenerationSettings.empty(),
+                new ExecGenerationSettings(
+                        "generator",
+                        ExecToolSettings.empty(),
+                        List.of(),
+                        lane,
+                        Optional.empty(),
+                        Map.of(),
+                        "content"));
+    }
+
     private static JdkStatus jdkStatus() {
+        return jdkStatus("21.0.11", "21");
+    }
+
+    private static JdkStatus jdkStatus(String version, String requiredVersion) {
         return new JdkStatus(
                 Optional.of(Path.of("/managed-jdk")),
                 Optional.of(Path.of("/managed-jdk/bin/java")),
                 Optional.of(Path.of("/managed-jdk/bin/javac")),
                 Optional.of(Path.of("/managed-jdk/bin/jar")),
-                Optional.of("21.0.11"),
-                "21");
+                Optional.of(version),
+                requiredVersion);
     }
 }

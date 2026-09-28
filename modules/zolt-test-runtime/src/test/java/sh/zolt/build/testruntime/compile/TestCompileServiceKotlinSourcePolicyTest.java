@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import sh.zolt.build.BuildException;
 import sh.zolt.build.BuildResult;
+import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.cache.BuildCacheService;
 import sh.zolt.build.cache.BuildCacheSettings;
 import sh.zolt.build.cache.RemoteBuildCacheClient;
@@ -31,12 +32,12 @@ final class TestCompileServiceKotlinSourcePolicyTest {
     private Path projectDir;
 
     @Test
-    void mixedJavaAndKotlinTestsFailBeforeTestCacheReuseOrOwnedOutputCleanup() throws IOException {
-        Path javaTest = projectDir.resolve("src/test/java/com/example/MainTest.java");
+    void mixedGroovyAndKotlinTestsFailBeforeTestCacheReuseOrOwnedOutputCleanup() throws IOException {
+        Path groovyTest = projectDir.resolve("src/test/groovy/com/example/MainSpec.groovy");
         Path kotlinTest = projectDir.resolve("src/test/kotlin/com/example/MainTest.kt");
         Path staleClass = projectDir.resolve("target/test-classes/stale/Existing.class");
         Path cacheMarker = projectDir.resolve("build-cache/do-not-touch.marker");
-        write(javaTest, new byte[] {1});
+        write(groovyTest, new byte[] {1});
         write(kotlinTest, new byte[] {2});
         write(staleClass, new byte[] {2, 3, 4});
         write(cacheMarker, new byte[] {5, 6, 7});
@@ -60,15 +61,15 @@ final class TestCompileServiceKotlinSourcePolicyTest {
                             .withBuildCache(cache)
                             .compileTests(
                                     projectDir,
-                                    kotlinTestConfig(),
+                                    mixedTestConfig(),
                                     emptyClasspaths(),
                                     mainBuild));
 
             assertEquals(
-                    "The test source set combines Java and Kotlin, which the Kotlin preview does not support.",
+                    "The test source set combines Groovy and Kotlin, which Zolt does not support.",
                     exception.actionableError().summary());
             assertEquals(
-                    "Use a Kotlin-only test source set or remove Kotlin, then run `zolt test` again.",
+                    "Use either Groovy or Kotlin for the test source set, then run `zolt test` again.",
                     exception.actionableError().remediation());
             assertEquals(0, remote.requestCount());
             assertArrayEquals(new byte[] {2, 3, 4}, Files.readAllBytes(staleClass));
@@ -76,7 +77,62 @@ final class TestCompileServiceKotlinSourcePolicyTest {
         }
     }
 
-    private static ProjectConfig kotlinTestConfig() {
+    @Test
+    void modularMixedTestsFailBeforeTestCacheReuseOrOwnedOutputCleanup() throws IOException {
+        Path moduleInfo = projectDir.resolve("src/test/java/module-info.java");
+        Path kotlinTest = projectDir.resolve("src/test/kotlin/com/example/MainTest.kt");
+        Path staleClass = projectDir.resolve("target/test-classes/stale/Existing.class");
+        Path cacheMarker = projectDir.resolve("build-cache/do-not-touch.marker");
+        write(moduleInfo, "module demo {}".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        write(kotlinTest, new byte[] {1});
+        write(staleClass, new byte[] {2, 3, 4});
+        write(cacheMarker, new byte[] {5, 6, 7});
+        BuildResult mainBuild = new BuildResult(
+                Optional.empty(),
+                0,
+                0,
+                projectDir.resolve("target/classes"),
+                "");
+
+        try (CountingRemoteCache remote = new CountingRemoteCache()) {
+            BuildCacheService cache = BuildCacheService.create(
+                    new BuildCacheSettings(true, cacheMarker.getParent(), 0L),
+                    Optional.of(new RemoteBuildCacheClient(
+                            HttpClient.newHttpClient(), remote.baseUri(), Optional.empty(), false)),
+                    "test-version");
+
+            KotlinCompileException exception = assertThrows(
+                    KotlinCompileException.class,
+                    () -> new TestCompileService()
+                            .withBuildCache(cache)
+                            .compileTests(
+                                    projectDir,
+                                    mixedJavaKotlinTestConfig(),
+                                    emptyClasspaths(),
+                                    mainBuild));
+
+            assertEquals(
+                    "Kotlin test compilation is not supported when the test source set contains"
+                            + " module-info.java. Remove module-info.java or keep this test source set"
+                            + " Java-only until modular Kotlin/Java joint compilation is supported.",
+                    exception.getMessage());
+            assertEquals(0, remote.requestCount());
+            assertArrayEquals(new byte[] {2, 3, 4}, Files.readAllBytes(staleClass));
+            assertArrayEquals(new byte[] {5, 6, 7}, Files.readAllBytes(cacheMarker));
+        }
+    }
+
+    private static ProjectConfig mixedTestConfig() {
+        return testConfig(List.of("src/test/groovy"), List.of("src/test/kotlin"));
+    }
+
+    private static ProjectConfig mixedJavaKotlinTestConfig() {
+        return testConfig(List.of(), List.of("src/test/kotlin"));
+    }
+
+    private static ProjectConfig testConfig(
+            List<String> groovyTestRoots,
+            List<String> kotlinTestRoots) {
         ProjectConfig config = TestCompileServiceTestSupport.config();
         BuildSettings defaults = config.build();
         return config.withBuildSettings(new BuildSettings(
@@ -87,8 +143,8 @@ final class TestCompileServiceKotlinSourcePolicyTest {
                 defaults.output(),
                 defaults.testOutput(),
                 defaults.testSources(),
-                defaults.groovyTestSources(),
-                List.of("src/test/kotlin"),
+                groovyTestRoots,
+                kotlinTestRoots,
                 defaults.resourceRoots(),
                 defaults.testResourceRoots(),
                 defaults.metadata()));

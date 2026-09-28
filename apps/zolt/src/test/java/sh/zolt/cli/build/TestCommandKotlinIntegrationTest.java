@@ -126,23 +126,23 @@ final class TestCommandKotlinIntegrationTest {
             assertEquals(0, repaired.exitCode(), repaired.stderr());
             assertTrue(repaired.stdout().contains("Tests passed"), repaired.stdout());
 
-            byte[] kotlinTestBeforeMixedRejection = Files.readAllBytes(testClass);
             writeJavaTest(projectDirectory);
             CommandResult mixedTests = testFromSeededCache(projectDirectory, offlineCache);
-            assertEquals(1, mixedTests.exitCode());
-            assertTrue(
-                    mixedTests.stderr().contains(
-                            "The test source set combines Java and Kotlin, which the Kotlin preview does not support."),
-                    mixedTests.stderr());
-            assertArrayEquals(kotlinTestBeforeMixedRejection, Files.readAllBytes(testClass));
+            Path javaTestClass = projectDirectory.resolve(
+                    "target/test-classes/com/example/MixedMainJavaTest.class");
+            assertEquals(0, mixedTests.exitCode(), mixedTests.stderr());
+            assertTrue(mixedTests.stdout().contains("Tests passed"), mixedTests.stdout());
+            assertTrue(mixedTests.stdout().contains("2 test source files"), mixedTests.stdout());
+            assertTrue(Files.isRegularFile(testClass));
+            assertTrue(Files.isRegularFile(javaTestClass));
 
             Files.delete(projectDirectory.resolve("src/test/kotlin/com/example/DemoTest.kt"));
             CommandResult javaOnly = testFromSeededCache(projectDirectory, offlineCache);
             assertEquals(0, javaOnly.exitCode(), javaOnly.stderr());
             assertTrue(javaOnly.stdout().contains("Tests passed"), javaOnly.stdout());
+            assertTrue(javaOnly.stdout().contains("1 test source files"), javaOnly.stdout());
             assertFalse(Files.exists(testClass), "the removed Kotlin test class must be cleaned");
-            assertTrue(Files.isRegularFile(projectDirectory.resolve(
-                    "target/test-classes/com/example/MixedMainJavaTest.class")));
+            assertTrue(Files.isRegularFile(javaTestClass));
             assertEquals(Map.of(), repository.authorizations());
         }
     }

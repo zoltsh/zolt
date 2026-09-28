@@ -15,7 +15,7 @@ final class TestCompileSourceExecutorAttemptTest {
 
         assertEquals(9, attempt.sourceCount());
         assertEquals(Path.of("target/test-classes"), attempt.outputDirectory());
-        assertEquals("javac output\ngroovy output\nkotlin output", attempt.output());
+        assertEquals("kotlin output\njavac output\ngroovy output", attempt.output());
         assertEquals("full", attempt.mode());
         assertEquals("fallback", attempt.fallbackReason());
         assertEquals(new CompileDiagnostics(1, 2, 3, 4, 5, 6, 7, 8), attempt.diagnostics());
@@ -42,8 +42,20 @@ final class TestCompileSourceExecutorAttemptTest {
     @Test
     void outputPreservesExistingTrailingNewlineBetweenCompilerOutputs() {
         assertEquals(
-                "javac output\ngroovy output\nkotlin output",
+                "kotlin output\njavac output\ngroovy output\n",
                 attempt("javac output\n", "groovy output\n", "kotlin output").output());
+    }
+
+    @Test
+    void platformApiWarningPrecedesKotlinAndJavacOutput() {
+        TestCompileAttempt warned = attempt(
+                        "javac output", "", "kotlin output")
+                .withPlatformApiWarning("platform warning");
+
+        assertEquals(
+                "platform warning\nkotlin output\njavac output",
+                warned.output());
+        assertEquals(9, warned.sourceCount());
     }
 
     private static TestCompileAttempt attempt(

@@ -9,7 +9,6 @@ import sh.zolt.build.compile.IncrementalJavacExecution;
 import sh.zolt.build.compile.JavacOptions;
 import sh.zolt.build.compile.JavacResult;
 import sh.zolt.build.compile.JavacRunner;
-import sh.zolt.build.compile.KotlinCompilationScope;
 import sh.zolt.build.compile.KotlinCompilerRunner;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.build.incremental.GeneratedOutputAttribution;
@@ -28,7 +27,7 @@ import java.util.List;
 final class TestCompileSourceExecutor {
     private final JavacRunner javacRunner;
     private final GroovyCompilerRunner groovyCompilerRunner;
-    private final KotlinCompilerRunner kotlinCompilerRunner;
+    private final KotlinTestCompileExecutor kotlinTestCompileExecutor;
     private final IncrementalCompileStateRecorder incrementalCompileStateRecorder;
     private final IncrementalCompilePlanner incrementalCompilePlanner;
     private final IncrementalJavacExecution incrementalJavacExecution;
@@ -41,7 +40,7 @@ final class TestCompileSourceExecutor {
             IncrementalCompilePlanner incrementalCompilePlanner) {
         this.javacRunner = javacRunner;
         this.groovyCompilerRunner = groovyCompilerRunner;
-        this.kotlinCompilerRunner = kotlinCompilerRunner;
+        this.kotlinTestCompileExecutor = new KotlinTestCompileExecutor(javacRunner, kotlinCompilerRunner);
         this.incrementalCompileStateRecorder = incrementalCompileStateRecorder;
         this.incrementalCompilePlanner = incrementalCompilePlanner;
         this.incrementalJavacExecution = new IncrementalJavacExecution(javacRunner, incrementalCompilePlanner);
@@ -86,8 +85,7 @@ final class TestCompileSourceExecutor {
                 generatedSourcesDirectory,
                 compilerIdentity);
         if (plan.incremental()) {
-            return withPlatformApiWarning(
-                    incrementalCompile(
+            return incrementalCompile(
                             projectDirectory,
                             config,
                             jdkStatus,
@@ -101,12 +99,11 @@ final class TestCompileSourceExecutor {
                             generatedSourcesDirectory,
                             classpaths,
                             options,
-                            plan),
-                    platformApiWarning);
+                            plan)
+                    .withPlatformApiWarning(platformApiWarning);
         }
         incrementalCompileStateRecorder.deleteTestState(outputDirectory);
-        return withPlatformApiWarning(
-                fullTestCompile(
+        return fullTestCompile(
                         projectDirectory,
                         config,
                         jdkStatus,
@@ -122,29 +119,8 @@ final class TestCompileSourceExecutor {
                         options,
                         plan.fallbackReason(),
                         plan.fullDiagnostics(sources.allTestSources().size()),
-                        plan.captureProcessorAttribution()),
-                platformApiWarning);
-    }
-
-    private static TestCompileAttempt withPlatformApiWarning(
-            TestCompileAttempt attempt,
-            String warning) {
-        if (warning == null || warning.isBlank()) {
-            return attempt;
-        }
-        JavacResult javacResult = attempt.javacResult();
-        return new TestCompileAttempt(
-                new JavacResult(
-                        javacResult.sourceCount(),
-                        javacResult.outputDirectory(),
-                        IncrementalJavacExecution.combinedOutput(warning, javacResult.output())),
-                attempt.groovyResult(),
-                attempt.kotlinResult(),
-                attempt.mode(),
-                attempt.fallbackReason(),
-                attempt.diagnostics(),
-                attempt.attribution(),
-                attempt.compiledSources());
+                        plan.captureProcessorAttribution())
+                .withPlatformApiWarning(platformApiWarning);
     }
 
     private TestCompileAttempt incrementalCompile(
@@ -292,6 +268,17 @@ final class TestCompileSourceExecutor {
             boolean captureAttribution) {
         CompileOutputCleaner.resetTest(
                 projectDirectory, config, outputDirectory, generatedSourcesDirectory);
+        if (!sources.kotlinTestSources().isEmpty()) {
+            return kotlinTestCompileExecutor.compile(
+                    jdkStatus,
+                    sources,
+                    testCompileClasspath,
+                    kotlinCompilerLauncherClasspath,
+                    kotlinOptions,
+                    outputDirectory,
+                    fallbackReason,
+                    diagnostics);
+        }
         JavacResult javacResult = javacRunner.compile(
                 jdkStatus.javac().orElseThrow(),
                 sources.testSources(),
@@ -307,29 +294,15 @@ final class TestCompileSourceExecutor {
                 groovyCompilerLauncherClasspath,
                 groovyCompileClasspath,
                 outputDirectory);
-        JavacResult kotlinResult = sources.kotlinTestSources().isEmpty()
-                ? new JavacResult(0, outputDirectory, "")
-                : kotlinCompilerRunner.compile(
-                        jdkStatus.java().orElseThrow(),
-                        jdkStatus.javaHome().orElseThrow(),
-                        sources.kotlinTestSources(),
-                        kotlinCompilerLauncherClasspath,
-                        testCompileClasspath,
-                        outputDirectory,
-                        kotlinOptions,
-                        KotlinCompilationScope.TEST);
-        List<Path> compiledSources = sources.kotlinTestSources().isEmpty()
-                ? sources.testSources()
-                : sources.kotlinTestSources();
         return new TestCompileAttempt(
                 javacResult,
                 groovyResult,
-                kotlinResult,
+                new JavacResult(0, outputDirectory, ""),
                 "full",
                 fallbackReason,
                 diagnostics,
                 javacResult.attribution(),
-                compiledSources);
+                sources.testSources());
     }
 
     private static JavacOptions javacOptions(ProjectConfig config, boolean hostMode) {

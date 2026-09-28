@@ -93,7 +93,13 @@ final class WorkspaceTestStatePublicationTest {
                 "apps/api/target/test-classes/com/example/ApiTest.class");
         byte[] priorClass = Files.readAllBytes(testClass);
         writeJavaTest("after");
-        enableKotlinTestRoot();
+        enableGroovyAndKotlinTestRoots();
+        source(tempDir, "apps/api/src/test/groovy/com/example/GroovyTest.groovy", """
+                package com.example
+
+                final class GroovyTest {
+                }
+                """);
         source(tempDir, "apps/api/src/test/kotlin/com/example/KotlinTest.kt", """
                 package com.example
 
@@ -107,7 +113,7 @@ final class WorkspaceTestStatePublicationTest {
         BuildException first = assertThrows(
                 BuildException.class,
                 () -> service.compileTests(failed.plan(), failed.build()));
-        assertTrue(first.getMessage().contains("combines Java and Kotlin"));
+        assertTrue(first.getMessage().contains("combines Groovy and Kotlin"));
         assertEquals(committed.testCompileKey(), memberState().testCompileKey());
         assertArrayEquals(priorClass, Files.readAllBytes(testClass));
 
@@ -117,6 +123,8 @@ final class WorkspaceTestStatePublicationTest {
                 BuildException.class,
                 () -> service.compileTests(retry.plan(), retry.build()));
 
+        Files.delete(tempDir.resolve(
+                "apps/api/src/test/groovy/com/example/GroovyTest.groovy"));
         Files.delete(tempDir.resolve(
                 "apps/api/src/test/kotlin/com/example/KotlinTest.kt"));
         WorkspaceTestCompileResult repaired = compileUnit();
@@ -228,13 +236,14 @@ final class WorkspaceTestStatePublicationTest {
                 .outputManifestDigest();
     }
 
-    private void enableKotlinTestRoot() throws IOException {
+    private void enableGroovyAndKotlinTestRoots() throws IOException {
         Path manifest = tempDir.resolve("apps/api/zolt.toml");
         Files.writeString(
                 manifest,
                 Files.readString(manifest) + """
 
                         [test.sources]
+                        groovy = ["src/test/groovy"]
                         kotlin = ["src/test/kotlin"]
                         """);
     }

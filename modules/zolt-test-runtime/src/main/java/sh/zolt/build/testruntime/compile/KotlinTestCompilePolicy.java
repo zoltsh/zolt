@@ -2,6 +2,7 @@ package sh.zolt.build.testruntime.compile;
 
 import java.nio.file.Path;
 import sh.zolt.build.KotlinCompileException;
+import sh.zolt.build.compile.CompilerPlatformApi;
 import sh.zolt.build.compile.KotlinCompilationScope;
 import sh.zolt.build.compile.KotlinCompileOptionsPolicy;
 import sh.zolt.build.compile.KotlinCompilerRunner;
@@ -9,9 +10,12 @@ import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.doctor.JdkStatus;
 import sh.zolt.project.CompilerSettings;
+import sh.zolt.project.GeneratedSourceKind;
+import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.ProjectConfig;
+import sh.zolt.project.ProducesLane;
 
-/** Correctness-first eligibility rules for the bounded Kotlin-only test compiler. */
+/** Correctness-first eligibility rules for the bounded Kotlin/JVM test compiler. */
 final class KotlinTestCompilePolicy {
     private KotlinTestCompilePolicy() {
     }
@@ -28,10 +32,19 @@ final class KotlinTestCompilePolicy {
                     "the test source set also contains Groovy",
                     "Split the Kotlin and Groovy tests into separate members.");
         }
-        if (!sources.testSources().isEmpty()) {
+        if (CompilerPlatformApi.isModularSourceSet(sources.testSources())) {
             throw unsupported(
-                    "the test source set also contains Java",
-                    "Use a Kotlin-only test source set until Kotlin/Java joint test compilation is supported.");
+                    "the test source set contains module-info.java",
+                    "Remove module-info.java or keep this test source set Java-only until modular"
+                            + " Kotlin/Java joint compilation is supported.");
+        }
+        if (config.build().generatedTestSources().stream()
+                .anyMatch(KotlinTestCompilePolicy::producesJavaSources)) {
+            throw unsupported(
+                    "generated test sources are configured",
+                    "Move generated Java tests into a separate member or keep this test source set"
+                            + " Java-only until generated-source ownership is qualified for Kotlin/Java"
+                            + " joint compilation.");
         }
         if (!classpaths.testProcessor().entries().isEmpty()) {
             throw unsupported(
@@ -50,6 +63,11 @@ final class KotlinTestCompilePolicy {
                     "Keep Quarkus tests Java-only until the Quarkus workspace model represents"
                             + " explicit Kotlin test roots.");
         }
+        if (!sources.testSources().isEmpty() && jdkStatus.javac().isEmpty()) {
+            throw unsupported(
+                    "the selected JDK has no javac executable",
+                    "Install a complete JDK or repair the configured Java toolchain.");
+        }
         KotlinCompilerRunner.Options options = KotlinCompileOptionsPolicy.options(
                 config,
                 jdkStatus,
@@ -63,6 +81,12 @@ final class KotlinTestCompilePolicy {
                     "Build the member's Kotlin main sources before compiling its tests.");
         }
         return options.withFriendPath(mainOutputDirectory);
+    }
+
+    private static boolean producesJavaSources(GeneratedSourceStep step) {
+        return step.kind() != GeneratedSourceKind.EXEC
+                || step.exec().produces() == ProducesLane.JAVA_SOURCES
+                || step.exec().produces() == ProducesLane.TEST_SOURCES;
     }
 
     private static KotlinCompileException unsupported(String reason, String remediation) {

@@ -39,10 +39,48 @@ record TestCompileAttempt(
     }
 
     String output() {
-        return IncrementalJavacExecution.combinedOutput(
-                javacResult.output(),
-                IncrementalJavacExecution.combinedOutput(
-                        groovyResult.output(),
-                        kotlinResult.output()));
+        String javaAndGroovy = IncrementalJavacExecution.combinedOutput(
+                javacResult.output(), groovyResult.output());
+        if (kotlinResult.sourceCount() > 0) {
+            return IncrementalJavacExecution.combinedOutput(
+                    kotlinResult.output(), javaAndGroovy);
+        }
+        return javaAndGroovy;
+    }
+
+    TestCompileAttempt withPlatformApiWarning(String warning) {
+        if (warning == null || warning.isBlank()) {
+            return this;
+        }
+        if (kotlinResult.sourceCount() > 0) {
+            return withResults(
+                    javacResult,
+                    prepend(warning, kotlinResult));
+        }
+        return withResults(
+                prepend(warning, javacResult),
+                kotlinResult);
+    }
+
+    private TestCompileAttempt withResults(
+            JavacResult javac,
+            JavacResult kotlin) {
+        return new TestCompileAttempt(
+                javac,
+                groovyResult,
+                kotlin,
+                mode,
+                fallbackReason,
+                diagnostics,
+                attribution,
+                compiledSources);
+    }
+
+    private static JavacResult prepend(String warning, JavacResult result) {
+        return new JavacResult(
+                result.sourceCount(),
+                result.outputDirectory(),
+                IncrementalJavacExecution.combinedOutput(warning, result.output()),
+                result.attribution());
     }
 }

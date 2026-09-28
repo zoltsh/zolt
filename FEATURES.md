@@ -35,8 +35,9 @@ zolt run
 - **Languages.** Jointly compile Java and Groovy main sources across declared
   roots, including circular cross-language references. A bounded preview also
   compiles authored Kotlin/JVM main sources alone or together with Java,
-  including circular cross-language references, plus Kotlin-only unit-test
-  source sets. Unsupported language and compiler combinations fail closed.
+  including circular cross-language references, plus authored Kotlin/JVM unit
+  tests alone or together with Java. Unsupported language and compiler
+  combinations fail closed.
 - **Dependencies.** Use API, implementation, runtime, provided, development,
   test, and annotation-processor lanes under one `[dependencies]` namespace.
 - **Metadata.** Import BOMs and configure version aliases, exclusions,
@@ -59,8 +60,9 @@ zolt coverage
 ```
 
 - **Support.** JUnit Platform, JUnit Vintage, Groovy test sources, Spock, and a
-  bounded Kotlin-only unit-test source preview, including members with
-  Java-only, Kotlin-only, or mixed Java/Kotlin main sources.
+  bounded Kotlin/JVM unit-test preview for Kotlin-only and mixed Java/Kotlin
+  test source sets, including members with Java-only, Kotlin-only, or mixed
+  Java/Kotlin main sources.
 - **Selection.** Classes, methods, patterns, suites, and JUnit tags.
 - **Scale.** Deterministic shards and profiling-based worker balancing.
 - **Reports.** JUnit XML, test profile JSON, and JaCoCo HTML, XML, and

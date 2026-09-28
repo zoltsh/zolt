@@ -1,7 +1,5 @@
 package sh.zolt.build.compile;
 
-import java.nio.charset.StandardCharsets;
-import java.util.List;
 import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.classpath.ClasspathSet;
@@ -61,16 +59,6 @@ final class KotlinMainCompilePolicy {
                 config,
                 jdkStatus,
                 KotlinCompilationScope.MAIN);
-    }
-
-    static JavacOptions javacOptions(KotlinCompilerRunner.Options kotlinOptions) {
-        return new JavacOptions(
-                kotlinOptions.release(),
-                StandardCharsets.UTF_8.name(),
-                List.of(),
-                List.of(),
-                kotlinOptions.hostPlatformApi(),
-                kotlinOptions.useJdkRelease());
     }
 
     private static boolean producesJavaSources(GeneratedSourceStep step) {

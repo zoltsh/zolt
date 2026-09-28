@@ -69,8 +69,8 @@ final class KotlinMainCompilePolicyTest {
         assertEquals("8", options.release());
         assertTrue(options.hostPlatformApi());
         assertFalse(options.useJdkRelease());
-        assertTrue(KotlinMainCompilePolicy.javacOptions(options).hostPlatformApi());
-        assertFalse(KotlinMainCompilePolicy.javacOptions(options).useJdkRelease());
+        assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).hostPlatformApi());
+        assertFalse(KotlinCompileOptionsPolicy.javacOptions(options).useJdkRelease());
     }
 
     @Test
@@ -93,8 +93,8 @@ final class KotlinMainCompilePolicyTest {
 
         assertFalse(options.hostPlatformApi());
         assertFalse(options.useJdkRelease());
-        assertFalse(KotlinMainCompilePolicy.javacOptions(options).hostPlatformApi());
-        assertFalse(KotlinMainCompilePolicy.javacOptions(options).useJdkRelease());
+        assertFalse(KotlinCompileOptionsPolicy.javacOptions(options).hostPlatformApi());
+        assertFalse(KotlinCompileOptionsPolicy.javacOptions(options).useJdkRelease());
     }
 
     @Test
@@ -105,7 +105,7 @@ final class KotlinMainCompilePolicyTest {
                 classpaths(List.of()),
                 jdkStatus("21.0.11", "21"));
 
-        JavacOptions javac = KotlinMainCompilePolicy.javacOptions(options);
+        JavacOptions javac = KotlinCompileOptionsPolicy.javacOptions(options);
 
         assertEquals("21", javac.release());
         assertEquals("UTF-8", javac.encoding());

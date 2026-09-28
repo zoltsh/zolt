@@ -86,7 +86,7 @@ final class SourceLanguagePolicyTest {
     }
 
     @Test
-    void javaAndKotlinTestIsRejectedForTheBoundedPreview() {
+    void javaAndKotlinTestIsAllowed() {
         SourceDiscoveryResult sources = new SourceDiscoveryResult(
                 List.of(),
                 List.of(),
@@ -95,16 +95,7 @@ final class SourceLanguagePolicyTest {
                 List.of(),
                 List.of(Path.of("MainTest.kt")));
 
-        BuildException exception = assertThrows(
-                BuildException.class,
-                () -> SourceLanguagePolicy.requireTestSupported(sources));
-
-        assertEquals(
-                "The test source set combines Java and Kotlin, which the Kotlin preview does not support.",
-                exception.actionableError().summary());
-        assertEquals(
-                "Use a Kotlin-only test source set or remove Kotlin, then run `zolt test` again.",
-                exception.actionableError().remediation());
+        assertDoesNotThrow(() -> SourceLanguagePolicy.requireTestSupported(sources));
     }
 
     @Test
