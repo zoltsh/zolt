@@ -2,6 +2,7 @@ package sh.zolt.ide;
 
 import sh.zolt.generated.GeneratedSourceEvidence;
 import sh.zolt.generated.GeneratedSourceEvidenceService;
+import sh.zolt.manifest.SourceRootLanguage;
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.ProjectConfig;
@@ -36,12 +37,13 @@ final class IdeRootModelBuilder {
         for (int index = 0; index < settings.sourceRoots().size(); index++) {
             Path sourceRoot = inputRoot(
                     root, "[build].sources", settings.sourceRoots().get(index), diagnostics);
+            String language = mainSourceLanguage(settings.sourceRoots().get(index), sourceRoot);
             resolvedMainRoots.add(sourceRoot);
             addSourceRoot(
                     roots,
-                    mainSourceRootId("java", index),
+                    mainSourceRootId(language, index),
                     "main",
-                    "java",
+                    language,
                     sourceRoot,
                     false);
         }
@@ -156,8 +158,14 @@ final class IdeRootModelBuilder {
         return index == 0 ? prefix : prefix + "-" + (index + 1);
     }
 
+    private static String mainSourceLanguage(String configuredRoot, Path sourceRoot) {
+        boolean configuredKotlin = SourceRootLanguage.unsupported(configuredRoot).orElse(null)
+                == SourceRootLanguage.KOTLIN;
+        return configuredKotlin || containsSource(sourceRoot, ".kt") ? "kotlin" : "java";
+    }
+
     private static boolean isGroovyMainRoot(String configuredRoot, Path sourceRoot) {
-        return hasGroovyPathSegment(configuredRoot) || containsGroovySource(sourceRoot);
+        return hasGroovyPathSegment(configuredRoot) || containsSource(sourceRoot, ".groovy");
     }
 
     private static boolean hasGroovyPathSegment(String configuredRoot) {
@@ -170,15 +178,15 @@ final class IdeRootModelBuilder {
         return false;
     }
 
-    private static boolean containsGroovySource(Path sourceRoot) {
-        if (!Files.isDirectory(sourceRoot)) {
+    private static boolean containsSource(Path sourceRoot, String extension) {
+        if (sourceRoot == null || !Files.isDirectory(sourceRoot)) {
             return false;
         }
         try (Stream<Path> paths = Files.find(
                 sourceRoot,
                 Integer.MAX_VALUE,
                 (path, attributes) -> attributes.isRegularFile()
-                        && path.getFileName().toString().endsWith(".groovy"))) {
+                        && path.getFileName().toString().endsWith(extension))) {
             return paths.findFirst().isPresent();
         } catch (IOException | UncheckedIOException ignored) {
             // IDE export remains best-effort when an otherwise valid source root cannot be scanned.

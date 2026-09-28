@@ -164,6 +164,115 @@ final class IdeModelRootsServiceTest {
     }
 
     @Test
+    void exportsExplicitKotlinMainRootAsKotlinInsteadOfJava() throws IOException {
+        Path projectDir = tempDir.resolve("kotlin-main-root");
+        Files.createDirectories(projectDir.resolve("src/main/kotlin"));
+        Files.writeString(projectDir.resolve("zolt.toml"), """
+                [project]
+                name = "kotlin-main-root"
+                version = "0.1.0"
+                group = "com.example"
+                java = 21
+
+                [build]
+                sources = ["src/main/kotlin"]
+                """);
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
+
+        IdeModel model = service.export(projectDir, tempDir.resolve("cache"));
+
+        Path root = projectDir.toAbsolutePath().normalize();
+        assertEquals(List.of(new IdeModel.SourceRoot(
+                "main-kotlin",
+                "main",
+                "kotlin",
+                root.resolve("src/main/kotlin"),
+                false)), authoredMainRoots(model));
+    }
+
+    @Test
+    void exportsKotlinOnlyFilesFromAJavaNamedMainRootAsKotlin() throws IOException {
+        Path projectDir = tempDir.resolve("kotlin-file-in-java-main-root");
+        Path sourceRoot = projectDir.resolve("src/main/java/com/example");
+        Files.createDirectories(sourceRoot);
+        Files.writeString(sourceRoot.resolve("Main.kt"), "package com.example\n");
+        Files.writeString(projectDir.resolve("zolt.toml"), """
+                [project]
+                name = "kotlin-file-in-java-main-root"
+                version = "0.1.0"
+                group = "com.example"
+                java = 21
+                """);
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
+
+        IdeModel model = service.export(projectDir, tempDir.resolve("cache"));
+
+        assertEquals(List.of(new IdeModel.SourceRoot(
+                "main-kotlin",
+                "main",
+                "kotlin",
+                projectDir.toAbsolutePath().normalize().resolve("src/main/java"),
+                false)), authoredMainRoots(model));
+    }
+
+    @Test
+    void preservesJavaAndCustomKotlinMainRootsInAuthoredOrder() throws IOException {
+        Path projectDir = tempDir.resolve("custom-kotlin-main-root");
+        Files.createDirectories(projectDir.resolve("src/main/java"));
+        Files.createDirectories(projectDir.resolve("sources/platform/kotlin"));
+        Files.writeString(projectDir.resolve("zolt.toml"), """
+                [project]
+                name = "custom-kotlin-main-root"
+                version = "0.1.0"
+                group = "com.example"
+                java = 21
+
+                [build]
+                sources = ["src/main/java", "sources/platform/kotlin"]
+                """);
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
+
+        IdeModel model = service.export(projectDir, tempDir.resolve("cache"));
+
+        Path root = projectDir.toAbsolutePath().normalize();
+        assertEquals(List.of(
+                new IdeModel.SourceRoot(
+                        "main-java",
+                        "main",
+                        "java",
+                        root.resolve("src/main/java"),
+                        false),
+                new IdeModel.SourceRoot(
+                        "main-kotlin-2",
+                        "main",
+                        "kotlin",
+                        root.resolve("sources/platform/kotlin"),
+                        false)), authoredMainRoots(model));
+    }
+
+    @Test
+    void doesNotAdvertiseKotlinTestSupportFromFilesInAJavaTestRoot() throws IOException {
+        Path projectDir = tempDir.resolve("kotlin-file-in-java-test-root");
+        Path testRoot = projectDir.resolve("src/test/java/com/example");
+        Files.createDirectories(testRoot);
+        Files.writeString(testRoot.resolve("ExampleTest.kt"), "package com.example\n");
+        Files.writeString(projectDir.resolve("zolt.toml"), """
+                [project]
+                name = "kotlin-file-in-java-test-root"
+                version = "0.1.0"
+                group = "com.example"
+                java = 21
+                """);
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
+
+        IdeModel model = service.export(projectDir, tempDir.resolve("cache"));
+
+        assertTrue(model.sourceRoots().stream()
+                .filter(root -> "test".equals(root.kind()) && !root.generated())
+                .allMatch(root -> "java".equals(root.language())));
+    }
+
+    @Test
     void exportsExplicitGroovyMainRootWithoutChangingSchemaOrJavaRows() throws IOException {
         Path projectDir = tempDir.resolve("explicit-groovy-main");
         Files.createDirectories(projectDir.resolve("src/main/java"));
