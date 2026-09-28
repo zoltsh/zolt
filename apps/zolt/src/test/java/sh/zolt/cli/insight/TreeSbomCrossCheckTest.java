@@ -83,7 +83,7 @@ final class TreeSbomCrossCheckTest {
     }
 
     /**
-     * The answer to "can the action see every scope the tree emits?": each of the thirteen locked
+     * The answer to "can the action see every scope the tree emits?": each of the fourteen locked
      * scopes lands in a group that the four {@code --include-*} flags turn on, so the cross-check runs
      * over the whole tree rather than a subset.
      */

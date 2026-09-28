@@ -31,6 +31,7 @@ final class ClasspathLanePolicyTest {
         assertEquals(List.of("tool-protobuf"), ClasspathLanePolicy.lanes(DependencyScope.TOOL_PROTOBUF));
         assertEquals(List.of("tool-exec"), ClasspathLanePolicy.lanes(DependencyScope.TOOL_EXEC));
         assertEquals(List.of("tool-coverage"), ClasspathLanePolicy.lanes(DependencyScope.TOOL_COVERAGE));
+        assertEquals(List.of("tool-groovy"), ClasspathLanePolicy.lanes(DependencyScope.TOOL_GROOVY));
 
         assertEquals("package-default", ClasspathLanePolicy.disposition(DependencyScope.COMPILE));
         assertEquals("provided-container", ClasspathLanePolicy.disposition(DependencyScope.PROVIDED));
@@ -44,5 +45,6 @@ final class ClasspathLanePolicyTest {
         assertEquals("protobuf-generator-tooling-only", ClasspathLanePolicy.disposition(DependencyScope.TOOL_PROTOBUF));
         assertEquals("exec-tooling-only", ClasspathLanePolicy.disposition(DependencyScope.TOOL_EXEC));
         assertEquals("coverage-tooling-only", ClasspathLanePolicy.disposition(DependencyScope.TOOL_COVERAGE));
+        assertEquals("groovy-compiler-tooling-only", ClasspathLanePolicy.disposition(DependencyScope.TOOL_GROOVY));
     }
 }

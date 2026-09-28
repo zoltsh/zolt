@@ -29,6 +29,7 @@ final class DependencyScopeTest {
         assertEquals("tool-protobuf", names.get(DependencyScope.TOOL_PROTOBUF));
         assertEquals("tool-exec", names.get(DependencyScope.TOOL_EXEC));
         assertEquals("tool-coverage", names.get(DependencyScope.TOOL_COVERAGE));
+        assertEquals("tool-groovy", names.get(DependencyScope.TOOL_GROOVY));
     }
 
     @Test
@@ -55,6 +56,15 @@ final class DependencyScopeTest {
         assertFalse(DependencyScope.DEV.packagedByDefault());
         assertFalse(DependencyScope.TOOL_COVERAGE.entersMainCompileClasspath());
         assertFalse(DependencyScope.QUARKUS_DEPLOYMENT.packagedByDefault());
+
+        DependencyScope groovy = DependencyScope.TOOL_GROOVY;
+        assertFalse(groovy.entersMainCompileClasspath());
+        assertFalse(groovy.entersMainRuntimeClasspath());
+        assertFalse(groovy.entersTestCompileClasspath());
+        assertFalse(groovy.entersTestRuntimeClasspath());
+        assertFalse(groovy.entersMainProcessorClasspath());
+        assertFalse(groovy.entersTestProcessorClasspath());
+        assertFalse(groovy.packagedByDefault());
     }
 
     @Test

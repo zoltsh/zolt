@@ -62,6 +62,7 @@ public final class QuarkusPackagePlanRules implements FrameworkPackagePlanRules 
             case TOOL_PROTOBUF -> "protobuf-tool-omitted";
             case TOOL_EXEC -> "exec-tool-omitted";
             case TOOL_COVERAGE -> "coverage-tool-omitted";
+            case TOOL_GROOVY -> "groovy-tool-omitted";
             case COMPILE, RUNTIME -> "non-runtime-omitted";
         };
     }

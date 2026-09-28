@@ -21,6 +21,7 @@ final class PackagePlanDependencyOmissions {
             case TOOL_PROTOBUF -> "Protobuf generator dependency is build-time tooling, not package runtime";
             case TOOL_EXEC -> "exec tool dependency is build-time tooling, not package runtime";
             case TOOL_COVERAGE -> "coverage dependency is build-time tooling, not package runtime";
+            case TOOL_GROOVY -> "Groovy compiler dependency is build-time tooling, not package runtime";
             case COMPILE, RUNTIME -> "dependency scope is not packaged by this mode";
         };
     }
@@ -40,6 +41,7 @@ final class PackagePlanDependencyOmissions {
             case TOOL_PROTOBUF -> "protobuf-tool-omitted";
             case TOOL_EXEC -> "exec-tool-omitted";
             case TOOL_COVERAGE -> "coverage-tool-omitted";
+            case TOOL_GROOVY -> "groovy-tool-omitted";
             case COMPILE, RUNTIME -> "non-runtime-omitted";
         };
     }

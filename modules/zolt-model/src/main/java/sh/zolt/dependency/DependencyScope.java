@@ -13,7 +13,8 @@ public enum DependencyScope {
     TOOL_OPENAPI(false, false, false, false, false, false, "tool-openapi"),
     TOOL_PROTOBUF(false, false, false, false, false, false, "tool-protobuf"),
     TOOL_EXEC(false, false, false, false, false, false, "tool-exec"),
-    TOOL_COVERAGE(false, false, false, false, false, false, "tool-coverage");
+    TOOL_COVERAGE(false, false, false, false, false, false, "tool-coverage"),
+    TOOL_GROOVY(false, false, false, false, false, false, "tool-groovy");
 
     private final boolean mainCompileClasspath;
     private final boolean mainRuntimeClasspath;

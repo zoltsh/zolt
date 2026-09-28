@@ -22,7 +22,8 @@ final class ZoltLockfileWriterFieldsTest {
                         lockPackage("com.example", "processor", "1.0.0", DependencyScope.PROCESSOR, true, Optional.empty(), Optional.empty(), List.of()),
                         lockPackage("com.example", "test-processor", "1.0.0", DependencyScope.TEST_PROCESSOR, true, Optional.empty(), Optional.empty(), List.of()),
                         lockPackage("io.quarkus", "quarkus-rest-deployment", "3.33.0", DependencyScope.QUARKUS_DEPLOYMENT, false, Optional.empty(), Optional.empty(), List.of()),
-                        lockPackage("org.jacoco", "org.jacoco.cli", "0.8.14", DependencyScope.TOOL_COVERAGE, false, Optional.empty(), Optional.empty(), List.of())));
+                        lockPackage("org.jacoco", "org.jacoco.cli", "0.8.14", DependencyScope.TOOL_COVERAGE, false, Optional.empty(), Optional.empty(), List.of()),
+                        lockPackage("org.apache.groovy", "groovy", "4.0.22", DependencyScope.TOOL_GROOVY, true, Optional.empty(), Optional.empty(), List.of())));
 
         String output = writer.write(lockfile);
 
@@ -30,6 +31,7 @@ final class ZoltLockfileWriterFieldsTest {
         assertTrue(output.contains("scope = \"test-processor\""));
         assertTrue(output.contains("scope = \"quarkus-deployment\""));
         assertTrue(output.contains("scope = \"tool-coverage\""));
+        assertTrue(output.contains("scope = \"tool-groovy\""));
     }
 
     @Test
@@ -154,16 +156,17 @@ final class ZoltLockfileWriterFieldsTest {
     private static ZoltLockfile lockfile(List<LockPackage> packages) {
         List<LockDependencyRoot> roots = packages.stream()
                 .filter(LockPackage::direct)
-                .flatMap(lockPackage -> rootMembers(lockPackage).stream()
-                        .map(member -> new LockDependencyRoot(
-                                member,
-                                lockPackage.packageId(),
-                                lockPackage.version(),
-                                LockArtifactVariant.of(lockPackage),
-                                lane(lockPackage.scope()),
-                                Optional.of(lockPackage.scope()),
-                                false,
-                                false)))
+                .flatMap(lockPackage -> lane(lockPackage.scope()).stream()
+                        .flatMap(lane -> rootMembers(lockPackage).stream()
+                                .map(member -> new LockDependencyRoot(
+                                        member,
+                                        lockPackage.packageId(),
+                                        lockPackage.version(),
+                                        LockArtifactVariant.of(lockPackage),
+                                        lane,
+                                        Optional.of(lockPackage.scope()),
+                                        false,
+                                        false))))
                 .toList();
         return new ZoltLockfile(
                 ZoltLockfile.CURRENT_VERSION,
@@ -181,12 +184,12 @@ final class ZoltLockfileWriterFieldsTest {
         return lockPackage.members().isEmpty() ? List.of(".") : lockPackage.members();
     }
 
-    private static DependencyLane lane(DependencyScope scope) {
+    private static Optional<DependencyLane> lane(DependencyScope scope) {
         return switch (scope) {
-            case COMPILE -> DependencyLane.IMPLEMENTATION;
-            case PROCESSOR -> DependencyLane.PROCESSOR;
-            case TEST_PROCESSOR -> DependencyLane.TEST_PROCESSOR;
-            default -> throw new IllegalArgumentException("No authored lane for " + scope + ".");
+            case COMPILE -> Optional.of(DependencyLane.IMPLEMENTATION);
+            case PROCESSOR -> Optional.of(DependencyLane.PROCESSOR);
+            case TEST_PROCESSOR -> Optional.of(DependencyLane.TEST_PROCESSOR);
+            default -> Optional.empty();
         };
     }
 }

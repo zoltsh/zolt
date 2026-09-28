@@ -77,6 +77,14 @@ final class ClasspathLaneAuditFormatterEnterpriseJsonTest {
                 "[\"tool-coverage\"]",
                 false,
                 "coverage-tooling-only");
+        assertPackageAuditContains(
+                output,
+                "org.apache.groovy:groovy:4.0.22",
+                "tool-groovy",
+                true,
+                "[\"tool-groovy\"]",
+                false,
+                "groovy-compiler-tooling-only");
     }
 
     private static void assertPackageAuditContains(
@@ -249,6 +257,15 @@ final class ClasspathLaneAuditFormatterEnterpriseJsonTest {
                 scope = "tool-coverage"
                 direct = false
                 jar = "org/jacoco/org.jacoco.cli/0.8.14/org.jacoco.cli-0.8.14.jar"
+                dependencies = []
+
+                [[package]]
+                id = "org.apache.groovy:groovy"
+                version = "4.0.22"
+                source = "maven-central"
+                scope = "tool-groovy"
+                direct = true
+                jar = "org/apache/groovy/groovy/4.0.22/groovy-4.0.22.jar"
                 dependencies = []
                 """);
     }

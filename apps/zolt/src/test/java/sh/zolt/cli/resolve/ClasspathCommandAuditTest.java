@@ -25,7 +25,7 @@ final class ClasspathCommandAuditTest {
         assertEquals(0, result.exitCode());
         assertTrue(result.stdout().contains("Classpath lane audit"));
         assertTrue(result.stdout().contains(
-                "provided            yes     no      yes  no        no             no              no           no            no            no              provided-container"));
+                "provided            yes     no      yes  no        no             no          no              no           no            no            no              provided-container"));
         assertTrue(result.stdout().contains(
                 "- com.example:devtools:1.0.0 [dev] lanes=runtime package=development-only"));
         assertTrue(result.stdout().contains(

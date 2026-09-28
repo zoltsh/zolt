@@ -181,6 +181,24 @@ final class ClasspathBuilderTest {
     }
 
     @Test
+    void groovyToolDependenciesAreExcludedFromApplicationClasspaths() {
+        ClasspathSet classpaths = builder.build(List.of(packageWithScope(
+                "org.apache.groovy",
+                "groovy",
+                "4.0.22",
+                DependencyScope.TOOL_GROOVY)));
+
+        assertEquals(List.of(), classpaths.compile().entries());
+        assertEquals(List.of(), classpaths.runtime().entries());
+        assertEquals(List.of(), classpaths.testCompile().entries());
+        assertEquals(List.of(), classpaths.test().entries());
+        assertEquals(List.of(), classpaths.processor().entries());
+        assertEquals(List.of(), classpaths.testProcessor().entries());
+        assertEquals(List.of(), classpaths.quarkusDeployment().entries());
+        assertFalse(DependencyScope.TOOL_GROOVY.packagedByDefault());
+    }
+
+    @Test
     void testClasspathIncludesRuntimeNeededForTests() {
         ClasspathSet classpaths = builder.build(List.of(
                 packageWithScope("com.example", "compile-lib", "1.0.0", DependencyScope.COMPILE),
