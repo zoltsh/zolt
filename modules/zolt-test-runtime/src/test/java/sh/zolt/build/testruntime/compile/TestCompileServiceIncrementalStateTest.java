@@ -122,6 +122,9 @@ final class TestCompileServiceIncrementalStateTest {
                     public String message() {
                         return "one";
                     }
+
+                    static final class Removed {
+                    }
                 }
                 """);
         testCompileService.compileTests(projectDir, config(), projectDir.resolve("cache"));
@@ -138,6 +141,12 @@ final class TestCompileServiceIncrementalStateTest {
                 () -> testCompileService.compileTests(projectDir, config(), projectDir.resolve("cache")));
 
         assertFalse(Files.exists(projectDir.resolve("target/test-classes/.zolt-incremental-test.state")));
+        Path staleClass = projectDir.resolve("target/test-classes/stale/Partial.class");
+        Path staleGenerated = projectDir.resolve("target/generated/test-sources/annotations/stale/Partial.java");
+        Files.createDirectories(staleClass.getParent());
+        Files.createDirectories(staleGenerated.getParent());
+        Files.write(staleClass, new byte[] {1, 2, 3});
+        Files.writeString(staleGenerated, "package stale; class Partial {}\n");
         Files.writeString(testSource, """
                 package com.example;
 
@@ -152,6 +161,9 @@ final class TestCompileServiceIncrementalStateTest {
 
         assertEquals("full", result.testCompilationMode());
         assertEquals("missing-state", result.testIncrementalFallbackReason());
+        assertFalse(Files.exists(projectDir.resolve("target/test-classes/com/example/MainTest$Removed.class")));
+        assertFalse(Files.exists(staleClass));
+        assertFalse(Files.exists(staleGenerated));
     }
 
     @Test
@@ -167,6 +179,41 @@ final class TestCompileServiceIncrementalStateTest {
         assertTrue(result.buildResult().mainCompilationSkipped());
         assertFalse(result.testCompilationSkipped());
         assertTrue(Files.exists(projectDir.resolve("target/test-classes/com/example/MainTest.class")));
+    }
+
+    @Test
+    void missingStateFullCompileRemovesNestedClassesAndGeneratedSources() throws IOException {
+        writeLockfile("version = 7\n");
+        source("src/main/java/com/example/Main.java", "package com.example; public final class Main {}\n");
+        Path testSource = source("src/test/java/com/example/MainTest.java", """
+                package com.example;
+
+                public final class MainTest {
+                    static final class Removed {
+                    }
+                }
+                """);
+        testCompileService.compileTests(projectDir, config(), projectDir.resolve("cache"));
+        Path staleNested = projectDir.resolve("target/test-classes/com/example/MainTest$Removed.class");
+        Path staleGenerated = projectDir.resolve("target/generated/test-sources/annotations/stale/Generated.java");
+        assertTrue(Files.exists(staleNested));
+        Files.createDirectories(staleGenerated.getParent());
+        Files.writeString(staleGenerated, "package stale; class Generated {}\n");
+        Files.delete(projectDir.resolve("target/test-classes/.zolt-incremental-test.state"));
+        Files.writeString(testSource, """
+                package com.example;
+
+                public final class MainTest {
+                }
+                """);
+
+        TestCompileResult result =
+                testCompileService.compileTests(projectDir, config(), projectDir.resolve("cache"));
+
+        assertEquals("full", result.testCompilationMode());
+        assertEquals("missing-state", result.testIncrementalFallbackReason());
+        assertFalse(Files.exists(staleNested));
+        assertFalse(Files.exists(staleGenerated));
     }
 
     private static ProjectConfig config() {

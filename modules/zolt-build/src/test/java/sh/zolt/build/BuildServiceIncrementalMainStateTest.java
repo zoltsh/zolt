@@ -79,6 +79,9 @@ final class BuildServiceIncrementalMainStateTest {
                     public static String message() {
                         return "hello";
                     }
+
+                    static final class Removed {
+                    }
                 }
                 """);
         buildService.build(projectDir, config(), projectDir.resolve("cache"));
@@ -96,6 +99,12 @@ final class BuildServiceIncrementalMainStateTest {
                 () -> buildService.build(projectDir, config(), projectDir.resolve("cache")));
 
         assertFalse(Files.exists(projectDir.resolve("target/classes/.zolt-incremental-main.state")));
+        Path staleClass = projectDir.resolve("target/classes/stale/Partial.class");
+        Path staleGenerated = projectDir.resolve("target/generated/sources/annotations/stale/Partial.java");
+        Files.createDirectories(staleClass.getParent());
+        Files.createDirectories(staleGenerated.getParent());
+        Files.write(staleClass, new byte[] {1, 2, 3});
+        Files.writeString(staleGenerated, "package stale; class Partial {}\n");
         Files.writeString(mainSource, """
                 package com.example;
 
@@ -110,6 +119,9 @@ final class BuildServiceIncrementalMainStateTest {
 
         assertEquals("full", result.mainCompilationMode());
         assertEquals("missing-state", result.mainIncrementalFallbackReason());
+        assertFalse(Files.exists(projectDir.resolve("target/classes/com/example/Main$Removed.class")));
+        assertFalse(Files.exists(staleClass));
+        assertFalse(Files.exists(staleGenerated));
     }
 
     @Test
@@ -130,5 +142,38 @@ final class BuildServiceIncrementalMainStateTest {
         BuildResult result = buildService.build(projectDir, config(), projectDir.resolve("cache"));
 
         assertTrue(result.mainCompilationSkipped());
+    }
+
+    @Test
+    void missingStateFullCompileRemovesNestedClassesAndGeneratedSources() throws IOException {
+        writeLockfile(projectDir, "version = 7\n");
+        Path mainSource = source(projectDir, "src/main/java/com/example/Main.java", """
+                package com.example;
+
+                public final class Main {
+                    public static final class Removed {
+                    }
+                }
+                """);
+        buildService.build(projectDir, config(), projectDir.resolve("cache"));
+        Path staleNested = projectDir.resolve("target/classes/com/example/Main$Removed.class");
+        Path staleGenerated = projectDir.resolve("target/generated/sources/annotations/stale/Generated.java");
+        assertTrue(Files.exists(staleNested));
+        Files.createDirectories(staleGenerated.getParent());
+        Files.writeString(staleGenerated, "package stale; class Generated {}\n");
+        Files.delete(projectDir.resolve("target/classes/.zolt-incremental-main.state"));
+        Files.writeString(mainSource, """
+                package com.example;
+
+                public final class Main {
+                }
+                """);
+
+        BuildResult result = buildService.build(projectDir, config(), projectDir.resolve("cache"));
+
+        assertEquals("full", result.mainCompilationMode());
+        assertEquals("missing-state", result.mainIncrementalFallbackReason());
+        assertFalse(Files.exists(staleNested));
+        assertFalse(Files.exists(staleGenerated));
     }
 }

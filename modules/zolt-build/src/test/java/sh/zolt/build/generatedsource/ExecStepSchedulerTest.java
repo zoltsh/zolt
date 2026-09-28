@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.build.BuildException;
+import sh.zolt.project.BuildSettings;
 import sh.zolt.project.ExecGenerationSettings;
 import sh.zolt.project.ExecToolCoordinate;
 import sh.zolt.project.ExecToolSettings;
@@ -27,7 +28,8 @@ final class ExecStepSchedulerTest {
         GeneratedSourceStep install = step("install", "web/node_modules", List.of("web/package.json"));
         GeneratedSourceStep build = step("build", "web/dist", List.of("web/node_modules", "web/src"));
 
-        List<GeneratedSourceStep> ordered = ExecStepScheduler.order(ROOT, "target", "main", List.of(build, install));
+        List<GeneratedSourceStep> ordered =
+                ExecStepScheduler.order(ROOT, BuildSettings.defaults(), "main", List.of(build, install));
 
         assertEquals(List.of("install", "build"), ordered.stream().map(GeneratedSourceStep::id).toList());
     }
@@ -37,7 +39,8 @@ final class ExecStepSchedulerTest {
         GeneratedSourceStep zebra = step("zebra", "target/generated/zebra", List.of("src/z"));
         GeneratedSourceStep alpha = step("alpha", "target/generated/alpha", List.of("src/a"));
 
-        List<GeneratedSourceStep> ordered = ExecStepScheduler.order(ROOT, "target", "main", List.of(zebra, alpha));
+        List<GeneratedSourceStep> ordered =
+                ExecStepScheduler.order(ROOT, BuildSettings.defaults(), "main", List.of(zebra, alpha));
 
         assertEquals(List.of("alpha", "zebra"), ordered.stream().map(GeneratedSourceStep::id).toList());
     }
@@ -48,7 +51,8 @@ final class ExecStepSchedulerTest {
         GeneratedSourceStep b = step("b", "target/generated/b", List.of("target/generated/a/out.txt"));
 
         BuildException exception = assertThrows(
-                BuildException.class, () -> ExecStepScheduler.order(ROOT, "target", "main", List.of(a, b)));
+                BuildException.class,
+                () -> ExecStepScheduler.order(ROOT, BuildSettings.defaults(), "main", List.of(a, b)));
 
         assertTrue(exception.getMessage().contains("cyclic input/output dependency"), exception.getMessage());
         assertTrue(exception.getMessage().contains("a") && exception.getMessage().contains("b"));
@@ -58,7 +62,8 @@ final class ExecStepSchedulerTest {
     void allowsInputUnderCompiledClassesForPostCompileScheduling() {
         GeneratedSourceStep step = step("meta", "target/generated/meta", List.of("target/classes/app/Main.class"));
 
-        List<GeneratedSourceStep> ordered = ExecStepScheduler.order(ROOT, "target", "main", List.of(step));
+        List<GeneratedSourceStep> ordered =
+                ExecStepScheduler.order(ROOT, BuildSettings.defaults(), "main", List.of(step));
 
         assertEquals(List.of("meta"), ordered.stream().map(GeneratedSourceStep::id).toList());
     }
@@ -69,7 +74,8 @@ final class ExecStepSchedulerTest {
         GeneratedSourceStep pre = step("weave", "target/generated/weave", List.of("target/generated/gen/out.txt"));
 
         BuildException exception = assertThrows(
-                BuildException.class, () -> ExecStepScheduler.order(ROOT, "target", "main", List.of(post, pre)));
+                BuildException.class,
+                () -> ExecStepScheduler.order(ROOT, BuildSettings.defaults(), "main", List.of(post, pre)));
 
         assertTrue(exception.getMessage().contains("post-compile"), exception.getMessage());
         assertTrue(exception.getMessage().contains("weave") && exception.getMessage().contains("gen"));

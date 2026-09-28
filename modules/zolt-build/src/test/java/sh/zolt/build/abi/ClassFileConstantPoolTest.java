@@ -1,6 +1,7 @@
 package sh.zolt.build.abi;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -10,7 +11,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 final class ClassFileConstantPoolTest {
@@ -40,6 +43,63 @@ final class ClassFileConstantPoolTest {
         assertEquals(
                 List.of("com.example.Alpha", "com.example.Array", "com.example.Beta", "java.util.List"),
                 constantPool.referencedClasses());
+    }
+
+    @Test
+    void distinguishesOneCharacterClassNamesFromPrimitiveArrayDescriptors() throws IOException {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (DataOutputStream output = new DataOutputStream(bytes)) {
+            output.writeShort(7);
+            output.writeByte(1);
+            output.writeUTF("A");
+            output.writeByte(7);
+            output.writeShort(1);
+            output.writeByte(1);
+            output.writeUTF("I");
+            output.writeByte(7);
+            output.writeShort(3);
+            output.writeByte(1);
+            output.writeUTF("[I");
+            output.writeByte(7);
+            output.writeShort(5);
+        }
+
+        ClassFileConstantPool constantPool = ClassFileConstantPool.read(input(bytes));
+
+        assertEquals("A", constantPool.className(2));
+        assertEquals("I", constantPool.className(4));
+        assertEquals("", constantPool.className(6));
+    }
+
+    @Test
+    void extractsNestedGenericBoundsWildcardsAndInnerTypes() {
+        Set<String> references = new LinkedHashSet<>();
+
+        boolean parsed = ClassFileConstantPool.addSignatureReferences(
+                "<T:Lp/Bound;>(Lp/Box<TT;>;Ljava/util/List<+Lp/Token;>;)"
+                        + "Lp/Outer<TT;>.Inner<-[Lp/Bound;>;^Ljava/io/IOException;",
+                references);
+
+        assertTrue(parsed);
+        assertEquals(
+                Set.of(
+                        "p.Bound",
+                        "p.Box",
+                        "java.util.List",
+                        "p.Token",
+                        "p.Outer",
+                        "p.Outer$Inner",
+                        "java.io.IOException"),
+                references);
+        assertFalse(references.stream().anyMatch(reference -> reference.contains("<")));
+    }
+
+    @Test
+    void rejectsIncompleteGenericSignaturesInsteadOfPublishingPartialReferences() {
+        Set<String> references = new LinkedHashSet<>();
+
+        assertFalse(ClassFileConstantPool.addSignatureReferences("Lp/Box<Lp/Token;", references));
+        assertTrue(references.isEmpty());
     }
 
     @Test

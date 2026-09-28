@@ -1,6 +1,7 @@
 package sh.zolt.build.abi;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -216,14 +217,54 @@ final class ClassFileAbiReaderTest {
         assertEquals("com.example.Shapes$Kind", reader.read(output.resolve("com/example/Shapes$Kind.class")).binaryName());
     }
 
+    @Test
+    void recordsNestedGenericTypeArgumentsAsSeparateDependencies() throws IOException {
+        Path bound = source("src/main/java/p/Bound.java", """
+                package p;
+
+                public class Bound {
+                }
+                """);
+        Path token = source("src/main/java/p/Token.java", """
+                package p;
+
+                public class Token extends Bound {
+                }
+                """);
+        Path box = source("src/main/java/p/Box.java", """
+                package p;
+
+                public class Box<T extends Bound> {
+                }
+                """);
+        Path consumer = source("src/main/java/p/Consumer.java", """
+                package p;
+
+                public class Consumer {
+                    Box<Token> value;
+                }
+                """);
+
+        Path output = compileTo(List.of(bound, token, box, consumer), tempDir.resolve("target/generic-classes"));
+        List<String> references = reader.read(output.resolve("p/Consumer.class")).referencedClasses();
+
+        assertTrue(references.contains("p.Box"));
+        assertTrue(references.contains("p.Token"));
+        assertFalse(references.stream().anyMatch(reference -> reference.contains("<")));
+    }
+
     private Path compile(Path source) {
         return compileTo(source, tempDir.resolve("target/classes"));
     }
 
     private Path compileTo(Path source, Path output) {
+        return compileTo(List.of(source), output);
+    }
+
+    private Path compileTo(List<Path> sources, Path output) {
         new JavacRunner().compile(
                 currentJavac(),
-                List.of(source),
+                sources,
                 new Classpath(List.of()),
                 output);
         return output;

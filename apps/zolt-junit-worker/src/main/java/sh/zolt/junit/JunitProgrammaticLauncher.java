@@ -268,19 +268,27 @@ final class JunitProgrammaticLauncher {
         long aborted = (long) summaryClass
                 .getMethod("getTestsAbortedCount")
                 .invoke(summary);
+        long containersAborted = (long) summaryClass
+                .getMethod("getContainersAbortedCount")
+                .invoke(summary);
         long totalFailures = (long) summaryClass
                 .getMethod("getTotalFailureCount")
                 .invoke(summary);
         out.println("Tests found: " + found);
         out.println("Tests succeeded: " + succeeded);
         out.println("Tests failed: " + failed);
+        out.println("Tests aborted: " + aborted);
+        out.println("Containers aborted: " + containersAborted);
         if (totalFailures > 0) {
             out.println();
             summaryClass
                     .getMethod("printFailuresTo", PrintWriter.class)
                     .invoke(summary, new PrintWriter(out, true));
         }
-        return found == 0 ? 2 : failed == 0 && aborted == 0 ? 0 : 1;
+        if (totalFailures > 0 || aborted > 0 || containersAborted > 0) {
+            return 1;
+        }
+        return found == 0 ? 2 : 0;
     }
 
     private Class<?> load(String name) throws ClassNotFoundException {

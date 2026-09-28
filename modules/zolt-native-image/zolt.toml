@@ -4,6 +4,7 @@ name = "zolt-native-image"
 [dependencies]
 "sh.zolt:zolt-build" = { workspace = true }
 "sh.zolt:zolt-model" = { workspace = true }
+"sh.zolt:zolt-resolve" = { workspace = true }
 "sh.zolt:zolt-toml" = { workspace = true }
 
 [dependencies.test]

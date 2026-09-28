@@ -3,6 +3,7 @@ package sh.zolt.build.packageplan;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
+import sh.zolt.build.CompilationSemantics;
 import sh.zolt.build.generatedsource.GeneratedSourceProducerFingerprint;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.GeneratedSourceKind;
@@ -54,6 +55,13 @@ final class PackageBuildInputFingerprintTest {
     }
 
     @Test
+    void compilationSemanticsVersionInvalidatesPackageEvidenceIdentity() {
+        assertNotEquals(
+                fingerprint(config(), List.of(), "2"),
+                fingerprint(config(), List.of(), CompilationSemantics.VERSION));
+    }
+
+    @Test
     void effectiveResourceTokensAreCanonicalByName() {
         ProjectConfig config = new ManifestProjectConfigLoader().load("""
                 [project]
@@ -88,6 +96,19 @@ final class PackageBuildInputFingerprintTest {
                 new ZoltLockfile(ZoltLockfile.CURRENT_VERSION, List.of(), List.of()),
                 List.of(),
                 producers);
+    }
+
+    private String fingerprint(
+            ProjectConfig projectConfig,
+            List<GeneratedSourceProducerFingerprint> producers,
+            String compilationSemantics) {
+        return PackageBuildInputFingerprint.fingerprint(
+                projectRoot,
+                projectConfig,
+                new ZoltLockfile(ZoltLockfile.CURRENT_VERSION, List.of(), List.of()),
+                List.of(),
+                producers,
+                compilationSemantics);
     }
 
     private static ProjectConfig config(

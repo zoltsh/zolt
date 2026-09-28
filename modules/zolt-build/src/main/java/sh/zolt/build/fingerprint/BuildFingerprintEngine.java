@@ -29,6 +29,7 @@ final class BuildFingerprintEngine {
     String inputsFingerprintSha256(
             Path projectDirectory,
             ProjectConfig config,
+            String compilerIdentity,
             Path lockfilePath,
             List<String> sourceRoots,
             List<String> resourceRoots,
@@ -44,6 +45,7 @@ final class BuildFingerprintEngine {
         String fingerprint = content.fingerprint(
                 projectDirectory,
                 config,
+                compilerIdentity,
                 lockfilePath,
                 sourceRoots,
                 resourceRoots,
@@ -65,6 +67,7 @@ final class BuildFingerprintEngine {
     BuildFingerprintCheck checkCompileCurrent(
             Path projectDirectory,
             ProjectConfig config,
+            String compilerIdentity,
             Path lockfilePath,
             List<String> sourceRoots,
             List<String> resourceRoots,
@@ -81,6 +84,7 @@ final class BuildFingerprintEngine {
         return checkCurrent(
                 projectDirectory,
                 config,
+                compilerIdentity,
                 lockfilePath,
                 sourceRoots,
                 resourceRoots,
@@ -116,6 +120,7 @@ final class BuildFingerprintEngine {
         return checkCurrent(
                 projectDirectory,
                 config,
+                null,
                 lockfilePath,
                 sourceRoots,
                 resourceRoots,
@@ -135,6 +140,7 @@ final class BuildFingerprintEngine {
     private BuildFingerprintCheck checkCurrent(
             Path projectDirectory,
             ProjectConfig config,
+            String compilerIdentity,
             Path lockfilePath,
             List<String> sourceRoots,
             List<String> resourceRoots,
@@ -161,6 +167,9 @@ final class BuildFingerprintEngine {
         }
         try {
             String existing = Files.readString(fingerprintPath);
+            String currentCompilerIdentity = compilerIdentity == null
+                    ? value(existing, "compilerIdentity").orElse("missing")
+                    : compilerIdentity;
             List<Path> missingExpectedClasses = expectedClasses.missing(
                     projectDirectory.toAbsolutePath().normalize(),
                     existing);
@@ -174,6 +183,7 @@ final class BuildFingerprintEngine {
                 String current = content.fingerprint(
                         projectDirectory,
                         config,
+                        currentCompilerIdentity,
                         lockfilePath,
                         sourceRoots,
                         resourceRoots,
@@ -193,6 +203,7 @@ final class BuildFingerprintEngine {
             String current = content.fingerprint(
                     projectDirectory,
                     config,
+                    currentCompilerIdentity,
                     lockfilePath,
                     sourceRoots,
                     resourceRoots,
@@ -226,6 +237,7 @@ final class BuildFingerprintEngine {
     void writeCompileFingerprint(
             Path projectDirectory,
             ProjectConfig config,
+            String compilerIdentity,
             Path lockfilePath,
             List<String> sourceRoots,
             List<String> resourceRoots,
@@ -247,6 +259,7 @@ final class BuildFingerprintEngine {
             String fingerprint = content.fingerprint(
                     projectDirectory,
                     config,
+                    compilerIdentity,
                     lockfilePath,
                     sourceRoots,
                     resourceRoots,
@@ -278,6 +291,14 @@ final class BuildFingerprintEngine {
         }
         String fingerprint = Files.readString(fingerprintPath, StandardCharsets.UTF_8);
         return stateStore.readState(fingerprintPath).filter(state -> state.matchesFingerprint(fingerprint));
+    }
+
+    private static Optional<String> value(String fingerprint, String name) {
+        String prefix = name + "=";
+        return fingerprint.lines()
+                .filter(line -> line.startsWith(prefix))
+                .map(line -> line.substring(prefix.length()))
+                .findFirst();
     }
 
     private static String relative(Path projectDirectory, Path path) {

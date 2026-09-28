@@ -13,6 +13,10 @@ import java.util.Optional;
 final class BuildServiceIncrementalMainCompileTestSupport {
     private BuildServiceIncrementalMainCompileTestSupport() {}
 
+    static BuildService selectiveBuildService() {
+        return new BuildService(BuildServiceDependencies.experimentalSelective());
+    }
+
     static ProjectConfig config() {
         return ProjectConfigs.withDirectDependencies(
                 new ProjectMetadata(

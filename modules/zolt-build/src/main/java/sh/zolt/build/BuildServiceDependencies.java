@@ -14,6 +14,7 @@ import sh.zolt.build.resources.ResourceCopier;
 import sh.zolt.build.springboot.SpringBootAotGenerationService;
 import sh.zolt.build.classpath.ClasspathBuilder;
 import sh.zolt.doctor.JdkChecker;
+import sh.zolt.doctor.JdkDetector;
 import sh.zolt.generated.ProtobufGeneratedSourceService;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.provenance.BuildProvenanceSource;
@@ -33,6 +34,7 @@ final class BuildServiceDependencies {
     private final ExecGeneratedSourceService execGeneratedSourceService;
     private final SpringBootAotGenerationService springBootAotGenerationService;
     private final IncrementalCompileStateRecorder incrementalCompileStateRecorder;
+    private final IncrementalCompilePlanner incrementalCompilePlanner;
     private final MainCompileSourceExecutor sourceExecutor;
     private final BuildCacheService buildCacheService;
 
@@ -55,6 +57,7 @@ final class BuildServiceDependencies {
         this.execGeneratedSourceService = generatedSourceDependencies.execGeneratedSourceService();
         this.springBootAotGenerationService = generatedSourceDependencies.springBootAotGenerationService();
         this.incrementalCompileStateRecorder = generatedSourceDependencies.incrementalCompileStateRecorder();
+        this.incrementalCompilePlanner = generatedSourceDependencies.incrementalCompilePlanner();
         this.sourceExecutor = generatedSourceDependencies.sourceExecutor();
     }
 
@@ -62,10 +65,26 @@ final class BuildServiceDependencies {
         return create(jdkDetector, resolveService, BuildProvenanceSource.empty());
     }
 
+    static BuildServiceDependencies experimentalSelective() {
+        return create(
+                new JdkDetector(),
+                new ResolveService(),
+                BuildProvenanceSource.empty(),
+                IncrementalCompilePlanner.experimentalSelective());
+    }
+
     static BuildServiceDependencies create(
             JdkChecker jdkDetector,
             ResolveService resolveService,
             BuildProvenanceSource provenanceSource) {
+        return create(jdkDetector, resolveService, provenanceSource, new IncrementalCompilePlanner());
+    }
+
+    static BuildServiceDependencies create(
+            JdkChecker jdkDetector,
+            ResolveService resolveService,
+            BuildProvenanceSource provenanceSource,
+            IncrementalCompilePlanner incrementalCompilePlanner) {
         JavacRunner javacRunner = new JavacRunner();
         IncrementalCompileStateRecorder incrementalCompileStateRecorder = new IncrementalCompileStateRecorder();
         return new BuildServiceDependencies(
@@ -85,10 +104,11 @@ final class BuildServiceDependencies {
                         new ExecGeneratedSourceService(jdkDetector),
                         new SpringBootAotGenerationService(javacRunner),
                         incrementalCompileStateRecorder,
+                        incrementalCompilePlanner,
                         new MainCompileSourceExecutor(
                                 javacRunner,
                                 incrementalCompileStateRecorder,
-                        new IncrementalCompilePlanner())),
+                                incrementalCompilePlanner)),
                 BuildCacheService.disabled());
     }
 
@@ -112,10 +132,11 @@ final class BuildServiceDependencies {
                         new ExecGeneratedSourceService(jdkDetector),
                         new SpringBootAotGenerationService(javacRunner),
                         incrementalCompileStateRecorder,
+                        incrementalCompilePlanner,
                         new MainCompileSourceExecutor(
                                 javacRunner,
                                 incrementalCompileStateRecorder,
-                                new IncrementalCompilePlanner())),
+                                incrementalCompilePlanner)),
                 buildCacheService);
     }
 
@@ -134,6 +155,7 @@ final class BuildServiceDependencies {
                         execGeneratedSourceService,
                         springBootAotGenerationService,
                         incrementalCompileStateRecorder,
+                        incrementalCompilePlanner,
                         sourceExecutor),
                 buildCacheService);
     }
@@ -218,6 +240,7 @@ final class BuildServiceDependencies {
             ExecGeneratedSourceService execGeneratedSourceService,
             SpringBootAotGenerationService springBootAotGenerationService,
             IncrementalCompileStateRecorder incrementalCompileStateRecorder,
+            IncrementalCompilePlanner incrementalCompilePlanner,
             MainCompileSourceExecutor sourceExecutor) {
     }
 }

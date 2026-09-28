@@ -1,8 +1,10 @@
 package sh.zolt.workspace.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.build.CompilationSemantics;
 import sh.zolt.workspace.state.WorkspaceStateStore;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -87,6 +89,41 @@ final class WorkspaceBuildServiceIncrementalTest {
     }
 
     @Test
+    void olderWorkspaceStateCannotBypassCompilationSemanticsUpgrade() throws IOException {
+        workspace("""
+                [workspace]
+                name = "acme-platform"
+
+                [workspace.members]
+                include = ["apps/api"]
+                """);
+        member("apps/api", "api", "");
+        source("apps/api/src/main/java/com/acme/api/Api.java", """
+                package com.acme.api;
+
+                public final class Api {
+                }
+                """);
+        service.build(tempDir, tempDir.resolve("cache"), false);
+
+        Path state = new WorkspaceStateStore().path(tempDir);
+        replaceVersion(state, "4");
+        Path fingerprint = tempDir.resolve(
+                "apps/api/target/classes/.zolt-build-main.fingerprint");
+        replaceVersion(fingerprint, "2");
+
+        WorkspaceBuildResult result =
+                service.build(tempDir, tempDir.resolve("cache"), false);
+
+        assertEquals(1, result.executionMetrics().memberPipelineInvocations());
+        assertEquals(1, result.mainCompilationExecutedCount());
+        assertFalse(result.members().getFirst().result().mainCompilationSkipped());
+        assertTrue(Files.readString(state).startsWith("version=5\nchecksum="));
+        assertTrue(Files.readString(fingerprint)
+                .startsWith("version=" + CompilationSemantics.VERSION + "\n"));
+    }
+
+    @Test
     void resourceEditCopiesOnlyTheResourceWithoutCompiling() throws IOException {
         workspace("""
                 [workspace]
@@ -144,7 +181,7 @@ final class WorkspaceBuildServiceIncrementalTest {
 
         assertEquals(1, result.executionMetrics().memberPipelineInvocations());
         assertTrue(result.mainFingerprintCheckNanos() > 0L);
-        assertTrue(Files.readString(state).startsWith("version=3\nchecksum="));
+        assertTrue(Files.readString(state).startsWith("version=5\nchecksum="));
     }
 
     private void workspace(String content) throws IOException {
@@ -167,6 +204,12 @@ final class WorkspaceBuildServiceIncrementalTest {
         Path source = tempDir.resolve(path);
         Files.createDirectories(source.getParent());
         Files.writeString(source, content);
+    }
+
+    private static void replaceVersion(Path path, String version) throws IOException {
+        String content = Files.readString(path);
+        int lineBreak = content.indexOf('\n');
+        Files.writeString(path, "version=" + version + content.substring(lineBreak));
     }
 
     private static String currentJavaMajorVersion() {

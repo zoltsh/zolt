@@ -1,5 +1,6 @@
 package sh.zolt.build;
 
+import static sh.zolt.build.BuildServiceIncrementalMainCompileTestSupport.selectiveBuildService;
 import static sh.zolt.build.BuildServiceIncrementalMainCompileTestSupport.config;
 import static sh.zolt.build.BuildServiceIncrementalMainCompileTestSupport.source;
 import static sh.zolt.build.BuildServiceIncrementalMainCompileTestSupport.writeLockfile;
@@ -12,7 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 final class BuildServiceIncrementalMainTransitiveAbiTest {
-    private final BuildService buildService = new BuildService();
+    private final BuildService buildService = selectiveBuildService();
 
     @TempDir
     private Path projectDir;

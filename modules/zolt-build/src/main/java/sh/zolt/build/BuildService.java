@@ -4,6 +4,8 @@ import sh.zolt.build.classpath.ClasspathBuilder;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.build.cache.BuildCacheService;
+import sh.zolt.build.compile.CompileOutputLayoutValidator;
+import sh.zolt.build.compile.EffectiveCompilerIdentity;
 import sh.zolt.build.compile.MainCompileSourceExecutor;
 import sh.zolt.build.discovery.SourceDiscoverer;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
@@ -44,18 +46,16 @@ public final class BuildService {
     private final MainBuildCacheGate mainBuildCacheGate;
     private final BuildOutputFinalizer outputFinalizer;
 
-    public BuildService() {
-        this(new JdkDetector());
-    }
-
+    public BuildService() { this(new JdkDetector()); }
     public BuildService(ResolveService resolveService) {
         this(new JdkDetector(), resolveService);
     }
-
     public BuildService(ResolveService resolveService, BuildProvenanceSource provenanceSource) {
         this(new JdkDetector(), resolveService, provenanceSource);
     }
-
+    public BuildService(BuildProvenanceSource provenanceSource) {
+        this(new JdkDetector(), new ResolveService(), provenanceSource);
+    }
     public BuildService(JdkChecker jdkDetector) {
         this(jdkDetector, new ResolveService());
     }
@@ -103,7 +103,6 @@ public final class BuildService {
         Objects.requireNonNull(buildCacheService, "buildCacheService");
         return new BuildService(dependencies.withBuildCache(buildCacheService));
     }
-
     public BuildResult build(Path projectDirectory, ProjectConfig config, Path cacheRoot) {
         return build(projectDirectory, config, cacheRoot, false, new VerifiedArtifactIndex());
     }
@@ -163,6 +162,7 @@ public final class BuildService {
     }
 
     private BuildResultWithClasspaths buildWithClasspaths(BuildRequest request) {
+        CompileOutputLayoutValidator.validateMain(request.projectDirectory(), request.config());
         BuildClasspathResolver.Result resolved = buildClasspathResolver.resolve(request);
         List<ResolvedClasspathPackage> classpathPackages = resolved.packages();
         ClasspathSet classpaths = classpathBuilder.build(classpathPackages);
@@ -214,6 +214,7 @@ public final class BuildService {
             Path projectDirectory,
             ProjectConfig config,
             ClasspathSet classpaths) {
+        CompileOutputLayoutValidator.validateMain(projectDirectory, config);
         return outputFinalizer
                 .ensureCleanMemberCurrent(projectDirectory, config, classpaths)
                 .generatedOutputCount();
@@ -227,6 +228,7 @@ public final class BuildService {
             List<ResolvedClasspathPackage> classpathPackages,
             boolean offline) {
         Path projectDirectory = context.projectRoot();
+        CompileOutputLayoutValidator.validateMain(projectDirectory, config);
         if (config.packageSettings().mode() == sh.zolt.project.PackageMode.BOM) {
             // A BOM has no compiled sources; keep it in the build graph for ordering, but skip the
             // compile wave and produce no class output.
@@ -238,6 +240,7 @@ public final class BuildService {
         if (!jdkStatus.ok()) {
             throw BuildException.actionable("JDK check failed.", String.join(" ", jdkStatus.problems()));
         }
+        String compilerIdentity = EffectiveCompilerIdentity.of(jdkStatus);
 
         Path outputDirectory = projectDirectory.resolve(config.build().output());
         Path generatedSourcesDirectory =
@@ -247,6 +250,7 @@ public final class BuildService {
         BuildFingerprintCheck fingerprintCheck = buildFingerprintService.checkMainCompileCurrent(
                 projectDirectory,
                 config,
+                compilerIdentity,
                 lockfilePath,
                 sources,
                 classpaths,
@@ -268,7 +272,7 @@ public final class BuildService {
                 classpaths,
                 outputDirectory,
                 generatedSourcesDirectory,
-                jdkStatus);
+                compilerIdentity);
         boolean restored = cacheAttempt.restored();
         boolean runJavac = !compileSkipped && !restored;
 
@@ -297,6 +301,7 @@ public final class BuildService {
             buildFingerprintService.writeMainCompileFingerprint(
                     projectDirectory,
                     config,
+                    compilerIdentity,
                     lockfilePath,
                     sources,
                     classpaths,
@@ -315,6 +320,7 @@ public final class BuildService {
                             classpaths,
                             outputDirectory,
                             generatedSourcesDirectory,
+                            compilerIdentity,
                             javacResult.attribution(),
                             javacResult.compiledSources());
                     buildCacheOutcome = mainBuildCacheGate.store(cacheAttempt, outputDirectory);

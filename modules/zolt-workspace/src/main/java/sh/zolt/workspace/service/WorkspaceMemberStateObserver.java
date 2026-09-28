@@ -1,5 +1,6 @@
 package sh.zolt.workspace.service;
 
+import sh.zolt.build.CompilationSemantics;
 import sh.zolt.build.incremental.IncrementalCompileSummary;
 import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.workspace.resolve.WorkspaceMemberLaneClosure;
@@ -91,6 +92,7 @@ final class WorkspaceMemberStateObserver {
         String processorDigest = processorInputDigest(member);
         String compileKey = WorkspaceHash.text(String.join(
                 "|",
+                CompilationSemantics.VERSION,
                 configDigest,
                 toolchainDigest,
                 mainSources.digest(),
@@ -148,6 +150,7 @@ final class WorkspaceMemberStateObserver {
                 member.path(), WorkspaceFileKind.TEST_SOURCE, member.directory(), build.testSources());
         return WorkspaceHash.text(String.join(
                 "|",
+                CompilationSemantics.VERSION,
                 mainManifestDigest.isEmpty() ? "missing" : mainManifestDigest,
                 testSources.digest(),
                 resolutionInputDigest(context.laneClosure().test(member.path())),
