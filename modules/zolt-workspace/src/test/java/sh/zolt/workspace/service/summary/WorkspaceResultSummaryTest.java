@@ -1,4 +1,4 @@
-package sh.zolt.workspace.service;
+package sh.zolt.workspace.service.summary;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -14,6 +14,7 @@ import sh.zolt.resolve.ResolveResult;
 import sh.zolt.test.TestSelection;
 import sh.zolt.test.runtime.TestJvmArguments;
 import sh.zolt.workspace.coverage.WorkspaceCoverageResult;
+import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.test.WorkspaceTestResult;
 import java.nio.file.Path;
 import java.util.List;
