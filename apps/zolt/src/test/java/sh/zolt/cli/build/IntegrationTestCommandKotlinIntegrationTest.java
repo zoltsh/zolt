@@ -23,6 +23,8 @@ import sh.zolt.cli.CliTestSupport.CommandResult;
 /** Real-compiler CLI canary for mixed Java/Kotlin integration tests. */
 @Isolated("mutates user.home so the command reads an isolated build-cache config")
 final class IntegrationTestCommandKotlinIntegrationTest {
+    private static final String DECLARED_ROOT = "generated/integration-test/java";
+
     @TempDir
     private Path tempDir;
 
@@ -54,6 +56,8 @@ final class IntegrationTestCommandKotlinIntegrationTest {
                     "com/example/KotlinIntegrationTest.class");
             Path javaTestClass = integrationOutput.resolve(
                     "com/example/JavaIntegrationTest.class");
+            Path declaredJavaSource = project.resolve(
+                    DECLARED_ROOT + "/com/example/JavaIntegrationTest.java");
             Path resource = integrationOutput.resolve("integration.properties");
             Path fingerprint = integrationOutput.resolve(".zolt-build-test.fingerprint");
             Path incrementalState = integrationOutput.resolve(".zolt-incremental-test.state");
@@ -65,6 +69,7 @@ final class IntegrationTestCommandKotlinIntegrationTest {
             assertCountPhrase(first.stdout(), 2, "tests successful");
             assertTrue(Files.isRegularFile(kotlinTestClass));
             assertTrue(Files.isRegularFile(javaTestClass));
+            assertTrue(Files.isRegularFile(declaredJavaSource));
             assertTrue(Files.isRegularFile(fingerprint));
             assertTrue(Files.isRegularFile(incrementalState));
             assertEquals("mode=integration\n", Files.readString(resource));
@@ -74,10 +79,12 @@ final class IntegrationTestCommandKotlinIntegrationTest {
             assertNotEquals(mainModule.getFileName(), integrationModule.getFileName());
             byte[] kotlinClassBytes = Files.readAllBytes(kotlinTestClass);
             byte[] javaClassBytes = Files.readAllBytes(javaTestClass);
+            byte[] declaredJavaSourceBytes = Files.readAllBytes(declaredJavaSource);
             byte[] moduleBytes = Files.readAllBytes(integrationModule);
             Map<String, String> integrationPayload = KotlinCliBuildCacheTestSupport.payload(integrationOutput);
             FileTime kotlinClassTime = Files.getLastModifiedTime(kotlinTestClass);
             FileTime javaClassTime = Files.getLastModifiedTime(javaTestClass);
+            FileTime declaredJavaSourceTime = Files.getLastModifiedTime(declaredJavaSource);
             FileTime moduleTime = Files.getLastModifiedTime(integrationModule);
 
             CommandResult warm = integrationTest(project, cache);
@@ -106,6 +113,8 @@ final class IntegrationTestCommandKotlinIntegrationTest {
             assertTiming(restored, "build integration-test inputs", "\"mainCompilationMode\":\"skipped\"");
             assertTiming(restored, "compile integration-test sources", "\"testCompilationMode\":\"restored\"");
             assertEquals(integrationPayload, KotlinCliBuildCacheTestSupport.payload(integrationOutput));
+            assertArrayEquals(declaredJavaSourceBytes, Files.readAllBytes(declaredJavaSource));
+            assertEquals(declaredJavaSourceTime, Files.getLastModifiedTime(declaredJavaSource));
             assertTrue(Files.isRegularFile(fingerprint));
             assertFalse(Files.exists(incrementalState));
 
@@ -134,9 +143,9 @@ final class IntegrationTestCommandKotlinIntegrationTest {
 
     private static void writeProject(Path project, CliTestRepository repository) throws IOException {
         Files.createDirectories(project.resolve("src/main/kotlin/com/example"));
-        Files.createDirectories(project.resolve("src/integration-test/java/com/example"));
         Files.createDirectories(project.resolve("src/integration-test/kotlin/com/example"));
         Files.createDirectories(project.resolve("src/integration-test/resources"));
+        Files.createDirectories(project.resolve(DECLARED_ROOT + "/com/example"));
         Files.writeString(project.resolve("zolt.toml"), """
                 [project]
                 name = "kotlin-integration-cli"
@@ -151,8 +160,16 @@ final class IntegrationTestCommandKotlinIntegrationTest {
                 version = "%s"
 
                 [test.integration]
-                sources = ["src/integration-test/java", "src/integration-test/kotlin"]
+                sources = ["src/integration-test/kotlin"]
                 resources = ["src/integration-test/resources"]
+
+                [generated.test.integration-java]
+                kind = "declared-root"
+                language = "java"
+                inputs = ["declared-integration-tests.marker"]
+                output = "%s"
+                required = true
+                clean = false
 
                 [repositories]
                 central = false
@@ -168,6 +185,7 @@ final class IntegrationTestCommandKotlinIntegrationTest {
                 """.formatted(
                 currentJavaMajorVersion(),
                 KotlinCompilerCliFixture.KOTLIN_VERSION,
+                DECLARED_ROOT,
                 repository.baseUri(),
                 KotlinCompilerCliFixture.KOTLIN_VERSION,
                 JUnitConsoleCliFixture.VERSION));
@@ -178,6 +196,7 @@ final class IntegrationTestCommandKotlinIntegrationTest {
                     fun message(): String = "main-internal"
                 }
                 """);
+        Files.writeString(project.resolve("declared-integration-tests.marker"), "committed\n");
         Files.writeString(
                 project.resolve("src/integration-test/kotlin/com/example/KotlinIntegrationTest.kt"),
                 """
@@ -206,7 +225,7 @@ final class IntegrationTestCommandKotlinIntegrationTest {
                 }
                 """);
         Files.writeString(
-                project.resolve("src/integration-test/java/com/example/JavaIntegrationTest.java"),
+                project.resolve(DECLARED_ROOT + "/com/example/JavaIntegrationTest.java"),
                 """
                 package com.example;
 
