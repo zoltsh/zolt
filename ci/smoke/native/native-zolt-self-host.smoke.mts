@@ -17,6 +17,25 @@ smoke.suite("native Zolt self-host smoke", { tags: ["native", "self-host", "cli"
     expect.value(version.stdout).toContain("0.1.0");
   });
 
+  await t.step("initializes a Kotlin project through native Zolt", async () => {
+    await runZolt(t, zolt, [
+      "--no-progress", "init", "--cwd", work.path(), "--language", "kotlin", "hello-kotlin",
+    ]);
+    const project = work.path("hello-kotlin");
+    await expect.file(`${project}/src/main/kotlin/com/example/Main.kt`).toExist();
+    await expect.file(`${project}/src/test/kotlin/com/example/MainTest.kt`).toExist();
+    await expectTextFile(`${project}/zolt.toml`, {
+      contains: [
+        "[toolchain.kotlin]",
+        'version = "2.2.0"',
+        '"org.jetbrains.kotlin:kotlin-stdlib" = "2.2.0"',
+        'sources = ["src/main/kotlin"]',
+        "[test.sources]",
+        'kotlin = ["src/test/kotlin"]',
+      ],
+    });
+  });
+
   await t.step("runs a packaged Java lifecycle through native Zolt", async () => {
     const project = await copyFixture(root, work, "hello-zolt");
     await runZolt(t, zolt, ["--no-progress", "resolve", "--cwd", project, "--cache-root", zolt.cacheRoot]);
