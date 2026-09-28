@@ -69,7 +69,7 @@ final class SourceLanguagePolicyTest {
                 List.of(Path.of("MainTest.kt")));
 
         assertDoesNotThrow(() -> SourceLanguagePolicy.requireMainSupported(sources));
-        assertThrows(BuildException.class, () -> SourceLanguagePolicy.requireTestSupported(sources));
+        assertDoesNotThrow(() -> SourceLanguagePolicy.requireTestSupported(sources));
         assertDoesNotThrow(() -> SourceLanguagePolicy.requireMainSupported(sources(
                 List.of(), List.of(), List.of(), List.of(Path.of("MainTest.kt")))));
         assertDoesNotThrow(() -> SourceLanguagePolicy.requireTestSupported(sources(
@@ -90,24 +90,36 @@ final class SourceLanguagePolicyTest {
                 "The test source set combines Groovy and Kotlin, which Zolt does not support.",
                 exception.actionableError().summary());
         assertEquals(
-                "Remove Kotlin from the test source set; Kotlin-only compilation is not available yet. "
-                        + "Then run `zolt test` again.",
+                "Use either Groovy or Kotlin for the test source set, then run `zolt test` again.",
                 exception.actionableError().remediation());
     }
 
     @Test
-    void kotlinOnlyTestRetainsTheTemporaryUnavailableDiagnostic() {
+    void javaAndKotlinTestIsRejectedForTheBoundedPreview() {
+        SourceDiscoveryResult sources = new SourceDiscoveryResult(
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(Path.of("MainTest.java")),
+                List.of(),
+                List.of(Path.of("MainTest.kt")));
+
         BuildException exception = assertThrows(
                 BuildException.class,
-                () -> SourceLanguagePolicy.requireTestSupported(sources(
-                        List.of(), List.of(), List.of(), List.of(Path.of("MainTest.kt")))));
+                () -> SourceLanguagePolicy.requireTestSupported(sources));
 
         assertEquals(
-                "Zolt recognized Kotlin test sources, but Kotlin compilation is not available yet.",
+                "The test source set combines Java and Kotlin, which the Kotlin preview does not support.",
                 exception.actionableError().summary());
         assertEquals(
-                "Remove the Kotlin test sources or use another compiler, then run `zolt test` again.",
+                "Use a Kotlin-only test source set or remove Kotlin, then run `zolt test` again.",
                 exception.actionableError().remediation());
+    }
+
+    @Test
+    void kotlinOnlyTestIsAllowed() {
+        assertDoesNotThrow(() -> SourceLanguagePolicy.requireTestSupported(sources(
+                List.of(), List.of(), List.of(), List.of(Path.of("MainTest.kt")))));
     }
 
     private static SourceDiscoveryResult sources(

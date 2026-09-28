@@ -134,9 +134,7 @@ public final class IncrementalCompileStateRecorder {
             GeneratedOutputAttribution attribution,
             List<Path> compiledSources) {
         List<String> fallbackReasons = new ArrayList<>(processorFallbackReasons(processorClasspath));
-        if (!sources.groovyTestSources().isEmpty()) {
-            fallbackReasons.add("groovy-test-sources");
-        }
+        fallbackReasons.addAll(IncrementalCompileLanguageFallbacks.test(sources));
         record(
                 "test",
                 projectDirectory,

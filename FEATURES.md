@@ -34,8 +34,8 @@ zolt run
   and integration-test roots.
 - **Languages.** Jointly compile Java and Groovy main sources across declared
   roots, including circular cross-language references. A bounded preview also
-  compiles Kotlin-only main source sets. Unsupported language and compiler
-  combinations fail closed.
+  compiles Kotlin-only main or unit-test source sets. Unsupported language and
+  compiler combinations fail closed.
 - **Dependencies.** Use API, implementation, runtime, provided, development,
   test, and annotation-processor lanes under one `[dependencies]` namespace.
 - **Metadata.** Import BOMs and configure version aliases, exclusions,
@@ -57,7 +57,8 @@ zolt integration-test
 zolt coverage
 ```
 
-- **Support.** JUnit Platform, JUnit Vintage, Groovy test sources, and Spock.
+- **Support.** JUnit Platform, JUnit Vintage, Groovy test sources, Spock, and a
+  bounded Kotlin-only unit-test source preview.
 - **Selection.** Classes, methods, patterns, suites, and JUnit tags.
 - **Scale.** Deterministic shards and profiling-based worker balancing.
 - **Reports.** JUnit XML, test profile JSON, and JaCoCo HTML, XML, and

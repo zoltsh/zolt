@@ -9,6 +9,8 @@ import sh.zolt.build.compile.IncrementalJavacExecution;
 import sh.zolt.build.compile.JavacOptions;
 import sh.zolt.build.compile.JavacResult;
 import sh.zolt.build.compile.JavacRunner;
+import sh.zolt.build.compile.KotlinCompilationScope;
+import sh.zolt.build.compile.KotlinCompilerRunner;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.build.incremental.GeneratedOutputAttribution;
 import sh.zolt.build.incremental.IncrementalCompilePlan;
@@ -26,6 +28,7 @@ import java.util.List;
 final class TestCompileSourceExecutor {
     private final JavacRunner javacRunner;
     private final GroovyCompilerRunner groovyCompilerRunner;
+    private final KotlinCompilerRunner kotlinCompilerRunner;
     private final IncrementalCompileStateRecorder incrementalCompileStateRecorder;
     private final IncrementalCompilePlanner incrementalCompilePlanner;
     private final IncrementalJavacExecution incrementalJavacExecution;
@@ -33,16 +36,18 @@ final class TestCompileSourceExecutor {
     TestCompileSourceExecutor(
             JavacRunner javacRunner,
             GroovyCompilerRunner groovyCompilerRunner,
+            KotlinCompilerRunner kotlinCompilerRunner,
             IncrementalCompileStateRecorder incrementalCompileStateRecorder,
             IncrementalCompilePlanner incrementalCompilePlanner) {
         this.javacRunner = javacRunner;
         this.groovyCompilerRunner = groovyCompilerRunner;
+        this.kotlinCompilerRunner = kotlinCompilerRunner;
         this.incrementalCompileStateRecorder = incrementalCompileStateRecorder;
         this.incrementalCompilePlanner = incrementalCompilePlanner;
         this.incrementalJavacExecution = new IncrementalJavacExecution(javacRunner, incrementalCompilePlanner);
     }
 
-    Attempt compile(
+    TestCompileAttempt compile(
             boolean compileSkipped,
             Path projectDirectory,
             ProjectConfig config,
@@ -51,14 +56,17 @@ final class TestCompileSourceExecutor {
             Classpath testCompileClasspath,
             Classpath groovyCompilerLauncherClasspath,
             Classpath groovyCompileClasspath,
+            Classpath kotlinCompilerLauncherClasspath,
+            KotlinCompilerRunner.Options kotlinOptions,
             Path outputDirectory,
             Path generatedSourcesDirectory,
             JdkStatus jdkStatus,
             String compilerIdentity) {
         if (compileSkipped) {
-            return new Attempt(
+            return new TestCompileAttempt(
                     new JavacResult(sources.testSources().size(), outputDirectory, ""),
                     new JavacResult(sources.groovyTestSources().size(), outputDirectory, ""),
+                    new JavacResult(sources.kotlinTestSources().size(), outputDirectory, ""),
                     "skipped",
                     "",
                     CompileDiagnostics.empty());
@@ -87,6 +95,8 @@ final class TestCompileSourceExecutor {
                             testCompileClasspath,
                             groovyCompilerLauncherClasspath,
                             groovyCompileClasspath,
+                            kotlinCompilerLauncherClasspath,
+                            kotlinOptions,
                             outputDirectory,
                             generatedSourcesDirectory,
                             classpaths,
@@ -104,27 +114,32 @@ final class TestCompileSourceExecutor {
                         testCompileClasspath,
                         groovyCompilerLauncherClasspath,
                         groovyCompileClasspath,
+                        kotlinCompilerLauncherClasspath,
+                        kotlinOptions,
                         outputDirectory,
                         generatedSourcesDirectory,
                         classpaths,
                         options,
                         plan.fallbackReason(),
-                        plan.fullDiagnostics(sources.testSources().size() + sources.groovyTestSources().size()),
+                        plan.fullDiagnostics(sources.allTestSources().size()),
                         plan.captureProcessorAttribution()),
                 platformApiWarning);
     }
 
-    private static Attempt withPlatformApiWarning(Attempt attempt, String warning) {
+    private static TestCompileAttempt withPlatformApiWarning(
+            TestCompileAttempt attempt,
+            String warning) {
         if (warning == null || warning.isBlank()) {
             return attempt;
         }
         JavacResult javacResult = attempt.javacResult();
-        return new Attempt(
+        return new TestCompileAttempt(
                 new JavacResult(
                         javacResult.sourceCount(),
                         javacResult.outputDirectory(),
                         IncrementalJavacExecution.combinedOutput(warning, javacResult.output())),
                 attempt.groovyResult(),
+                attempt.kotlinResult(),
                 attempt.mode(),
                 attempt.fallbackReason(),
                 attempt.diagnostics(),
@@ -132,7 +147,7 @@ final class TestCompileSourceExecutor {
                 attempt.compiledSources());
     }
 
-    private Attempt incrementalCompile(
+    private TestCompileAttempt incrementalCompile(
             Path projectDirectory,
             ProjectConfig config,
             JdkStatus jdkStatus,
@@ -140,6 +155,8 @@ final class TestCompileSourceExecutor {
             Classpath testCompileClasspath,
             Classpath groovyCompilerLauncherClasspath,
             Classpath groovyCompileClasspath,
+            Classpath kotlinCompilerLauncherClasspath,
+            KotlinCompilerRunner.Options kotlinOptions,
             Path outputDirectory,
             Path generatedSourcesDirectory,
             ClasspathSet classpaths,
@@ -165,12 +182,14 @@ final class TestCompileSourceExecutor {
                     testCompileClasspath,
                     groovyCompilerLauncherClasspath,
                     groovyCompileClasspath,
+                    kotlinCompilerLauncherClasspath,
+                    kotlinOptions,
                     outputDirectory,
                     generatedSourcesDirectory,
                     classpaths,
                     options,
                     "incremental-javac-failed",
-                    plan.fullDiagnostics(sources.testSources().size() + sources.groovyTestSources().size()),
+                    plan.fullDiagnostics(sources.allTestSources().size()),
                     plan.captureProcessorAttribution());
         }
         IncrementalCompileWaveResult waves = execution.waves();
@@ -184,6 +203,8 @@ final class TestCompileSourceExecutor {
                     testCompileClasspath,
                     groovyCompilerLauncherClasspath,
                     groovyCompileClasspath,
+                    kotlinCompilerLauncherClasspath,
+                    kotlinOptions,
                     outputDirectory,
                     generatedSourcesDirectory, classpaths, options, plan, waves.validation().fallbackReason());
         }
@@ -196,6 +217,8 @@ final class TestCompileSourceExecutor {
                     testCompileClasspath,
                     groovyCompilerLauncherClasspath,
                     groovyCompileClasspath,
+                    kotlinCompilerLauncherClasspath,
+                    kotlinOptions,
                     outputDirectory,
                     generatedSourcesDirectory, classpaths, options, plan, "processor-unattributed-output");
         }
@@ -203,8 +226,9 @@ final class TestCompileSourceExecutor {
                 execution.primary().sourceCount() + waves.dependentSourceCount(),
                 outputDirectory,
                 IncrementalJavacExecution.combinedOutput(execution.primary().output(), waves.dependentOutput()));
-        return new Attempt(
+        return new TestCompileAttempt(
                 combined,
+                new JavacResult(0, outputDirectory, ""),
                 new JavacResult(0, outputDirectory, ""),
                 "incremental",
                 "",
@@ -213,7 +237,7 @@ final class TestCompileSourceExecutor {
                 execution.compiledSources());
     }
 
-    private Attempt fullTestFallback(
+    private TestCompileAttempt fullTestFallback(
             Path projectDirectory,
             ProjectConfig config,
             JdkStatus jdkStatus,
@@ -221,6 +245,8 @@ final class TestCompileSourceExecutor {
             Classpath testCompileClasspath,
             Classpath groovyCompilerLauncherClasspath,
             Classpath groovyCompileClasspath,
+            Classpath kotlinCompilerLauncherClasspath,
+            KotlinCompilerRunner.Options kotlinOptions,
             Path outputDirectory,
             Path generatedSourcesDirectory,
             ClasspathSet classpaths,
@@ -236,16 +262,18 @@ final class TestCompileSourceExecutor {
                 testCompileClasspath,
                 groovyCompilerLauncherClasspath,
                 groovyCompileClasspath,
+                kotlinCompilerLauncherClasspath,
+                kotlinOptions,
                 outputDirectory,
                 generatedSourcesDirectory,
                 classpaths,
                 options,
                 fallbackReason,
-                plan.fullDiagnostics(sources.testSources().size() + sources.groovyTestSources().size()),
+                plan.fullDiagnostics(sources.allTestSources().size()),
                 plan.captureProcessorAttribution());
     }
 
-    private Attempt fullTestCompile(
+    private TestCompileAttempt fullTestCompile(
             Path projectDirectory,
             ProjectConfig config,
             JdkStatus jdkStatus,
@@ -253,6 +281,8 @@ final class TestCompileSourceExecutor {
             Classpath testCompileClasspath,
             Classpath groovyCompilerLauncherClasspath,
             Classpath groovyCompileClasspath,
+            Classpath kotlinCompilerLauncherClasspath,
+            KotlinCompilerRunner.Options kotlinOptions,
             Path outputDirectory,
             Path generatedSourcesDirectory,
             ClasspathSet classpaths,
@@ -277,14 +307,29 @@ final class TestCompileSourceExecutor {
                 groovyCompilerLauncherClasspath,
                 groovyCompileClasspath,
                 outputDirectory);
-        return new Attempt(
+        JavacResult kotlinResult = sources.kotlinTestSources().isEmpty()
+                ? new JavacResult(0, outputDirectory, "")
+                : kotlinCompilerRunner.compile(
+                        jdkStatus.java().orElseThrow(),
+                        jdkStatus.javaHome().orElseThrow(),
+                        sources.kotlinTestSources(),
+                        kotlinCompilerLauncherClasspath,
+                        testCompileClasspath,
+                        outputDirectory,
+                        kotlinOptions,
+                        KotlinCompilationScope.TEST);
+        List<Path> compiledSources = sources.kotlinTestSources().isEmpty()
+                ? sources.testSources()
+                : sources.kotlinTestSources();
+        return new TestCompileAttempt(
                 javacResult,
                 groovyResult,
+                kotlinResult,
                 "full",
                 fallbackReason,
                 diagnostics,
                 javacResult.attribution(),
-                sources.testSources());
+                compiledSources);
     }
 
     private static JavacOptions javacOptions(ProjectConfig config, boolean hostMode) {
@@ -302,32 +347,4 @@ final class TestCompileSourceExecutor {
         return compilerRelease.isBlank() ? config.project().java() : compilerRelease;
     }
 
-    record Attempt(JavacResult javacResult,
-            JavacResult groovyResult,
-            String mode,
-            String fallbackReason,
-            CompileDiagnostics diagnostics,
-            GeneratedOutputAttribution attribution,
-            List<Path> compiledSources) {
-        Attempt(JavacResult javacResult,
-                JavacResult groovyResult,
-                String mode,
-                String fallbackReason,
-                CompileDiagnostics diagnostics) {
-            this(javacResult, groovyResult, mode, fallbackReason, diagnostics,
-                    GeneratedOutputAttribution.absent(), List.of());
-        }
-
-        int sourceCount() {
-            return javacResult.sourceCount() + groovyResult.sourceCount();
-        }
-
-        Path outputDirectory() {
-            return javacResult.outputDirectory();
-        }
-
-        String output() {
-            return IncrementalJavacExecution.combinedOutput(javacResult.output(), groovyResult.output());
-        }
-    }
 }

@@ -16,13 +16,15 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import sh.zolt.build.BuildException;
 import sh.zolt.build.BuildResult;
+import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.cache.BuildCacheService;
 import sh.zolt.build.cache.BuildCacheSettings;
 import sh.zolt.build.cache.RemoteBuildCacheClient;
 import sh.zolt.classpath.Classpath;
 import sh.zolt.classpath.ClasspathSet;
+import sh.zolt.project.BuildSettings;
+import sh.zolt.project.ProjectConfig;
 
 final class TestCompileServiceKotlinSourcePolicyTest {
     @TempDir
@@ -30,10 +32,12 @@ final class TestCompileServiceKotlinSourcePolicyTest {
 
     @Test
     void failsBeforeTestCacheReuseOrOwnedOutputCleanup() throws IOException {
-        Path kotlin = projectDir.resolve("src/test/java/com/example/MainTest.kt");
+        Path kotlinMain = projectDir.resolve("src/main/java/com/example/Main.kt");
+        Path kotlinTest = projectDir.resolve("src/test/kotlin/com/example/MainTest.kt");
         Path staleClass = projectDir.resolve("target/test-classes/stale/Existing.class");
         Path cacheMarker = projectDir.resolve("build-cache/do-not-touch.marker");
-        write(kotlin, new byte[] {1});
+        write(kotlinMain, new byte[] {1});
+        write(kotlinTest, new byte[] {2});
         write(staleClass, new byte[] {2, 3, 4});
         write(cacheMarker, new byte[] {5, 6, 7});
         BuildResult mainBuild = new BuildResult(
@@ -50,23 +54,43 @@ final class TestCompileServiceKotlinSourcePolicyTest {
                             HttpClient.newHttpClient(), remote.baseUri(), Optional.empty(), false)),
                     "test-version");
 
-            BuildException exception = assertThrows(
-                    BuildException.class,
+            KotlinCompileException exception = assertThrows(
+                    KotlinCompileException.class,
                     () -> new TestCompileService()
                             .withBuildCache(cache)
                             .compileTests(
                                     projectDir,
-                                    TestCompileServiceTestSupport.config(),
+                                    kotlinTestConfig(),
                                     emptyClasspaths(),
                                     mainBuild));
 
             assertEquals(
-                    "Zolt recognized Kotlin test sources, but Kotlin compilation is not available yet.",
-                    exception.actionableError().summary());
+                    "Kotlin test compilation is not supported when the main source set also contains Kotlin. "
+                            + "Keep the main source set Java-only until Kotlin module metadata participates in test"
+                            + " compilation fingerprints.",
+                    exception.getMessage());
             assertEquals(0, remote.requestCount());
             assertArrayEquals(new byte[] {2, 3, 4}, Files.readAllBytes(staleClass));
             assertArrayEquals(new byte[] {5, 6, 7}, Files.readAllBytes(cacheMarker));
         }
+    }
+
+    private static ProjectConfig kotlinTestConfig() {
+        ProjectConfig config = TestCompileServiceTestSupport.config();
+        BuildSettings defaults = config.build();
+        return config.withBuildSettings(new BuildSettings(
+                defaults.source(),
+                defaults.sourceRoots(),
+                defaults.test(),
+                defaults.outputRoot(),
+                defaults.output(),
+                defaults.testOutput(),
+                defaults.testSources(),
+                defaults.groovyTestSources(),
+                List.of("src/test/kotlin"),
+                defaults.resourceRoots(),
+                defaults.testResourceRoots(),
+                defaults.metadata()));
     }
 
     private static ClasspathSet emptyClasspaths() {

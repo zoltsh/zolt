@@ -5,6 +5,7 @@ import sh.zolt.build.BuildService;
 import sh.zolt.build.cache.BuildCacheService;
 import sh.zolt.build.compile.GroovyCompilerRunner;
 import sh.zolt.build.compile.JavacRunner;
+import sh.zolt.build.compile.KotlinCompilerRunner;
 import sh.zolt.build.resources.ResourceCopier;
 import sh.zolt.build.discovery.SourceDiscoverer;
 import sh.zolt.build.generatedsource.ExecGeneratedSourceService;
@@ -120,6 +121,7 @@ final class TestCompileServiceDependencies {
                         new TestCompileSourceExecutor(
                                 javacRunner,
                                 groovyCompilerRunner,
+                                new KotlinCompilerRunner(),
                                 incrementalCompileStateRecorder,
                                 incrementalCompilePlanner)),
                 BuildCacheService.disabled());

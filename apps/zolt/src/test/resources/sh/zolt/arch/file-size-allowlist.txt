@@ -6,5 +6,4 @@ modules/zolt-build/src/main/java/sh/zolt/build/BuildService.java|384|verified co
 modules/zolt-build/src/main/java/sh/zolt/build/compile/MainCompileSourceExecutor.java|447|full and experimental incremental compilation share cleanup and output attribution contracts
 modules/zolt-model/src/test/java/sh/zolt/manifest/authored/AuthoredManifestTest.java|480|authored manifest invariants share one exhaustive construction fixture
 modules/zolt-plan/src/test/java/sh/zolt/plan/BuildPlanServiceTest.java|463|plan node scenarios share one project fixture and node assertion vocabulary
-modules/zolt-test-runtime/src/main/java/sh/zolt/build/testruntime/compile/TestCompileService.java|370|test generation compiler selection caching and state recording remain one transaction
 modules/zolt-workspace/src/test/java/sh/zolt/workspace/resolve/WorkspaceResolutionInputFingerprintTest.java|508|every fingerprint scenario mutates one shared two-member workspace fixture

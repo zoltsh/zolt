@@ -146,10 +146,7 @@ public final class IncrementalCompilePlanner {
             Path outputDirectory,
             Path generatedSourcesDirectory,
             String compilerIdentity) {
-        List<String> fallbackReasons = new ArrayList<>();
-        if (!sources.groovyTestSources().isEmpty()) {
-            fallbackReasons.add("groovy-test-sources");
-        }
+        List<String> fallbackReasons = IncrementalCompileLanguageFallbacks.test(sources);
         return plan(
                 "test",
                 projectDirectory,

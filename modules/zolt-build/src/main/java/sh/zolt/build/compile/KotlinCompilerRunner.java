@@ -169,7 +169,7 @@ public final class KotlinCompilerRunner {
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new KotlinCompileException(
-                    "Kotlin main compilation was interrupted. Try the build again.", exception);
+                    "Kotlin compilation was interrupted. Try the command again.", exception);
         }
     }
 
@@ -201,7 +201,7 @@ public final class KotlinCompilerRunner {
 
         private static String require(String value, String label) {
             if (value == null || value.isBlank()) {
-                throw new KotlinCompileException("Kotlin main compilation requires a " + label + ".");
+                throw new KotlinCompileException("Kotlin compilation requires a " + label + ".");
             }
             return value.strip();
         }

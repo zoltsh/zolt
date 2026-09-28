@@ -660,9 +660,11 @@ This is intentionally a bounded preview. It supports Kotlin-only authored main
 sources and fails before cache restoration or output cleanup when the member
 also has Java or Groovy main sources, annotation processors, custom
 `[compiler].args`, generated Java sources, or compile-scoped workspace member
-dependencies. Kotlin test and integration-test compilation, generated Kotlin,
-KAPT, and migration-manifest drafting are not supported. Sources are read as
-UTF-8. The effective Java release must not exceed the selected complete JDK;
+dependencies. Kotlin unit tests use the separate bounded path described under
+Tests and Coverage; a member cannot combine Kotlin main and Kotlin test sources
+yet. Kotlin integration-test compilation, generated Kotlin, KAPT, and
+migration-manifest drafting are not supported. Sources are read as UTF-8. The
+effective Java release must not exceed the selected complete JDK;
 `[compiler].jdkApi = "host"` selects host-platform API semantics instead of
 `-Xjdk-release`.
 
@@ -1686,9 +1688,14 @@ observe that change, and paranoid mode does not help there either.
 ## Tests and Coverage
 
 Zolt runs JUnit Platform based tests and can compile Java and Groovy test
-sources when configured. Kotlin test and integration-test sources are
-recognized but rejected during the preview. Supported test sources cover
-examples such as JUnit Jupiter, JUnit Vintage, and Spock:
+sources when configured. A bounded preview also compiles Kotlin-only unit-test
+source sets. Kotlin test roots are explicit: declare them under
+`[test.sources].kotlin`. Zolt discovers `.kt` files, but not Kotlin scripts
+(`.kts`), only from those roots. A `.kt` file found under a Java or Groovy test
+root fails with guidance to declare or move it; explicitly declaring the same
+directory as a Kotlin root admits it. Kotlin integration-test sources remain
+unsupported. Supported test sources cover examples such as JUnit Jupiter,
+JUnit Vintage, and Spock:
 
 Zolt treats test engines as project dependencies and the JUnit Platform console
 launcher as build tooling. When test dependencies are configured and no console
@@ -1716,6 +1723,14 @@ The isolated compiler closure is acquired by `zolt resolve`; the ordinary test
 dependency supplies Groovy to the test compilation and runtime classpaths. The
 configured compiler and ordinary runtime must match by version and verified
 core content, just as they do for main joint compilation.
+
+Kotlin unit tests use the same isolated `[toolchain.kotlin]` compiler and need
+the ordinary `org.jetbrains.kotlin:kotlin-stdlib` dependency on the test
+classpath. The preview accepts a main source set without Kotlin and a
+Kotlin-only test source set. It rejects Java or Groovy test sources, Kotlin main
+sources, test annotation processors, custom `[compiler].testArgs`, workspace
+API, compile, or test dependencies, and Quarkus in the same member. Kotlin test source
+changes use cleaned full-scope compilation rather than incremental javac state.
 
 Test commands support class/method selection, glob patterns, JUnit tags, JVM
 arguments, XML reports, deterministic shards, named suites, and optional profile
