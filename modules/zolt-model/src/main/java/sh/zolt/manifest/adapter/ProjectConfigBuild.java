@@ -95,6 +95,13 @@ final class ProjectConfigBuild {
     }
 
     static CompilerSettings compiler(Optional<AuthoredCompiler> compiler, String outputRoot) {
+        return compiler(compiler, outputRoot, "");
+    }
+
+    static CompilerSettings compiler(
+            Optional<AuthoredCompiler> compiler,
+            String outputRoot,
+            String groovyVersion) {
         Optional<AuthoredCompiler.Generated> generated = compiler.flatMap(AuthoredCompiler::generated);
         Optional<AuthoredCompiler.Test> test = compiler.flatMap(AuthoredCompiler::test);
         return new CompilerSettings(
@@ -109,7 +116,8 @@ final class ProjectConfigBuild {
                         .orElse(CompilerSettings.PLATFORM_API_RELEASE),
                 test.flatMap(AuthoredCompiler.Test::jdkApi)
                         .map(AuthoredCompiler.JdkApiMode::configValue)
-                        .orElse(""));
+                        .orElse(""),
+                groovyVersion);
     }
 
     private static List<String> integrationSources(Optional<AuthoredTests> tests) {

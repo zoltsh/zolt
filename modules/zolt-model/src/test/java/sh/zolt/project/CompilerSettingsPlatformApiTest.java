@@ -14,6 +14,7 @@ final class CompilerSettingsPlatformApiTest {
 
         assertEquals(CompilerSettings.PLATFORM_API_RELEASE, settings.platformApi());
         assertEquals("", settings.testPlatformApi());
+        assertEquals("", settings.groovyVersion());
         assertFalse(settings.mainHostPlatformApi());
         assertFalse(settings.testHostPlatformApi());
     }
@@ -24,7 +25,38 @@ final class CompilerSettingsPlatformApiTest {
                 "gen", "gentest", "8", "UTF-8", List.of(), List.of());
 
         assertEquals(CompilerSettings.PLATFORM_API_RELEASE, settings.platformApi());
+        assertEquals("", settings.groovyVersion());
         assertFalse(settings.mainHostPlatformApi());
+    }
+
+    @Test
+    void explicitGroovyVersionDoesNotChangeLegacyJavaOnlyEquality() {
+        CompilerSettings legacy = new CompilerSettings(
+                "gen", "gentest", "21", "UTF-8", List.of("-parameters"), List.of(), "host", "");
+        CompilerSettings explicitBlank = new CompilerSettings(
+                "gen",
+                "gentest",
+                "21",
+                "UTF-8",
+                List.of("-parameters"),
+                List.of(),
+                "host",
+                "",
+                " ");
+        CompilerSettings groovy = new CompilerSettings(
+                "gen",
+                "gentest",
+                "21",
+                "UTF-8",
+                List.of("-parameters"),
+                List.of(),
+                "host",
+                "",
+                "4.0.22");
+
+        assertEquals(legacy, explicitBlank);
+        assertEquals("", legacy.groovyVersion());
+        assertEquals("4.0.22", groovy.groovyVersion());
     }
 
     @Test

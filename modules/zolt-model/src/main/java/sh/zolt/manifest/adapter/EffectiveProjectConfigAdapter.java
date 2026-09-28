@@ -85,7 +85,11 @@ public final class EffectiveProjectConfigAdapter {
                 local.generated(), outputRoot, shared.versions());
         BuildSettings buildSettings = ProjectConfigBuild.build(
                 build, local.resources(), local.tests(), generatedMain, generatedTest);
-        CompilerSettings compilerSettings = ProjectConfigBuild.compiler(local.compiler(), outputRoot);
+        String groovyVersion = shared.toolchains().groovy()
+                .map(value -> value.value().value())
+                .orElse("");
+        CompilerSettings compilerSettings =
+                ProjectConfigBuild.compiler(local.compiler(), outputRoot, groovyVersion);
 
         ProjectMetadata metadata = ProjectConfigIdentity.project(project.identity(), local.metadata());
         PublicationMetadata publication =
