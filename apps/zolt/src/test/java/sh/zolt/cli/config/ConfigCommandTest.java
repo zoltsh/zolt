@@ -9,6 +9,7 @@ import sh.zolt.cli.CliTestSupport.CommandResult;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -66,6 +67,8 @@ final class ConfigCommandTest {
 
                 Toolchains
                   java: version 21, distribution temurin, policy require-managed
+                  groovy: version 4.0.22
+                  kotlin: version 2.2.0
 
                 Versions
                   jackson: 2.19.0
@@ -91,6 +94,8 @@ final class ConfigCommandTest {
         assertFalse(result.stdout().contains("group:"), result.stdout());
         assertFalse(result.stdout().contains("version:"), result.stdout());
         assertFalse(result.stdout().contains("java:"), result.stdout());
+        assertFalse(result.stdout().contains("groovy:"), result.stdout());
+        assertFalse(result.stdout().contains("kotlin:"), result.stdout());
     }
 
     @Test
@@ -116,9 +121,61 @@ final class ConfigCommandTest {
                 result.stdout().contains("version: 4.5.6 (inherited: zolt.toml workspace.project.version)"),
                 result.stdout());
         assertTrue(result.stdout().contains("java: 21 (inherited: zolt.toml"), result.stdout());
+        assertTrue(
+                result.stdout().contains(
+                        "groovy: version 4.0.22 (inherited: zolt.toml toolchain.groovy.version)"),
+                result.stdout());
+        assertTrue(
+                result.stdout().contains(
+                        "kotlin: version 2.2.0 (inherited: zolt.toml toolchain.kotlin.version)"),
+                result.stdout());
         assertTrue(result.stdout().contains("line: 88 (inherited: zolt.toml"), result.stdout());
         assertTrue(
                 result.stdout().contains("central: https://repo.maven.apache.org/maven2 (built-in)"),
+                result.stdout());
+    }
+
+    @Test
+    void effectiveViewReportsStandaloneLanguageToolchainOrigins() throws IOException {
+        writeStandalone();
+
+        CommandResult result = execute(
+                "config", "show", "--effective", "--directory", tempDir.toString());
+
+        assertEquals(0, result.exitCode(), result.stderr());
+        assertTrue(
+                result.stdout().contains(
+                        "groovy: version 4.0.22 (authored: zolt.toml toolchain.groovy.version)"),
+                result.stdout());
+        assertTrue(
+                result.stdout().contains(
+                        "kotlin: version 2.2.0 (authored: zolt.toml toolchain.kotlin.version)"),
+                result.stdout());
+    }
+
+    @Test
+    void effectiveViewReportsMemberLanguageToolchainOverrides() throws IOException {
+        Path member = writeWorkspace();
+        Files.writeString(member.resolve("zolt.toml"), """
+
+                [toolchain.groovy]
+                version = "4.0.23"
+
+                [toolchain.kotlin]
+                version = "2.2.10"
+                """, StandardOpenOption.APPEND);
+
+        CommandResult result = execute(
+                "config", "show", "--effective", "--directory", member.toString());
+
+        assertEquals(0, result.exitCode(), result.stderr());
+        assertTrue(
+                result.stdout().contains(
+                        "groovy: version 4.0.23 (authored: apps/api/zolt.toml toolchain.groovy.version)"),
+                result.stdout());
+        assertTrue(
+                result.stdout().contains(
+                        "kotlin: version 2.2.10 (authored: apps/api/zolt.toml toolchain.kotlin.version)"),
                 result.stdout());
     }
 
@@ -153,6 +210,8 @@ final class ConfigCommandTest {
         assertTrue(result.stdout().contains("shared values: authored by this workspace root"),
                 result.stdout());
         assertTrue(result.stdout().contains("group: com.example"), result.stdout());
+        assertTrue(result.stdout().contains("groovy: version 4.0.22"), result.stdout());
+        assertTrue(result.stdout().contains("kotlin: version 2.2.0"), result.stdout());
         assertTrue(result.stdout().contains("line: 88"), result.stdout());
     }
 
@@ -194,6 +253,12 @@ final class ConfigCommandTest {
                 distribution = "temurin"
                 policy = "require-managed"
 
+                [toolchain.groovy]
+                version = "4.0.22"
+
+                [toolchain.kotlin]
+                version = "2.2.0"
+
                 [versions]
                 jackson = "2.19.0"
 
@@ -225,6 +290,12 @@ final class ConfigCommandTest {
                 group = "com.example"
                 version = "4.5.6"
                 java = 21
+
+                [toolchain.groovy]
+                version = "4.0.22"
+
+                [toolchain.kotlin]
+                version = "2.2.0"
 
                 [coverage]
                 line = 88

@@ -185,6 +185,8 @@ families, full preflight, and safe resume. See
 
 ```sh
 zolt doctor
+zolt config show --manifest
+zolt config show --effective
 zolt plan --target package
 zolt plan --target test --format json
 zolt classpath audit --format json
@@ -194,7 +196,11 @@ zolt sbom
 ```
 
 Human-readable output is the default. Commands that feed tools expose stable
-JSON.
+JSON. The manifest configuration view shows only locally authored values; the
+effective view composes workspace inheritance and built-in defaults. For a
+project it labels each value's origin; at a virtual workspace root it reports
+shared values once as root-authored, plus selected members. Neither view reads
+machine-local user configuration.
 
 ## CI
 

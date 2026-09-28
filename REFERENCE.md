@@ -32,6 +32,8 @@ zolt package
 zolt run-package -- ARGS
 zolt clean
 zolt doctor
+zolt config show --manifest
+zolt config show --effective
 ```
 
 Dependency and lockfile commands:
@@ -446,6 +448,13 @@ zolt self update
 ```
 
 ## Project Configuration
+
+Use `zolt config show --manifest` to inspect only the values authored in the
+selected `zolt.toml`. Use `zolt config show --effective` to inspect the composed
+project after workspace inheritance and built-in defaults. For a project, each
+value includes its origin. At a virtual workspace root, the effective view
+reports the shared values once as root-authored, plus the selected members.
+Neither view reads machine-local user configuration.
 
 A minimal project declares its identity, its Java feature release, and its
 dependencies. Maven Central and the conventional Java source, resource, and
