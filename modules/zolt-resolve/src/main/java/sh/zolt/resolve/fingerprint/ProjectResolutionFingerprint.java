@@ -23,6 +23,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 public final class ProjectResolutionFingerprint {
+    private static final String GROOVY_TOOLCHAIN_CATEGORY = "toolchain.groovy";
+    private static final String GROOVY_COMPILER_COORDINATE = "org.apache.groovy:groovy";
+
     /**
      * The fingerprint schema version, itself a fingerprint input so a bump restates every lock.
      *
@@ -63,6 +66,7 @@ public final class ProjectResolutionFingerprint {
         line(inputs, "schema", SCHEMA);
         line(inputs, "java", "project", config.project().java());
         line(inputs, "java", "compilerRelease", config.compilerSettings().release());
+        groovyToolchainInput(inputs, config.compilerSettings().groovyVersion());
         repositoryInputs(inputs, config.repositorySettings());
         credentialInputs(inputs, config.repositoryCredentials());
         mapInputs(inputs, "versions", config.versionAliases());
@@ -92,6 +96,17 @@ public final class ProjectResolutionFingerprint {
         line(inputs, "package", "mode", resolutionPackageMode(config.packageSettings().mode()));
         inputs.addAll(config.frameworkSettings().resolutionFingerprintInputs());
         return List.copyOf(inputs);
+    }
+
+    /**
+     * Adds lock identity only for projects that select Groovy tooling. Keeping the line conditional
+     * avoids restating every unrelated Java-only lock when this resolution input is introduced.
+     */
+    private static void groovyToolchainInput(List<String> inputs, String configuredVersion) {
+        String version = configuredVersion == null ? "" : configuredVersion.strip();
+        if (!version.isEmpty()) {
+            line(inputs, GROOVY_TOOLCHAIN_CATEGORY, GROOVY_COMPILER_COORDINATE, version);
+        }
     }
 
     /**

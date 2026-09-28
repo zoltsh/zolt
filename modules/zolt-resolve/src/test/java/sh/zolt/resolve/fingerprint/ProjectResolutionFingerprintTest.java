@@ -34,6 +34,30 @@ final class ProjectResolutionFingerprintTest {
     }
 
     @Test
+    void fingerprintsGroovyToolchainAdditionRemovalAndVersionInItsOwnCategory() {
+        ProjectConfig absent = parse(baseToml());
+        ProjectConfig version22 = parse(withGroovyToolchain("4.0.22"));
+        ProjectConfig version23 = parse(withGroovyToolchain("4.0.23"));
+
+        assertNotEquals(
+                ProjectResolutionFingerprint.fingerprint(absent),
+                ProjectResolutionFingerprint.fingerprint(version22));
+        assertNotEquals(
+                ProjectResolutionFingerprint.fingerprint(version22),
+                ProjectResolutionFingerprint.fingerprint(version23));
+        assertTrue(ProjectResolutionFingerprint.inputs(absent).stream()
+                .noneMatch(input -> input.startsWith("toolchain.groovy\t")));
+        assertEquals(
+                List.of("toolchain.groovy\torg.apache.groovy:groovy\t4.0.22"),
+                ProjectResolutionFingerprint.inputs(version22).stream()
+                        .filter(input -> input.startsWith("toolchain.groovy\t"))
+                        .toList());
+        assertNotEquals(
+                valueFor(ProjectResolutionFingerprint.inputFingerprints(version22), "toolchain.groovy"),
+                valueFor(ProjectResolutionFingerprint.inputFingerprints(version23), "toolchain.groovy"));
+    }
+
+    @Test
     void fingerprintChangesWhenResolutionInputsChange() {
         String baseFingerprint = ProjectResolutionFingerprint.fingerprint(parse(baseToml()));
 
@@ -237,6 +261,14 @@ final class ProjectResolutionFingerprintTest {
                 [framework.spring-boot]
                 native = false
                 """;
+    }
+
+    private static String withGroovyToolchain(String version) {
+        return baseToml() + """
+
+                [toolchain.groovy]
+                version = "%s"
+                """.formatted(version);
     }
 
     private static String reorderedToml() {

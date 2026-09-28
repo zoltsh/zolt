@@ -27,8 +27,21 @@ final class ToolingDependencyContributorTest {
     private static final PackageId GRPC_PLUGIN = new PackageId("io.grpc", "protoc-gen-grpc-java");
     private static final PackageId JACOCO_AGENT = new PackageId("org.jacoco", "org.jacoco.agent");
     private static final PackageId JACOCO_CLI = new PackageId("org.jacoco", "org.jacoco.cli");
+    private static final PackageId GROOVY_COMPILER = new PackageId("org.apache.groovy", "groovy");
 
     private final ToolingDependencyContributor contributor = new ToolingDependencyContributor(new CoordinateParser());
+
+    @Test
+    void wiresConfiguredGroovyCompilerToolingIntoTheRequestPlan() {
+        List<DependencyRequest> requests = new ArrayList<>();
+
+        contributor.contribute(groovyToolchainConfig(), Map.of(), requests, false);
+
+        DependencyRequest request = onlyRequest(requests, GROOVY_COMPILER);
+        assertEquals("4.0.22", request.requestedVersion());
+        assertEquals(DependencyScope.TOOL_GROOVY, request.scope());
+        assertEquals(RequestOrigin.DIRECT, request.origin());
+    }
 
     @Test
     void addsJUnitConsoleToolingForTestInputs() {
@@ -357,6 +370,19 @@ final class ToolingDependencyContributorTest {
 
                 [dependencies.test]
                 "com.example:app" = "1.0.0"
+                """);
+    }
+
+    private static ProjectConfig groovyToolchainConfig() {
+        return new ManifestProjectConfigLoader().load("""
+                [project]
+                name = "groovy-demo"
+                version = "0.1.0"
+                group = "com.example"
+                java = 21
+
+                [toolchain.groovy]
+                version = "4.0.22"
                 """);
     }
 

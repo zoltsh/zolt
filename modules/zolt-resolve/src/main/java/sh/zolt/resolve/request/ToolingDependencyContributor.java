@@ -8,6 +8,7 @@ import sh.zolt.maven.Coordinate;
 import sh.zolt.maven.CoordinateParser;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.request.tooling.GeneratedSourceToolingDependencyContributor;
+import sh.zolt.resolve.request.tooling.GroovyToolingDependencyContributor;
 import sh.zolt.resolve.request.tooling.SpringBootToolingDependencyContributor;
 import java.util.List;
 import java.util.Map;
@@ -29,30 +30,51 @@ final class ToolingDependencyContributor {
 
     private final GeneratedSourceToolingDependencyContributor generatedSourceToolingDependencyContributor;
     private final SpringBootToolingDependencyContributor springBootToolingDependencyContributor;
+    private final GroovyToolingDependencyContributor groovyToolingDependencyContributor;
 
     ToolingDependencyContributor(CoordinateParser coordinateParser) {
         this(
                 coordinateParser,
                 new GeneratedSourceToolingDependencyContributor(coordinateParser),
-                new SpringBootToolingDependencyContributor());
+                new SpringBootToolingDependencyContributor(),
+                new GroovyToolingDependencyContributor());
     }
 
     ToolingDependencyContributor(
             CoordinateParser coordinateParser,
             GeneratedSourceToolingDependencyContributor generatedSourceToolingDependencyContributor) {
-        this(coordinateParser, generatedSourceToolingDependencyContributor, new SpringBootToolingDependencyContributor());
+        this(
+                coordinateParser,
+                generatedSourceToolingDependencyContributor,
+                new SpringBootToolingDependencyContributor(),
+                new GroovyToolingDependencyContributor());
     }
 
     ToolingDependencyContributor(
             CoordinateParser coordinateParser,
             GeneratedSourceToolingDependencyContributor generatedSourceToolingDependencyContributor,
             SpringBootToolingDependencyContributor springBootToolingDependencyContributor) {
+        this(
+                coordinateParser,
+                generatedSourceToolingDependencyContributor,
+                springBootToolingDependencyContributor,
+                new GroovyToolingDependencyContributor());
+    }
+
+    ToolingDependencyContributor(
+            CoordinateParser coordinateParser,
+            GeneratedSourceToolingDependencyContributor generatedSourceToolingDependencyContributor,
+            SpringBootToolingDependencyContributor springBootToolingDependencyContributor,
+            GroovyToolingDependencyContributor groovyToolingDependencyContributor) {
         this.generatedSourceToolingDependencyContributor = generatedSourceToolingDependencyContributor == null
                 ? new GeneratedSourceToolingDependencyContributor(coordinateParser)
                 : generatedSourceToolingDependencyContributor;
         this.springBootToolingDependencyContributor = springBootToolingDependencyContributor == null
                 ? new SpringBootToolingDependencyContributor()
                 : springBootToolingDependencyContributor;
+        this.groovyToolingDependencyContributor = groovyToolingDependencyContributor == null
+                ? new GroovyToolingDependencyContributor()
+                : groovyToolingDependencyContributor;
     }
 
     void contribute(
@@ -60,6 +82,7 @@ final class ToolingDependencyContributor {
             Map<PackageId, String> projectManagedVersions,
             List<DependencyRequest> requests,
             boolean includeCoverageTooling) {
+        groovyToolingDependencyContributor.contribute(config, requests);
         addTestToolRequests(config, projectManagedVersions, requests);
         springBootToolingDependencyContributor.contribute(config, projectManagedVersions, requests);
         generatedSourceToolingDependencyContributor.contribute(config, requests);
