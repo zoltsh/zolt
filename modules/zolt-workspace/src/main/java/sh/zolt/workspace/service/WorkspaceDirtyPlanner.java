@@ -68,45 +68,12 @@ final class WorkspaceDirtyPlanner {
         context.addFileSnapshotMetrics(
                 Math.max(0L, System.nanoTime() - started),
                 context.fileSnapshot());
-        return new WorkspaceDirtyPlan(previous, withProcessorRebuilds(context, plans));
-    }
-
-    /**
-     * A member whose annotation processor is itself about to be rebuilt has to be rebuilt with it.
-     *
-     * <p>Every other processor input is settled by comparing recorded state to what is on disk now,
-     * but a workspace processor member's classes are what will emit the generated sources, and this
-     * command has not compiled them yet — stage 0 is reading the previous command's output. So the
-     * one thing that cannot be read is inferred instead, from the reasons stage 0 just produced for
-     * the processor itself. A processor rebuild that turns out to emit identical bytes costs the
-     * consumer a pipeline trip and no compilation, because its own fingerprint still matches.
-     */
-    private static Map<String, WorkspaceDirtyPlan.MemberPlan> withProcessorRebuilds(
-            WorkspaceExecutionContext context,
-            Map<String, WorkspaceDirtyPlan.MemberPlan> plans) {
-        Map<String, WorkspaceDirtyPlan.MemberPlan> propagated = new LinkedHashMap<>();
-        plans.forEach((memberPath, memberPlan) -> propagated.put(
-                memberPath,
-                rebuildsAProcessorOf(context, plans, memberPath)
-                        ? memberPlan.with(WorkspaceDirtyReason.PROCESSOR_INPUT_CHANGED)
-                        : memberPlan));
-        return propagated;
-    }
-
-    private static boolean rebuildsAProcessorOf(
-            WorkspaceExecutionContext context,
-            Map<String, WorkspaceDirtyPlan.MemberPlan> plans,
-            String memberPath) {
-        for (String processor : WorkspaceCanonicalBuildPolicy.processorMembers(
-                context.workspace(),
-                memberPath,
-                context.memberGraph().compileDependenciesByMember())) {
-            WorkspaceDirtyPlan.MemberPlan processorPlan = plans.get(processor);
-            if (processorPlan != null && processorPlan.buildRequired()) {
-                return true;
-            }
-        }
-        return false;
+        return new WorkspaceDirtyPlan(
+                previous,
+                WorkspacePendingRebuildPropagator.propagate(
+                        context,
+                        plans,
+                        requirementsByMember));
     }
 
     /**
@@ -242,6 +209,11 @@ final class WorkspaceDirtyPlanner {
         if (observer.dependencyAbiChanged(member.path(), previousState)) {
             reasons.add(WorkspaceDirtyReason.DEPENDENCY_ABI_CHANGED);
         }
+        if (observedMoved(
+                prior.mainOutputManifestDigest(),
+                candidate.mainOutputManifestDigest())) {
+            reasons.add(WorkspaceDirtyReason.OUTPUT_CHANGED);
+        }
         boolean compileKeyChanged = !prior.mainCompileKey().equals(candidate.mainCompileKey());
         if (compileKeyChanged && reasons.size() == before) {
             // Everything else the compile key covers matched, so the root lock is what moved.
@@ -260,6 +232,15 @@ final class WorkspaceDirtyPlanner {
      */
     private static boolean moved(String recorded, String observed) {
         return !recorded.isEmpty() && !recorded.equals(observed);
+    }
+
+    /**
+     * A missing inner state is reported by the lane's existing output-missing reason. Once an
+     * inner state has an output manifest, however, an empty outer value cannot prove that those
+     * outputs were committed by the workspace transaction. Fail closed and reconcile the lane.
+     */
+    private static boolean observedMoved(String recorded, String observed) {
+        return !observed.isEmpty() && !recorded.equals(observed);
     }
 
     /**
@@ -284,6 +265,11 @@ final class WorkspaceDirtyPlanner {
                 .testResourceTreeDigest()
                 .equals(candidate.testResourceTreeDigest())) {
             reasons.add(WorkspaceDirtyReason.TEST_RESOURCE_CHANGED);
+        }
+        if (observedMoved(
+                previous.orElseThrow().testOutputManifestDigest(),
+                candidate.testOutputManifestDigest())) {
+            reasons.add(WorkspaceDirtyReason.TEST_OUTPUT_CHANGED);
         }
         if (!context.fileSnapshot()
                 .testResourceOutputsCurrent(

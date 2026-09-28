@@ -112,7 +112,7 @@ final class WorkspaceSparsePlanningMetricsTest extends WorkspaceBuildServiceTest
     }
 
     @Test
-    void leafImplementationEditBuildsOneMemberAndStopsWhenTheAbiHolds() throws IOException {
+    void implementationEditRechecksEveryCompileVisibleMember() throws IOException {
         build();
         source("modules/core/src/main/java/com/acme/core/Core.java", """
                 package com.acme.core;
@@ -126,16 +126,14 @@ final class WorkspaceSparsePlanningMetricsTest extends WorkspaceBuildServiceTest
 
         WorkspaceBuildResult result = build();
 
-        assertEquals(1, result.executionMetrics().memberPipelineInvocations());
-        assertEquals(1, result.executionMetrics().classpathCalculations());
+        assertEquals(3, result.executionMetrics().memberPipelineInvocations());
+        assertEquals(3, result.executionMetrics().classpathCalculations());
         assertEquals(2, result.mainCompilationSkippedCount());
     }
 
     /**
-     * A changed ABI reaches the direct dependent, which recompiles against it; the dependent's own
-     * ABI is unmoved, so the wave stops there. Every member downstream of the edit is admitted —
-     * the scheduler cannot know in advance where the wave dies — but only the two that are actually
-     * invalidated pay for a classpath.
+     * A pending provider rebuild reaches every downstream member before stage 1, because a transitive
+     * exported input may move even when the intermediate member's own ABI does not.
      */
     @Test
     void sharedApiEditReachesExactlyTheMembersItInvalidates() throws IOException {
@@ -157,8 +155,8 @@ final class WorkspaceSparsePlanningMetricsTest extends WorkspaceBuildServiceTest
         WorkspaceBuildResult result = build();
 
         assertEquals(3, result.executionMetrics().membersAdmitted());
-        assertEquals(2, result.executionMetrics().memberPipelineInvocations());
-        assertEquals(2, result.executionMetrics().classpathCalculations());
+        assertEquals(3, result.executionMetrics().memberPipelineInvocations());
+        assertEquals(3, result.executionMetrics().classpathCalculations());
     }
 
     @Test
@@ -189,13 +187,13 @@ final class WorkspaceSparsePlanningMetricsTest extends WorkspaceBuildServiceTest
     }
 
     @Test
-    void deletedMemberOutputAdmitsOnlyThatMember() throws IOException {
+    void deletedMemberOutputRechecksItsDependent() throws IOException {
         build();
         Files.delete(tempDir.resolve("modules/util/target/classes/com/acme/util/Util.class"));
 
         WorkspaceBuildResult result = build();
 
-        assertEquals(1, result.executionMetrics().memberPipelineInvocations());
+        assertEquals(2, result.executionMetrics().memberPipelineInvocations());
         assertTrue(
                 Files.isRegularFile(
                         tempDir.resolve("modules/util/target/classes/com/acme/util/Util.class")),

@@ -7,9 +7,13 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.createFakeConsoleJar;
+import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.zeroTestsFoundSummary;
 
 import sh.zolt.build.BuildException;
+import sh.zolt.build.incremental.IncrementalCompileState;
+import sh.zolt.build.incremental.IncrementalCompileStateCodec;
 import sh.zolt.test.TestSelection;
+import sh.zolt.test.runtime.TestRunException;
 import sh.zolt.workspace.WorkspaceContentAddressedLockTestSupport;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
@@ -43,7 +47,8 @@ final class WorkspaceTestStatePublicationTest {
                 tempDir,
                 cacheRoot.resolve(
                         "org/junit/platform/junit-platform-console-standalone/1.11.4/"
-                                + "junit-platform-console-standalone-1.11.4.jar"));
+                                + "junit-platform-console-standalone-1.11.4.jar"),
+                zeroTestsFoundSummary());
         workspace(tempDir, """
                 [workspace]
                 name = "test-state-publication"
@@ -123,6 +128,45 @@ final class WorkspaceTestStatePublicationTest {
     }
 
     @Test
+    void failedRunDoesNotCommitCompiledTestOutputAndExactRevertRecompiles() throws IOException {
+        compileUnit();
+        WorkspaceMemberState committed = memberState();
+        String committedManifest = committed.testOutputManifestDigest();
+        Path testClass = tempDir.resolve(
+                "apps/api/target/test-classes/com/example/ApiTest.class");
+        byte[] committedClass = Files.readAllBytes(testClass);
+        assertEquals(committedManifest, innerTestManifest());
+        writeJavaTest("after");
+        PendingCompile failed = pendingRun();
+
+        assertTrue(failed.build().membersRequiringTestCompile().contains("apps/api"));
+        TestRunException failure = assertThrows(
+                TestRunException.class,
+                () -> service.runTests(
+                        failed.plan(),
+                        failed.build(),
+                        cacheRoot(),
+                        TestSelection.fromCli(
+                                List.of("com.example.ApiTest"),
+                                List.of(),
+                                List.of(),
+                                List.of())));
+
+        assertTrue(failure.getMessage().contains("Selected tests did not match any tests"));
+        assertEquals(committedManifest, memberState().testOutputManifestDigest());
+        assertNotEquals(committedManifest, innerTestManifest());
+
+        writeJavaTest("before");
+        WorkspaceTestCompileResult repaired = compileUnit();
+
+        assertFalse(repaired.members().getFirst().result().testCompilationSkipped());
+        assertArrayEquals(committedClass, Files.readAllBytes(testClass));
+        assertEquals(committedManifest, innerTestManifest());
+        assertEquals(committedManifest, memberState().testOutputManifestDigest());
+        assertTrue(compileUnit().members().getFirst().result().testCompilationSkipped());
+    }
+
+    @Test
     void integrationCompilationDoesNotCommitPendingUnitTestState() throws IOException {
         compileUnit();
         WorkspaceMemberState committed = memberState();
@@ -172,6 +216,16 @@ final class WorkspaceTestStatePublicationTest {
 
     private WorkspaceMemberState memberState() {
         return stateStore.read(tempDir).member("apps/api").orElseThrow();
+    }
+
+    private String innerTestManifest() {
+        Path output = tempDir.resolve("apps/api/target/test-classes")
+                .toAbsolutePath()
+                .normalize();
+        return new IncrementalCompileStateCodec()
+                .read(IncrementalCompileState.testStatePath(output))
+                .orElseThrow()
+                .outputManifestDigest();
     }
 
     private void enableKotlinTestRoot() throws IOException {
