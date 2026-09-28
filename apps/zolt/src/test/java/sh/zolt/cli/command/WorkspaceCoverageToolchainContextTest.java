@@ -29,6 +29,7 @@ import sh.zolt.workspace.service.WorkspaceSelectionRequest;
 import sh.zolt.workspace.test.WorkspaceTestResult;
 import sh.zolt.workspace.test.WorkspaceTestService;
 import sh.zolt.workspace.service.WorkspacePlanTarget;
+import sh.zolt.workspace.state.WorkspaceStateStore;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -188,6 +189,12 @@ final class WorkspaceCoverageToolchainContextTest {
                 1,
                 result.toolchainMetrics()
                         .testRuntimeIdentityCalculations());
+        assertTrue(new WorkspaceStateStore()
+                .read(root)
+                .member("apps/api")
+                .orElseThrow()
+                .testCompileKey()
+                .isEmpty());
     }
 
     private CommandToolchainOptions options() {

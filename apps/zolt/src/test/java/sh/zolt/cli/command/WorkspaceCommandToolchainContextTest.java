@@ -18,6 +18,7 @@ import sh.zolt.workspace.test.WorkspaceTestCompileResult;
 import sh.zolt.workspace.test.WorkspaceTestService;
 import sh.zolt.workspace.test.WorkspaceTestToolchainMetrics;
 import sh.zolt.workspace.service.WorkspacePlanTarget;
+import sh.zolt.workspace.state.WorkspaceStateStore;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -191,6 +192,12 @@ final class WorkspaceCommandToolchainContextTest {
                 new WorkspaceTestToolchainMetrics(1, 1, 1, 0, 0),
                 result.toolchainMetrics());
         assertEquals(true, mutated.get());
+        assertTrue(new WorkspaceStateStore()
+                .read(root)
+                .member("apps/api")
+                .orElseThrow()
+                .testCompileKey()
+                .isEmpty());
     }
 
     /**

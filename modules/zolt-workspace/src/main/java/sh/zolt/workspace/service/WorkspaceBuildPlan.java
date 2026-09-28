@@ -80,4 +80,8 @@ public record WorkspaceBuildPlan(
         inputSnapshot.requireCurrent();
         return this;
     }
+
+    boolean inputsCurrent() {
+        return inputSnapshot.current();
+    }
 }

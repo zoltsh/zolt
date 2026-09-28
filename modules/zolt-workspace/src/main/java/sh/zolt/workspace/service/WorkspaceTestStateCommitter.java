@@ -21,7 +21,9 @@ public final class WorkspaceTestStateCommitter {
         WorkspaceMutationLock.withLock(
                 plan.workspace().root(),
                 () -> {
-                    commitLocked(plan.requireInputsCurrent(), pendingTestCompiles);
+                    if (plan.inputsCurrent()) {
+                        commitLocked(plan, pendingTestCompiles);
+                    }
                     return null;
                 });
     }
