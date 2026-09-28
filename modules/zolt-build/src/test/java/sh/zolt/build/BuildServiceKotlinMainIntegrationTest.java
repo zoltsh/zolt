@@ -160,6 +160,87 @@ final class BuildServiceKotlinMainIntegrationTest {
         assertEquals("kotlin", invokeJavaApi(artifacts.applicationClasspath()));
     }
 
+    @Test
+    void compilesDeclaredJavaRootAndInvalidatesWhenItsContentChanges() throws Exception {
+        KotlinCompilerIntegrationArtifacts.Prepared artifacts = KotlinCompilerIntegrationArtifacts.prepare(
+                cacheRoot,
+                projectDir.resolve("zolt.lock"));
+        source("src/main/kotlin/com/example/KotlinApi.kt", """
+                package com.example
+
+                object KotlinApi {
+                    @JvmStatic
+                    fun message(): String = DeclaredJava.javaValue() + "-" + kotlinValue()
+
+                    @JvmStatic
+                    fun kotlinValue(): String = "kotlin"
+                }
+                """);
+        source("schema/api.txt", "declared-root-input\n");
+        Path declaredJava = source(
+                "generated/main/com/example/DeclaredJava.java",
+                declaredJavaSource("\"declared-v1\""));
+        BuildService service = new BuildService().withBuildCache(BuildCacheService.create(
+                new BuildCacheSettings(true, buildCacheHome, 0L),
+                "kotlin-declared-root-integration"));
+
+        BuildResultWithClasspaths first = service.buildWithClasspaths(
+                projectDir,
+                declaredRootConfig(),
+                cacheRoot,
+                true);
+
+        assertEquals(2, first.buildResult().sourceCount());
+        assertEquals("full", first.buildResult().mainCompilationMode());
+        assertEquals("stored", first.buildResult().mainBuildCacheOutcome());
+        assertTrue(Files.isRegularFile(classFile("KotlinApi.class")));
+        assertTrue(Files.isRegularFile(classFile("DeclaredJava.class")));
+        assertEquals("declared-v1-kotlin", invokeKotlinApi(artifacts.applicationClasspath()));
+        assertEquals(
+                "kotlin",
+                invokeApi(artifacts.applicationClasspath(), "com.example.DeclaredJava", "callKotlin"));
+
+        BuildResultWithClasspaths warm = service.buildWithClasspaths(
+                projectDir,
+                declaredRootConfig(),
+                cacheRoot,
+                true);
+        assertTrue(warm.buildResult().mainCompilationSkipped());
+
+        wipeTarget();
+        assertTrue(Files.isRegularFile(declaredJava));
+        BuildResultWithClasspaths restored = service.buildWithClasspaths(
+                projectDir,
+                declaredRootConfig(),
+                cacheRoot,
+                true);
+        assertTrue(restored.buildResult().mainCompilationRestored());
+        assertTrue(Files.isRegularFile(declaredJava));
+        assertTrue(hasKotlinModuleMetadata());
+        assertEquals("declared-v1-kotlin", invokeKotlinApi(artifacts.applicationClasspath()));
+
+        Files.writeString(declaredJava, declaredJavaSource("\"declared-v2\""));
+        BuildResultWithClasspaths changed = service.buildWithClasspaths(
+                projectDir,
+                declaredRootConfig(),
+                cacheRoot,
+                true);
+
+        assertFalse(changed.buildResult().mainCompilationSkipped());
+        assertFalse(changed.buildResult().mainCompilationRestored());
+        assertEquals("full", changed.buildResult().mainCompilationMode());
+        assertTrue(Files.isRegularFile(declaredJava));
+        assertEquals("declared-v2-kotlin", invokeKotlinApi(artifacts.applicationClasspath()));
+
+        deleteRecursively(projectDir.resolve("generated/main"));
+        SourceDiscoveryException missingRoot = assertThrows(
+                SourceDiscoveryException.class,
+                () -> service.buildWithClasspaths(projectDir, declaredRootConfig(), cacheRoot, true));
+        assertTrue(missingRoot.getMessage().contains("Generated source root `generated/main` is missing"));
+        assertTrue(Files.isRegularFile(classFile("DeclaredJava.class")));
+        assertTrue(Files.isRegularFile(classFile("KotlinApi.class")));
+    }
+
     private void assertIsolatedCompilerClasspath(
             BuildResultWithClasspaths result,
             KotlinCompilerIntegrationArtifacts.Prepared artifacts) {
@@ -230,6 +311,24 @@ final class BuildServiceKotlinMainIntegrationTest {
                 """.formatted(javaValueExpression);
     }
 
+    private static String declaredJavaSource(String javaValueExpression) {
+        return """
+                package com.example;
+
+                public final class DeclaredJava {
+                    private DeclaredJava() {}
+
+                    public static String javaValue() {
+                        return %s;
+                    }
+
+                    public static String callKotlin() {
+                        return KotlinApi.kotlinValue();
+                    }
+                }
+                """.formatted(javaValueExpression);
+    }
+
     private boolean hasKotlinModuleMetadata() throws IOException {
         Path metadata = projectDir.resolve("target/classes/META-INF");
         if (!Files.isDirectory(metadata)) {
@@ -252,11 +351,14 @@ final class BuildServiceKotlinMainIntegrationTest {
     }
 
     private void wipeTarget() throws IOException {
-        Path target = projectDir.resolve("target");
-        if (!Files.exists(target)) {
+        deleteRecursively(projectDir.resolve("target"));
+    }
+
+    private static void deleteRecursively(Path root) throws IOException {
+        if (!Files.exists(root)) {
             return;
         }
-        try (Stream<Path> paths = Files.walk(target)) {
+        try (Stream<Path> paths = Files.walk(root)) {
             paths.sorted(Comparator.reverseOrder()).forEach(path -> {
                 try {
                     Files.delete(path);
@@ -280,6 +382,33 @@ final class BuildServiceKotlinMainIntegrationTest {
 
                 [toolchain.kotlin]
                 version = "2.2.0"
+
+                [dependencies]
+                "org.jetbrains.kotlin:kotlin-stdlib" = "2.2.0"
+                """);
+    }
+
+    private static ProjectConfig declaredRootConfig() {
+        return new ManifestProjectConfigLoader().load("""
+                [project]
+                name = "kotlin-declared-root"
+                version = "0.1.0"
+                group = "com.example"
+                java = 21
+
+                [build]
+                sources = ["src/main/kotlin"]
+
+                [toolchain.kotlin]
+                version = "2.2.0"
+
+                [generated.main.prebuilt]
+                kind = "declared-root"
+                language = "java"
+                output = "generated/main"
+                inputs = ["schema/api.txt"]
+                required = true
+                clean = false
 
                 [dependencies]
                 "org.jetbrains.kotlin:kotlin-stdlib" = "2.2.0"

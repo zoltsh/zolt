@@ -31,11 +31,12 @@ final class KotlinMainCompilePolicy {
                             + " joint compilation is supported.");
         }
         if (config.build().generatedMainSources().stream()
-                .anyMatch(KotlinMainCompilePolicy::producesJavaSources)) {
+                .anyMatch(KotlinMainCompilePolicy::producesOwnedJavaSources)) {
             throw unsupported(
-                    "generated main sources are configured",
-                    "Move generated Java into a separate member or keep this member Java-only until"
-                            + " generated-source ownership is qualified for Kotlin/Java joint compilation.");
+                    "owned Java main-source generation is configured",
+                    "Use kind = \"declared-root\" for pre-generated Java, move generated Java into a separate"
+                            + " member, or keep this member Java-only until generator ownership is qualified for"
+                            + " Kotlin/Java joint compilation.");
         }
         if (!classpaths.processor().entries().isEmpty()) {
             throw unsupported(
@@ -53,10 +54,13 @@ final class KotlinMainCompilePolicy {
                 KotlinCompilationScope.MAIN);
     }
 
-    private static boolean producesJavaSources(GeneratedSourceStep step) {
-        return step.kind() != GeneratedSourceKind.EXEC
-                || step.exec().produces() == ProducesLane.JAVA_SOURCES
-                || step.exec().produces() == ProducesLane.TEST_SOURCES;
+    private static boolean producesOwnedJavaSources(GeneratedSourceStep step) {
+        return switch (step.kind()) {
+            case DECLARED_ROOT -> false;
+            case OPENAPI, PROTOBUF -> true;
+            case EXEC -> step.exec().produces() == ProducesLane.JAVA_SOURCES
+                    || step.exec().produces() == ProducesLane.TEST_SOURCES;
+        };
     }
 
     private static KotlinCompileException unsupported(String reason, String remediation) {

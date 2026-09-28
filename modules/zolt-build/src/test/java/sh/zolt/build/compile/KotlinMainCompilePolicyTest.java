@@ -174,7 +174,7 @@ final class KotlinMainCompilePolicyTest {
     }
 
     @Test
-    void rejectsGeneratedJavaButAllowsResourceAndIntermediateExecSteps() {
+    void acceptsDeclaredJavaRootsButRejectsOwnedJavaGeneration() {
         KotlinCompileException generatedJavaFailure = assertThrows(
                 KotlinCompileException.class,
                 () -> KotlinMainCompilePolicy.options(
@@ -182,20 +182,23 @@ final class KotlinMainCompilePolicyTest {
                         sources(List.of(), List.of(), List.of(KOTLIN)),
                         classpaths(List.of()),
                         jdkStatus("21.0.11", "21")));
-        KotlinCompileException declaredRootFailure = assertThrows(
-                KotlinCompileException.class,
-                () -> KotlinMainCompilePolicy.options(
-                        configWithGeneratedStep(new GeneratedSourceStep(
-                                "declared",
-                                GeneratedSourceKind.DECLARED_ROOT,
-                                "java",
-                                "target/generated/declared",
-                                List.of(),
-                                true,
-                                true)),
-                        sources(List.of(), List.of(), List.of(KOTLIN)),
-                        classpaths(List.of()),
-                        jdkStatus("21.0.11", "21")));
+        KotlinCompilerRunner.Options declaredRoot = KotlinMainCompilePolicy.options(
+                configWithGeneratedStep(generatedStep(GeneratedSourceKind.DECLARED_ROOT)),
+                sources(List.of(Path.of("generated/main/com/example/Generated.java")), List.of(), List.of(KOTLIN)),
+                classpaths(List.of()),
+                jdkStatus("21.0.11", "21"));
+
+        for (GeneratedSourceKind kind : List.of(GeneratedSourceKind.OPENAPI, GeneratedSourceKind.PROTOBUF)) {
+            KotlinCompileException failure = assertThrows(
+                    KotlinCompileException.class,
+                    () -> KotlinMainCompilePolicy.options(
+                            configWithGeneratedStep(generatedStep(kind)),
+                            sources(List.of(), List.of(), List.of(KOTLIN)),
+                            classpaths(List.of()),
+                            jdkStatus("21.0.11", "21")));
+
+            assertTrue(failure.getMessage().contains("owned Java main-source generation"));
+        }
 
         for (ProducesLane lane : List.of(ProducesLane.RESOURCES, ProducesLane.INTERMEDIATE)) {
             KotlinCompilerRunner.Options options = KotlinMainCompilePolicy.options(
@@ -206,8 +209,8 @@ final class KotlinMainCompilePolicyTest {
 
             assertEquals("21", options.release());
         }
-        assertTrue(generatedJavaFailure.getMessage().contains("generated main sources"));
-        assertTrue(declaredRootFailure.getMessage().contains("generated main sources"));
+        assertEquals("21", declaredRoot.release());
+        assertTrue(generatedJavaFailure.getMessage().contains("owned Java main-source generation"));
     }
 
     @Test
@@ -327,6 +330,17 @@ final class KotlinMainCompilePolicyTest {
     private static ProjectConfig configWithGeneratedStep(GeneratedSourceStep step) {
         ProjectConfig config = config(CompilerSettings.defaults(), Map.of(), Map.of(), "demo");
         return config.withBuildSettings(config.build().withGeneratedSources(List.of(step), List.of()));
+    }
+
+    private static GeneratedSourceStep generatedStep(GeneratedSourceKind kind) {
+        return new GeneratedSourceStep(
+                "generated",
+                kind,
+                "java",
+                "generated/main",
+                List.of(),
+                true,
+                false);
     }
 
     private static GeneratedSourceStep execStep(ProducesLane lane) {

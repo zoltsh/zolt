@@ -136,6 +136,7 @@ final class MixedKotlinApplicationIntegrationTest {
     private static void assertApplicationInventory(JarFile jar) throws IOException {
         assertEquals(MAIN_CLASS, jar.getManifest().getMainAttributes().getValue(Attributes.Name.MAIN_CLASS));
         assertNotNull(jar.getEntry("com/example/ApplicationKt.class"));
+        assertNotNull(jar.getEntry("com/example/DeclaredJava.class"));
         assertNotNull(jar.getEntry("com/example/KotlinApi.class"));
         assertNotNull(jar.getEntry("com/example/JavaBridge.class"));
         assertTrue(jar.stream().anyMatch(entry -> entry.getName().startsWith("META-INF/")
@@ -161,6 +162,8 @@ final class MixedKotlinApplicationIntegrationTest {
     private static void writeProject(Path project, CliTestRepository repository) throws IOException {
         Files.createDirectories(project.resolve("src/main/kotlin/com/example"));
         Files.createDirectories(project.resolve("src/main/java/com/example"));
+        Files.createDirectories(project.resolve("generated/main/com/example"));
+        Files.createDirectories(project.resolve("schema"));
         Files.writeString(project.resolve("zolt.toml"), """
                 [project]
                 name = "mixed-kotlin-application"
@@ -177,6 +180,13 @@ final class MixedKotlinApplicationIntegrationTest {
 
                 [toolchain.kotlin]
                 version = "%s"
+
+                [generated.main.prebuilt]
+                kind = "declared-root"
+                inputs = ["schema/declared.txt"]
+                output = "generated/main"
+                required = true
+                clean = false
 
                 [repositories]
                 central = false
@@ -197,7 +207,7 @@ final class MixedKotlinApplicationIntegrationTest {
 
                 object KotlinApi {
                     @JvmStatic
-                    fun word(kotlinWord: String): String = kotlinWord
+                    fun word(kotlinWord: String): String = DeclaredJava.decorate(kotlinWord)
                 }
 
                 fun main(args: Array<String>) {
@@ -213,7 +223,7 @@ final class MixedKotlinApplicationIntegrationTest {
                     public static String message(String[] javaArguments) {
                         assertNamedParameter(KotlinApi.class, "word", String.class, "kotlinWord");
                         assertNamedParameter(JavaBridge.class, "message", String[].class, "javaArguments");
-                        return "mixed-" + KotlinApi.word("kotlin") + "-" + String.join(",", javaArguments);
+                        return "mixed-" + DeclaredJava.kotlinWord() + "-" + String.join(",", javaArguments);
                     }
 
                     private static void assertNamedParameter(
@@ -238,6 +248,22 @@ final class MixedKotlinApplicationIntegrationTest {
                             throw new AssertionError("Could not inspect "
                                     + owner.getName() + "." + methodName, exception);
                         }
+                    }
+                }
+                """);
+        Files.writeString(project.resolve("schema/declared.txt"), "declared-root-input\n");
+        Files.writeString(project.resolve("generated/main/com/example/DeclaredJava.java"), """
+                package com.example;
+
+                public final class DeclaredJava {
+                    private DeclaredJava() {}
+
+                    public static String decorate(String value) {
+                        return value;
+                    }
+
+                    public static String kotlinWord() {
+                        return KotlinApi.word("kotlin");
                     }
                 }
                 """);

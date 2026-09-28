@@ -692,12 +692,20 @@ dependency without embedding compiler tooling, while uber JARs merge the
 application runtime and remain directly executable with `java -jar`.
 
 Mixed Java/Kotlin main compilation is a cleaned, full-scope two-phase operation.
-First, Zolt passes the complete authored Java and Kotlin source set to `kotlinc`
-so Kotlin can resolve Java declarations. `kotlinc` emits the Kotlin bytecode;
-Zolt then passes the Java sources to `javac` with that Kotlin output first on the
+First, Zolt passes the complete admitted Java and authored Kotlin source set to
+`kotlinc` so Kotlin can resolve Java declarations. `kotlinc` emits the Kotlin
+bytecode. Zolt then passes the Java sources to `javac` with that Kotlin output first on the
 compile classpath. Java can therefore resolve the Kotlin declarations, including
 the circular relationship above. Kotlin-only main source sets skip the second
 phase.
+
+Pre-generated Java may join that main source set through a
+`[generated.main.<id>]` step whose `kind` is `"declared-root"`. Zolt treats the
+declared tree as a protected input, includes its Java files and declared producer
+inputs in reuse decisions, and never removes it during compile-output cleanup.
+Its Java may refer to Kotlin declarations and Kotlin may refer back to it. This
+exception is only for an already-present declared root; Zolt-owned OpenAPI,
+Protobuf, and source-producing exec steps remain outside Kotlin joint compilation.
 
 This is intentionally a bounded preview. Zolt fails before cache restoration or
 output cleanup when any of these conditions applies:
@@ -708,9 +716,10 @@ output cleanup when any of these conditions applies:
 - main annotation processors are configured (KAPT is not supported);
 - `[compiler].args` contains a flag other than `-parameters` or `-Werror`, or
   repeats either supported flag; or
-- a Java-source-producing main generation step is configured. Exec steps that
-  produce resources or intermediate outputs do not by themselves cross this
-  boundary.
+- a Zolt-owned Java-source-producing OpenAPI, Protobuf, or exec main generation
+  step is configured. A pre-generated Java `declared-root` is admitted; exec
+  steps that produce resources or intermediate outputs do not by themselves
+  cross this boundary.
 
 Kotlin main compilation supports workspace API and implementation dependencies;
 dependency class ABI and Kotlin module metadata participate in downstream
