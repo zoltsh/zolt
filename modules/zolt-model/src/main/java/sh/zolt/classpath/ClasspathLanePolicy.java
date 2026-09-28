@@ -46,6 +46,9 @@ public final class ClasspathLanePolicy {
         if (scope == DependencyScope.TOOL_GROOVY) {
             lanes.add("tool-groovy");
         }
+        if (scope == DependencyScope.TOOL_KOTLIN) {
+            lanes.add("tool-kotlin");
+        }
         return List.copyOf(lanes);
     }
 
@@ -63,6 +66,7 @@ public final class ClasspathLanePolicy {
             case TOOL_EXEC -> "exec-tooling-only";
             case TOOL_COVERAGE -> "coverage-tooling-only";
             case TOOL_GROOVY -> "groovy-compiler-tooling-only";
+            case TOOL_KOTLIN -> "kotlin-compiler-tooling-only";
         };
     }
 }

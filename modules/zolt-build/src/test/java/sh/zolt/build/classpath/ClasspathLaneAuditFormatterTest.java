@@ -1,5 +1,6 @@
 package sh.zolt.build.classpath;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.classpath.Classpath;
@@ -30,9 +31,33 @@ final class ClasspathLaneAuditFormatterTest {
         assertTrue(output.contains("coverage-tooling-only"));
         assertTrue(output.contains("tool-groovy"));
         assertTrue(output.contains("groovy-compiler-tooling-only"));
+        assertTrue(output.contains("tool-kotlin"));
+        assertTrue(output.contains("kotlin-compiler-tooling-only"));
         assertTrue(output.contains("- com.example:compile-lib:1.0.0 [compile] lanes=compile,runtime,test package=package-default"));
         assertTrue(output.contains("- com.example:devtools:1.0.0 [dev] lanes=runtime package=development-only"));
         assertTrue(output.contains("- jakarta.servlet:jakarta.servlet-api:6.1.0 [provided] lanes=compile,test package=provided-container"));
+    }
+
+    @Test
+    void alignsKotlinAndGroovyCompilerColumns() {
+        String output = formatter.formatText(lockfile());
+        String header = row(output, "scope");
+        String groovy = row(output, "tool-groovy");
+        String kotlin = row(output, "tool-kotlin");
+
+        int groovyColumn = header.indexOf("tool-groovy");
+        int kotlinColumn = header.indexOf("tool-kotlin");
+        assertEquals("yes", groovy.substring(groovyColumn, groovyColumn + 3));
+        assertEquals("no ", groovy.substring(kotlinColumn, kotlinColumn + 3));
+        assertEquals("no ", kotlin.substring(groovyColumn, groovyColumn + 3));
+        assertEquals("yes", kotlin.substring(kotlinColumn, kotlinColumn + 3));
+    }
+
+    private static String row(String output, String prefix) {
+        return output.lines()
+                .filter(line -> line.startsWith(prefix))
+                .findFirst()
+                .orElseThrow();
     }
 
     private static ZoltLockfile lockfile() {

@@ -32,8 +32,10 @@ final class ClasspathLanePolicyTest {
         assertEquals(List.of("tool-exec"), ClasspathLanePolicy.lanes(DependencyScope.TOOL_EXEC));
         assertEquals(List.of("tool-coverage"), ClasspathLanePolicy.lanes(DependencyScope.TOOL_COVERAGE));
         assertEquals(List.of("tool-groovy"), ClasspathLanePolicy.lanes(DependencyScope.TOOL_GROOVY));
+        assertEquals(List.of("tool-kotlin"), ClasspathLanePolicy.lanes(DependencyScope.TOOL_KOTLIN));
 
         assertEquals("package-default", ClasspathLanePolicy.disposition(DependencyScope.COMPILE));
+        assertEquals("package-default", ClasspathLanePolicy.disposition(DependencyScope.RUNTIME));
         assertEquals("provided-container", ClasspathLanePolicy.disposition(DependencyScope.PROVIDED));
         assertEquals("development-only", ClasspathLanePolicy.disposition(DependencyScope.DEV));
         assertEquals("test-only", ClasspathLanePolicy.disposition(DependencyScope.TEST));
@@ -46,5 +48,6 @@ final class ClasspathLanePolicyTest {
         assertEquals("exec-tooling-only", ClasspathLanePolicy.disposition(DependencyScope.TOOL_EXEC));
         assertEquals("coverage-tooling-only", ClasspathLanePolicy.disposition(DependencyScope.TOOL_COVERAGE));
         assertEquals("groovy-compiler-tooling-only", ClasspathLanePolicy.disposition(DependencyScope.TOOL_GROOVY));
+        assertEquals("kotlin-compiler-tooling-only", ClasspathLanePolicy.disposition(DependencyScope.TOOL_KOTLIN));
     }
 }

@@ -39,7 +39,7 @@ final class LockSbomAssemblerTest extends SbomTestSupport {
     }
 
     @Test
-    void includesGroovyCompilerAsOptionalToolingOnlyWhenSelected() {
+    void includesCompilerToolsAsOptionalToolingOnlyWhenSelected() {
         var groovy = maven(
                 "org.apache.groovy",
                 "groovy",
@@ -48,13 +48,26 @@ final class LockSbomAssemblerTest extends SbomTestSupport {
                 false,
                 SHA_B,
                 List.of());
+        var kotlin = maven(
+                "org.jetbrains.kotlin",
+                "kotlin-compiler-embeddable",
+                "2.2.0",
+                DependencyScope.TOOL_KOTLIN,
+                false,
+                SHA_A,
+                List.of());
 
-        SbomModel excluded = assemble(SbomScopeSelection.requiredOnly(), groovy);
-        SbomModel included = assemble(new SbomScopeSelection(false, false, false, true), groovy);
+        SbomModel excluded = assemble(SbomScopeSelection.requiredOnly(), groovy, kotlin);
+        SbomModel included = assemble(new SbomScopeSelection(false, false, false, true), groovy, kotlin);
 
         assertTrue(purls(excluded).isEmpty());
-        assertEquals(List.of("pkg:maven/org.apache.groovy/groovy@4.0.22?type=jar"), purls(included));
+        assertEquals(
+                List.of(
+                        "pkg:maven/org.apache.groovy/groovy@4.0.22?type=jar",
+                        "pkg:maven/org.jetbrains.kotlin/kotlin-compiler-embeddable@2.2.0?type=jar"),
+                purls(included));
         assertEquals(SbomComponentScope.OPTIONAL, scopeOf(included, "groovy"));
+        assertEquals(SbomComponentScope.OPTIONAL, scopeOf(included, "kotlin-compiler-embeddable"));
     }
 
     @Test

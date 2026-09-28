@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -30,6 +31,7 @@ final class DependencyScopeTest {
         assertEquals("tool-exec", names.get(DependencyScope.TOOL_EXEC));
         assertEquals("tool-coverage", names.get(DependencyScope.TOOL_COVERAGE));
         assertEquals("tool-groovy", names.get(DependencyScope.TOOL_GROOVY));
+        assertEquals("tool-kotlin", names.get(DependencyScope.TOOL_KOTLIN));
     }
 
     @Test
@@ -57,14 +59,15 @@ final class DependencyScopeTest {
         assertFalse(DependencyScope.TOOL_COVERAGE.entersMainCompileClasspath());
         assertFalse(DependencyScope.QUARKUS_DEPLOYMENT.packagedByDefault());
 
-        DependencyScope groovy = DependencyScope.TOOL_GROOVY;
-        assertFalse(groovy.entersMainCompileClasspath());
-        assertFalse(groovy.entersMainRuntimeClasspath());
-        assertFalse(groovy.entersTestCompileClasspath());
-        assertFalse(groovy.entersTestRuntimeClasspath());
-        assertFalse(groovy.entersMainProcessorClasspath());
-        assertFalse(groovy.entersTestProcessorClasspath());
-        assertFalse(groovy.packagedByDefault());
+        for (DependencyScope compiler : List.of(DependencyScope.TOOL_GROOVY, DependencyScope.TOOL_KOTLIN)) {
+            assertFalse(compiler.entersMainCompileClasspath());
+            assertFalse(compiler.entersMainRuntimeClasspath());
+            assertFalse(compiler.entersTestCompileClasspath());
+            assertFalse(compiler.entersTestRuntimeClasspath());
+            assertFalse(compiler.entersMainProcessorClasspath());
+            assertFalse(compiler.entersTestProcessorClasspath());
+            assertFalse(compiler.packagedByDefault());
+        }
     }
 
     @Test

@@ -85,6 +85,14 @@ final class ClasspathLaneAuditFormatterEnterpriseJsonTest {
                 "[\"tool-groovy\"]",
                 false,
                 "groovy-compiler-tooling-only");
+        assertPackageAuditContains(
+                output,
+                "org.jetbrains.kotlin:kotlin-compiler-embeddable:2.2.0",
+                "tool-kotlin",
+                true,
+                "[\"tool-kotlin\"]",
+                false,
+                "kotlin-compiler-tooling-only");
     }
 
     private static void assertPackageAuditContains(
@@ -266,6 +274,15 @@ final class ClasspathLaneAuditFormatterEnterpriseJsonTest {
                 scope = "tool-groovy"
                 direct = true
                 jar = "org/apache/groovy/groovy/4.0.22/groovy-4.0.22.jar"
+                dependencies = []
+
+                [[package]]
+                id = "org.jetbrains.kotlin:kotlin-compiler-embeddable"
+                version = "2.2.0"
+                source = "maven-central"
+                scope = "tool-kotlin"
+                direct = true
+                jar = "org/jetbrains/kotlin/kotlin-compiler-embeddable/2.2.0/kotlin-compiler-embeddable-2.2.0.jar"
                 dependencies = []
                 """);
     }

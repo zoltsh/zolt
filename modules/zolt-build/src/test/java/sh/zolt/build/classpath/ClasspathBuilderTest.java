@@ -181,12 +181,18 @@ final class ClasspathBuilderTest {
     }
 
     @Test
-    void groovyToolDependenciesAreExcludedFromApplicationClasspaths() {
-        ClasspathSet classpaths = builder.build(List.of(packageWithScope(
-                "org.apache.groovy",
-                "groovy",
-                "4.0.22",
-                DependencyScope.TOOL_GROOVY)));
+    void compilerToolDependenciesAreExcludedFromApplicationClasspaths() {
+        ClasspathSet classpaths = builder.build(List.of(
+                packageWithScope(
+                        "org.apache.groovy",
+                        "groovy",
+                        "4.0.22",
+                        DependencyScope.TOOL_GROOVY),
+                packageWithScope(
+                        "org.jetbrains.kotlin",
+                        "kotlin-compiler-embeddable",
+                        "2.2.0",
+                        DependencyScope.TOOL_KOTLIN)));
 
         assertEquals(List.of(), classpaths.compile().entries());
         assertEquals(List.of(), classpaths.runtime().entries());
@@ -196,6 +202,7 @@ final class ClasspathBuilderTest {
         assertEquals(List.of(), classpaths.testProcessor().entries());
         assertEquals(List.of(), classpaths.quarkusDeployment().entries());
         assertFalse(DependencyScope.TOOL_GROOVY.packagedByDefault());
+        assertFalse(DependencyScope.TOOL_KOTLIN.packagedByDefault());
     }
 
     @Test

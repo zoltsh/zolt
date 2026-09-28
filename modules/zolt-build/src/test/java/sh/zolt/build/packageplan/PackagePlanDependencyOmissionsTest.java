@@ -15,6 +15,7 @@ final class PackagePlanDependencyOmissionsTest {
         assertEquals("exec-tool-omitted", PackagePlanDependencyOmissions.rule(DependencyScope.TOOL_EXEC, false));
         assertEquals("coverage-tool-omitted", PackagePlanDependencyOmissions.rule(DependencyScope.TOOL_COVERAGE, false));
         assertEquals("groovy-tool-omitted", PackagePlanDependencyOmissions.rule(DependencyScope.TOOL_GROOVY, false));
+        assertEquals("kotlin-tool-omitted", PackagePlanDependencyOmissions.rule(DependencyScope.TOOL_KOTLIN, false));
     }
 
     @Test
@@ -36,5 +37,8 @@ final class PackagePlanDependencyOmissionsTest {
         assertEquals(
                 "Groovy compiler dependency is build-time tooling, not package runtime",
                 PackagePlanDependencyOmissions.reason(DependencyScope.TOOL_GROOVY, false));
+        assertEquals(
+                "Kotlin compiler dependency is build-time tooling, not package runtime",
+                PackagePlanDependencyOmissions.reason(DependencyScope.TOOL_KOTLIN, false));
     }
 }

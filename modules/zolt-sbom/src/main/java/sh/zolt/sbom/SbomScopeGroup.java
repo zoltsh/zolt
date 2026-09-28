@@ -37,7 +37,8 @@ public enum SbomScopeGroup {
                     TOOL_PROTOBUF,
                     TOOL_EXEC,
                     TOOL_COVERAGE,
-                    TOOL_GROOVY -> TOOLS;
+                    TOOL_GROOVY,
+                    TOOL_KOTLIN -> TOOLS;
         };
     }
 }

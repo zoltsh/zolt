@@ -14,7 +14,8 @@ public enum DependencyScope {
     TOOL_PROTOBUF(false, false, false, false, false, false, "tool-protobuf"),
     TOOL_EXEC(false, false, false, false, false, false, "tool-exec"),
     TOOL_COVERAGE(false, false, false, false, false, false, "tool-coverage"),
-    TOOL_GROOVY(false, false, false, false, false, false, "tool-groovy");
+    TOOL_GROOVY(false, false, false, false, false, false, "tool-groovy"),
+    TOOL_KOTLIN(false, false, false, false, false, false, "tool-kotlin");
 
     private final boolean mainCompileClasspath;
     private final boolean mainRuntimeClasspath;

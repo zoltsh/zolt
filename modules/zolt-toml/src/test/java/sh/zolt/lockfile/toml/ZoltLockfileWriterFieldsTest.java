@@ -1,5 +1,6 @@
 package sh.zolt.lockfile.toml;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.dependency.DependencyLane;
@@ -23,7 +24,8 @@ final class ZoltLockfileWriterFieldsTest {
                         lockPackage("com.example", "test-processor", "1.0.0", DependencyScope.TEST_PROCESSOR, true, Optional.empty(), Optional.empty(), List.of()),
                         lockPackage("io.quarkus", "quarkus-rest-deployment", "3.33.0", DependencyScope.QUARKUS_DEPLOYMENT, false, Optional.empty(), Optional.empty(), List.of()),
                         lockPackage("org.jacoco", "org.jacoco.cli", "0.8.14", DependencyScope.TOOL_COVERAGE, false, Optional.empty(), Optional.empty(), List.of()),
-                        lockPackage("org.apache.groovy", "groovy", "4.0.22", DependencyScope.TOOL_GROOVY, true, Optional.empty(), Optional.empty(), List.of())));
+                        lockPackage("org.apache.groovy", "groovy", "4.0.22", DependencyScope.TOOL_GROOVY, true, Optional.empty(), Optional.empty(), List.of()),
+                        lockPackage("org.jetbrains.kotlin", "kotlin-compiler-embeddable", "2.2.0", DependencyScope.TOOL_KOTLIN, true, Optional.empty(), Optional.empty(), List.of())));
 
         String output = writer.write(lockfile);
 
@@ -32,6 +34,14 @@ final class ZoltLockfileWriterFieldsTest {
         assertTrue(output.contains("scope = \"quarkus-deployment\""));
         assertTrue(output.contains("scope = \"tool-coverage\""));
         assertTrue(output.contains("scope = \"tool-groovy\""));
+        assertTrue(output.contains("scope = \"tool-kotlin\""));
+        assertEquals(
+                DependencyScope.TOOL_KOTLIN,
+                new ZoltLockfileReader().read(output).packages().stream()
+                        .filter(lockPackage -> lockPackage.packageId().artifactId().equals("kotlin-compiler-embeddable"))
+                        .findFirst()
+                        .orElseThrow()
+                        .scope());
     }
 
     @Test
