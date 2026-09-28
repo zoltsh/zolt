@@ -37,9 +37,23 @@ public final class MainCompileSourceExecutor {
             GroovyCompilerRunner groovyCompilerRunner,
             IncrementalCompileStateRecorder incrementalCompileStateRecorder,
             IncrementalCompilePlanner incrementalCompilePlanner) {
+        this(
+                javacRunner,
+                groovyCompilerRunner,
+                new KotlinCompilerRunner(),
+                incrementalCompileStateRecorder,
+                incrementalCompilePlanner);
+    }
+
+    MainCompileSourceExecutor(
+            JavacRunner javacRunner,
+            GroovyCompilerRunner groovyCompilerRunner,
+            KotlinCompilerRunner kotlinCompilerRunner,
+            IncrementalCompileStateRecorder incrementalCompileStateRecorder,
+            IncrementalCompilePlanner incrementalCompilePlanner) {
         this.javacRunner = javacRunner;
         this.mainLanguageCompileExecutor = new MainLanguageCompileExecutor(
-                groovyCompilerRunner, incrementalCompileStateRecorder);
+                groovyCompilerRunner, kotlinCompilerRunner, incrementalCompileStateRecorder);
         this.incrementalCompileStateRecorder = incrementalCompileStateRecorder;
         this.incrementalCompilePlanner = incrementalCompilePlanner;
         this.incrementalJavacExecution = new IncrementalJavacExecution(javacRunner, incrementalCompilePlanner);
@@ -64,7 +78,7 @@ public final class MainCompileSourceExecutor {
                 outputDirectory,
                 generatedSourcesDirectory,
                 jdkStatus,
-                null);
+                (GroovyCompilerToolchain) null);
     }
 
     public Attempt compile(
@@ -110,7 +124,7 @@ public final class MainCompileSourceExecutor {
                 outputDirectory,
                 generatedSourcesDirectory,
                 jdkStatus,
-                null);
+                (GroovyCompilerToolchain) null);
     }
 
     public Attempt compile(
@@ -124,8 +138,32 @@ public final class MainCompileSourceExecutor {
             Path generatedSourcesDirectory,
             JdkStatus jdkStatus,
             GroovyCompilerToolchain groovyToolchain) {
+        return compile(
+                compileSkipped,
+                fingerprintMissReason,
+                projectDirectory,
+                config,
+                sources,
+                classpaths,
+                outputDirectory,
+                generatedSourcesDirectory,
+                jdkStatus,
+                mainLanguageCompileExecutor.legacyToolchain(sources, groovyToolchain));
+    }
+
+    public Attempt compile(
+            boolean compileSkipped,
+            String fingerprintMissReason,
+            Path projectDirectory,
+            ProjectConfig config,
+            SourceDiscoveryResult sources,
+            ClasspathSet classpaths,
+            Path outputDirectory,
+            Path generatedSourcesDirectory,
+            JdkStatus jdkStatus,
+            MainCompilerToolchain compilerToolchain) {
         MainLanguageCompileExecutor.Plan languagePlan = mainLanguageCompileExecutor.preflight(
-                config, sources, classpaths, jdkStatus, groovyToolchain);
+                config, sources, classpaths, jdkStatus, compilerToolchain);
         if (compileSkipped) {
             return new Attempt(
                     new JavacResult(sources.allMainSources().size(), outputDirectory, ""),
@@ -197,7 +235,7 @@ public final class MainCompileSourceExecutor {
             SourceDiscoveryResult sources,
             ClasspathSet classpaths,
             JdkStatus jdkStatus) {
-        preflight(config, sources, classpaths, jdkStatus, null);
+        preflight(config, sources, classpaths, jdkStatus, (GroovyCompilerToolchain) null);
     }
 
     /** Validates Groovy policy and tool identity before reuse or output mutation. */
@@ -207,8 +245,23 @@ public final class MainCompileSourceExecutor {
             ClasspathSet classpaths,
             JdkStatus jdkStatus,
             GroovyCompilerToolchain groovyToolchain) {
+        preflight(
+                config,
+                sources,
+                classpaths,
+                jdkStatus,
+                mainLanguageCompileExecutor.legacyToolchain(sources, groovyToolchain));
+    }
+
+    /** Validates the selected main compiler before reuse or output mutation. */
+    public void preflight(
+            ProjectConfig config,
+            SourceDiscoveryResult sources,
+            ClasspathSet classpaths,
+            JdkStatus jdkStatus,
+            MainCompilerToolchain compilerToolchain) {
         mainLanguageCompileExecutor.preflight(
-                config, sources, classpaths, jdkStatus, groovyToolchain);
+                config, sources, classpaths, jdkStatus, compilerToolchain);
     }
 
     static Attempt withPlatformApiWarning(Attempt attempt, String warning) {

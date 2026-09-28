@@ -1,0 +1,284 @@
+package sh.zolt.build.compile;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import sh.zolt.build.KotlinCompileException;
+import sh.zolt.build.discovery.SourceDiscoveryResult;
+import sh.zolt.build.incremental.IncrementalCompilePlanner;
+import sh.zolt.build.incremental.IncrementalCompileStateRecorder;
+import sh.zolt.classpath.Classpath;
+import sh.zolt.classpath.ClasspathSet;
+import sh.zolt.doctor.JdkStatus;
+import sh.zolt.project.BuildSettings;
+import sh.zolt.project.ProjectConfig;
+import sh.zolt.project.ProjectConfigs;
+import sh.zolt.project.ProjectMetadata;
+
+final class MainCompileSourceExecutorKotlinTest {
+    @TempDir
+    private Path projectDir;
+
+    @Test
+    void skippedKotlinCompileCountsSourcesWithoutLaunchingCompiler() {
+        KotlinCompilerRunner runner = runnerThatMustNotRun();
+        SourceDiscoveryResult sources = sources(
+                List.of(),
+                List.of(projectDir.resolve("src/main/java/com/example/Main.kt")));
+
+        MainCompileSourceExecutor.Attempt result = executor(runner).compile(
+                true,
+                "fingerprint-match",
+                projectDir,
+                config(),
+                sources,
+                classpaths(List.of(), List.of()),
+                projectDir.resolve("target/classes"),
+                projectDir.resolve("target/generated/sources/annotations"),
+                jdkStatus(),
+                selection());
+
+        assertEquals(1, result.sourceCount());
+        assertEquals("skipped", result.mode());
+        assertEquals(List.of(), result.compiledSources());
+    }
+
+    @Test
+    void compilesKotlinWithIsolatedToolchainAfterResettingOwnedOutputs() throws IOException {
+        Path first = source("src/main/java/com/example/Zed.kt", "class Zed");
+        Path second = source("src/main/java/com/example/Alpha.kt", "class Alpha");
+        Path output = projectDir.resolve("target/classes");
+        Path generated = projectDir.resolve("target/generated/sources/annotations");
+        Path staleClass = output.resolve("com/example/Stale.class");
+        Path staleState = output.resolve(".zolt-incremental-main.state");
+        Path staleGenerated = generated.resolve("com/example/Stale.java");
+        Files.createDirectories(staleClass.getParent());
+        Files.createDirectories(staleGenerated.getParent());
+        Files.write(staleClass, new byte[] {1});
+        Files.writeString(staleState, "stale");
+        Files.writeString(staleGenerated, "class Stale {}");
+        List<List<String>> commands = new ArrayList<>();
+        KotlinCompilerRunner runner = new KotlinCompilerRunner(":", command -> {
+            assertFalse(Files.exists(staleClass));
+            assertFalse(Files.exists(staleState));
+            assertFalse(Files.exists(staleGenerated));
+            commands.add(command);
+            return new KotlinCompilerRunner.ProcessResult(0, "compiled kotlin\n");
+        });
+        SourceDiscoveryResult sources = sources(List.of(), List.of(first, second));
+        Path applicationJar = projectDir.resolve("cache/application.jar");
+
+        MainCompileSourceExecutor.Attempt result = executor(runner).compile(
+                false,
+                "source-changed",
+                projectDir,
+                config(),
+                sources,
+                classpaths(List.of(applicationJar), List.of()),
+                output,
+                generated,
+                jdkStatus(),
+                selection());
+
+        assertEquals(2, result.sourceCount());
+        assertEquals("full", result.mode());
+        assertEquals("kotlin-main-sources", result.fallbackReason());
+        assertEquals(2, result.diagnostics().sourcesRecompiled());
+        assertFalse(result.attribution().present());
+        assertEquals(List.of(first, second), result.compiledSources());
+        assertEquals("compiled kotlin\n", result.output());
+        List<String> command = commands.getFirst();
+        assertEquals("/managed-jdk/bin/java", command.getFirst());
+        assertEquals(
+                launcherEntries().stream().map(Path::toString).reduce((left, right) -> left + ":" + right).orElseThrow(),
+                command.get(command.indexOf("-cp") + 1));
+        assertEquals(applicationJar.toString(), command.get(command.indexOf("-classpath") + 1));
+        assertEquals("/managed-jdk", command.get(command.indexOf("-jdk-home") + 1));
+        assertTrue(command.contains("-Xjdk-release=21"));
+        assertEquals(first.toString(), command.getLast());
+        assertTrue(command.indexOf(second.toString()) < command.indexOf(first.toString()));
+    }
+
+    @Test
+    void rejectsMissingToolchainBeforeMutatingOutput() throws IOException {
+        Path output = outputWithStaleClass();
+        Path kotlin = source("src/main/java/com/example/Main.kt", "class Main");
+
+        KotlinCompileException exception = assertThrows(
+                KotlinCompileException.class,
+                () -> executor(runnerThatMustNotRun()).compile(
+                        false,
+                        projectDir,
+                        config(),
+                        sources(List.of(), List.of(kotlin)),
+                        classpaths(List.of(), List.of()),
+                        output,
+                        projectDir.resolve("target/generated/sources/annotations"),
+                        jdkStatus()));
+
+        assertTrue(exception.getMessage().contains("checksum-verified compiler toolchain"));
+        assertTrue(Files.exists(output.resolve("com/example/StillHere.class")));
+    }
+
+    @Test
+    void rejectsMixedJavaAndKotlinBeforeMutatingOutput() throws IOException {
+        Path output = outputWithStaleClass();
+        Path java = source("src/main/java/com/example/JavaApi.java", "class JavaApi {}");
+        Path kotlin = source("src/main/java/com/example/Main.kt", "class Main");
+
+        KotlinCompileException exception = assertThrows(
+                KotlinCompileException.class,
+                () -> executor(runnerThatMustNotRun()).compile(
+                        false,
+                        "source-changed",
+                        projectDir,
+                        config(),
+                        sources(List.of(java), List.of(kotlin)),
+                        classpaths(List.of(), List.of()),
+                        output,
+                        projectDir.resolve("target/generated/sources/annotations"),
+                        jdkStatus(),
+                        selection()));
+
+        assertTrue(exception.getMessage().contains("also contains Java"));
+        assertTrue(Files.exists(output.resolve("com/example/StillHere.class")));
+    }
+
+    @Test
+    void rejectsProcessorsBeforeMutatingOutput() throws IOException {
+        Path output = outputWithStaleClass();
+        Path kotlin = source("src/main/java/com/example/Main.kt", "class Main");
+
+        KotlinCompileException exception = assertThrows(
+                KotlinCompileException.class,
+                () -> executor(runnerThatMustNotRun()).compile(
+                        false,
+                        "source-changed",
+                        projectDir,
+                        config(),
+                        sources(List.of(), List.of(kotlin)),
+                        classpaths(List.of(), List.of(projectDir.resolve("cache/processor.jar"))),
+                        output,
+                        projectDir.resolve("target/generated/sources/annotations"),
+                        jdkStatus(),
+                        selection()));
+
+        assertTrue(exception.getMessage().contains("[dependencies.processor]"));
+        assertTrue(Files.exists(output.resolve("com/example/StillHere.class")));
+    }
+
+    @Test
+    void compilerFailurePreservesExitCodeAndDiagnostics() throws IOException {
+        Path kotlin = source("src/main/java/com/example/Main.kt", "class Main");
+        KotlinCompilerRunner runner = new KotlinCompilerRunner(":", command ->
+                new KotlinCompilerRunner.ProcessResult(2, "compiler diagnostics\n"));
+
+        KotlinCompileException exception = assertThrows(
+                KotlinCompileException.class,
+                () -> executor(runner).compile(
+                        false,
+                        "source-changed",
+                        projectDir,
+                        config(),
+                        sources(List.of(), List.of(kotlin)),
+                        classpaths(List.of(), List.of()),
+                        projectDir.resolve("target/classes"),
+                        projectDir.resolve("target/generated/sources/annotations"),
+                        jdkStatus(),
+                        selection()));
+
+        assertTrue(exception.getMessage().contains("exit code 2"));
+        assertTrue(exception.getMessage().contains("compiler diagnostics"));
+    }
+
+    private MainCompileSourceExecutor executor(KotlinCompilerRunner runner) {
+        return new MainCompileSourceExecutor(
+                new JavacRunner(),
+                new GroovyCompilerRunner(),
+                runner,
+                new IncrementalCompileStateRecorder(),
+                new IncrementalCompilePlanner());
+    }
+
+    private KotlinCompilerRunner runnerThatMustNotRun() {
+        return new KotlinCompilerRunner(":", command -> {
+            throw new AssertionError("Kotlin compiler must not run");
+        });
+    }
+
+    private MainCompilerToolchain selection() {
+        return MainCompilerToolchain.kotlin(new KotlinCompilerToolchain(
+                "2.2.0",
+                "a".repeat(64),
+                launcherEntries(),
+                "sha256:" + "b".repeat(64)));
+    }
+
+    private List<Path> launcherEntries() {
+        return List.of(
+                projectDir.resolve("verified/kotlin-compiler-embeddable.jar").toAbsolutePath().normalize(),
+                projectDir.resolve("verified/kotlin-daemon-embeddable.jar").toAbsolutePath().normalize());
+    }
+
+    private Path outputWithStaleClass() throws IOException {
+        Path output = projectDir.resolve("target/classes");
+        Path stale = output.resolve("com/example/StillHere.class");
+        Files.createDirectories(stale.getParent());
+        Files.write(stale, new byte[] {1});
+        return output;
+    }
+
+    private Path source(String relativePath, String content) throws IOException {
+        Path source = projectDir.resolve(relativePath);
+        Files.createDirectories(source.getParent());
+        Files.writeString(source, content);
+        return source;
+    }
+
+    private static SourceDiscoveryResult sources(List<Path> java, List<Path> kotlin) {
+        return new SourceDiscoveryResult(java, List.of(), kotlin, List.of(), List.of(), List.of());
+    }
+
+    private static ProjectConfig config() {
+        return ProjectConfigs.withDirectDependencies(
+                new ProjectMetadata(
+                        "demo", "0.1.0", "com.example", "21", Optional.of("com.example.Main")),
+                ProjectConfig.defaultRepositories(),
+                Map.of(),
+                Map.of(),
+                BuildSettings.defaults());
+    }
+
+    private static ClasspathSet classpaths(List<Path> compileEntries, List<Path> processorEntries) {
+        Classpath empty = new Classpath(List.of());
+        return new ClasspathSet(
+                new Classpath(compileEntries),
+                empty,
+                empty,
+                empty,
+                new Classpath(processorEntries),
+                empty,
+                empty);
+    }
+
+    private static JdkStatus jdkStatus() {
+        return new JdkStatus(
+                Optional.of(Path.of("/managed-jdk")),
+                Optional.of(Path.of("/managed-jdk/bin/java")),
+                Optional.of(Path.of("/managed-jdk/bin/javac")),
+                Optional.of(Path.of("/managed-jdk/bin/jar")),
+                Optional.of("21.0.11"),
+                "21");
+    }
+}

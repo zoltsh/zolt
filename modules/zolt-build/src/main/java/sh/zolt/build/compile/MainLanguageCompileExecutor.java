@@ -4,6 +4,7 @@ import java.nio.file.Path;
 import java.util.List;
 import sh.zolt.build.CompileDiagnostics;
 import sh.zolt.build.GroovyCompileException;
+import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.build.incremental.GeneratedOutputAttribution;
 import sh.zolt.build.incremental.IncrementalCompileStateRecorder;
@@ -14,13 +15,28 @@ import sh.zolt.project.ProjectConfig;
 /** Preflights and executes non-javac main-language compilation. */
 final class MainLanguageCompileExecutor {
     private final GroovyCompilerRunner groovyCompilerRunner;
+    private final KotlinCompilerRunner kotlinCompilerRunner;
     private final IncrementalCompileStateRecorder incrementalCompileStateRecorder;
 
     MainLanguageCompileExecutor(
             GroovyCompilerRunner groovyCompilerRunner,
+            KotlinCompilerRunner kotlinCompilerRunner,
             IncrementalCompileStateRecorder incrementalCompileStateRecorder) {
         this.groovyCompilerRunner = groovyCompilerRunner;
+        this.kotlinCompilerRunner = kotlinCompilerRunner;
         this.incrementalCompileStateRecorder = incrementalCompileStateRecorder;
+    }
+
+    MainCompilerToolchain legacyToolchain(
+            SourceDiscoveryResult sources,
+            GroovyCompilerToolchain groovyToolchain) {
+        if (!sources.groovyMainSources().isEmpty()) {
+            return groovyToolchain == null ? null : MainCompilerToolchain.groovy(groovyToolchain);
+        }
+        if (!sources.kotlinMainSources().isEmpty()) {
+            return null;
+        }
+        return MainCompilerToolchain.javaOnly();
     }
 
     Plan preflight(
@@ -28,11 +44,22 @@ final class MainLanguageCompileExecutor {
             SourceDiscoveryResult sources,
             ClasspathSet classpaths,
             JdkStatus jdkStatus,
-            GroovyCompilerToolchain groovyToolchain) {
-        GroovyCompilerRunner.JointOptions options = groovyOptions(
-                config, sources, classpaths, jdkStatus);
-        requireGroovyToolchain(options, groovyToolchain);
-        return new Plan(options, groovyToolchain);
+            MainCompilerToolchain toolchain) {
+        if (!sources.kotlinMainSources().isEmpty()) {
+            KotlinCompilerRunner.Options options = KotlinMainCompilePolicy.options(
+                    config, sources, classpaths, jdkStatus);
+            return Plan.kotlin(options, requireKotlinToolchain(toolchain));
+        }
+        if (!sources.groovyMainSources().isEmpty()) {
+            GroovyCompilerRunner.JointOptions options = GroovyJointCompilePolicy.options(
+                    config, sources.allMainSources(), classpaths, jdkStatus);
+            return Plan.groovy(options, requireGroovyToolchain(toolchain));
+        }
+        if (toolchain != null && toolchain.language() != MainCompilerToolchain.Language.JAVA) {
+            throw new IllegalArgumentException(
+                    "Main compiler selection does not match the discovered Java-only main source set.");
+        }
+        return Plan.javaOnly();
     }
 
     MainCompileSourceExecutor.Attempt compile(
@@ -48,58 +75,98 @@ final class MainLanguageCompileExecutor {
             throw new IllegalArgumentException(
                     "Main language compilation requires an active preflight plan.");
         }
-        List<Path> allSources = sources.allMainSources();
+        List<Path> compiledSources = plan.kotlin()
+                ? sources.kotlinMainSources()
+                : sources.allMainSources();
+        boolean hostPlatformApi = plan.kotlin()
+                ? plan.kotlinOptions().hostPlatformApi()
+                : plan.groovyOptions().hostPlatformApi();
         String platformApiWarning = CompilerPlatformApi.determinismWarning(
-                plan.groovyOptions().hostPlatformApi(), "main", jdkStatus);
+                hostPlatformApi, "main", jdkStatus);
         incrementalCompileStateRecorder.deleteMainState(outputDirectory);
         CompileOutputCleaner.resetMain(
                 projectDirectory, config, outputDirectory, generatedSourcesDirectory);
-        JavacResult result = groovyCompilerRunner.compileJoint(
-                jdkStatus.java().orElseThrow(),
-                allSources,
-                plan.groovyToolchain().launcherClasspath(),
-                classpaths.compile(),
-                outputDirectory,
-                plan.groovyOptions());
+        JavacResult result = plan.kotlin()
+                ? kotlinCompilerRunner.compile(
+                        jdkStatus.java().orElseThrow(),
+                        jdkStatus.javaHome().orElseThrow(),
+                        compiledSources,
+                        plan.kotlinToolchain().launcherClasspath(),
+                        classpaths.compile(),
+                        outputDirectory,
+                        plan.kotlinOptions())
+                : groovyCompilerRunner.compileJoint(
+                        jdkStatus.java().orElseThrow(),
+                        compiledSources,
+                        plan.groovyToolchain().launcherClasspath(),
+                        classpaths.compile(),
+                        outputDirectory,
+                        plan.groovyOptions());
+        String fallbackReason = plan.kotlin() ? "kotlin-main-sources" : "groovy-main-sources";
         return MainCompileSourceExecutor.withPlatformApiWarning(
                 new MainCompileSourceExecutor.Attempt(
                         result,
                         "full",
-                        "groovy-main-sources",
-                        CompileDiagnostics.legacy(allSources.size(), false),
+                        fallbackReason,
+                        CompileDiagnostics.legacy(compiledSources.size(), false),
                         GeneratedOutputAttribution.absent(),
-                        allSources),
+                        compiledSources),
                 platformApiWarning);
     }
 
-    private static GroovyCompilerRunner.JointOptions groovyOptions(
-            ProjectConfig config,
-            SourceDiscoveryResult sources,
-            ClasspathSet classpaths,
-            JdkStatus jdkStatus) {
-        if (sources.groovyMainSources().isEmpty()) {
-            return null;
-        }
-        return GroovyJointCompilePolicy.options(
-                config, sources.allMainSources(), classpaths, jdkStatus);
-    }
-
-    private static void requireGroovyToolchain(
-            GroovyCompilerRunner.JointOptions options,
-            GroovyCompilerToolchain groovyToolchain) {
-        if (options != null && groovyToolchain == null) {
+    private static GroovyCompilerToolchain requireGroovyToolchain(
+            MainCompilerToolchain toolchain) {
+        if (toolchain == null
+                || toolchain.language() != MainCompilerToolchain.Language.GROOVY
+                || toolchain.groovyToolchain().isEmpty()) {
             throw new GroovyCompileException(
                     "Groovy main compilation requires a checksum-verified compiler toolchain before "
                             + "cached output can be reused or compile output can be cleaned. Resolve verified "
                             + "org.apache.groovy:groovy package metadata and retry.");
         }
+        return toolchain.groovyToolchain().orElseThrow();
+    }
+
+    private static KotlinCompilerToolchain requireKotlinToolchain(
+            MainCompilerToolchain toolchain) {
+        if (toolchain == null
+                || toolchain.language() != MainCompilerToolchain.Language.KOTLIN
+                || toolchain.kotlinToolchain().isEmpty()) {
+            throw new KotlinCompileException(
+                    "Kotlin main compilation requires a checksum-verified compiler toolchain before "
+                            + "cached output can be reused or compile output can be cleaned. Resolve verified "
+                            + KotlinCompilerToolchain.COORDINATE + " package metadata and retry.");
+        }
+        return toolchain.kotlinToolchain().orElseThrow();
     }
 
     record Plan(
             GroovyCompilerRunner.JointOptions groovyOptions,
-            GroovyCompilerToolchain groovyToolchain) {
+            GroovyCompilerToolchain groovyToolchain,
+            KotlinCompilerRunner.Options kotlinOptions,
+            KotlinCompilerToolchain kotlinToolchain) {
+        static Plan javaOnly() {
+            return new Plan(null, null, null, null);
+        }
+
+        static Plan groovy(
+                GroovyCompilerRunner.JointOptions options,
+                GroovyCompilerToolchain toolchain) {
+            return new Plan(options, toolchain, null, null);
+        }
+
+        static Plan kotlin(
+                KotlinCompilerRunner.Options options,
+                KotlinCompilerToolchain toolchain) {
+            return new Plan(null, null, options, toolchain);
+        }
+
         boolean active() {
-            return groovyOptions != null;
+            return groovyOptions != null || kotlinOptions != null;
+        }
+
+        boolean kotlin() {
+            return kotlinOptions != null;
         }
     }
 }
