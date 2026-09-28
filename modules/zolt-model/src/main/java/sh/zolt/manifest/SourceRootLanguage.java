@@ -5,19 +5,18 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * The languages and platforms Zolt does not build, recognized from a source-root path.
+ * Languages and platforms that require source-root admission checks.
  *
- * <p>Zolt jointly compiles Java and Groovy main sources and separately compiles configured Groovy
- * test sources. A Kotlin, Scala, or Android root would be silently ignored by the compiler pipeline,
- * so §10.1 requires an authored one to fail actionably at the parse boundary. The same recognizer
- * serves migration drafting, which keeps such a root as a review note instead of emitting a manifest
- * that cannot parse.
+ * <p>Kotlin is admitted only for explicitly authored main roots. Kotlin test/integration roots,
+ * Scala, and Android still fail at the parse boundary. The all-language recognizer also serves
+ * migration drafting, which keeps Kotlin roots as review notes until automatic migration is ready.
  */
 public enum SourceRootLanguage {
     KOTLIN(
             "Kotlin",
-            "Kotlin is not supported in the public beta. Use Java source roots such as src/main/java,"
-                    + " or keep Kotlin modules outside the Zolt beta scope."),
+            "Kotlin is supported only for explicitly authored main roots in [build].sources during"
+                    + " the preview. Kotlin test and integration roots and automatic migration are"
+                    + " not supported yet."),
     SCALA(
             "Scala",
             "Scala is not supported in the public beta. Use Java source roots such as src/main/java,"
@@ -35,11 +34,35 @@ public enum SourceRootLanguage {
         this.remedy = remedy;
     }
 
-    /** The unsupported language a source root names, or empty when Zolt can build the root. */
+    /** A restricted language a source root names, including Kotlin for migration readiness checks. */
     public static Optional<SourceRootLanguage> unsupported(String root) {
         Objects.requireNonNull(root, "Source root must not be null.");
+        return recognized(root, true);
+    }
+
+    /** The authored main root, admitting Kotlin while still rejecting Scala and Android. */
+    public static ManifestRelativePath requireMainSupported(ManifestRelativePath root) {
+        return requireSupported(root, false);
+    }
+
+    /** The authored source root, or an actionable failure naming the unsupported language. */
+    public static ManifestRelativePath requireSupported(ManifestRelativePath root) {
+        return requireSupported(root, true);
+    }
+
+    private static ManifestRelativePath requireSupported(
+            ManifestRelativePath root,
+            boolean rejectKotlin) {
+        Objects.requireNonNull(root, "Source root must not be null.");
+        recognized(root.value(), rejectKotlin).ifPresent(language -> {
+            throw new IllegalArgumentException(language.rejection(root.value()));
+        });
+        return root;
+    }
+
+    private static Optional<SourceRootLanguage> recognized(String root, boolean includeKotlin) {
         String normalized = root.replace('\\', '/').toLowerCase(Locale.ROOT);
-        if (hasPathSegment(normalized, "kotlin") || normalized.endsWith(".kt")) {
+        if (includeKotlin && (hasPathSegment(normalized, "kotlin") || normalized.endsWith(".kt"))) {
             return Optional.of(KOTLIN);
         }
         if (hasPathSegment(normalized, "scala") || normalized.endsWith(".scala")) {
@@ -49,15 +72,6 @@ public enum SourceRootLanguage {
             return Optional.of(ANDROID);
         }
         return Optional.empty();
-    }
-
-    /** The authored source root, or an actionable failure naming the unsupported language. */
-    public static ManifestRelativePath requireSupported(ManifestRelativePath root) {
-        Objects.requireNonNull(root, "Source root must not be null.");
-        unsupported(root.value()).ifPresent(language -> {
-            throw new IllegalArgumentException(language.rejection(root.value()));
-        });
-        return root;
     }
 
     public String label() {

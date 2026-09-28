@@ -129,14 +129,23 @@ final class ManifestBuildDecoderTest {
     }
 
     private static List<Arguments> unsupportedSourceRoots() {
-        String java = "Use Java source roots such as src/main/java";
         return List.of(
-                Arguments.of("src/main/kotlin", "Kotlin", java),
-                Arguments.of("kotlin", "Kotlin", java),
-                Arguments.of("modules/core/src/main/KOTLIN", "Kotlin", java),
-                Arguments.of("src/main/scala", "Scala", java),
+                Arguments.of("src/main/scala", "Scala", "Use Java source roots such as src/main/java"),
                 Arguments.of("src/android/java", "Android", "Use normal Java application source roots"),
                 Arguments.of("android/src/main/java", "Android", "keep Android modules outside"));
+    }
+
+    @Test
+    void acceptsExplicitKotlinMainRootsWithoutChangingTheJavaConvention() {
+        AuthoredBuild build = decode("""
+                [build]
+                sources = ["src/main/kotlin", "src/shared/java"]
+                """).orElseThrow();
+
+        assertEquals(
+                List.of(path("src/main/kotlin"), path("src/shared/java")),
+                build.sources());
+        assertTrue(decode("").isEmpty(), "omission must keep applying model defaults");
     }
 
     @Test

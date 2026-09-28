@@ -95,16 +95,13 @@ public final class IncrementalCompileStateRecorder {
             GeneratedOutputAttribution attribution,
             List<Path> compiledSources) {
         List<String> fallbackReasons = new ArrayList<>(processorFallbackReasons(classpaths.processor()));
-        if (!sources.groovyMainSources().isEmpty()) {
-            fallbackReasons.add("groovy-main-sources");
-        }
+        fallbackReasons.addAll(IncrementalCompileLanguageFallbacks.main(sources));
         record(
                 "main",
                 projectDirectory,
                 config,
-                // Source-record extraction is deliberately Java-specific. The fallback marker keeps
-                // this state out of selective compilation while class records still summarize every
-                // Java or Groovy class emitted into the output directory.
+                // Language fallback markers keep non-Java state out of selective compilation while
+                // class records still summarize every emitted class.
                 sources.mainSources(),
                 config.build().sourceRoots(),
                 config.build().generatedMainSources(),

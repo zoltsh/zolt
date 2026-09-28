@@ -119,7 +119,7 @@ final class ManifestTestsDecoderTest {
                 "[test.sources]\njava = [\"src/test/kotlin\"]\n",
                 "`test.sources.java[0]`",
                 "Unsupported Kotlin source root `src/test/kotlin`",
-                "keep Kotlin modules outside the Zolt beta scope");
+                "only for explicitly authored main roots in [build].sources");
         assertFailure(
                 "[test.sources]\ngroovy = [\"src/test/scala\"]\n",
                 "`test.sources.groovy[0]`",
@@ -128,6 +128,11 @@ final class ManifestTestsDecoderTest {
                 "[test.integration]\nsources = [\"src/android/integration-test\"]\n",
                 "`test.integration.sources[0]`",
                 "Unsupported Android source root");
+        assertFailure(
+                "[test.integration]\nsources = [\"src/integration-test/kotlin\"]\n",
+                "`test.integration.sources[0]`",
+                "Unsupported Kotlin source root",
+                "automatic migration are not supported yet");
     }
 
     @Test

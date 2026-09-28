@@ -32,7 +32,7 @@ final class BuildServiceKotlinSourcePolicyTest {
     private Path projectDir;
 
     @Test
-    void failsBeforeBuildCacheReuseOrOwnedOutputCleanup() throws IOException {
+    void legacyApiFailsBeforeBuildCacheReuseOrOwnedOutputCleanup() throws IOException {
         Path kotlin = projectDir.resolve("src/main/java/com/example/Main.kt");
         Path staleClass = projectDir.resolve("target/classes/stale/Existing.class");
         Path cacheMarker = projectDir.resolve("build-cache/do-not-touch.marker");
@@ -53,7 +53,8 @@ final class BuildServiceKotlinSourcePolicyTest {
                             .build(projectDir, config(), emptyClasspaths()));
 
             assertEquals(
-                    "Zolt recognized Kotlin main sources, but Kotlin compilation is not available yet.",
+                    "Kotlin main compilation requires verified resolved package metadata, which the legacy "
+                            + "BuildService.build(project, config, ClasspathSet) API does not provide.",
                     exception.actionableError().summary());
             assertEquals(0, remote.requestCount());
             assertArrayEquals(new byte[] {1, 2, 3}, Files.readAllBytes(staleClass));

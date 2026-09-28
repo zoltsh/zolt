@@ -52,9 +52,9 @@ final class InspectionBuildSettingsMapper {
         testRoots = distinct(testRoots);
         if (mainRoots.isEmpty()) {
             notes.add(unsupported(sourceRoots)
-                    ? "Every audited main source root names a language Zolt cannot build; the draft"
-                            + " keeps the Zolt convention `src/main/java`. Migrate a plain Java module"
-                            + " first, then set [build].sources to its real source root."
+                    ? "Every audited main source root requires manual migration review; the draft"
+                            + " keeps the Zolt convention `src/main/java`. Follow the language-specific"
+                            + " guidance above before setting [build].sources."
                     : "No main source root was found by the static audit; the draft keeps the Zolt"
                             + " convention `src/main/java`. Set [build].sources to the real source root"
                             + " before building.");
@@ -119,7 +119,7 @@ final class InspectionBuildSettingsMapper {
         return conventional(roots, convention) ? List.of() : roots;
     }
 
-    /** Whether the audit found roots, but only for languages Zolt cannot build. */
+    /** Whether the audit found roots that automatic migration is not ready to author. */
     private static boolean unsupported(List<String> roots) {
         return roots != null && roots.stream()
                 .filter(root -> root != null && !root.isBlank())
@@ -144,10 +144,9 @@ final class InspectionBuildSettingsMapper {
             String root = value.strip();
             Optional<SourceRootLanguage> unsupported = SourceRootLanguage.unsupported(root);
             if (unsupported.isPresent()) {
-                // Emitting the root would produce a manifest the parser rejects (design §10.1), so the
-                // audited reality is carried as review data instead.
+                // Migration remains conservative even where an explicitly authored main root is legal.
                 notes.add("The static audit reported " + subject + " at `" + root + "`, which Zolt"
-                        + " cannot build: " + unsupported.orElseThrow().remedy());
+                        + " cannot migrate automatically: " + unsupported.orElseThrow().remedy());
                 continue;
             }
             try {

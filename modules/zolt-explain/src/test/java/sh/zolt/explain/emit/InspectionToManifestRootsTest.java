@@ -99,24 +99,26 @@ final class InspectionToManifestRootsTest {
 
         DraftZoltToml draft = mapper.fromMaven(new MavenStaticProjectInspector().inspect(tempDir));
 
-        // §10.1 rejects Kotlin roots, so drafting one would emit a manifest Zolt cannot parse. The
-        // audited reality survives as review data instead.
+        // Kotlin migration readiness remains conservative even though a manually authored main root
+        // is legal. The audited reality survives as review data instead.
         assertTrue(
                 draft.manifest().build().build().isEmpty(),
                 () -> "expected no authored [build] roots: " + draft.manifest().build().build());
         assertTrue(
                 draft.notes().stream().anyMatch(note ->
                         note.contains("a main source root at `src/main/kotlin`")
-                                && note.contains("Kotlin is not supported in the public beta")),
+                                && note.contains("cannot migrate automatically")
+                                && note.contains("explicitly authored main roots")),
                 () -> "expected the audited Kotlin main root as review data: " + draft.notes());
         assertTrue(
                 draft.notes().stream().anyMatch(note ->
                         note.contains("a test source root at `src/test/kotlin`")
-                                && note.contains("Kotlin is not supported in the public beta")),
+                                && note.contains("cannot migrate automatically")
+                                && note.contains("Kotlin test and integration roots")),
                 () -> "expected the audited Kotlin test root as review data: " + draft.notes());
         assertTrue(
                 draft.notes().stream().anyMatch(note ->
-                        note.contains("names a language Zolt cannot build")),
+                        note.contains("requires manual migration review")),
                 () -> "expected the convention fallback note: " + draft.notes());
     }
 

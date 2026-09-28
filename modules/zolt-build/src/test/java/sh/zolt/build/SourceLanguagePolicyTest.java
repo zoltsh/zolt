@@ -11,10 +11,12 @@ import sh.zolt.build.discovery.SourceDiscoveryResult;
 
 final class SourceLanguagePolicyTest {
     @Test
-    void mixedGroovyAndKotlinIsRejectedBeforeTemporaryKotlinUnavailability() {
-        SourceDiscoveryResult sources = sources(
+    void mixedGroovyAndKotlinRejectionWinsOverJavaAndKotlin() {
+        SourceDiscoveryResult sources = new SourceDiscoveryResult(
+                List.of(Path.of("Main.java")),
                 List.of(Path.of("Main.groovy")),
                 List.of(Path.of("Main.kt")),
+                List.of(),
                 List.of(),
                 List.of());
 
@@ -26,13 +28,12 @@ final class SourceLanguagePolicyTest {
                 "The main source set combines Groovy and Kotlin, which Zolt does not support.",
                 exception.actionableError().summary());
         assertEquals(
-                "Remove Kotlin from the main source set; Kotlin-only compilation is not available yet. "
-                        + "Then run `zolt build` again.",
+                "Use either Groovy or Kotlin for the main source set, then run `zolt build` again.",
                 exception.actionableError().remediation());
     }
 
     @Test
-    void javaAndKotlinUsesTheTemporaryUnavailableDiagnostic() {
+    void javaAndKotlinIsRejectedForTheBoundedPreview() {
         SourceDiscoveryResult sources = new SourceDiscoveryResult(
                 List.of(Path.of("Main.java")),
                 List.of(),
@@ -46,11 +47,17 @@ final class SourceLanguagePolicyTest {
                 () -> SourceLanguagePolicy.requireMainSupported(sources));
 
         assertEquals(
-                "Zolt recognized Kotlin main sources, but Kotlin compilation is not available yet.",
+                "The main source set combines Java and Kotlin, which the Kotlin preview does not support.",
                 exception.actionableError().summary());
         assertEquals(
-                "Remove the Kotlin main sources or use another compiler, then run `zolt build` again.",
+                "Use a Kotlin-only main source set or remove Kotlin, then run `zolt build` again.",
                 exception.actionableError().remediation());
+    }
+
+    @Test
+    void kotlinOnlyMainIsAllowed() {
+        assertDoesNotThrow(() -> SourceLanguagePolicy.requireMainSupported(sources(
+                List.of(), List.of(Path.of("Main.kt")), List.of(), List.of())));
     }
 
     @Test
@@ -61,7 +68,7 @@ final class SourceLanguagePolicyTest {
                 List.of(),
                 List.of(Path.of("MainTest.kt")));
 
-        assertThrows(BuildException.class, () -> SourceLanguagePolicy.requireMainSupported(sources));
+        assertDoesNotThrow(() -> SourceLanguagePolicy.requireMainSupported(sources));
         assertThrows(BuildException.class, () -> SourceLanguagePolicy.requireTestSupported(sources));
         assertDoesNotThrow(() -> SourceLanguagePolicy.requireMainSupported(sources(
                 List.of(), List.of(), List.of(), List.of(Path.of("MainTest.kt")))));
@@ -85,6 +92,21 @@ final class SourceLanguagePolicyTest {
         assertEquals(
                 "Remove Kotlin from the test source set; Kotlin-only compilation is not available yet. "
                         + "Then run `zolt test` again.",
+                exception.actionableError().remediation());
+    }
+
+    @Test
+    void kotlinOnlyTestRetainsTheTemporaryUnavailableDiagnostic() {
+        BuildException exception = assertThrows(
+                BuildException.class,
+                () -> SourceLanguagePolicy.requireTestSupported(sources(
+                        List.of(), List.of(), List.of(), List.of(Path.of("MainTest.kt")))));
+
+        assertEquals(
+                "Zolt recognized Kotlin test sources, but Kotlin compilation is not available yet.",
+                exception.actionableError().summary());
+        assertEquals(
+                "Remove the Kotlin test sources or use another compiler, then run `zolt test` again.",
                 exception.actionableError().remediation());
     }
 

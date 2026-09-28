@@ -10,11 +10,16 @@ public final class SourceLanguagePolicy {
     }
 
     public static void requireMainSupported(SourceDiscoveryResult sources) {
-        requireSupported(
-                "main",
-                "zolt build",
-                sources.groovyMainSources(),
-                sources.kotlinMainSources());
+        if (!sources.groovyMainSources().isEmpty() && !sources.kotlinMainSources().isEmpty()) {
+            throw BuildException.actionable(
+                    "The main source set combines Groovy and Kotlin, which Zolt does not support.",
+                    "Use either Groovy or Kotlin for the main source set, then run `zolt build` again.");
+        }
+        if (!sources.mainSources().isEmpty() && !sources.kotlinMainSources().isEmpty()) {
+            throw BuildException.actionable(
+                    "The main source set combines Java and Kotlin, which the Kotlin preview does not support.",
+                    "Use a Kotlin-only main source set or remove Kotlin, then run `zolt build` again.");
+        }
     }
 
     public static void requireTestSupported(SourceDiscoveryResult sources) {
