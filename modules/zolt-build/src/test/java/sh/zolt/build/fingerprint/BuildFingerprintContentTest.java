@@ -158,7 +158,7 @@ final class BuildFingerprintContentTest {
     }
 
     @Test
-    void fingerprintAndCacheKeyTrackJavaParameterMetadataFlag() throws IOException {
+    void fingerprintAndCacheKeyTrackBoundedKotlinCompilerFlags() throws IOException {
         Files.writeString(projectDir.resolve("zolt.toml"), "[project]\nname = \"demo\"\n");
         Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Classpath empty = new Classpath(List.of());
@@ -167,6 +167,10 @@ final class BuildFingerprintContentTest {
                 List.of("-parameters"), List.of());
         ProjectConfig withTestParameters = configWithCompilerArgs(
                 List.of(), List.of("-parameters"));
+        ProjectConfig withMainWarningsAsErrors = configWithCompilerArgs(
+                List.of("-Werror"), List.of());
+        ProjectConfig withTestWarningsAsErrors = configWithCompilerArgs(
+                List.of(), List.of("-Werror"));
 
         String ordinaryWithout = fingerprint(
                 withoutParameters, List.of(), empty, empty, false);
@@ -180,13 +184,27 @@ final class BuildFingerprintContentTest {
                 withMainParameters, List.of(), empty, empty, true);
         String cacheTest = fingerprint(
                 withTestParameters, List.of(), empty, empty, true);
+        String ordinaryMainWarnings = fingerprint(
+                withMainWarningsAsErrors, List.of(), empty, empty, false);
+        String ordinaryTestWarnings = fingerprint(
+                withTestWarningsAsErrors, List.of(), empty, empty, false);
+        String cacheMainWarnings = fingerprint(
+                withMainWarningsAsErrors, List.of(), empty, empty, true);
+        String cacheTestWarnings = fingerprint(
+                withTestWarningsAsErrors, List.of(), empty, empty, true);
 
         assertNotEquals(ordinaryWithout, ordinaryMain);
         assertNotEquals(ordinaryWithout, ordinaryTest);
         assertNotEquals(cacheWithout, cacheMain);
         assertNotEquals(cacheWithout, cacheTest);
+        assertNotEquals(ordinaryWithout, ordinaryMainWarnings);
+        assertNotEquals(ordinaryWithout, ordinaryTestWarnings);
+        assertNotEquals(cacheWithout, cacheMainWarnings);
+        assertNotEquals(cacheWithout, cacheTestWarnings);
         assertTrue(ordinaryMain.contains("args=[-parameters]"), ordinaryMain);
         assertTrue(ordinaryTest.contains("testArgs=[-parameters]"), ordinaryTest);
+        assertTrue(ordinaryMainWarnings.contains("args=[-Werror]"), ordinaryMainWarnings);
+        assertTrue(ordinaryTestWarnings.contains("testArgs=[-Werror]"), ordinaryTestWarnings);
     }
 
     private String fingerprint(ProjectConfig config, List<Path> sources) {

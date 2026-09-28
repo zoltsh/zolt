@@ -2,6 +2,7 @@ package sh.zolt.build.compile;
 
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -25,6 +26,7 @@ public final class KotlinCompileOptionsPolicy {
                 scope,
                 "Kotlin compilation scope is required.");
         CompilerSettings compiler = config.compilerSettings();
+        MappedCompilerArguments mappedArguments = mappedArguments(compiler, compilationScope);
         requireUtf8(compiler.encoding(), compilationScope);
         int release = featureVersion(
                 MainCompileOptions.effectiveRelease(config),
@@ -49,15 +51,13 @@ public final class KotlinCompileOptionsPolicy {
         boolean hostPlatformApi = compilationScope == KotlinCompilationScope.MAIN
                 ? compiler.mainHostPlatformApi()
                 : compiler.testHostPlatformApi();
-        boolean javaParameters = compilationScope == KotlinCompilationScope.MAIN
-                ? compiler.args().equals(List.of("-parameters"))
-                : compiler.testArgs().equals(List.of("-parameters"));
         return new KotlinCompilerRunner.Options(
                 Integer.toString(release),
                 moduleName(config.project().name(), compilationScope),
                 hostPlatformApi,
                 !hostPlatformApi && jdkFeature >= 9,
-                javaParameters);
+                mappedArguments.javaParameters(),
+                mappedArguments.warningsAsErrors());
     }
 
     /** Maps Kotlin platform targeting onto the matching deterministic javac phase. */
@@ -65,13 +65,76 @@ public final class KotlinCompileOptionsPolicy {
         KotlinCompilerRunner.Options options = Objects.requireNonNull(
                 kotlinOptions,
                 "Kotlin compilation options are required.");
+        List<String> arguments = new ArrayList<>(2);
+        if (options.javaParameters()) {
+            arguments.add("-parameters");
+        }
+        if (options.warningsAsErrors()) {
+            arguments.add("-Werror");
+        }
         return new JavacOptions(
                 options.release(),
                 StandardCharsets.UTF_8.name(),
-                options.javaParameters() ? List.of("-parameters") : List.of(),
+                arguments,
                 List.of(),
                 options.hostPlatformApi(),
                 options.useJdkRelease());
+    }
+
+    private static MappedCompilerArguments mappedArguments(
+            CompilerSettings compiler,
+            KotlinCompilationScope scope) {
+        List<String> arguments = scope == KotlinCompilationScope.MAIN
+                ? compiler.args()
+                : compiler.testArgs();
+        boolean javaParameters = false;
+        boolean warningsAsErrors = false;
+        for (String argument : arguments) {
+            switch (argument) {
+                case "-parameters" -> {
+                    if (javaParameters) {
+                        throw duplicateArgument(scope, argument);
+                    }
+                    javaParameters = true;
+                }
+                case "-Werror" -> {
+                    if (warningsAsErrors) {
+                        throw duplicateArgument(scope, argument);
+                    }
+                    warningsAsErrors = true;
+                }
+                default -> throw unsupportedArgument(scope, argument);
+            }
+        }
+        return new MappedCompilerArguments(javaParameters, warningsAsErrors);
+    }
+
+    private static KotlinCompileException duplicateArgument(
+            KotlinCompilationScope scope,
+            String argument) {
+        return unsupported(
+                scope,
+                compilerArgumentsPath(scope)
+                        + " contains duplicate javac argument `" + argument + "`",
+                "Use each of `-parameters` and `-Werror` at most once, or keep this source set"
+                        + " Java-only.");
+    }
+
+    private static KotlinCompileException unsupportedArgument(
+            KotlinCompilationScope scope,
+            String argument) {
+        return unsupported(
+                scope,
+                compilerArgumentsPath(scope)
+                        + " contains unsupported javac argument `" + argument + "`",
+                "Use only a duplicate-free subset of `-parameters` and `-Werror`, or keep this"
+                        + " source set Java-only.");
+    }
+
+    private static String compilerArgumentsPath(KotlinCompilationScope scope) {
+        return scope == KotlinCompilationScope.MAIN
+                ? "[compiler].args"
+                : "[compiler.test].args";
     }
 
     private static void requireUtf8(
@@ -148,5 +211,10 @@ public final class KotlinCompileOptionsPolicy {
         return new KotlinCompileException(
                 "Kotlin " + scope.label() + " compilation is not supported when " + reason + ". "
                         + remediation);
+    }
+
+    private record MappedCompilerArguments(
+            boolean javaParameters,
+            boolean warningsAsErrors) {
     }
 }

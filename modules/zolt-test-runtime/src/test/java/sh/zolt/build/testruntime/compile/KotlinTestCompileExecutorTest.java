@@ -33,7 +33,7 @@ final class KotlinTestCompileExecutorTest {
                 Path.of("target/classes"), Path.of("lib/test.jar")));
         Classpath launcherClasspath = new Classpath(List.of(Path.of("lib/kotlin-compiler.jar")));
         KotlinCompilerRunner.Options options = new KotlinCompilerRunner.Options(
-                "8", "demo_test", false, false, true, Path.of("target/classes"));
+                "8", "demo_test", false, false, true, true, Path.of("target/classes"));
         CompileDiagnostics diagnostics = new CompileDiagnostics(1, 2, 3, 4, 5, 6, 7, 8);
         KotlinTestCompileExecutor executor = new KotlinTestCompileExecutor(
                 (javac, sources, classpath, output, processors, generated, javacOptions) -> {
@@ -47,7 +47,7 @@ final class KotlinTestCompileExecutorTest {
                     assertNull(generated);
                     assertEquals("8", javacOptions.release());
                     assertEquals("UTF-8", javacOptions.encoding());
-                    assertEquals(List.of("-parameters"), javacOptions.arguments());
+                    assertEquals(List.of("-parameters", "-Werror"), javacOptions.arguments());
                     assertFalse(javacOptions.useJdkRelease());
                     return new JavacResult(1, output, "javac output");
                 },
@@ -60,6 +60,7 @@ final class KotlinTestCompileExecutorTest {
                     assertEquals(compileClasspath, classpath);
                     assertEquals(options, kotlinOptions);
                     assertTrue(kotlinOptions.javaParameters());
+                    assertTrue(kotlinOptions.warningsAsErrors());
                     assertEquals(Path.of("target/classes"), kotlinOptions.friendPath());
                     assertEquals(KotlinCompilationScope.TEST, scope);
                     return new JavacResult(2, output, "kotlin output");

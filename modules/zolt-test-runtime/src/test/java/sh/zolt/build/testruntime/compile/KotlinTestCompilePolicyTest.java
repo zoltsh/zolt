@@ -13,8 +13,6 @@ import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import sh.zolt.build.KotlinCompileException;
-import sh.zolt.build.compile.JavacOptions;
-import sh.zolt.build.compile.KotlinCompileOptionsPolicy;
 import sh.zolt.build.compile.KotlinCompilerRunner;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.classpath.Classpath;
@@ -55,6 +53,7 @@ final class KotlinTestCompilePolicyTest {
         assertFalse(options.hostPlatformApi());
         assertTrue(options.useJdkRelease());
         assertFalse(options.javaParameters());
+        assertFalse(options.warningsAsErrors());
         assertEquals(Path.of("target/classes"), options.friendPath());
     }
 
@@ -73,34 +72,6 @@ final class KotlinTestCompilePolicyTest {
 
         assertEquals("demo_test", options.moduleName());
         assertNull(options.friendPath());
-    }
-
-    @Test
-    void acceptsOnlyParametersForMixedTestsAndPreservesTheFriendPath() {
-        CompilerSettings compiler = new CompilerSettings(
-                null, null, "", "", List.of(), List.of("-parameters"));
-        KotlinCompilerRunner.Options options = KotlinTestCompilePolicy.options(
-                config(compiler, Map.of(), Map.of(), Map.of()),
-                sources(
-                        List.of(),
-                        List.of(),
-                        List.of(Path.of("src/main/kotlin/com/example/Demo.kt")),
-                        List.of(Path.of("src/test/java/com/example/DemoTest.java")),
-                        List.of(),
-                        List.of(KOTLIN_TEST)),
-                classpaths(List.of()),
-                jdkStatus(),
-                Path.of("target/classes"));
-
-        JavacOptions javac = KotlinCompileOptionsPolicy.javacOptions(options);
-
-        assertEquals("21", javac.release());
-        assertEquals("UTF-8", javac.encoding());
-        assertEquals(List.of("-parameters"), javac.arguments());
-        assertFalse(javac.hostPlatformApi());
-        assertTrue(javac.useJdkRelease());
-        assertTrue(options.javaParameters());
-        assertEquals(Path.of("target/classes"), options.friendPath());
     }
 
     @Test
@@ -252,7 +223,7 @@ final class KotlinTestCompilePolicyTest {
     }
 
     @Test
-    void rejectsProcessorsAndUnsupportedCustomJavacTestArguments() {
+    void rejectsTestAnnotationProcessors() {
         KotlinCompileException processorFailure = assertThrows(
                 KotlinCompileException.class,
                 () -> KotlinTestCompilePolicy.options(
@@ -263,29 +234,6 @@ final class KotlinTestCompilePolicyTest {
                         null));
 
         assertTrue(processorFailure.getMessage().contains("[dependencies.test-processor]"));
-        for (List<String> testArgs : List.of(
-                List.of("-Xlint:all"),
-                List.of("-parameters", "-Xlint:all"),
-                List.of("-parameters", "-parameters"))) {
-            CompilerSettings arguments = new CompilerSettings(
-                    null, null, "", "", List.of(), testArgs);
-            KotlinCompileException argumentsFailure = assertThrows(
-                    KotlinCompileException.class,
-                    () -> KotlinTestCompilePolicy.options(
-                            config(arguments, Map.of(), Map.of(), Map.of()),
-                            sources(
-                                    List.of(),
-                                    List.of(),
-                                    List.of(),
-                                    List.of(),
-                                    List.of(),
-                                    List.of(KOTLIN_TEST)),
-                            classpaths(List.of()),
-                            jdkStatus(),
-                            null));
-
-            assertTrue(argumentsFailure.getMessage().contains("[compiler.test].args"));
-        }
     }
 
     @Test
@@ -307,7 +255,7 @@ final class KotlinTestCompilePolicyTest {
         assertTrue(failure.getMessage().contains("explicit Kotlin test roots"));
     }
 
-    private static SourceDiscoveryResult sources(
+    static SourceDiscoveryResult sources(
             List<Path> javaMain,
             List<Path> groovyMain,
             List<Path> kotlinMain,
@@ -318,7 +266,7 @@ final class KotlinTestCompilePolicyTest {
                 javaMain, groovyMain, kotlinMain, javaTest, groovyTest, kotlinTest);
     }
 
-    private static ProjectConfig config(
+    static ProjectConfig config(
             CompilerSettings compiler,
             Map<String, String> workspaceApi,
             Map<String, String> workspaceCompile,
@@ -346,7 +294,7 @@ final class KotlinTestCompilePolicyTest {
                 PackageSettings.defaults());
     }
 
-    private static ClasspathSet classpaths(List<Path> testProcessors) {
+    static ClasspathSet classpaths(List<Path> testProcessors) {
         Classpath empty = new Classpath(List.of());
         return new ClasspathSet(
                 empty,
@@ -384,7 +332,7 @@ final class KotlinTestCompilePolicyTest {
                         "content"));
     }
 
-    private static JdkStatus jdkStatus() {
+    static JdkStatus jdkStatus() {
         return jdkStatus("21.0.11", "21");
     }
 

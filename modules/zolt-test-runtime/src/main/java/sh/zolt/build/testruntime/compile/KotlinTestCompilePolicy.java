@@ -1,7 +1,6 @@
 package sh.zolt.build.testruntime.compile;
 
 import java.nio.file.Path;
-import java.util.List;
 import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.compile.CompilerPlatformApi;
 import sh.zolt.build.compile.KotlinCompilationScope;
@@ -10,7 +9,6 @@ import sh.zolt.build.compile.KotlinCompilerRunner;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.doctor.JdkStatus;
-import sh.zolt.project.CompilerSettings;
 import sh.zolt.project.GeneratedSourceKind;
 import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.ProjectConfig;
@@ -27,7 +25,6 @@ final class KotlinTestCompilePolicy {
             ClasspathSet classpaths,
             JdkStatus jdkStatus,
             Path mainOutputDirectory) {
-        CompilerSettings compiler = config.compilerSettings();
         if (!sources.groovyTestSources().isEmpty()) {
             throw unsupported(
                     "the test source set also contains Groovy",
@@ -51,13 +48,6 @@ final class KotlinTestCompilePolicy {
             throw unsupported(
                     "test annotation processors are configured",
                     "Remove [dependencies.test-processor] or keep the test source set Java-only.");
-        }
-        if (!compiler.testArgs().isEmpty()
-                && !compiler.testArgs().equals(List.of("-parameters"))) {
-            throw unsupported(
-                    "[compiler.test].args contains unsupported custom javac arguments",
-                    "Use only `-parameters`, remove the other custom javac test arguments, or keep "
-                            + "the test source set Java-only.");
         }
         if (config.frameworkSettings().quarkus().enabled()) {
             throw unsupported(

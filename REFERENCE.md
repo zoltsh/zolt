@@ -706,7 +706,8 @@ output cleanup when any of these conditions applies:
 - the main source set contains `module-info.java` (JPMS joint compilation is not
   supported);
 - main annotation processors are configured (KAPT is not supported);
-- `[compiler].args` contains anything other than the exact `-parameters` flag; or
+- `[compiler].args` contains a flag other than `-parameters` or `-Werror`, or
+  repeats either supported flag; or
 - a Java-source-producing main generation step is configured. Exec steps that
   produce resources or intermediate outputs do not by themselves cross this
   boundary.
@@ -743,14 +744,17 @@ may restore the complete class and `META-INF/*.kotlin_module` inventory.
 `--no-build-cache` only bypasses output-cache restore and storage; it does not
 disable the unchanged-input skip.
 
-For a Kotlin-bearing main source set, `[compiler].args = ["-parameters"]`
-enables Java reflection parameter metadata in both the Kotlin and authored Java
-halves of mixed compilation. Tests opt in independently with
-`[compiler.test].args = ["-parameters"]`. The contract covers source-declared
-constructor, function, and method parameters; Kotlin compiler-generated
-synthetic parameters are outside it. Other custom compiler arguments remain
-unsupported for Kotlin-bearing source sets because javac flags cannot in
-general be forwarded safely to kotlinc.
+For a Kotlin-bearing source set, compiler arguments may contain `-parameters`,
+`-Werror`, or both in either order, with no duplicates. For main sources,
+`[compiler].args = ["-parameters"]` enables Java reflection parameter metadata
+in both the Kotlin and authored Java halves of mixed compilation. The contract
+covers source-declared constructor, function, and method parameters; Kotlin
+compiler-generated synthetic parameters are outside it. `-Werror` makes a
+warning from either compiler phase fail that source set. Tests opt in
+independently through `[compiler.test].args`, so main and test warning and
+parameter-metadata policies do not leak into one another. Other custom compiler
+arguments remain unsupported for Kotlin-bearing source sets because javac flags
+cannot in general be forwarded safely to kotlinc.
 
 ## Resolution and Lockfile Contracts
 
@@ -1833,12 +1837,13 @@ inaccessible. Workspace-wide `integration-test --workspace --all` runs use the
 same bounded compiler path for every selected member, and unchanged main and
 integration-test outputs remain eligible for fingerprint reuse. The preview
 rejects Groovy test sources, `module-info.java`, test annotation processors,
-`[compiler.test].args` other than the exact `-parameters` flag,
-Java-source-producing generated-test steps, and Quarkus in the same member. Exec
+`[compiler.test].args` containing a flag other than `-parameters` or `-Werror`
+or repeating either flag, Java-source-producing generated-test steps, and
+Quarkus in the same member. Exec
 generation steps that produce test resources or intermediate outputs remain
-compatible. Test dependencies remain isolated from main compilation and main runtime. Any source
-change in a Kotlin-bearing test source set uses cleaned full-scope compilation
-rather than incremental javac state.
+compatible. Test dependencies remain isolated from main compilation and main
+runtime. Any source change in a Kotlin-bearing test source set uses cleaned
+full-scope compilation rather than incremental javac state.
 
 Test commands support class/method selection, glob patterns, JUnit tags, JVM
 arguments, XML reports, deterministic shards, named suites, and optional profile

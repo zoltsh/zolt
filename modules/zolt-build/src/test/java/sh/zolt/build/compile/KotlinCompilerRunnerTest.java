@@ -380,7 +380,7 @@ final class KotlinCompilerRunnerTest {
         assertTrue(failure.getMessage().contains("containing a comma"));
     }
 
-    private static Path argumentFile(List<String> command) {
+    static Path argumentFile(List<String> command) {
         String argument = command.getLast();
         assertTrue(argument.startsWith("@"), command.toString());
         Path path = Path.of(argument.substring(1));
@@ -389,7 +389,7 @@ final class KotlinCompilerRunnerTest {
         return path;
     }
 
-    private static String readString(Path path) {
+    static String readString(Path path) {
         try {
             return Files.readString(path);
         } catch (IOException exception) {

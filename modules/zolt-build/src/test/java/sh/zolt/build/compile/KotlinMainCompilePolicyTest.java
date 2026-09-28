@@ -32,7 +32,7 @@ import sh.zolt.project.ProjectMetadata;
 import sh.zolt.project.ProducesLane;
 
 final class KotlinMainCompilePolicyTest {
-    private static final Path KOTLIN = Path.of("src/main/kotlin/com/example/Main.kt");
+    static final Path KOTLIN = Path.of("src/main/kotlin/com/example/Main.kt");
 
     @Test
     void acceptsKotlinOnlyMainSourcesAndBuildsStableModuleName() {
@@ -135,29 +135,6 @@ final class KotlinMainCompilePolicyTest {
     }
 
     @Test
-    void scopesJavaParametersToTheActiveCompilerLane() {
-        CompilerSettings compiler = new CompilerSettings(
-                null, null, "", "", List.of(), List.of("-parameters"));
-        ProjectConfig config = config(compiler, Map.of(), Map.of(), "demo");
-
-        KotlinCompilerRunner.Options main = KotlinCompileOptionsPolicy.options(
-                config,
-                jdkStatus("21.0.11", "21"),
-                KotlinCompilationScope.MAIN);
-        KotlinCompilerRunner.Options test = KotlinCompileOptionsPolicy.options(
-                config,
-                jdkStatus("21.0.11", "21"),
-                KotlinCompilationScope.TEST);
-
-        assertFalse(main.javaParameters());
-        assertEquals(List.of(), KotlinCompileOptionsPolicy.javacOptions(main).arguments());
-        assertTrue(test.javaParameters());
-        assertEquals(
-                List.of("-parameters"),
-                KotlinCompileOptionsPolicy.javacOptions(test).arguments());
-    }
-
-    @Test
     void rejectsGroovyComposition() {
         KotlinCompileException groovyFailure = assertThrows(
                 KotlinCompileException.class,
@@ -184,7 +161,7 @@ final class KotlinMainCompilePolicyTest {
     }
 
     @Test
-    void rejectsProcessorsAndUnsupportedJavacArguments() {
+    void rejectsProcessors() {
         KotlinCompileException processorFailure = assertThrows(
                 KotlinCompileException.class,
                 () -> KotlinMainCompilePolicy.options(
@@ -194,23 +171,6 @@ final class KotlinMainCompilePolicyTest {
                         jdkStatus("21.0.11", "21")));
 
         assertTrue(processorFailure.getMessage().contains("[dependencies.processor]"));
-        for (List<String> arguments : List.of(
-                List.of("-Xlint:all"),
-                List.of("-parameters", "-Xlint:all"),
-                List.of("-parameters", "-parameters"))) {
-            CompilerSettings compiler = new CompilerSettings(
-                    null, null, "", "", arguments, List.of());
-            KotlinCompileException argumentFailure = assertThrows(
-                    KotlinCompileException.class,
-                    () -> KotlinMainCompilePolicy.options(
-                            config(compiler, Map.of(), Map.of(), "demo"),
-                            sources(List.of(), List.of(), List.of(KOTLIN)),
-                            classpaths(List.of()),
-                            jdkStatus("21.0.11", "21")));
-
-            assertTrue(argumentFailure.getMessage().contains("[compiler].args"));
-            assertTrue(argumentFailure.getMessage().contains("only `-parameters`"));
-        }
     }
 
     @Test
@@ -329,14 +289,14 @@ final class KotlinMainCompilePolicyTest {
         assertTrue(jdkFailure.getMessage().contains("no complete Java runtime home"));
     }
 
-    private static SourceDiscoveryResult sources(
+    static SourceDiscoveryResult sources(
             List<Path> java,
             List<Path> groovy,
             List<Path> kotlin) {
         return new SourceDiscoveryResult(java, groovy, kotlin, List.of(), List.of(), List.of());
     }
 
-    private static ProjectConfig config(
+    static ProjectConfig config(
             CompilerSettings compiler,
             Map<String, String> workspaceApiDependencies,
             Map<String, String> workspaceDependencies,
@@ -390,7 +350,7 @@ final class KotlinMainCompilePolicyTest {
                         "content"));
     }
 
-    private static ClasspathSet classpaths(List<Path> processors) {
+    static ClasspathSet classpaths(List<Path> processors) {
         Classpath empty = new Classpath(List.of());
         return new ClasspathSet(
                 empty,
@@ -402,7 +362,7 @@ final class KotlinMainCompilePolicyTest {
                 empty);
     }
 
-    private static JdkStatus jdkStatus(String version, String feature) {
+    static JdkStatus jdkStatus(String version, String feature) {
         return new JdkStatus(
                 Optional.of(Path.of("/managed-jdk")),
                 Optional.of(Path.of("/managed-jdk/bin/java")),

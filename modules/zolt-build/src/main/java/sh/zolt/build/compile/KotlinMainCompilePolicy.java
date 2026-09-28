@@ -1,11 +1,9 @@
 package sh.zolt.build.compile;
 
-import java.util.List;
 import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.doctor.JdkStatus;
-import sh.zolt.project.CompilerSettings;
 import sh.zolt.project.GeneratedSourceKind;
 import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.ProjectConfig;
@@ -21,7 +19,6 @@ final class KotlinMainCompilePolicy {
             SourceDiscoveryResult sources,
             ClasspathSet classpaths,
             JdkStatus jdkStatus) {
-        CompilerSettings compiler = config.compilerSettings();
         if (!sources.groovyMainSources().isEmpty()) {
             throw unsupported(
                     "the main source set also contains Groovy",
@@ -44,13 +41,6 @@ final class KotlinMainCompilePolicy {
             throw unsupported(
                     "annotation processors are configured",
                     "Remove [dependencies.processor] or keep this member Java-only.");
-        }
-        if (!compiler.args().isEmpty()
-                && !compiler.args().equals(List.of("-parameters"))) {
-            throw unsupported(
-                    "[compiler].args contains unsupported javac arguments",
-                    "Keep only `-parameters`, remove the custom javac arguments, or keep this member"
-                            + " Java-only; the bounded Kotlin compiler supports only `-parameters`.");
         }
         if (!sources.mainSources().isEmpty() && jdkStatus.javac().isEmpty()) {
             throw unsupported(
