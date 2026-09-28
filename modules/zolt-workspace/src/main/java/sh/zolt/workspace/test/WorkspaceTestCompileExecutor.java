@@ -83,11 +83,12 @@ final class WorkspaceTestCompileExecutor {
         Path testOutput = member.directory().resolve(build.testOutput()).toAbsolutePath().normalize();
         int testSourceCount = plan.executionContext()
                 .fileSnapshot()
-                .javaSources(
+                .testSources(
                         member.path(),
                         WorkspaceFileKind.TEST_SOURCE,
                         member.directory(),
-                        build.testSources())
+                        build.testSources(),
+                        build.groovyTestSources())
                 .fileCount();
         return new WorkspaceTestCompileResult.MemberTestCompileResult(
                 member.path(),

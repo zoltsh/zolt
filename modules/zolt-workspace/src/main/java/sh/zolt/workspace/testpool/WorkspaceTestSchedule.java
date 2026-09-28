@@ -6,8 +6,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -59,24 +61,30 @@ public final class WorkspaceTestSchedule {
     }
 
     private static int testSourceCount(WorkspaceMember member) {
-        int total = 0;
-        for (String testRoot : member.config().build().testSources()) {
-            total += sourceCount(member.directory().resolve(testRoot));
-        }
-        return total;
+        Set<Path> sources = new LinkedHashSet<>();
+        addSources(member, member.config().build().testSources(), ".java", sources);
+        addSources(member, member.config().build().groovyTestSources(), ".groovy", sources);
+        return sources.size();
     }
 
-    private static int sourceCount(Path root) {
-        if (!Files.isDirectory(root)) {
-            return 0;
-        }
-        try (Stream<Path> paths = Files.walk(root)) {
-            return (int) paths
-                    .filter(Files::isRegularFile)
-                    .filter(path -> path.getFileName().toString().endsWith(".java"))
-                    .count();
-        } catch (IOException | RuntimeException exception) {
-            return 0;
+    private static void addSources(
+            WorkspaceMember member,
+            List<String> configuredRoots,
+            String extension,
+            Set<Path> sources) {
+        for (String configuredRoot : configuredRoots) {
+            Path root = member.directory().resolve(configuredRoot);
+            if (!Files.isDirectory(root)) {
+                continue;
+            }
+            try (Stream<Path> paths = Files.walk(root)) {
+                paths.filter(Files::isRegularFile)
+                        .filter(path -> path.getFileName().toString().endsWith(extension))
+                        .map(path -> path.toAbsolutePath().normalize())
+                        .forEach(sources::add);
+            } catch (IOException | RuntimeException ignored) {
+                // An unreadable root contributes no weight, matching the previous behavior.
+            }
         }
     }
 }

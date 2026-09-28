@@ -38,12 +38,34 @@ public final class WorkspaceFileSnapshot {
         return roots(member, kind, projectDirectory, roots, WorkspaceFileSnapshot::java);
     }
 
+    public TreeDigest mainSources(
+            String member,
+            WorkspaceFileKind kind,
+            Path projectDirectory,
+            List<String> roots) {
+        return roots(member, kind, projectDirectory, roots, WorkspaceFileSnapshot::source);
+    }
+
+    public TreeDigest testSources(
+            String member,
+            WorkspaceFileKind kind,
+            Path projectDirectory,
+            List<String> javaRoots,
+            List<String> groovyRoots) {
+        Path projectRoot = projectDirectory.toAbsolutePath().normalize();
+        List<Entry> files = new ArrayList<>();
+        addRootFiles(projectRoot, javaRoots, WorkspaceFileSnapshot::java, files);
+        addRootFiles(projectRoot, groovyRoots, WorkspaceFileSnapshot::groovy, files);
+        hasher.sweep(member, kind);
+        return digest(member, kind, projectRoot, files);
+    }
+
     public TreeDigest resources(
             String member,
             WorkspaceFileKind kind,
             Path projectDirectory,
             List<String> roots) {
-        return roots(member, kind, projectDirectory, roots, path -> !java(path));
+        return roots(member, kind, projectDirectory, roots, path -> !source(path));
     }
 
     /** Everything under one directory, used for the generated sources a member's processors emit. */
@@ -149,7 +171,7 @@ public final class WorkspaceFileSnapshot {
         Path output = confined(projectRoot, outputRoot);
         for (String configuredRoot : resourceRoots) {
             Path root = confined(projectRoot, configuredRoot);
-            for (Entry input : walk(root, path -> !java(path))) {
+            for (Entry input : walk(root, path -> !source(path))) {
                 Path candidate = output.resolve(root.relativize(input.path())).normalize();
                 String copied = hasher.hash(candidate, WorkspaceFileKind.OUTPUT_RESOURCE, member);
                 if (!hasher.hash(input.path(), input.attributes(), kind, member).equals(copied)) {
@@ -173,6 +195,17 @@ public final class WorkspaceFileSnapshot {
                 .toList();
         hasher.sweep(member, kind);
         return digest(member, kind, projectRoot, files);
+    }
+
+    private static void addRootFiles(
+            Path projectRoot,
+            List<String> configuredRoots,
+            Predicate<Path> included,
+            List<Entry> files) {
+        configuredRoots.stream()
+                .map(root -> confined(projectRoot, root))
+                .flatMap(root -> walk(root, included).stream())
+                .forEach(files::add);
     }
 
     private TreeDigest digest(
@@ -228,6 +261,14 @@ public final class WorkspaceFileSnapshot {
 
     private static boolean java(Path path) {
         return path.getFileName().toString().endsWith(".java");
+    }
+
+    private static boolean groovy(Path path) {
+        return path.getFileName().toString().endsWith(".groovy");
+    }
+
+    private static boolean source(Path path) {
+        return java(path) || groovy(path);
     }
 
     private static Path confined(Path projectRoot, String configuredPath) {

@@ -82,7 +82,7 @@ final class WorkspaceMemberStateObserver {
         WorkspaceFileSnapshot snapshot = context.fileSnapshot();
         var build = member.config().build();
         String path = member.path();
-        var mainSources = snapshot.javaSources(
+        var mainSources = snapshot.mainSources(
                 path, WorkspaceFileKind.MAIN_SOURCE, member.directory(), build.sourceRoots());
         var resources = snapshot.resources(
                 path, WorkspaceFileKind.MAIN_RESOURCE, member.directory(), build.resourceRoots());
@@ -146,8 +146,12 @@ final class WorkspaceMemberStateObserver {
      */
     String testCompileKey(WorkspaceMember member, String mainManifestDigest) {
         var build = member.config().build();
-        var testSources = context.fileSnapshot().javaSources(
-                member.path(), WorkspaceFileKind.TEST_SOURCE, member.directory(), build.testSources());
+        var testSources = context.fileSnapshot().testSources(
+                member.path(),
+                WorkspaceFileKind.TEST_SOURCE,
+                member.directory(),
+                build.testSources(),
+                build.groovyTestSources());
         return WorkspaceHash.text(String.join(
                 "|",
                 CompilationSemantics.VERSION,
@@ -159,7 +163,7 @@ final class WorkspaceMemberStateObserver {
 
     int sourceCount(WorkspaceMember member) {
         return context.fileSnapshot()
-                .javaSources(
+                .mainSources(
                         member.path(),
                         WorkspaceFileKind.MAIN_SOURCE,
                         member.directory(),

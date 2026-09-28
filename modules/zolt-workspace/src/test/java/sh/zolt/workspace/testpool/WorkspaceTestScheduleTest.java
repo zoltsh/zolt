@@ -86,6 +86,34 @@ final class WorkspaceTestScheduleTest {
         assertEquals(0, weights.get("bare"));
     }
 
+    @Test
+    void weighsJavaAndGroovyTestSourcesWithoutCountingWrongLanguageFiles() throws IOException {
+        Path directory = tempDir.resolve("mixed");
+        write(directory.resolve("src/test/java/example/JavaTest.java"));
+        write(directory.resolve("src/test/java/example/Ignored.groovy"));
+        write(directory.resolve("src/test/groovy/example/GroovySpec.groovy"));
+        write(directory.resolve("src/test/groovy/example/Ignored.java"));
+        BuildSettings defaults = BuildSettings.defaults();
+        BuildSettings build = new BuildSettings(
+                defaults.source(),
+                defaults.sourceRoots(),
+                defaults.test(),
+                defaults.outputRoot(),
+                defaults.output(),
+                defaults.testOutput(),
+                List.of("src/test/java"),
+                List.of("src/test/groovy"),
+                defaults.resourceRoots(),
+                defaults.testResourceRoots(),
+                defaults.metadata());
+        WorkspaceMember mixed = new WorkspaceMember("mixed", directory, config("mixed", build));
+
+        Map<String, Integer> weights = WorkspaceTestSchedule.testSourceWeights(
+                List.of("mixed"), Map.of("mixed", mixed));
+
+        assertEquals(2, weights.get("mixed"));
+    }
+
     private WorkspaceMember member(String name, int testSources) throws IOException {
         Path directory = tempDir.resolve(name);
         Path testRoot = directory.resolve("src/test/java/example");
@@ -103,11 +131,20 @@ final class WorkspaceTestScheduleTest {
     }
 
     private static ProjectConfig config(String name) {
+        return config(name, BuildSettings.defaults());
+    }
+
+    private static ProjectConfig config(String name, BuildSettings build) {
         return ProjectConfigs.withDirectDependencies(
                 new ProjectMetadata(name, "0.1.0", "com.example", "21", Optional.empty()),
                 Map.of(),
                 Map.of(),
                 Map.of(),
-                BuildSettings.defaults());
+                build);
+    }
+
+    private static void write(Path path) throws IOException {
+        Files.createDirectories(path.getParent());
+        Files.writeString(path, "class Example {}\n");
     }
 }

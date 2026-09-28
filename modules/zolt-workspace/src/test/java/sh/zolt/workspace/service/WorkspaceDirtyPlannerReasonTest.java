@@ -46,6 +46,10 @@ final class WorkspaceDirtyPlannerReasonTest extends WorkspaceBuildServiceTestSup
 
                 [dependencies]
                 "com.acme:core" = { workspace = true }
+
+                [test.sources]
+                java = ["src/test/java"]
+                groovy = ["src/test/groovy"]
                 """);
         source("apps/api/src/main/java/com/acme/api/Api.java", """
                 package com.acme.api;
@@ -80,6 +84,20 @@ final class WorkspaceDirtyPlannerReasonTest extends WorkspaceBuildServiceTestSup
                     public static String message() {
                         return Core.message() + "!";
                     }
+                }
+                """);
+
+        assertEquals(
+                List.of(WorkspaceDirtyReason.MAIN_SOURCE_CHANGED),
+                reasons().get("apps/api"));
+    }
+
+    @Test
+    void addedGroovyMainSourceIsReportedAsAMainSourceChange() throws IOException {
+        source("apps/api/src/main/java/com/acme/api/Extra.groovy", """
+                package com.acme.api
+
+                final class Extra {
                 }
                 """);
 
@@ -185,6 +203,19 @@ final class WorkspaceDirtyPlannerReasonTest extends WorkspaceBuildServiceTestSup
                 package com.acme.api;
 
                 public final class ApiTest {
+                }
+                """);
+
+        assertFalse(reasons().get("apps/api").contains(WorkspaceDirtyReason.TEST_SOURCE_CHANGED));
+        assertTrue(testReasons().get("apps/api").contains(WorkspaceDirtyReason.TEST_SOURCE_CHANGED));
+    }
+
+    @Test
+    void groovyTestSourceEditIsReportedOnlyWhenTheCommandCompilesTests() throws IOException {
+        source("apps/api/src/test/groovy/com/acme/api/ApiSpec.groovy", """
+                package com.acme.api
+
+                final class ApiSpec {
                 }
                 """);
 

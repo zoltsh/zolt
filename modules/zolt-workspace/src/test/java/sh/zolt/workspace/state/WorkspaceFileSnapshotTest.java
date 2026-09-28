@@ -76,6 +76,67 @@ final class WorkspaceFileSnapshotTest {
         assertEquals(1, second.filesHashed());
     }
 
+    @Test
+    void aGroovyMainSourceMovesTheMainSourceDigest() throws IOException {
+        Path groovy = root.resolve("modules/core/src/main/groovy/Main.groovy");
+        Files.createDirectories(groovy.getParent());
+        Files.writeString(groovy, "class MainGroovy {}\n");
+        WorkspaceFileSnapshot first = snapshot(WorkspaceFileState.empty(), false);
+        String digest = mainSources(first, List.of("src/main/java", "src/main/groovy"));
+        assertEquals(2, first.state().files().size());
+
+        WorkspaceFileState previous = settled(first);
+        Files.writeString(groovy, "class MainGroovy { int value }\n");
+        WorkspaceFileSnapshot second = snapshot(previous, false);
+
+        assertNotEquals(digest, mainSources(second, List.of("src/main/java", "src/main/groovy")));
+        assertEquals(1, second.filesHashed());
+    }
+
+    @Test
+    void testSourcesUseTheLanguageDeclaredForEachRoot() throws IOException {
+        Path project = root.resolve("modules/core");
+        write(project.resolve("src/test/java/JavaTest.java"), "class JavaTest {}\n");
+        write(project.resolve("src/test/java/Ignored.groovy"), "class IgnoredGroovy {}\n");
+        write(project.resolve("src/test/groovy/GroovySpec.groovy"), "class GroovySpec {}\n");
+        write(project.resolve("src/test/groovy/Ignored.java"), "class IgnoredJava {}\n");
+
+        WorkspaceFileSnapshot snapshot = snapshot(WorkspaceFileState.empty(), false);
+        WorkspaceFileSnapshot.TreeDigest digest = snapshot.testSources(
+                MEMBER,
+                WorkspaceFileKind.TEST_SOURCE,
+                project,
+                List.of("src/test/java"),
+                List.of("src/test/groovy"));
+
+        assertEquals(2, digest.fileCount());
+        assertEquals(2, snapshot.state().files().size());
+        assertTrue(snapshot.state().file("modules/core/src/test/java/JavaTest.java").isPresent());
+        assertTrue(snapshot.state().file("modules/core/src/test/groovy/GroovySpec.groovy").isPresent());
+        assertTrue(snapshot.state().file("modules/core/src/test/java/Ignored.groovy").isEmpty());
+        assertTrue(snapshot.state().file("modules/core/src/test/groovy/Ignored.java").isEmpty());
+    }
+
+    @Test
+    void resourcesExcludeJavaAndGroovySources() throws IOException {
+        Path project = root.resolve("modules/core");
+        write(project.resolve("src/main/resources/application.properties"), "name=core\n");
+        write(project.resolve("src/main/resources/Ignored.java"), "class IgnoredJava {}\n");
+        write(project.resolve("src/main/resources/Ignored.groovy"), "class IgnoredGroovy {}\n");
+
+        WorkspaceFileSnapshot snapshot = snapshot(WorkspaceFileState.empty(), false);
+        WorkspaceFileSnapshot.TreeDigest digest = snapshot.resources(
+                MEMBER,
+                WorkspaceFileKind.MAIN_RESOURCE,
+                project,
+                List.of("src/main/resources"));
+
+        assertEquals(1, digest.fileCount());
+        assertTrue(snapshot.state().file("modules/core/src/main/resources/application.properties").isPresent());
+        assertTrue(snapshot.state().file("modules/core/src/main/resources/Ignored.java").isEmpty());
+        assertTrue(snapshot.state().file("modules/core/src/main/resources/Ignored.groovy").isEmpty());
+    }
+
     /**
      * The same-size same-timestamp edit: only the fence can catch it, because nothing the filesystem
      * reports has moved. A row whose file is not strictly older than the state it was written beside
@@ -172,12 +233,21 @@ final class WorkspaceFileSnapshotTest {
     }
 
     private String sources(WorkspaceFileSnapshot snapshot) {
-        return snapshot.javaSources(
+        return mainSources(snapshot, List.of("src/main/java"));
+    }
+
+    private String mainSources(WorkspaceFileSnapshot snapshot, List<String> roots) {
+        return snapshot.mainSources(
                         MEMBER,
                         WorkspaceFileKind.MAIN_SOURCE,
                         root.resolve("modules/core"),
-                        List.of("src/main/java"))
+                        roots)
                 .digest();
+    }
+
+    private static void write(Path path, String content) throws IOException {
+        Files.createDirectories(path.getParent());
+        Files.writeString(path, content);
     }
 
     /** The table as a later command would read it: fenced behind a state written just now. */
