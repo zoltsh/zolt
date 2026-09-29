@@ -1,5 +1,6 @@
 package sh.zolt.explain.gradle;
 
+import sh.zolt.explain.SourceTreeEvidence;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -19,7 +20,8 @@ public record GradleKotlinProjectEvidence(
         String stdlibDefaultDependency,
         List<String> kotlinProperties,
         boolean annotationProcessingConfigured,
-        boolean buildSrcPresent) {
+        boolean buildSrcPresent,
+        SourceTreeEvidence sourceTree) {
     private static final Pattern JAVA_TOOLCHAIN_VERSION = Pattern.compile(
             "(?s)^\\s*languageVersion\\s*(?:=\\s*|\\.set\\s*\\(\\s*)"
                     + "JavaLanguageVersion\\.of\\s*\\(\\s*(\\d+)\\s*\\)\\s*\\)?\\s*;?\\s*$");
@@ -35,13 +37,15 @@ public record GradleKotlinProjectEvidence(
         javaToolchainVersion = value(javaToolchainVersion);
         stdlibDefaultDependency = value(stdlibDefaultDependency);
         kotlinProperties = List.copyOf(kotlinProperties);
+        sourceTree = sourceTree == null ? SourceTreeEvidence.none() : sourceTree;
     }
 
     static GradleKotlinProjectEvidence inspect(
             String content,
             Map<String, String> rootProperties,
             Map<String, String> projectProperties,
-            boolean buildSrcPresent) {
+            boolean buildSrcPresent,
+            SourceTreeEvidence sourceTree) {
         List<String> toolchains = javaToolchainBlocks(content);
         Optional<String> javaToolchainVersion = toolchains.size() == 1
                 ? exactJavaToolchainVersion(toolchains.getFirst())
@@ -61,12 +65,14 @@ public record GradleKotlinProjectEvidence(
                         .orElse(""),
                 kotlinProperties,
                 ANNOTATION_PROCESSING.matcher(content).find(),
-                buildSrcPresent);
+                buildSrcPresent,
+                sourceTree);
     }
 
     public static GradleKotlinProjectEvidence none() {
         return new GradleKotlinProjectEvidence(
-                "", false, false, false, false, false, "", List.of(), false, false);
+                "", false, false, false, false, false, "", List.of(), false, false,
+                SourceTreeEvidence.none());
     }
 
     private static List<String> javaToolchainBlocks(String content) {

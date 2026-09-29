@@ -3,6 +3,7 @@ package sh.zolt.explain.gradle;
 import sh.zolt.explain.ExplainSignal;
 import sh.zolt.explain.ExplainSignals;
 import sh.zolt.explain.MigrationExplainException;
+import sh.zolt.explain.SourceTreeEvidence;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -152,6 +153,18 @@ public final class GradleStaticProjectInspector {
                     "java-platform BOM detected: " + constraints.size() + " version constraint(s), "
                             + imports + " platform import(s)."));
         }
+        List<String> mainSourceRoots = mainSourceRoots(projectDirectory, content, kotlinConvention);
+        List<String> testSourceRoots = testSourceRoots(projectDirectory, content, kotlinConvention);
+        List<String> groovyTestSourceRoots = buildFileParser.sourceRoots(
+                content,
+                "test",
+                "src/test/groovy",
+                hasGroovyTestSources(projectDirectory, content));
+        SourceTreeEvidence sourceTree = SourceTreeEvidence.inspect(
+                "Gradle",
+                projectDirectory,
+                mainSourceRoots,
+                testSourceRoots);
         return new GradleProjectInspection(
                 relativePath,
                 declaredName.filter(name -> !name.isBlank()).orElseGet(() -> projectDirectory.getFileName().toString()),
@@ -164,19 +177,16 @@ public final class GradleStaticProjectInspector {
                 plugins,
                 repositories(content, settingsRepositories),
                 dependencies,
-                mainSourceRoots(projectDirectory, content, kotlinConvention),
-                testSourceRoots(projectDirectory, content, kotlinConvention),
-                buildFileParser.sourceRoots(
-                        content,
-                        "test",
-                        "src/test/groovy",
-                        hasGroovyTestSources(projectDirectory, content)),
+                mainSourceRoots,
+                testSourceRoots,
+                groovyTestSourceRoots,
                 constraints,
                 GradleKotlinProjectEvidence.inspect(
                         content,
                         rootProperties,
                         projectProperties,
-                        Files.isDirectory(root.resolve("buildSrc"))));
+                        Files.isDirectory(root.resolve("buildSrc")),
+                        sourceTree));
     }
 
     private List<GradleRepositoryInspection> repositories(

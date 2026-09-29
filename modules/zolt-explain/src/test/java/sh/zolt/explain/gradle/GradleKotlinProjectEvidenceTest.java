@@ -40,6 +40,7 @@ final class GradleKotlinProjectEvidenceTest {
         assertTrue(evidence.kotlinProperties().isEmpty());
         assertFalse(evidence.annotationProcessingConfigured());
         assertFalse(evidence.buildSrcPresent());
+        assertEquals(sh.zolt.explain.SourceTreeEvidence.none(), evidence.sourceTree());
     }
 
     @Test
@@ -91,6 +92,27 @@ final class GradleKotlinProjectEvidenceTest {
                 evidence.kotlinProperties());
         assertTrue(evidence.annotationProcessingConfigured());
         assertTrue(evidence.buildSrcPresent());
+    }
+
+    @Test
+    void recordsJavaAndModularSourcesInsideKotlinProjects() throws IOException {
+        Files.createDirectories(tempDir.resolve("src/main/kotlin/p"));
+        Files.createDirectories(tempDir.resolve("src/test/kotlin/p"));
+        Files.writeString(tempDir.resolve("src/main/kotlin/p/Mixed.java"), "package p; class Mixed {}\n");
+        Files.writeString(tempDir.resolve("src/main/kotlin/module-info.java"), "module demo {}\n");
+        Files.writeString(tempDir.resolve("src/test/kotlin/p/TestHelper.java"),
+                "package p; class TestHelper {}\n");
+
+        GradleKotlinProjectEvidence evidence = inspect("""
+                plugins {
+                    id 'org.jetbrains.kotlin.jvm' version '2.3.21'
+                }
+                """);
+
+        assertTrue(evidence.sourceTree().mainJavaSourcesPresent());
+        assertTrue(evidence.sourceTree().testJavaSourcesPresent());
+        assertTrue(evidence.sourceTree().modularSources());
+        assertFalse(evidence.sourceTree().sourceLinksPresent());
     }
 
     @Test
