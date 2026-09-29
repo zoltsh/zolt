@@ -37,11 +37,11 @@ final class BuildPlanGeneratedSourceNodePlanner {
                     "OpenAPI generated-source step `" + step.id() + "` is missing tool or generator settings.",
                     "Add [generated.tools.openapi] coordinate/version and generator or preset.generator."));
         }
-        if (!"java".equals(step.language())) {
+        if (!supportedLanguage(step)) {
             blockers.add(new PlanBlocker(
                     "unsupported-generated-source-language",
                     "Generated source language `" + step.language() + "` is not supported yet.",
-                    "Use language = \"java\" for current generated-source steps."));
+                    "Use language = \"java\", or use language = \"kotlin\" with kind = \"declared-root\"."));
         }
         addInvalidPathBlocker(blockers, root, step.output(), "output");
         for (int index = 0; index < step.inputs().size(); index++) {
@@ -101,12 +101,18 @@ final class BuildPlanGeneratedSourceNodePlanner {
                 "generated-source",
                 status,
                 step.kind() == GeneratedSourceKind.DECLARED_ROOT
-                        ? "Use declared generated Java source root."
+                        ? "Use declared generated source root."
                         : "Run typed generated-source step.",
                 step.inputs(),
                 List.of(step.output()),
                 details,
                 blockers);
+    }
+
+    private static boolean supportedLanguage(GeneratedSourceStep step) {
+        return "java".equals(step.language())
+                || ("kotlin".equals(step.language())
+                        && step.kind() == GeneratedSourceKind.DECLARED_ROOT);
     }
 
     private static List<GeneratedSourceEvidence> generatedSourcesForScope(

@@ -32,7 +32,7 @@ final class BuildPlanGeneratedSourceNodePlannerTest {
                 new GeneratedSourceStep(
                         "api",
                         GeneratedSourceKind.DECLARED_ROOT,
-                        "java",
+                        "kotlin",
                         "target/generated/sources/api",
                         List.of("src/main/openapi/api.yaml"),
                         true,
@@ -67,6 +67,7 @@ final class BuildPlanGeneratedSourceNodePlannerTest {
         assertTrue(node.details().contains("scope: main"));
         assertTrue(node.details().contains("compileLane: main"));
         assertTrue(node.details().contains("kind: declared-root"));
+        assertTrue(node.details().contains("language: kotlin"));
         assertTrue(node.details().contains("freshness: fresh"));
         assertTrue(node.details().contains("toolFingerprint: tool"));
         assertTrue(node.blockers().isEmpty());
@@ -169,7 +170,7 @@ final class BuildPlanGeneratedSourceNodePlannerTest {
                 .getFirst();
 
         assertEquals(PlanNodeStatus.SKIPPED, node.status());
-        assertEquals("Use declared generated Java source root.", node.description());
+        assertEquals("Use declared generated source root.", node.description());
         assertTrue(node.blockers().isEmpty());
     }
 
