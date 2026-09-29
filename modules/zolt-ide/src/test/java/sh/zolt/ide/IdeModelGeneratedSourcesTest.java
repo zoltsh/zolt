@@ -21,17 +21,17 @@ final class IdeModelGeneratedSourcesTest {
     void exportsDeclaredGeneratedSourceRootsForEditors() throws IOException {
         Path projectDir = tempDir.resolve("generated-sources");
         Path mainInput = projectDir.resolve("src/main/openapi/api.yaml");
-        Path mainOutput = projectDir.resolve("target/generated/sources/openapi/com/example/GeneratedApi.java");
+        Path mainOutput = projectDir.resolve("target/generated/sources/openapi/com/example/GeneratedApi.kt");
         Path testInput = projectDir.resolve("src/test/fixtures/schema.json");
-        Path testOutput = projectDir.resolve("target/generated/test-sources/fixtures/com/example/GeneratedFixture.java");
+        Path testOutput = projectDir.resolve("target/generated/test-sources/fixtures/com/example/GeneratedFixture.kt");
         Files.createDirectories(mainInput.getParent());
         Files.createDirectories(mainOutput.getParent());
         Files.createDirectories(testInput.getParent());
         Files.createDirectories(testOutput.getParent());
         Files.writeString(mainInput, "openapi: 3.1.0\n");
-        Files.writeString(mainOutput, "package com.example; public final class GeneratedApi {}\n");
+        Files.writeString(mainOutput, "package com.example\nobject GeneratedApi\n");
         Files.writeString(testInput, "{}\n");
-        Files.writeString(testOutput, "package com.example; public final class GeneratedFixture {}\n");
+        Files.writeString(testOutput, "package com.example\nobject GeneratedFixture\n");
         Files.setLastModifiedTime(mainInput, FileTime.fromMillis(1_000));
         Files.setLastModifiedTime(mainOutput, FileTime.fromMillis(2_000));
         Files.setLastModifiedTime(testInput, FileTime.fromMillis(1_000));
@@ -45,13 +45,13 @@ final class IdeModelGeneratedSourcesTest {
 
                 [generated.main.openapi]
                 kind = "declared-root"
-                language = "java"
+                language = "kotlin"
                 output = "target/generated/sources/openapi"
                 inputs = ["src/main/openapi/api.yaml"]
 
                 [generated.test.fixtures]
                 kind = "declared-root"
-                language = "java"
+                language = "kotlin"
                 output = "target/generated/test-sources/fixtures"
                 inputs = ["src/test/fixtures/schema.json"]
                 required = false
@@ -65,13 +65,13 @@ final class IdeModelGeneratedSourcesTest {
         assertTrue(model.sourceRoots().contains(new IdeModel.SourceRoot(
                 "generated-main-openapi",
                 "main",
-                "java",
+                "kotlin",
                 root.resolve("target/generated/sources/openapi"),
                 true)));
         assertTrue(model.sourceRoots().contains(new IdeModel.SourceRoot(
                 "generated-test-fixtures",
                 "test",
-                "java",
+                "kotlin",
                 root.resolve("target/generated/test-sources/fixtures"),
                 true)));
         assertEquals(List.of(
@@ -80,7 +80,7 @@ final class IdeModelGeneratedSourcesTest {
                         "generated-main-openapi",
                         "main",
                         "declared-root",
-                        "java",
+                        "kotlin",
                         root.resolve("target/generated/sources/openapi"),
                         List.of(root.resolve("src/main/openapi/api.yaml")),
                         true,
@@ -98,7 +98,7 @@ final class IdeModelGeneratedSourcesTest {
                         "generated-test-fixtures",
                         "test",
                         "declared-root",
-                        "java",
+                        "kotlin",
                         root.resolve("target/generated/test-sources/fixtures"),
                         List.of(root.resolve("src/test/fixtures/schema.json")),
                         false,
@@ -116,6 +116,7 @@ final class IdeModelGeneratedSourcesTest {
         assertTrue(json.contains("\"generatedSources\": ["));
         assertTrue(json.contains("\"id\": \"generated-main-openapi\""));
         assertTrue(json.contains("\"id\": \"generated-test-fixtures\""));
+        assertTrue(json.contains("\"language\": \"kotlin\""));
         assertTrue(json.contains("\"ownership\": \"external-declared-root\""));
         assertTrue(json.contains("\"compileLane\": \"test-compile\""));
         assertTrue(json.contains("\"freshness\": \"fresh\""));

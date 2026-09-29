@@ -68,7 +68,7 @@ final class IdeRootModelBuilder {
             roots.add(new IdeModel.SourceRoot(
                     generatedRoot.id(),
                     "main",
-                    "java",
+                    generatedRoot.language(),
                     generatedRoot.path(),
                     true));
         }
@@ -86,7 +86,7 @@ final class IdeRootModelBuilder {
             roots.add(new IdeModel.SourceRoot(
                     generatedRoot.id(),
                     "test",
-                    "java",
+                    generatedRoot.language(),
                     generatedRoot.path(),
                     true));
         }
@@ -210,10 +210,11 @@ final class IdeRootModelBuilder {
         if (output == null) {
             return null;
         }
-        return new GeneratedSourceRoot("generated-" + kind + "-" + step.id(), output);
+        return new GeneratedSourceRoot(
+                "generated-" + kind + "-" + step.id(), step.language(), output);
     }
 
-    private record GeneratedSourceRoot(String id, Path path) {}
+    private record GeneratedSourceRoot(String id, String language, Path path) {}
 
     private static List<GeneratedSourceStep> safeGeneratedSteps(
             Path root,
