@@ -206,6 +206,7 @@ public final class IdeModelJsonWriter {
         indent(json, 1).append("\"outputs\": {\n");
         pathField(json, 2, "mainClasses", outputs.mainClasses(), true);
         pathField(json, 2, "testClasses", outputs.testClasses(), true);
+        pathField(json, 2, "integrationTestClasses", outputs.integrationTestClasses(), true);
         pathField(json, 2, "package", outputs.packagePath(), false);
         indent(json, 1).append("}");
     }

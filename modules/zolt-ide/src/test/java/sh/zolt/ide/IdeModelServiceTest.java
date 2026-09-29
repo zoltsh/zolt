@@ -116,8 +116,8 @@ final class IdeModelServiceTest {
                 recorder.attributesByPhase().get("build ide classpaths"));
         assertEquals(
                 Map.of(
-                        "sourceRoots", "4",
-                        "resourceRoots", "2",
+                        "sourceRoots", "5",
+                        "resourceRoots", "3",
                         "diagnostics", "0"),
                 recorder.attributesByPhase().get("assemble ide model"));
     }

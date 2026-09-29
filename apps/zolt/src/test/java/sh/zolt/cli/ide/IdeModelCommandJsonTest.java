@@ -3,6 +3,7 @@ package sh.zolt.cli.ide;
 import static sh.zolt.cli.CliTestSupport.execute;
 import static sh.zolt.cli.ide.IdeModelCommandJsonTestSupport.cacheRoot;
 import static sh.zolt.cli.ide.IdeModelCommandJsonTestSupport.currentJavaMajorVersionValue;
+import static sh.zolt.cli.ide.IdeModelCommandJsonTestSupport.jsonPathValue;
 import static sh.zolt.cli.ide.IdeModelCommandJsonTestSupport.root;
 import static sh.zolt.cli.ide.IdeModelCommandJsonTestSupport.writeLockfile;
 import static sh.zolt.cli.ide.IdeModelCommandJsonTestSupport.writeProject;
@@ -43,9 +44,14 @@ final class IdeModelCommandJsonTest {
         assertTrue(json.contains("\"package\": {\n    \"mode\": \"jar\""));
         assertTrue(json.contains("\"paths\": {\n    \"root\": \"" + root(projectDir)));
         assertTrue(json.contains("\"sourceRoots\": ["));
+        assertTrue(json.contains("\"id\": \"integration-test-java-1\""));
+        assertTrue(json.contains("\"kind\": \"integration-test\""));
         assertTrue(json.contains("\"generatedSources\": []"));
         assertTrue(json.contains("\"resourceRoots\": ["));
+        assertTrue(json.contains("\"id\": \"integration-test-resources\""));
         assertTrue(json.contains("\"outputs\": {\n    \"mainClasses\": \""));
+        assertTrue(json.contains("\"integrationTestClasses\": \""
+                + jsonPathValue(projectRoot.resolve("target/integration-test-classes"))));
         assertTrue(json.contains("\"dependencies\": {\n    \"versionAliases\": {}"));
     }
 }

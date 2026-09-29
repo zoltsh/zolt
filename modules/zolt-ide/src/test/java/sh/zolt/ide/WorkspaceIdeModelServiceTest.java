@@ -61,6 +61,19 @@ final class WorkspaceIdeModelServiceTest {
         assertEquals(List.of("api", "core"), model.projects().stream()
                 .map(project -> project.model().project().name())
                 .toList());
+        IdeModel apiModel = model.projects().getFirst().model();
+        assertEquals(1, apiModel.schemaVersion());
+        assertTrue(apiModel.sourceRoots().stream().anyMatch(root ->
+                root.id().equals("integration-test-java-1")
+                        && root.kind().equals("integration-test")
+                        && root.path().equals(tempDir.resolve("apps/api/src/integration-test/java"))));
+        assertTrue(apiModel.resourceRoots().stream().anyMatch(root ->
+                root.id().equals("integration-test-resources")
+                        && root.kind().equals("integration-test")
+                        && root.path().equals(tempDir.resolve("apps/api/src/integration-test/resources"))));
+        assertEquals(
+                tempDir.resolve("apps/api/target/integration-test-classes"),
+                apiModel.outputs().integrationTestClasses());
         assertEquals(
                 List.of(new WorkspaceIdeModel.ProjectEdge("apps/api", "modules/core", "compile", "com.acme:core")),
                 model.edges());

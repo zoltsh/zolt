@@ -182,7 +182,14 @@ public record IdeModel(
     public record OutputInfo(
             Path mainClasses,
             Path testClasses,
+            Path integrationTestClasses,
             Path packagePath) {
+        public OutputInfo(
+                Path mainClasses,
+                Path testClasses,
+                Path packagePath) {
+            this(mainClasses, testClasses, null, packagePath);
+        }
     }
 
     public record DependencyInfo(

@@ -38,7 +38,7 @@ final class IdeRootModelBuilder {
             Path sourceRoot = inputRoot(
                     root, "[build].sources", settings.sourceRoots().get(index), diagnostics);
             resolvedMainRoots.add(sourceRoot);
-            for (String language : mainSourceLanguages(
+            for (String language : sourceLanguages(
                     settings.sourceRoots().get(index), sourceRoot)) {
                 addSourceRoot(
                         roots,
@@ -95,6 +95,8 @@ final class IdeRootModelBuilder {
                     generatedRoot.path(),
                     true));
         }
+        addIntegrationTestSourceRoots(
+                roots, root, settings.integrationTestSources(), diagnostics);
         return roots;
     }
 
@@ -123,8 +125,17 @@ final class IdeRootModelBuilder {
         }
         BuildSettings settings = config.build();
         List<IdeModel.ResourceRoot> roots = new ArrayList<>();
-        addResourceRoots(roots, root, "main", settings.resourceRoots(), diagnostics);
-        addResourceRoots(roots, root, "test", settings.testResourceRoots(), diagnostics);
+        addResourceRoots(
+                roots, root, "main", "[resources].main", settings.resourceRoots(), diagnostics);
+        addResourceRoots(
+                roots, root, "test", "[resources].test", settings.testResourceRoots(), diagnostics);
+        addResourceRoots(
+                roots,
+                root,
+                "integration-test",
+                "[test.integration].resources",
+                settings.integrationTestResourceRoots(),
+                diagnostics);
         return List.copyOf(roots);
     }
 
@@ -154,12 +165,33 @@ final class IdeRootModelBuilder {
         }
     }
 
+    private static void addIntegrationTestSourceRoots(
+            List<IdeModel.SourceRoot> roots,
+            Path root,
+            List<String> configuredRoots,
+            List<IdeModel.Diagnostic> diagnostics) {
+        for (int index = 0; index < configuredRoots.size(); index++) {
+            String configuredRoot = configuredRoots.get(index);
+            Path sourceRoot = inputRoot(
+                    root, "[test.integration].sources", configuredRoot, diagnostics);
+            for (String language : sourceLanguages(configuredRoot, sourceRoot)) {
+                addSourceRoot(
+                        roots,
+                        "integration-test-" + language + "-" + (index + 1),
+                        "integration-test",
+                        language,
+                        sourceRoot,
+                        false);
+            }
+        }
+    }
+
     private static String mainSourceRootId(String language, int index) {
         String prefix = "main-" + language;
         return index == 0 ? prefix : prefix + "-" + (index + 1);
     }
 
-    private static List<String> mainSourceLanguages(
+    private static List<String> sourceLanguages(
             String configuredRoot, Path sourceRoot) {
         boolean containsJava = containsSource(sourceRoot, ".java");
         boolean containsKotlin = containsSource(sourceRoot, ".kt");
@@ -289,12 +321,13 @@ final class IdeRootModelBuilder {
             List<IdeModel.ResourceRoot> roots,
             Path root,
             String kind,
+            String key,
             List<String> configuredRoots,
             List<IdeModel.Diagnostic> diagnostics) {
         String idPrefix = kind + "-resources";
         for (int index = 0; index < configuredRoots.size(); index++) {
             String id = index == 0 ? idPrefix : idPrefix + "-" + (index + 1);
-            Path path = inputRoot(root, "[resources]." + kind, configuredRoots.get(index), diagnostics);
+            Path path = inputRoot(root, key, configuredRoots.get(index), diagnostics);
             if (path != null) {
                 roots.add(new IdeModel.ResourceRoot(id, kind, path));
             }

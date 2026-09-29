@@ -98,12 +98,17 @@ final class IdeProjectModelBuilder {
             ProjectConfig config,
             List<IdeModel.Diagnostic> diagnostics) {
         if (config == null) {
-            return new IdeModel.OutputInfo(null, null, null);
+            return new IdeModel.OutputInfo(null, null, null, null);
         }
         String artifactBaseName = artifactBaseName(root, config, diagnostics);
         return new IdeModel.OutputInfo(
                 outputPath(root, "[build.output].main", config.build().output(), diagnostics),
                 outputPath(root, "[build.output].test", config.build().testOutput(), diagnostics),
+                outputPath(
+                        root,
+                        "[build.output].integration",
+                        config.build().integrationTestOutput(),
+                        diagnostics),
                 artifactPath(root, config, artifactBaseName, "", diagnostics));
     }
 
