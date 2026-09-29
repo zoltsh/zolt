@@ -25,6 +25,7 @@ public record GradleKotlinProjectEvidence(
         boolean settingsShapeProven,
         boolean pluginBlockShapeProven,
         boolean declarativeBuildShapeProven,
+        boolean dependencyDeclarationsProven,
         boolean dependencyResolutionConfigured,
         SourceTreeEvidence sourceTree) {
     private static final Pattern JAVA_TOOLCHAIN_VERSION = Pattern.compile(
@@ -98,6 +99,7 @@ public record GradleKotlinProjectEvidence(
                 settingsShapeProven,
                 pluginBlockShapeProven(content),
                 topLevelShapeProven(content),
+                GradleDependencyDeclarationEvidence.fullyMapped(content),
                 DEPENDENCY_RESOLUTION.matcher(content).find(),
                 sourceTree);
     }
@@ -105,7 +107,7 @@ public record GradleKotlinProjectEvidence(
     public static GradleKotlinProjectEvidence none() {
         return new GradleKotlinProjectEvidence(
                 "", false, false, false, false, false, "", List.of(), false, false, false,
-                false, false, false, false,
+                false, false, false, false, false,
                 SourceTreeEvidence.none());
     }
 

@@ -209,6 +209,51 @@ final class GradleKotlinDraftAssessorTest {
                 .contains("compiler and kotlin-stdlib versions differed"));
     }
 
+    @Test
+    void rejectsDependencyDeclarationsTheStaticMapperCannotPreserve() throws IOException {
+        List<String> declarations = List.of(
+                "implementation files('libs/local.jar')",
+                "implementation project(':lib')",
+                "implementation dependencyCoordinate",
+                "implementation group: 'com.example', name: 'lib', version: '1.0.0'",
+                "implementation('com.example:lib:1.0.0') { because('selected') }",
+                "customConfiguration 'com.example:lib:1.0.0'",
+                "implementation 'com.example:lib:1.0.0:tests'",
+                "implementation(libs.missing)");
+        int index = 0;
+        for (String declaration : declarations) {
+            Path root = project("dependency-shape-" + index++, build(VERSION, declaration, ""));
+            kotlinRoots(root, true, false);
+            assertReason(assess(root), GradleKotlinDraftReason.DEPENDENCY_DECLARATIONS);
+        }
+    }
+
+    @Test
+    void acceptsLiteralAndResolvedCatalogDependencies() throws IOException {
+        Path literal = project("literal-dependency", build(
+                VERSION,
+                "implementation 'com.example:lib:1.0.0'",
+                ""));
+        kotlinRoots(literal, true, false);
+        assertInstanceOf(
+                KotlinJvmDraftEligibility.Decision.Eligible.class,
+                assess(literal).result().decision());
+
+        Path catalog = project("catalog-dependency", build(VERSION, "implementation(libs.guava)", ""));
+        Path catalogFile = catalog.resolve("gradle/libs.versions.toml");
+        Files.createDirectories(catalogFile.getParent());
+        Files.writeString(catalogFile, """
+                [versions]
+                guava = "33.4.8-jre"
+                [libraries]
+                guava = { module = "com.google.guava:guava", version.ref = "guava" }
+                """);
+        kotlinRoots(catalog, true, false);
+        assertInstanceOf(
+                KotlinJvmDraftEligibility.Decision.Eligible.class,
+                assess(catalog).result().decision());
+    }
+
     private Assessment assess(Path root) {
         GradleProjectInspection project = new GradleStaticProjectInspector()
                 .inspect(root)

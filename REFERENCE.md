@@ -2393,6 +2393,11 @@ must be conventional and Kotlin-only; mixed Java, Groovy, JPMS, symlinked source
 trees, custom source sets, annotation or symbol processing, compiler options,
 Kotlin extension/task configuration, `buildSrc`, resolution rules, other active
 plugins, and executable build logic keep the project in review-only mode.
+Every dependency statement must also be a single literal `group:artifact:version`
+or a resolved default-catalog alias in a supported configuration. Local files,
+project edges, map/computed notations, custom configurations, classifiers,
+dependency closures, and unresolved aliases keep Kotlin settings out of the
+draft rather than allowing an omitted classpath entry to look complete.
 
 The emitted runtime is either one explicit plain `kotlin-stdlib` at the plugin
 version or the same dependency Gradle would add automatically. The draft also

@@ -19,6 +19,7 @@ enum GradleKotlinDraftReason {
     ANNOTATION_PROCESSING,
     BUILD_SRC,
     BUILD_SHAPE,
+    DEPENDENCY_DECLARATIONS,
     GROOVY_SOURCES,
     MODULAR_SOURCES,
     SOURCE_LINKS,
@@ -47,6 +48,7 @@ enum GradleKotlinDraftReason {
             case ANNOTATION_PROCESSING -> "Gradle annotation processing or symbol processing was configured";
             case BUILD_SRC -> "buildSrc could configure Kotlin compilation outside the inspected build file";
             case BUILD_SHAPE -> "executable or unrecognized top-level Gradle build logic was present";
+            case DEPENDENCY_DECLARATIONS -> "the Gradle dependency declarations were not fully mapped";
             case GROOVY_SOURCES -> "the project also contained conventional Groovy test sources";
             case MODULAR_SOURCES -> "module-info.java requires unsupported Kotlin JPMS compilation";
             case SOURCE_LINKS -> "a Gradle source root contained symbolic links with different traversal semantics";

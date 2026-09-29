@@ -123,6 +123,17 @@ final class GradleKotlinJvmEmitTest {
         assertReviewOnly(draft(mixed), "mixed Java sources require Gradle javac controls");
     }
 
+    @Test
+    void keepsUnmappedDependencyShapesReviewOnly() throws IOException {
+        Path root = groovyProject(
+                "local-dependency",
+                VERSION,
+                "implementation files('libs/local.jar')");
+        kotlinSources(root, true, false);
+
+        assertReviewOnly(draft(root), "dependency declarations were not fully mapped");
+    }
+
     private DraftZoltToml draft(Path root) {
         return mapper.fromGradle(new GradleStaticProjectInspector().inspect(root));
     }

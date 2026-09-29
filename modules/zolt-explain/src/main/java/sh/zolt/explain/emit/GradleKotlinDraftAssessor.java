@@ -169,7 +169,23 @@ final class GradleKotlinDraftAssessor {
         if (project.dependencies().stream().anyMatch(GradleDependencyInspection::isPlatform)) {
             return reason(GradleKotlinDraftReason.PLATFORM_DEPENDENCY);
         }
+        if (!evidence.dependencyDeclarationsProven()
+                || project.dependencies().stream().anyMatch(GradleKotlinDraftAssessor::unresolvedDependency)) {
+            return reason(GradleKotlinDraftReason.DEPENDENCY_DECLARATIONS);
+        }
         return Optional.empty();
+    }
+
+    private static boolean unresolvedDependency(GradleDependencyInspection dependency) {
+        String coordinate = dependency.resolvedCoordinate();
+        if (coordinate == null) {
+            return true;
+        }
+        String[] parts = coordinate.split(":", -1);
+        return parts.length != 3
+                || parts[0].isBlank()
+                || parts[1].isBlank()
+                || parts[2].isBlank();
     }
 
     private static boolean alignedJavaToolchain(GradleProjectInspection project) {
