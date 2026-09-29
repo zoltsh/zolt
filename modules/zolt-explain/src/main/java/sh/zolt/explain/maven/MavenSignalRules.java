@@ -47,9 +47,20 @@ final class MavenSignalRules {
         if (!kotlinMavenPlugin(plugin.coordinate())) {
             return false;
         }
-        return plugin.goals().stream()
-                .map(goal -> goal.toLowerCase(Locale.ROOT))
-                .allMatch(Set.of("compile", "test-compile")::contains);
+        return plugin.conventionalKotlinJvmExecutions()
+                && (plugin.extensions().isBlank() || "false".equalsIgnoreCase(plugin.extensions()))
+                && !plugin.pluginDependenciesPresent()
+                && plugin.disabledExecutions().isEmpty();
+    }
+
+    /**
+     * A deliberately narrower subset whose Maven compiler behavior can be replaced by a generated
+     * Zolt draft without dropping statically visible Kotlin plugin controls.
+     */
+    static boolean draftableKotlinJvmCompilation(MavenPluginInspection plugin) {
+        return boundedKotlinJvmCompilation(plugin)
+                && !plugin.configurationPresent()
+                && plugin.kotlinPluginProperties().isEmpty();
     }
 
     /**

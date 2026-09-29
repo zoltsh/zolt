@@ -9,12 +9,44 @@ public record MavenPluginInspection(
         List<String> disabledExecutions,
         boolean pluginManagement,
         List<MavenExecInvocation> execInvocations,
-        boolean databaseBackedCodegen) {
+        boolean databaseBackedCodegen,
+        boolean conventionalKotlinJvmExecutions,
+        boolean configurationPresent,
+        String extensions,
+        boolean pluginDependenciesPresent,
+        List<String> kotlinPluginProperties) {
     public MavenPluginInspection {
         phases = List.copyOf(phases);
         goals = List.copyOf(goals);
         disabledExecutions = List.copyOf(disabledExecutions);
         execInvocations = execInvocations == null ? List.of() : List.copyOf(execInvocations);
+        extensions = extensions == null ? "" : extensions;
+        kotlinPluginProperties = kotlinPluginProperties == null
+                ? List.of()
+                : List.copyOf(kotlinPluginProperties);
+    }
+
+    public MavenPluginInspection(
+            String coordinate,
+            List<String> phases,
+            List<String> goals,
+            List<String> disabledExecutions,
+            boolean pluginManagement,
+            List<MavenExecInvocation> execInvocations,
+            boolean databaseBackedCodegen) {
+        this(
+                coordinate,
+                phases,
+                goals,
+                disabledExecutions,
+                pluginManagement,
+                execInvocations,
+                databaseBackedCodegen,
+                false,
+                false,
+                "",
+                false,
+                List.of());
     }
 
     public MavenPluginInspection(
