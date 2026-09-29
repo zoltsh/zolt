@@ -124,6 +124,53 @@ final class InspectionToManifestRootsTest {
     }
 
     @Test
+    void mavenDraftKeepsDiscoveredKotlinConventionRootsAsReviewData() throws IOException {
+        Files.createDirectories(tempDir.resolve("src/main/kotlin/com/example"));
+        Files.createDirectories(tempDir.resolve("src/test/kotlin/com/example"));
+        Files.writeString(tempDir.resolve("pom.xml"), """
+                <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>com.example</groupId>
+                  <artifactId>kotlin-conventions</artifactId>
+                  <version>1.0.0</version>
+                  <build>
+                    <plugins>
+                      <plugin>
+                        <groupId>org.jetbrains.kotlin</groupId>
+                        <artifactId>kotlin-maven-plugin</artifactId>
+                        <version>2.2.20</version>
+                        <executions>
+                          <execution>
+                            <goals>
+                              <goal>compile</goal>
+                              <goal>test-compile</goal>
+                            </goals>
+                          </execution>
+                        </executions>
+                      </plugin>
+                    </plugins>
+                  </build>
+                </project>
+                """);
+
+        DraftZoltToml draft = mapper.fromMaven(new MavenStaticProjectInspector().inspect(tempDir));
+
+        assertTrue(draft.manifest().build().build().isEmpty());
+        assertTrue(draft.manifest().toolchains().kotlin().isEmpty());
+        assertTrue(draft.manifest().build().tests().isEmpty());
+        assertTrue(
+                draft.notes().stream().anyMatch(note ->
+                        note.contains("a main source root at `src/main/kotlin`")
+                                && note.contains("cannot migrate automatically")),
+                () -> "expected the audited Kotlin main convention as review data: " + draft.notes());
+        assertTrue(
+                draft.notes().stream().anyMatch(note ->
+                        note.contains("a test source root at `src/test/kotlin`")
+                                && note.contains("[test.sources].kotlin")),
+                () -> "expected the audited Kotlin test convention as review data: " + draft.notes());
+    }
+
+    @Test
     void gradleDraftCarriesAuditedSourceRootsIntoBuildSettings() throws IOException {
         Files.writeString(tempDir.resolve("settings.gradle"), "rootProject.name = 'custom-roots'\n");
         Files.writeString(tempDir.resolve("build.gradle"), """

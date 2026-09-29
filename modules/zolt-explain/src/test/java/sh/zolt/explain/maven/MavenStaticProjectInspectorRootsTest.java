@@ -1,6 +1,7 @@
 package sh.zolt.explain.maven;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -18,15 +19,17 @@ final class MavenStaticProjectInspectorRootsTest {
     @Test
     void reportsConventionRootsOnlyWhenTheyExistOnDisk() throws IOException {
         Files.createDirectories(tempDir.resolve("src/main/java"));
+        Files.createDirectories(tempDir.resolve("src/main/kotlin"));
         Files.createDirectories(tempDir.resolve("src/test/java"));
+        Files.createDirectories(tempDir.resolve("src/test/kotlin"));
         Files.createDirectories(tempDir.resolve("src/main/resources"));
         Files.createDirectories(tempDir.resolve("src/test/resources"));
         Files.writeString(tempDir.resolve("pom.xml"), barePom("convention-roots"));
 
         MavenProjectInspection project = inspector.inspect(tempDir).projects().getFirst();
 
-        assertEquals(List.of("src/main/java"), project.sourceRoots());
-        assertEquals(List.of("src/test/java"), project.testSourceRoots());
+        assertEquals(List.of("src/main/java", "src/main/kotlin"), project.sourceRoots());
+        assertEquals(List.of("src/test/java", "src/test/kotlin"), project.testSourceRoots());
         assertEquals(List.of("src/main/resources"), project.resourceRoots());
         assertEquals(List.of("src/test/resources"), project.testResourceRoots());
     }
@@ -115,6 +118,42 @@ final class MavenStaticProjectInspectorRootsTest {
 
         assertEquals(List.of(), project.resourceRoots());
         assertEquals(List.of(), project.testResourceRoots());
+    }
+
+    @Test
+    void keepsKotlinConventionRootsVisibleWhenPluginBehaviorIsUnsupported() throws IOException {
+        Files.createDirectories(tempDir.resolve("src/main/kotlin"));
+        Files.createDirectories(tempDir.resolve("src/test/kotlin"));
+        Files.writeString(tempDir.resolve("pom.xml"), """
+                <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>com.example</groupId>
+                  <artifactId>kapt-roots</artifactId>
+                  <version>1.0.0</version>
+                  <build>
+                    <plugins>
+                      <plugin>
+                        <groupId>org.jetbrains.kotlin</groupId>
+                        <artifactId>kotlin-maven-plugin</artifactId>
+                        <version>2.2.20</version>
+                        <executions>
+                          <execution>
+                            <goals><goal>kapt</goal></goals>
+                          </execution>
+                        </executions>
+                      </plugin>
+                    </plugins>
+                  </build>
+                </project>
+                """);
+
+        MavenInspectionResult result = inspector.inspect(tempDir);
+        MavenProjectInspection project = result.projects().getFirst();
+
+        assertEquals(List.of("src/main/kotlin"), project.sourceRoots());
+        assertEquals(List.of("src/test/kotlin"), project.testSourceRoots());
+        assertTrue(result.signals().stream()
+                .anyMatch(signal -> signal.id().equals("maven.language.unsupported")));
     }
 
     private static String barePom(String artifactId) {

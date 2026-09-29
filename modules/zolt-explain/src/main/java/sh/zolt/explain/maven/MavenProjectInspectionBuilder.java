@@ -78,7 +78,7 @@ final class MavenProjectInspectionBuilder {
                         "sourceDirectory",
                         "src/main/java",
                         properties,
-                        List.of("src/main/groovy"),
+                        List.of("src/main/groovy", "src/main/kotlin"),
                         MavenRootInspection.buildHelperSourceRoots(project, properties)),
                 MavenRootInspection.sourceRoots(
                         project,
@@ -86,6 +86,7 @@ final class MavenProjectInspectionBuilder {
                         "testSourceDirectory",
                         "src/test/java",
                         properties,
+                        List.of("src/test/kotlin"),
                         List.of()),
                 MavenRootInspection.resourceRoots(project, projectDirectory, "resources", "src/main/resources", properties),
                 MavenRootInspection.resourceRoots(
