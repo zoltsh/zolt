@@ -7,11 +7,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.cli.CliTestSupport.CommandResult;
 import sh.zolt.manifest.authored.AuthoredManifest;
+import sh.zolt.project.ProjectConfig;
 import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import sh.zolt.toml.manifest.write.ManifestCanonicalWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -82,6 +84,64 @@ final class ExplainCommandEmitRoundTripTest {
         assertEquals("service", parsed.project().orElseThrow().identity().name().value());
         assertEquals(1, parsed.platforms().orElseThrow().entries().size());
         assertEquals(3, parsed.dependencies().orElseThrow().declarations().size());
+    }
+
+    @Test
+    void boundedMavenKotlinDraftRoundTripsToEffectiveCompilerInputs() throws IOException {
+        Files.createDirectories(tempDir.resolve("src/main/kotlin"));
+        Files.createDirectories(tempDir.resolve("src/test/java"));
+        Files.createDirectories(tempDir.resolve("src/test/kotlin"));
+        Files.writeString(tempDir.resolve("pom.xml"), """
+                <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>com.acme</groupId>
+                  <artifactId>kotlin-service</artifactId>
+                  <version>1.4.0</version>
+                  <properties>
+                    <maven.compiler.release>21</maven.compiler.release>
+                    <maven.compiler.proc>none</maven.compiler.proc>
+                    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+                    <kotlin.version>2.4.20</kotlin.version>
+                    <kapt.include.compile.classpath>false</kapt.include.compile.classpath>
+                  </properties>
+                  <dependencies>
+                    <dependency>
+                      <groupId>org.jetbrains.kotlin</groupId>
+                      <artifactId>kotlin-stdlib</artifactId>
+                      <version>${kotlin.version}</version>
+                    </dependency>
+                  </dependencies>
+                  <build>
+                    <plugins>
+                      <plugin>
+                        <groupId>org.jetbrains.kotlin</groupId>
+                        <artifactId>kotlin-maven-plugin</artifactId>
+                        <version>${kotlin.version}</version>
+                        <extensions>true</extensions>
+                      </plugin>
+                      <plugin>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <version>3.13.0</version>
+                      </plugin>
+                    </plugins>
+                  </build>
+                </project>
+                """);
+
+        emit("maven");
+
+        Path manifest = tempDir.resolve("zolt.toml");
+        AuthoredManifest parsed = assertCanonical(manifest);
+        assertEquals("2.4.20", parsed.toolchains().kotlin().orElseThrow().version().value());
+        ProjectConfig effective = LOADER.load(manifest);
+        assertEquals(List.of("src/main/java", "src/main/kotlin"), effective.build().sourceRoots());
+        assertEquals(List.of("src/test/java"), effective.build().testSources());
+        assertEquals(List.of("src/test/kotlin"), effective.build().kotlinTestSources());
+        assertEquals("2.4.20", effective.compilerSettings().kotlinVersion());
+        assertEquals("UTF8", effective.compilerSettings().encoding());
+        assertEquals("kotlin-service", effective.compilerSettings().kotlinModule());
+        assertEquals("kotlin-service-test", effective.compilerSettings().kotlinTestModule());
+        assertEquals("2.4.20", effective.dependencies().get("org.jetbrains.kotlin:kotlin-stdlib"));
     }
 
     @Test

@@ -14,6 +14,7 @@ import java.util.List;
 public record MavenProjectInspection(
         Path path,
         String artifactId,
+        boolean artifactIdFixed,
         String groupId,
         String version,
         String name,
@@ -21,9 +22,19 @@ public record MavenProjectInspection(
         String javaVersion,
         String testJavaVersion,
         MavenJavaVersionProvenance javaVersionProvenance,
+        MavenJavaVersionProvenance testJavaVersionProvenance,
+        String mavenCompilerRelease,
+        String mavenCompilerProc,
+        String sourceEncoding,
+        List<String> compilerProperties,
         List<String> modules,
         List<String> sourceRoots,
         List<String> testSourceRoots,
+        boolean explicitSourceDirectory,
+        boolean explicitTestSourceDirectory,
+        boolean groovyTestSourcesPresent,
+        boolean modularSources,
+        boolean sourceLinksPresent,
         List<String> resourceRoots,
         List<String> testResourceRoots,
         List<MavenDependencyInspection> dependencies,
@@ -42,6 +53,13 @@ public record MavenProjectInspection(
         javaVersionProvenance = javaVersionProvenance == null
                 ? MavenJavaVersionProvenance.UNKNOWN
                 : javaVersionProvenance;
+        testJavaVersionProvenance = testJavaVersionProvenance == null
+                ? MavenJavaVersionProvenance.UNKNOWN
+                : testJavaVersionProvenance;
+        mavenCompilerRelease = mavenCompilerRelease == null ? "" : mavenCompilerRelease;
+        mavenCompilerProc = mavenCompilerProc == null ? "" : mavenCompilerProc;
+        sourceEncoding = sourceEncoding == null ? "" : sourceEncoding;
+        compilerProperties = List.copyOf(compilerProperties);
         modules = List.copyOf(modules);
         sourceRoots = List.copyOf(sourceRoots);
         testSourceRoots = List.copyOf(testSourceRoots);

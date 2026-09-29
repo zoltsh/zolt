@@ -745,9 +745,9 @@ Tests may use their own member's `internal` main declarations: Zolt passes only
 that member's main output as a Kotlin friend path. Internal declarations from
 workspace dependency members remain inaccessible. Kotlin integration-test
 roots are admitted through `[test.integration].sources`; generated Kotlin,
-KAPT, and migration-manifest drafting are not supported. Sources are read as
-UTF-8. The
-effective Java release must not exceed the selected complete JDK;
+KAPT, and automatic migration of Kotlin shapes outside the bounded Maven subset
+described under Migration Explain are not supported. Sources are read as UTF-8.
+The effective Java release must not exceed the selected complete JDK;
 `[compiler].jdkApi = "host"` selects host-platform API semantics instead of
 Kotlin `-Xjdk-release` and javac `--release`. When the selected JDK itself is
 Java 8, Zolt instead uses Kotlin `-jvm-target 1.8` and javac `-source/-target 8`
@@ -776,6 +776,30 @@ independently through `[compiler.test].args`, so main and test warning and
 parameter-metadata policies do not leak into one another. Other custom compiler
 arguments remain unsupported for Kotlin-bearing source sets because javac flags
 cannot in general be forwarded safely to kotlinc.
+
+Kotlin compiler module identity is explicit when compatibility with another
+build must be preserved:
+
+```toml
+[compiler]
+kotlinModule = "library-core"
+
+[compiler.test]
+kotlinModule = "library-core-test"
+```
+
+`kotlinModule` controls the Kotlin module identity and the corresponding
+`META-INF/<name>.kotlin_module` metadata file. When omitted, Zolt derives a
+stable name from `[project].name`, followed by `_main` or `_test`. Maven uses
+`${project.artifactId}` for main compilation and `${project.artifactId}-test`
+for test compilation, so a statically proven Maven Kotlin draft writes both
+values explicitly for each source set that contains Kotlin.
+
+An explicit module name is one safe filename component: it must start with an
+ASCII letter or digit and may then contain ASCII letters, digits, `.`, `_`, `-`,
+or `+`. Path separators, traversal names, whitespace, and control characters
+are rejected. This keeps Kotlin metadata in the direct `META-INF` inventory
+used by incremental and cached builds.
 
 ## Resolution and Lockfile Contracts
 
@@ -2330,6 +2354,36 @@ literals, so inherited `[dependencies]` and `[platforms]` resolve in the report
 and in `--emit-toml`; anything dynamic (ranges, SNAPSHOT parents, unresolved
 `${...}`) is surfaced as a review item instead of being guessed, and every
 fetched coordinate is recorded in the audit.
+
+Maven Kotlin/JVM emission is deliberately narrower than Maven inspection.
+`zolt explain --emit-toml` authors Kotlin toolchain, source-root, runtime, and
+compiler-module settings only when the static model proves all of the following:
+
+- the project is a plain JAR with no inherited parent model or profiles;
+- exactly one active `org.jetbrains.kotlin:kotlin-maven-plugin` has a fixed
+  Kotlin 2.4-or-newer release, `<extensions>true</extensions>`, and no custom
+  configuration, executions, plugin dependencies, disabled executions, or
+  matching `pluginManagement` entry;
+- one direct, ordinary, plain-JAR `org.jetbrains.kotlin:kotlin-stdlib`
+  dependency has the same fixed version and a scope visible to every Kotlin
+  source set;
+- main and test roots use the conventional Java/Kotlin layout, do not replace
+  the test source root, stay inside the project, and contain no symbolic-link,
+  Groovy, Scala, Android, generated-source, build-helper, or JPMS behavior;
+- `maven.compiler.release` is an explicit Java feature release,
+  `project.build.sourceEncoding` is UTF-8, `maven.compiler.proc` is `none`, and
+  `kapt.include.compile.classpath` is `false`;
+- one plain, fixed `maven-compiler-plugin` 3.13-or-newer declaration establishes
+  those compiler properties without configuration, executions, dependencies,
+  or another Maven JDK toolchain; and
+- the effective Maven `artifactId` is fixed and valid as a safe Kotlin module
+  filename component.
+
+Additional Maven/Kotlin compiler properties, lifecycle extensions, competing
+language plugins, annotation processors, generated outputs, custom roots, or
+unresolved values keep Kotlin as review data and produce a manual-migration
+note instead of an optimistic Kotlin draft. Ordinary Maven/Gradle audit output
+and non-Kotlin draft behavior are unchanged by this gate.
 
 Gradle BOM shapes map like their Maven counterparts. A `platform('g:a:v')` or
 `enforcedPlatform(...)` import — Groovy or Kotlin DSL, a string coordinate or a

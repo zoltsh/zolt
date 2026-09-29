@@ -12,7 +12,9 @@ public record CompilerSettings(
         String platformApi,
         String testPlatformApi,
         String groovyVersion,
-        String kotlinVersion) {
+        String kotlinVersion,
+        String kotlinModule,
+        String kotlinTestModule) {
     private static final String DEFAULT_GENERATED_SOURCES = "target/generated/sources/annotations";
     private static final String DEFAULT_GENERATED_TEST_SOURCES = "target/generated/test-sources/annotations";
 
@@ -33,6 +35,35 @@ public record CompilerSettings(
         testPlatformApi = stringOrEmpty(testPlatformApi);
         groovyVersion = stringOrEmpty(groovyVersion);
         kotlinVersion = stringOrEmpty(kotlinVersion);
+        kotlinModule = stringOrEmpty(kotlinModule);
+        kotlinTestModule = stringOrEmpty(kotlinTestModule);
+    }
+
+    /** Compatibility constructor for callers that predate explicit Kotlin module identity. */
+    public CompilerSettings(
+            String generatedSources,
+            String generatedTestSources,
+            String release,
+            String encoding,
+            List<String> args,
+            List<String> testArgs,
+            String platformApi,
+            String testPlatformApi,
+            String groovyVersion,
+            String kotlinVersion) {
+        this(
+                generatedSources,
+                generatedTestSources,
+                release,
+                encoding,
+                args,
+                testArgs,
+                platformApi,
+                testPlatformApi,
+                groovyVersion,
+                kotlinVersion,
+                "",
+                "");
     }
 
     /** Compatibility constructor for callers that predate explicit Kotlin compiler selection. */
@@ -56,6 +87,8 @@ public record CompilerSettings(
                 platformApi,
                 testPlatformApi,
                 groovyVersion,
+                "",
+                "",
                 "");
     }
 
@@ -78,6 +111,8 @@ public record CompilerSettings(
                 testArgs,
                 platformApi,
                 testPlatformApi,
+                "",
+                "",
                 "",
                 "");
     }

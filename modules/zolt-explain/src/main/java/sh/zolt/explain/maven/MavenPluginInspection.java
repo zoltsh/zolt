@@ -1,6 +1,7 @@
 package sh.zolt.explain.maven;
 
 import java.util.List;
+import java.util.Locale;
 
 public record MavenPluginInspection(
         String coordinate,
@@ -12,9 +13,11 @@ public record MavenPluginInspection(
         boolean databaseBackedCodegen,
         boolean conventionalKotlinJvmExecutions,
         boolean configurationPresent,
+        boolean activeConfiguredExecutionsPresent,
         String extensions,
         boolean pluginDependenciesPresent,
-        List<String> kotlinPluginProperties) {
+        List<String> kotlinPluginProperties,
+        String kaptIncludeCompileClasspath) {
     public MavenPluginInspection {
         phases = List.copyOf(phases);
         goals = List.copyOf(goals);
@@ -24,6 +27,9 @@ public record MavenPluginInspection(
         kotlinPluginProperties = kotlinPluginProperties == null
                 ? List.of()
                 : List.copyOf(kotlinPluginProperties);
+        kaptIncludeCompileClasspath = kaptIncludeCompileClasspath == null
+                ? ""
+                : kaptIncludeCompileClasspath;
     }
 
     public MavenPluginInspection(
@@ -44,9 +50,11 @@ public record MavenPluginInspection(
                 databaseBackedCodegen,
                 false,
                 false,
+                false,
                 "",
                 false,
-                List.of());
+                List.of(),
+                "");
     }
 
     public MavenPluginInspection(
@@ -78,5 +86,12 @@ public record MavenPluginInspection(
 
     public MavenPluginInspection(String coordinate, List<String> phases, boolean pluginManagement) {
         this(coordinate, phases, List.of(), List.of(), pluginManagement, List.of(), false);
+    }
+
+    /** Whether this plugin selects a language/build model outside Zolt's JVM source surface. */
+    public boolean unsupportedLanguagePlugin() {
+        String lower = coordinate.toLowerCase(Locale.ROOT);
+        return lower.contains(":scala-maven-plugin")
+                || lower.contains(":android-maven-plugin");
     }
 }

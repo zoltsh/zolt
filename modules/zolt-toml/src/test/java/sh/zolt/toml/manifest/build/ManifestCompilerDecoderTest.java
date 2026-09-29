@@ -1,4 +1,4 @@
-package sh.zolt.toml.manifest;
+package sh.zolt.toml.manifest.build;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import sh.zolt.manifest.ManifestRelativePath;
 import sh.zolt.manifest.authored.AuthoredCompiler;
 import sh.zolt.toml.ZoltConfigException;
+import sh.zolt.toml.manifest.ManifestBuildTestSupport;
 import sh.zolt.toml.schema.FinalManifestCompilerFields;
 import sh.zolt.toml.schema.FinalManifestSchema;
 
@@ -35,16 +36,18 @@ final class ManifestCompilerDecoderTest {
     }
 
     @Test
-    void decodesAllSevenCompilerFieldsExactly() {
+    void decodesAllNineCompilerFieldsExactly() {
         AuthoredCompiler compiler = decode("""
                 [compiler]
                 encoding = "UTF-16"
                 jdkApi = "release"
                 args = ["-parameters", "-Xlint:all"]
+                kotlinModule = "maven-main"
 
                 [compiler.test]
                 jdkApi = "host"
                 args = ["-g", "-Xlint:none"]
+                kotlinModule = "maven-test"
 
                 [compiler.generated]
                 main = "generated/sources"
@@ -54,9 +57,11 @@ final class ManifestCompilerDecoderTest {
         assertEquals("UTF-16", compiler.encoding().orElseThrow());
         assertEquals(AuthoredCompiler.JdkApiMode.RELEASE, compiler.jdkApi().orElseThrow());
         assertEquals(List.of("-parameters", "-Xlint:all"), compiler.args());
+        assertEquals("maven-main", compiler.kotlinModule().orElseThrow());
         AuthoredCompiler.Test test = compiler.test().orElseThrow();
         assertEquals(AuthoredCompiler.JdkApiMode.HOST, test.jdkApi().orElseThrow());
         assertEquals(List.of("-g", "-Xlint:none"), test.args());
+        assertEquals("maven-test", test.kotlinModule().orElseThrow());
         AuthoredCompiler.Generated generated = compiler.generated().orElseThrow();
         assertEquals(path("generated/sources"), generated.main().orElseThrow());
         assertEquals(path("generated/test-sources"), generated.test().orElseThrow());
@@ -85,6 +90,43 @@ final class ManifestCompilerDecoderTest {
         assertEquals(
                 path("generated/tests"),
                 generatedOnly.generated().orElseThrow().test().orElseThrow());
+    }
+
+    @Test
+    void decodesModuleOnlyScopesAndAppliesModelStringRules() {
+        AuthoredCompiler main = decode("""
+                [compiler]
+                kotlinModule = "main-id"
+                """).orElseThrow();
+        assertEquals("main-id", main.kotlinModule().orElseThrow());
+        assertTrue(main.test().isEmpty());
+
+        AuthoredCompiler test = decode("""
+                [compiler.test]
+                kotlinModule = "test-id"
+                """).orElseThrow();
+        assertTrue(test.kotlinModule().isEmpty());
+        assertEquals("test-id", test.test().orElseThrow().kotlinModule().orElseThrow());
+
+        assertFailure("""
+                [compiler]
+                kotlinModule = " "
+                """, "Invalid value for `compiler.kotlinModule`", "must not be blank");
+        assertFailure("""
+                [compiler.test]
+                kotlinModule = " "
+                """, "Invalid value for `compiler.test.kotlinModule`", "must not be blank");
+        for (String module : List.of("nested/name", "nested\\name", ".", "..", "../module")) {
+            String literal = "'" + module + "'";
+            assertFailure(
+                    "[compiler]\nkotlinModule = " + literal + "\n",
+                    "Invalid value for `compiler.kotlinModule`",
+                    "cannot be used in derived file names");
+            assertFailure(
+                    "[compiler.test]\nkotlinModule = " + literal + "\n",
+                    "Invalid value for `compiler.test.kotlinModule`",
+                    "cannot be used in derived file names");
+        }
     }
 
     @Test
@@ -186,6 +228,18 @@ final class ManifestCompilerDecoderTest {
                 AuthoredCompiler.JdkApiMode.RELEASE,
                 test.test().orElseThrow().jdkApi().orElseThrow());
         assertTrue(test.test().orElseThrow().args().isEmpty());
+
+        AuthoredCompiler modules = decode("""
+                [compiler]
+                args = []
+                kotlinModule = "main-id"
+
+                [compiler.test]
+                args = []
+                kotlinModule = "test-id"
+                """).orElseThrow();
+        assertEquals("main-id", modules.kotlinModule().orElseThrow());
+        assertEquals("test-id", modules.test().orElseThrow().kotlinModule().orElseThrow());
     }
 
     @Test
@@ -247,8 +301,7 @@ final class ManifestCompilerDecoderTest {
     }
 
     private static Optional<AuthoredCompiler> decode(String source) {
-        return new ManifestCompilerDecoder().decode(
-                ManifestSemanticTestSupport.index(source), ignored -> {});
+        return ManifestBuildTestSupport.decodeCompiler(source, ignored -> {});
     }
 
     private static ManifestRelativePath path(String value) {

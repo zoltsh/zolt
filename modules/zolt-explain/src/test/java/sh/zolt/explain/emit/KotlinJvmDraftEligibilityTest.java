@@ -114,6 +114,22 @@ final class KotlinJvmDraftEligibilityTest {
     }
 
     @Test
+    void rejectsStdlibShapesTheSourceAdapterCannotProve() {
+        DraftDependencies dependencies = new DraftDependencies(new ArrayList<>());
+        dependencies.fixed(DependencyLane.IMPLEMENTATION, STDLIB, VERSION);
+
+        assertReason(
+                KotlinJvmDraftEligibility.decide(new KotlinJvmDraftEligibility.Input(
+                        true,
+                        VERSION,
+                        false,
+                        List.of("src/main/kotlin"),
+                        List.of(),
+                        dependencies)),
+                KotlinJvmDraftEligibility.Reason.STDLIB_SHAPE_NOT_PROVEN);
+    }
+
+    @Test
     void rejectsStdlibVersionMismatch() {
         assertReason(
                 decide(true, VERSION, List.of("src/main/kotlin"), List.of(),
@@ -189,6 +205,7 @@ final class KotlinJvmDraftEligibilityTest {
         return KotlinJvmDraftEligibility.decide(new KotlinJvmDraftEligibility.Input(
                 supportedPluginShape,
                 pluginVersion,
+                true,
                 mainRoots,
                 testRoots,
                 dependencies));

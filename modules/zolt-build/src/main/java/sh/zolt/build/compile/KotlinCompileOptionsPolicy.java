@@ -53,7 +53,7 @@ public final class KotlinCompileOptionsPolicy {
                 : compiler.testHostPlatformApi();
         return new KotlinCompilerRunner.Options(
                 Integer.toString(release),
-                moduleName(config.project().name(), compilationScope),
+                moduleName(config, compilationScope),
                 hostPlatformApi,
                 !hostPlatformApi && jdkFeature >= 9,
                 mappedArguments.javaParameters(),
@@ -186,8 +186,16 @@ public final class KotlinCompileOptionsPolicy {
     }
 
     private static String moduleName(
-            String projectName,
+            ProjectConfig config,
             KotlinCompilationScope scope) {
+        CompilerSettings compiler = config.compilerSettings();
+        String configured = scope == KotlinCompilationScope.MAIN
+                ? compiler.kotlinModule()
+                : compiler.kotlinTestModule();
+        if (!configured.isBlank()) {
+            return configured;
+        }
+        String projectName = config.project().name();
         String value = projectName == null ? "" : projectName.strip().toLowerCase(Locale.ROOT);
         StringBuilder normalized = new StringBuilder();
         for (int index = 0; index < value.length(); index++) {

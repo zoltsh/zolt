@@ -10,10 +10,14 @@ public final class FinalManifestCompilerFields {
             FinalManifestPaths.COMPILER, "jdkApi", ManifestValueKind.STRING, 6_102);
     public static final ManifestField COMPILER_ARGS = field(
             FinalManifestPaths.COMPILER, "args", ManifestValueKind.STRING_ARRAY, 6_103);
+    public static final ManifestField COMPILER_KOTLIN_MODULE = field(
+            FinalManifestPaths.COMPILER, "kotlinModule", ManifestValueKind.STRING, 6_104);
     public static final ManifestField COMPILER_TEST_JDK_API = field(
             FinalManifestPaths.COMPILER_TEST, "jdkApi", ManifestValueKind.STRING, 6_111);
     public static final ManifestField COMPILER_TEST_ARGS = field(
             FinalManifestPaths.COMPILER_TEST, "args", ManifestValueKind.STRING_ARRAY, 6_112);
+    public static final ManifestField COMPILER_TEST_KOTLIN_MODULE = field(
+            FinalManifestPaths.COMPILER_TEST, "kotlinModule", ManifestValueKind.STRING, 6_113);
     public static final ManifestField COMPILER_GENERATED_MAIN = field(
             FinalManifestPaths.COMPILER_GENERATED, "main", ManifestValueKind.STRING, 6_121);
     public static final ManifestField COMPILER_GENERATED_TEST = field(
@@ -27,8 +31,10 @@ public final class FinalManifestCompilerFields {
                 COMPILER_ENCODING,
                 COMPILER_JDK_API,
                 COMPILER_ARGS,
+                COMPILER_KOTLIN_MODULE,
                 COMPILER_TEST_JDK_API,
                 COMPILER_TEST_ARGS,
+                COMPILER_TEST_KOTLIN_MODULE,
                 COMPILER_GENERATED_MAIN,
                 COMPILER_GENERATED_TEST);
     }

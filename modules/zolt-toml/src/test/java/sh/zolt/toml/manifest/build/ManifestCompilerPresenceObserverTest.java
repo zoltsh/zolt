@@ -84,6 +84,16 @@ final class ManifestCompilerPresenceObserverTest {
         assertObservedFailure("""
                 [compiler]
                 args = []
+                kotlinModule = "main-id"
+                """, "`compiler.args`");
+        assertObservedFailure("""
+                [compiler.test]
+                args = []
+                kotlinModule = "test-id"
+                """, "`compiler.test.args`");
+        assertObservedFailure("""
+                [compiler]
+                args = []
                 [compiler.generated]
                 test = "generated/tests"
                 """, "`compiler.args`");

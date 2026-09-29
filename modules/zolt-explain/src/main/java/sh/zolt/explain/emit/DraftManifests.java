@@ -7,10 +7,12 @@ import sh.zolt.manifest.ProjectGroup;
 import sh.zolt.manifest.ProjectName;
 import sh.zolt.manifest.ProjectVersion;
 import sh.zolt.manifest.authored.AuthoredBuildConfiguration;
+import sh.zolt.manifest.authored.AuthoredCompiler;
 import sh.zolt.manifest.authored.AuthoredDependencies;
 import sh.zolt.manifest.authored.AuthoredDependencyConstraints;
 import sh.zolt.manifest.authored.AuthoredGeneratedSources;
 import sh.zolt.manifest.authored.AuthoredGroovyToolchain;
+import sh.zolt.manifest.authored.AuthoredKotlinToolchain;
 import sh.zolt.manifest.authored.AuthoredManifest;
 import sh.zolt.manifest.authored.AuthoredPackaging;
 import sh.zolt.manifest.authored.AuthoredPlatforms;
@@ -162,6 +164,46 @@ final class DraftManifests {
                 .flatMap(DraftManifests::groovyToolchain);
         return new AuthoredToolchains(
                 Optional.empty(), Optional.empty(), Optional.empty(), groovy);
+    }
+
+    static AuthoredToolchains withKotlinToolchain(
+            AuthoredToolchains toolchains,
+            KotlinJvmDraftEligibility.Decision.Eligible kotlin) {
+        return new AuthoredToolchains(
+                toolchains.zolt(),
+                toolchains.mainJava(),
+                toolchains.testJava(),
+                toolchains.groovy(),
+                Optional.of(new AuthoredKotlinToolchain(kotlin.version())));
+    }
+
+    /** Preserves the Kotlin Maven plugin's observable main and test module identities. */
+    static AuthoredBuildConfiguration withMavenKotlinModules(
+            AuthoredBuildConfiguration build,
+            String artifactId,
+            KotlinJvmDraftEligibility.Decision.Eligible kotlin) {
+        Optional<String> mainModule = kotlin.main()
+                ? Optional.of(artifactId)
+                : Optional.empty();
+        Optional<AuthoredCompiler.Test> test = kotlin.test()
+                ? Optional.of(new AuthoredCompiler.Test(
+                        Optional.empty(),
+                        List.of(),
+                        Optional.of(artifactId + "-test")))
+                : Optional.empty();
+        AuthoredCompiler compiler = new AuthoredCompiler(
+                Optional.of("UTF8"),
+                Optional.empty(),
+                List.of(),
+                mainModule,
+                test,
+                Optional.empty());
+        return new AuthoredBuildConfiguration(
+                build.build(),
+                Optional.of(compiler),
+                build.resources(),
+                build.tests(),
+                build.coverage());
     }
 
     /** A virtual workspace root: no project-only domain may be present (design §4.5). */

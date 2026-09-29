@@ -60,6 +60,32 @@ final class KotlinTestCompilePolicyTest {
     }
 
     @Test
+    void preservesExplicitTestModuleIdentity() {
+        CompilerSettings compiler = new CompilerSettings(
+                null,
+                null,
+                "",
+                "UTF-8",
+                List.of(),
+                List.of(),
+                CompilerSettings.PLATFORM_API_RELEASE,
+                "",
+                "",
+                "2.4.20",
+                "maven-artifact",
+                "maven-artifact-test");
+
+        KotlinCompilerRunner.Options options = KotlinTestCompilePolicy.options(
+                config(compiler, Map.of(), Map.of(), Map.of()),
+                sources(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(KOTLIN_TEST)),
+                classpaths(List.of()),
+                jdkStatus(),
+                null);
+
+        assertEquals("maven-artifact-test", options.moduleName());
+    }
+
+    @Test
     void acceptsWorkspaceApiImplementationAndTestDependencies() {
         KotlinCompilerRunner.Options options = KotlinTestCompilePolicy.options(
                 config(

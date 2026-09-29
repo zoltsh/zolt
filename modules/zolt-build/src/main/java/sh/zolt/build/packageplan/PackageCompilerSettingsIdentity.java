@@ -8,20 +8,21 @@ final class PackageCompilerSettingsIdentity {
 
     static String main(CompilerSettings compiler) {
         PackageCanonicalHash hash = new PackageCanonicalHash();
-        hash.value("schema", "zolt.package-main-compiler-settings.v1");
+        hash.value("schema", "zolt.package-main-compiler-settings.v2");
         mainValues(hash, compiler);
         return hash.finish();
     }
 
     static String test(CompilerSettings compiler) {
         PackageCanonicalHash hash = new PackageCanonicalHash();
-        hash.value("schema", "zolt.package-test-compiler-settings.v1");
+        hash.value("schema", "zolt.package-test-compiler-settings.v2");
         mainValues(hash, compiler);
         hash.value(
                 "generatedTestSources",
                 compiler.generatedTestSources());
         hash.value("testArgs", compiler.testArgs().toString());
         hash.value("testPlatformApi", compiler.testPlatformApi());
+        hash.value("kotlinTestModule", compiler.kotlinTestModule());
         return hash.finish();
     }
 
@@ -33,5 +34,6 @@ final class PackageCompilerSettingsIdentity {
         hash.value("encoding", compiler.encoding());
         hash.value("args", compiler.args().toString());
         hash.value("platformApi", compiler.platformApi());
+        hash.value("kotlinModule", compiler.kotlinModule());
     }
 }

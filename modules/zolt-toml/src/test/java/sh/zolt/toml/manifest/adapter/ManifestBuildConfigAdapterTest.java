@@ -44,10 +44,12 @@ final class ManifestBuildConfigAdapterTest {
                 encoding = "UTF-8"
                 jdkApi = "host"
                 args = ["-Xlint:all"]
+                kotlinModule = "layout-main"
 
                 [compiler.test]
                 jdkApi = "release"
                 args = ["-parameters"]
+                kotlinModule = "layout-test"
 
                 [resources]
                 main = ["src/extra/resources", "src/main/resources"]
@@ -100,6 +102,8 @@ final class ManifestBuildConfigAdapterTest {
         assertEquals(List.of("-parameters"), adapted.compilerSettings().testArgs());
         assertEquals("host", adapted.compilerSettings().platformApi());
         assertEquals("release", adapted.compilerSettings().testPlatformApi());
+        assertEquals("layout-main", adapted.compilerSettings().kotlinModule());
+        assertEquals("layout-test", adapted.compilerSettings().kotlinTestModule());
         assertEquals(
                 "build/generated/sources/annotations", adapted.compilerSettings().generatedSources());
         assertEquals(

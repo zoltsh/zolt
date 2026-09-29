@@ -60,10 +60,31 @@ final class MavenProjectInspectionBuilder {
         List<MavenPluginInspection> plugins = MavenPluginParser.parse(project, properties);
         List<MavenProfileInspection> profiles = profiles(project);
         MavenCompilerJavaVersions javaVersions = MavenCompilerJavaVersions.inspect(project, properties);
+        List<String> sourceRoots = MavenRootInspection.sourceRoots(
+                project,
+                projectDirectory,
+                "sourceDirectory",
+                "src/main/java",
+                properties,
+                List.of("src/main/groovy", "src/main/kotlin"),
+                MavenRootInspection.buildHelperSourceRoots(project, properties));
+        List<String> testSourceRoots = MavenRootInspection.sourceRoots(
+                project,
+                projectDirectory,
+                "testSourceDirectory",
+                "src/test/java",
+                properties,
+                List.of("src/test/kotlin"),
+                List.of());
+        MavenKotlinProjectEvidence kotlin = MavenKotlinProjectEvidence.inspect(
+                project, projectDirectory, properties, sourceRoots, testSourceRoots);
+        MavenArtifactIdentity artifact = MavenArtifactIdentity.inspect(
+                project, projectDirectory, properties);
 
         return new MavenProjectInspection(
                 relativePath,
-                artifactId(project, projectDirectory),
+                artifact.value(),
+                artifact.fixed(),
                 groupId(project, properties),
                 projectVersion(project, properties),
                 projectName(project, properties),
@@ -71,23 +92,19 @@ final class MavenProjectInspectionBuilder {
                 javaVersions.mainVersion(),
                 javaVersions.testVersion(),
                 javaVersions.mainProvenance(),
+                javaVersions.testProvenance(),
+                kotlin.compilerRelease(),
+                kotlin.compilerProc(),
+                kotlin.sourceEncoding(),
+                kotlin.compilerProperties(),
                 modules,
-                MavenRootInspection.sourceRoots(
-                        project,
-                        projectDirectory,
-                        "sourceDirectory",
-                        "src/main/java",
-                        properties,
-                        List.of("src/main/groovy", "src/main/kotlin"),
-                        MavenRootInspection.buildHelperSourceRoots(project, properties)),
-                MavenRootInspection.sourceRoots(
-                        project,
-                        projectDirectory,
-                        "testSourceDirectory",
-                        "src/test/java",
-                        properties,
-                        List.of("src/test/kotlin"),
-                        List.of()),
+                sourceRoots,
+                testSourceRoots,
+                kotlin.explicitSourceDirectory(),
+                kotlin.explicitTestSourceDirectory(),
+                kotlin.groovyTestSourcesPresent(),
+                kotlin.modularSources(),
+                kotlin.sourceLinksPresent(),
                 MavenRootInspection.resourceRoots(project, projectDirectory, "resources", "src/main/resources", properties),
                 MavenRootInspection.resourceRoots(
                         project,
@@ -299,11 +316,6 @@ final class MavenProjectInspectionBuilder {
         if (value != null && !value.isBlank()) {
             properties.put(key, value);
         }
-    }
-
-    private static String artifactId(Element project, Path projectDirectory) {
-        return text(project, "artifactId")
-                .orElseGet(() -> projectDirectory.getFileName().toString());
     }
 
     /** The project groupId, inheriting from {@code <parent>} when omitted; blank when unresolvable. */

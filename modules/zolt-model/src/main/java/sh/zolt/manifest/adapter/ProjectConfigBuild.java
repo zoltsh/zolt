@@ -131,7 +131,9 @@ final class ProjectConfigBuild {
                         .map(AuthoredCompiler.JdkApiMode::configValue)
                         .orElse(""),
                 groovyVersion,
-                kotlinVersion);
+                kotlinVersion,
+                compiler.flatMap(AuthoredCompiler::kotlinModule).orElse(""),
+                test.flatMap(AuthoredCompiler.Test::kotlinModule).orElse(""));
     }
 
     private static List<String> integrationSources(Optional<AuthoredTests> tests) {

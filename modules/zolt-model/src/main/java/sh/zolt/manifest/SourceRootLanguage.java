@@ -18,7 +18,7 @@ public enum SourceRootLanguage {
             "Kotlin is supported only for explicitly authored main roots in [build].sources and"
                     + " unit-test roots in [test.sources].kotlin, or as part of polyglot"
                     + " [test.integration].sources roots, during the preview. Automatic migration"
-                    + " is not supported yet."),
+                    + " is restricted to statically proven conventional Kotlin/JVM projects."),
     SCALA(
             "Scala",
             "Scala is not supported in the public beta. Use Java source roots such as src/main/java,"

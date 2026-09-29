@@ -123,8 +123,10 @@ final class FinalManifestFieldHandlesTest {
                         field("compiler.encoding", 6_101),
                         field("compiler.jdkApi", 6_102),
                         field("compiler.args", 6_103),
+                        field("compiler.kotlinModule", 6_104),
                         field("compiler.test.jdkApi", 6_111),
                         field("compiler.test.args", 6_112),
+                        field("compiler.test.kotlinModule", 6_113),
                         field("compiler.generated.main", 6_121),
                         field("compiler.generated.test", 6_122)));
     }
@@ -370,9 +372,9 @@ final class FinalManifestFieldHandlesTest {
         List<ManifestField> handles = handles();
         List<ManifestField> registered = registry.fields();
 
-        assertEquals(232, handles.size());
-        assertEquals(232, handles.stream().map(ManifestField::path).distinct().count());
-        assertEquals(232, handles.stream().map(ManifestField::canonicalOrder).distinct().count());
+        assertEquals(234, handles.size());
+        assertEquals(234, handles.stream().map(ManifestField::path).distinct().count());
+        assertEquals(234, handles.stream().map(ManifestField::canonicalOrder).distinct().count());
         assertEquals(handles, registered);
         for (int index = 0; index < handles.size(); index++) {
             assertSame(handles.get(index), registered.get(index));

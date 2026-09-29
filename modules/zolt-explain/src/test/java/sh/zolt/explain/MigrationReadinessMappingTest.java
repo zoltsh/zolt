@@ -60,7 +60,7 @@ final class MigrationReadinessMappingTest {
     }
 
     @Test
-    void mavenKotlinJvmPluginMapsToPlannedManualMigration() throws IOException {
+    void mavenKotlinJvmPluginMapsToPlannedDraftReview() throws IOException {
         Files.writeString(tempDir.resolve("pom.xml"), """
                 <project>
                   <modelVersion>4.0.0</modelVersion>
@@ -106,14 +106,16 @@ final class MigrationReadinessMappingTest {
         assertEquals("planned", blockers.status());
         assertEquals(MigrationReadinessCategory.PLANNED, finding.category());
         assertEquals("ci", concernFor(finding));
-        assertEquals("concern:ci Maven Kotlin/JVM plugin requiring manual migration", finding.sourcePattern());
+        assertEquals(
+                "concern:ci Maven Kotlin/JVM migration requiring emitted-draft review",
+                finding.sourcePattern());
         assertEquals("[toolchain.kotlin], Kotlin source roots, and [dependencies]", finding.zoltPrimitive());
         assertTrue(scorecardText.contains(
-                "planned  Maven Kotlin/JVM plugin requiring manual migration"
+                "planned  Maven Kotlin/JVM migration requiring emitted-draft review"
                         + " -> [toolchain.kotlin], Kotlin source roots, and [dependencies]"),
                 () -> scorecardText);
         assertTrue(blockerText.contains(
-                "planned  Maven Kotlin/JVM plugin requiring manual migration"
+                "planned  Maven Kotlin/JVM migration requiring emitted-draft review"
                         + " -> [toolchain.kotlin], Kotlin source roots, and [dependencies]"),
                 () -> blockerText);
     }

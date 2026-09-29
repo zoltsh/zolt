@@ -30,20 +30,22 @@ final class MavenKotlinPluginEvidenceTest {
         assertEquals("", plugin.extensions());
         assertFalse(plugin.pluginDependenciesPresent());
         assertTrue(plugin.kotlinPluginProperties().isEmpty());
-        assertTrue(MavenSignalRules.draftableKotlinJvmCompilation(plugin));
+        assertEquals("", plugin.kaptIncludeCompileClasspath());
+        assertTrue(MavenSignalRules.draftableKotlinJvmPluginShape(plugin));
         assertSignal(result, "maven.kotlin.manual-migration");
 
         String json = new MavenExplainFormatter().json(result);
         assertFalse(json.contains("conventionalKotlinJvmExecutions"));
         assertFalse(json.contains("configurationPresent"));
         assertFalse(json.contains("kotlinPluginProperties"));
+        assertFalse(json.contains("kaptIncludeCompileClasspath"));
     }
 
     @Test
     void rejectsMissingDuplicateAndSwappedExecutionBindings() throws IOException {
         MavenInspectionResult missing = inspect("", "", "");
         assertFalse(kotlinPlugin(missing).conventionalKotlinJvmExecutions());
-        assertSignal(missing, "maven.language.unsupported");
+        assertSignal(missing, "maven.kotlin.manual-migration");
 
         MavenInspectionResult duplicate = inspect("""
                 <execution><goals><goal>compile</goal></goals></execution>
@@ -78,7 +80,7 @@ final class MavenKotlinPluginEvidenceTest {
         MavenPluginInspection pluginConfiguredEvidence = kotlinPlugin(pluginConfigured);
         assertTrue(pluginConfiguredEvidence.configurationPresent());
         assertTrue(MavenSignalRules.boundedKotlinJvmCompilation(pluginConfiguredEvidence));
-        assertFalse(MavenSignalRules.draftableKotlinJvmCompilation(pluginConfiguredEvidence));
+        assertFalse(MavenSignalRules.draftableKotlinJvmPluginShape(pluginConfiguredEvidence));
         assertSignal(pluginConfigured, "maven.kotlin.manual-migration");
 
         MavenInspectionResult executionConfigured = inspect("""
@@ -89,7 +91,7 @@ final class MavenKotlinPluginEvidenceTest {
                 """, "", "");
         MavenPluginInspection executionConfiguredEvidence = kotlinPlugin(executionConfigured);
         assertTrue(executionConfiguredEvidence.configurationPresent());
-        assertFalse(MavenSignalRules.draftableKotlinJvmCompilation(executionConfiguredEvidence));
+        assertFalse(MavenSignalRules.draftableKotlinJvmPluginShape(executionConfiguredEvidence));
         assertSignal(executionConfigured, "maven.kotlin.manual-migration");
     }
 
@@ -114,12 +116,12 @@ final class MavenKotlinPluginEvidenceTest {
                         "kotlin.compiler.languageVersion"),
                 plugin.kotlinPluginProperties());
         assertTrue(MavenSignalRules.boundedKotlinJvmCompilation(plugin));
-        assertFalse(MavenSignalRules.draftableKotlinJvmCompilation(plugin));
+        assertFalse(MavenSignalRules.draftableKotlinJvmPluginShape(plugin));
         assertSignal(result, "maven.kotlin.manual-migration");
     }
 
     @Test
-    void rejectsExtensionsAndPluginDependenciesButAllowsExplicitFalse() throws IOException {
+    void distinguishesAutomaticExtensionsFromMixedExecutionShapesAndDependencies() throws IOException {
         String compile = "<execution><goals><goal>compile</goal></goals></execution>";
         MavenInspectionResult extensions = inspect(compile, "<extensions>true</extensions>", "");
         assertEquals("true", kotlinPlugin(extensions).extensions());
@@ -145,8 +147,24 @@ final class MavenKotlinPluginEvidenceTest {
         MavenInspectionResult disabledExtensions = inspect(compile, "<extensions>false</extensions>", "");
         MavenPluginInspection disabledExtensionsEvidence = kotlinPlugin(disabledExtensions);
         assertEquals("false", disabledExtensionsEvidence.extensions());
-        assertTrue(MavenSignalRules.draftableKotlinJvmCompilation(disabledExtensionsEvidence));
+        assertTrue(MavenSignalRules.draftableKotlinJvmPluginShape(disabledExtensionsEvidence));
         assertSignal(disabledExtensions, "maven.kotlin.manual-migration");
+
+        MavenInspectionResult automaticExtension = inspect(
+                "",
+                "<extensions>true</extensions>",
+                "",
+                "<properties><kapt.include.compile.classpath>false</kapt.include.compile.classpath></properties>");
+        MavenPluginInspection automaticEvidence = kotlinPlugin(automaticExtension);
+        assertFalse(automaticEvidence.conventionalKotlinJvmExecutions());
+        assertEquals("false", automaticEvidence.kaptIncludeCompileClasspath());
+        assertTrue(MavenSignalRules.boundedKotlinJvmCompilation(automaticEvidence));
+        assertTrue(MavenSignalRules.draftableKotlinJvmPluginShape(automaticEvidence));
+        assertSignal(automaticExtension, "maven.kotlin.manual-migration");
+
+        MavenInspectionResult automaticDiscovery = inspect("", "<extensions>true</extensions>", "");
+        assertFalse(MavenSignalRules.draftableKotlinJvmPluginShape(
+                kotlinPlugin(automaticDiscovery)));
     }
 
     private MavenInspectionResult inspect(

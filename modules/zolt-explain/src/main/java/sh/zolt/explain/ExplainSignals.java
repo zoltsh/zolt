@@ -70,11 +70,11 @@ public final class ExplainSignals {
             "maven.kotlin.manual-migration",
             ExplainSignal.Severity.WARN,
             ExplainSignal.Category.BUILDABILITY,
-            "Zolt supports bounded Kotlin/JVM compilation, but zolt explain does not translate"
-                    + " kotlin-maven-plugin executions or compiler settings. Author [toolchain.kotlin],"
-                    + " [build].sources, [test.sources].kotlin, and Kotlin runtime dependencies by hand;"
-                    + " separately review KAPT, generated sources, compiler plugins, scripts, and non-JVM"
-                    + " or Android targets.");
+            "Zolt explain emits the statically proven conventional Kotlin/JVM subset: fixed aligned"
+                    + " kotlin-maven-plugin and kotlin-stdlib versions, a Maven release target that Kotlin"
+                    + " 2.4+ aligns automatically, conventional roots, and no inherited or extended compiler"
+                    + " behavior. Review the draft; migrate every other shape by hand, including KAPT,"
+                    + " generated sources, compiler plugins, JPMS, scripts, and non-JVM or Android targets.");
     public static final ExplainSignalDefinition MAVEN_LANGUAGE_UNSUPPORTED = new ExplainSignalDefinition(
             "maven.language.unsupported",
             ExplainSignal.Severity.BLOCK,

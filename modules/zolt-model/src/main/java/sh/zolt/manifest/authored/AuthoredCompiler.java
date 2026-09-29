@@ -6,25 +6,39 @@ import java.util.Optional;
 import java.util.Set;
 import sh.zolt.manifest.ManifestModelValues;
 import sh.zolt.manifest.ManifestRelativePath;
+import sh.zolt.project.ProjectPathException;
+import sh.zolt.project.ProjectPaths;
 
 /** Authored compiler settings with first-class-owned javac arguments rejected. */
 public record AuthoredCompiler(
         Optional<String> encoding,
         Optional<JdkApiMode> jdkApi,
         List<String> args,
+        Optional<String> kotlinModule,
         Optional<Test> test,
         Optional<Generated> generated) {
     public AuthoredCompiler {
         encoding = nonBlankOptional(encoding, "Compiler encoding");
         jdkApi = Objects.requireNonNull(jdkApi, "Authored compiler JDK API mode must not be null.");
         args = CompilerArguments.copyAndValidate(args, "Main compiler arguments");
+        kotlinModule = moduleName(kotlinModule, "[compiler].kotlinModule");
         test = Objects.requireNonNull(test, "Authored test compiler settings must not be null.");
         generated = Objects.requireNonNull(
                 generated, "Authored generated compiler paths must not be null.");
         if (encoding.isEmpty() && jdkApi.isEmpty() && args.isEmpty()
-                && test.isEmpty() && generated.isEmpty()) {
+                && kotlinModule.isEmpty() && test.isEmpty() && generated.isEmpty()) {
             throw new IllegalArgumentException("Authored compiler settings must not be empty.");
         }
+    }
+
+    /** Compatibility constructor for callers that predate explicit Kotlin module identity. */
+    public AuthoredCompiler(
+            Optional<String> encoding,
+            Optional<JdkApiMode> jdkApi,
+            List<String> args,
+            Optional<Test> test,
+            Optional<Generated> generated) {
+        this(encoding, jdkApi, args, Optional.empty(), test, generated);
     }
 
     public enum JdkApiMode {
@@ -43,14 +57,23 @@ public record AuthoredCompiler(
     }
 
     /** Authored {@code [compiler.test]} overrides; an omitted mode inherits the main mode. */
-    public record Test(Optional<JdkApiMode> jdkApi, List<String> args) {
+    public record Test(
+            Optional<JdkApiMode> jdkApi,
+            List<String> args,
+            Optional<String> kotlinModule) {
         public Test {
             jdkApi = Objects.requireNonNull(
                     jdkApi, "Authored test compiler JDK API mode must not be null.");
             args = CompilerArguments.copyAndValidate(args, "Test compiler arguments");
-            if (jdkApi.isEmpty() && args.isEmpty()) {
+            kotlinModule = moduleName(kotlinModule, "[compiler.test].kotlinModule");
+            if (jdkApi.isEmpty() && args.isEmpty() && kotlinModule.isEmpty()) {
                 throw new IllegalArgumentException("Authored test compiler settings must not be empty.");
             }
+        }
+
+        /** Compatibility constructor for callers that predate explicit Kotlin module identity. */
+        public Test(Optional<JdkApiMode> jdkApi, List<String> args) {
+            this(jdkApi, args, Optional.empty());
         }
     }
 
@@ -74,6 +97,18 @@ public record AuthoredCompiler(
             ManifestModelValues.rejectControlCharacters(item, label);
         });
         return value;
+    }
+
+    private static Optional<String> moduleName(Optional<String> value, String key) {
+        Optional<String> checked = nonBlankOptional(value, "Kotlin module name");
+        checked.ifPresent(module -> {
+            try {
+                ProjectPaths.filenameComponent(key, module);
+            } catch (ProjectPathException exception) {
+                throw new IllegalArgumentException(exception.getMessage(), exception);
+            }
+        });
+        return checked;
     }
 
     private static final class CompilerArguments {

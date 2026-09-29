@@ -18,8 +18,11 @@ final class AuthoredCompilerTest {
                 Optional.of("UTF-8"),
                 Optional.of(AuthoredCompiler.JdkApiMode.RELEASE),
                 mainArgs,
+                Optional.of("maven-main"),
                 Optional.of(new AuthoredCompiler.Test(
-                        Optional.empty(), List.of("-parameters"))),
+                        Optional.empty(),
+                        List.of("-parameters"),
+                        Optional.of("maven-test"))),
                 Optional.of(new AuthoredCompiler.Generated(
                         Optional.of(new ManifestRelativePath("generated/sources/annotations")),
                         Optional.empty())));
@@ -27,6 +30,8 @@ final class AuthoredCompilerTest {
 
         assertEquals(List.of("-Xlint:all"), compiler.args());
         assertEquals(Optional.empty(), compiler.test().orElseThrow().jdkApi());
+        assertEquals("maven-main", compiler.kotlinModule().orElseThrow());
+        assertEquals("maven-test", compiler.test().orElseThrow().kotlinModule().orElseThrow());
         assertEquals(
                 "generated/sources/annotations",
                 compiler.generated().orElseThrow().main().orElseThrow().value());
@@ -102,6 +107,23 @@ final class AuthoredCompilerTest {
                 Optional.empty()));
         assertThrows(IllegalArgumentException.class, () -> new AuthoredCompiler.Test(
                 Optional.empty(), List.of()));
+        assertThrows(IllegalArgumentException.class, () -> new AuthoredCompiler(
+                Optional.empty(),
+                Optional.empty(),
+                List.of(),
+                Optional.of(" "),
+                Optional.empty(),
+                Optional.empty()));
+        assertThrows(IllegalArgumentException.class, () -> new AuthoredCompiler.Test(
+                Optional.empty(), List.of(), Optional.of("test\nmodule")));
+        for (String module : List.of("nested/name", "nested\\name", ".", "..", "../module")) {
+            assertThrows(IllegalArgumentException.class, () -> compilerWithModule(module), module);
+            assertThrows(IllegalArgumentException.class, () -> new AuthoredCompiler.Test(
+                    Optional.empty(), List.of(), Optional.of(module)), module);
+        }
+        assertEquals(
+                "release_1.0+meta",
+                compilerWithModule("release_1.0+meta").kotlinModule().orElseThrow());
         assertThrows(IllegalArgumentException.class, () -> new AuthoredCompiler.Generated(
                 Optional.empty(), Optional.empty()));
     }
@@ -111,6 +133,16 @@ final class AuthoredCompilerTest {
                 Optional.empty(),
                 Optional.empty(),
                 List.of(argument),
+                Optional.empty(),
+                Optional.empty());
+    }
+
+    private static AuthoredCompiler compilerWithModule(String module) {
+        return new AuthoredCompiler(
+                Optional.empty(),
+                Optional.empty(),
+                List.of(),
+                Optional.of(module),
                 Optional.empty(),
                 Optional.empty());
     }

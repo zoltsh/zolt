@@ -84,8 +84,10 @@ final class FinalManifestFieldsTest extends FinalManifestSchemaTestSupport {
                         "compiler.encoding",
                         "compiler.jdkApi",
                         "compiler.args",
+                        "compiler.kotlinModule",
                         "compiler.test.jdkApi",
                         "compiler.test.args",
+                        "compiler.test.kotlinModule",
                         "compiler.generated.main",
                         "compiler.generated.test",
                         "resources.main",
@@ -336,8 +338,10 @@ final class FinalManifestFieldsTest extends FinalManifestSchemaTestSupport {
         assertEquals(ManifestValueKind.STRING, valueKinds.get("compiler.encoding"));
         assertEquals(ManifestValueKind.STRING, valueKinds.get("compiler.jdkApi"));
         assertEquals(ManifestValueKind.STRING_ARRAY, valueKinds.get("compiler.args"));
+        assertEquals(ManifestValueKind.STRING, valueKinds.get("compiler.kotlinModule"));
         assertEquals(ManifestValueKind.STRING, valueKinds.get("compiler.test.jdkApi"));
         assertEquals(ManifestValueKind.STRING_ARRAY, valueKinds.get("compiler.test.args"));
+        assertEquals(ManifestValueKind.STRING, valueKinds.get("compiler.test.kotlinModule"));
         assertEquals(ManifestValueKind.STRING, valueKinds.get("compiler.generated.main"));
         assertEquals(ManifestValueKind.STRING, valueKinds.get("compiler.generated.test"));
         assertEquals(ManifestValueKind.STRING_ARRAY, valueKinds.get("resources.main"));

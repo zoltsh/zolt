@@ -168,7 +168,7 @@ public final class MavenMigrationReadinessFindings {
                     "ci",
                     MigrationReadinessCategory.PLANNED,
                     signal,
-                    "Maven Kotlin/JVM plugin requiring manual migration",
+                    "Maven Kotlin/JVM migration requiring emitted-draft review",
                     "[toolchain.kotlin], Kotlin source roots, and [dependencies]",
                     "",
                     signal.nextStep());

@@ -50,6 +50,31 @@ final class KotlinMainCompilePolicyTest {
     }
 
     @Test
+    void preservesExplicitMainModuleIdentity() {
+        CompilerSettings compiler = new CompilerSettings(
+                null,
+                null,
+                "",
+                "UTF-8",
+                List.of(),
+                List.of(),
+                CompilerSettings.PLATFORM_API_RELEASE,
+                "",
+                "",
+                "2.4.20",
+                "maven-artifact",
+                "");
+
+        KotlinCompilerRunner.Options options = KotlinMainCompilePolicy.options(
+                config(compiler, Map.of(), Map.of(), "different-zolt-name"),
+                sources(List.of(), List.of(), List.of(KOTLIN)),
+                classpaths(List.of()),
+                jdkStatus("21.0.11", "21"));
+
+        assertEquals("maven-artifact", options.moduleName());
+    }
+
+    @Test
     void hostApiModeIsPreserved() {
         CompilerSettings settings = new CompilerSettings(
                 null,

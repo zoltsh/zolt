@@ -52,6 +52,9 @@ final class KotlinJvmDraftEligibility {
         if (compilerVersion == null) {
             return review(Reason.PLUGIN_VERSION_NOT_FIXED);
         }
+        if (!input.supportedStdlibShape()) {
+            return review(Reason.STDLIB_SHAPE_NOT_PROVEN);
+        }
         List<AuthoredDependency> candidates = input.dependencies().ordinaryCandidates(STDLIB);
         if (candidates.isEmpty()) {
             return review(Reason.STDLIB_MISSING);
@@ -119,6 +122,7 @@ final class KotlinJvmDraftEligibility {
     record Input(
             boolean supportedPluginShape,
             String pluginVersion,
+            boolean supportedStdlibShape,
             List<String> mainSourceRoots,
             List<String> testSourceRoots,
             DraftDependencies dependencies) {
@@ -145,6 +149,7 @@ final class KotlinJvmDraftEligibility {
     enum Reason {
         PLUGIN_SHAPE_NOT_PROVEN,
         PLUGIN_VERSION_NOT_FIXED,
+        STDLIB_SHAPE_NOT_PROVEN,
         SOURCE_LAYOUT_NOT_CONVENTIONAL,
         INCOMPATIBLE_LANGUAGE,
         STDLIB_MISSING,

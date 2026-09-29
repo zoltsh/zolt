@@ -47,20 +47,39 @@ final class MavenSignalRules {
         if (!kotlinMavenPlugin(plugin.coordinate())) {
             return false;
         }
-        return plugin.conventionalKotlinJvmExecutions()
-                && (plugin.extensions().isBlank() || "false".equalsIgnoreCase(plugin.extensions()))
+        boolean explicitExecutions = plugin.conventionalKotlinJvmExecutions()
+                && (plugin.extensions().isBlank() || "false".equalsIgnoreCase(plugin.extensions()));
+        boolean automaticExtension = plugin.goals().isEmpty()
+                && "true".equalsIgnoreCase(plugin.extensions());
+        return (explicitExecutions || automaticExtension)
                 && !plugin.pluginDependenciesPresent()
                 && plugin.disabledExecutions().isEmpty();
+    }
+
+    /** A Kotlin plugin declaration with no lifecycle or compiler behavior to classify yet. */
+    static boolean passiveKotlinJvmDeclaration(MavenPluginInspection plugin) {
+        return kotlinMavenPlugin(plugin.coordinate())
+                && plugin.phases().isEmpty()
+                && plugin.goals().isEmpty()
+                && plugin.disabledExecutions().isEmpty()
+                && plugin.execInvocations().isEmpty()
+                && !plugin.databaseBackedCodegen()
+                && !plugin.configurationPresent()
+                && (plugin.extensions().isBlank() || "false".equalsIgnoreCase(plugin.extensions()))
+                && !plugin.pluginDependenciesPresent()
+                && plugin.kotlinPluginProperties().isEmpty();
     }
 
     /**
      * A deliberately narrower subset whose Maven compiler behavior can be replaced by a generated
      * Zolt draft without dropping statically visible Kotlin plugin controls.
      */
-    static boolean draftableKotlinJvmCompilation(MavenPluginInspection plugin) {
+    static boolean draftableKotlinJvmPluginShape(MavenPluginInspection plugin) {
         return boundedKotlinJvmCompilation(plugin)
                 && !plugin.configurationPresent()
-                && plugin.kotlinPluginProperties().isEmpty();
+                && plugin.kotlinPluginProperties().isEmpty()
+                && (!"true".equalsIgnoreCase(plugin.extensions())
+                        || "false".equalsIgnoreCase(plugin.kaptIncludeCompileClasspath()));
     }
 
     /**
@@ -96,12 +115,6 @@ final class MavenSignalRules {
             return "";
         }
         return " in effective lifecycle phase(s) " + plugin.phases();
-    }
-
-    static boolean unsupportedLanguagePlugin(String coordinate) {
-        String lower = coordinate.toLowerCase();
-        return lower.contains(":scala-maven-plugin")
-                || lower.contains(":android-maven-plugin");
     }
 
     private static boolean plugin(String coordinate, String groupId, String artifactId) {

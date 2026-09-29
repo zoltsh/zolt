@@ -60,12 +60,14 @@ final class MavenPluginParser {
                     MavenExecConfigParser.databaseBacked(artifactId, plugin, executions),
                     conventionalKotlinJvmExecutions(groupId, artifactId, executions, properties),
                     configurationPresent(plugin, executions),
+                    activeConfiguredExecutionsPresent(plugin, executions, properties),
                     text(plugin, "extensions")
                             .map(properties::interpolate)
                             .map(String::strip)
                             .orElse(""),
                     child(plugin, "dependencies").isPresent(),
-                    kotlinPluginProperties(groupId, artifactId, properties)));
+                    kotlinPluginProperties(groupId, artifactId, properties),
+                    kaptIncludeCompileClasspath(groupId, artifactId, properties)));
         }
         return plugins;
     }
@@ -245,10 +247,36 @@ final class MavenPluginParser {
                 .toList();
     }
 
+    private static String kaptIncludeCompileClasspath(
+            String groupId,
+            String artifactId,
+            MavenPomProperties properties) {
+        if (!groupId.equals("org.jetbrains.kotlin")
+                || !artifactId.equals("kotlin-maven-plugin")) {
+            return "";
+        }
+        return properties.interpolate(properties.values().get("kapt.include.compile.classpath")).strip();
+    }
+
     private static boolean configurationPresent(Element plugin, List<Element> executions) {
         return child(plugin, "configuration").isPresent()
                 || executions.stream().anyMatch(execution ->
                         child(execution, "configuration").isPresent());
+    }
+
+    private static boolean activeConfiguredExecutionsPresent(
+            Element plugin,
+            List<Element> executions,
+            MavenPomProperties properties) {
+        boolean pluginConfiguration = child(plugin, "configuration").isPresent();
+        return executions.stream()
+                .filter(execution -> text(execution, "phase")
+                        .map(properties::interpolate)
+                        .map(String::strip)
+                        .filter("none"::equalsIgnoreCase)
+                        .isEmpty())
+                .anyMatch(execution -> pluginConfiguration
+                        || child(execution, "configuration").isPresent());
     }
 
     private static boolean codeGenerationPlugin(String plugin, String goal) {

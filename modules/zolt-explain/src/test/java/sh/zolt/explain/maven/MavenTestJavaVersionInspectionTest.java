@@ -42,6 +42,7 @@ final class MavenTestJavaVersionInspectionTest {
 
         assertEquals("8", project.javaVersion());
         assertEquals("17", project.testJavaVersion());
+        assertEquals(MavenJavaVersionProvenance.RELEASE, project.testJavaVersionProvenance());
         assertTrue(text.contains(", java=8)"), () -> text);
         assertTrue(text.contains("test java: 17"), () -> text);
         assertTrue(json.contains("\"javaVersion\": \"8\""), () -> json);
@@ -99,6 +100,7 @@ final class MavenTestJavaVersionInspectionTest {
 
         assertEquals("8", propertyProject.javaVersion());
         assertEquals("11", propertyProject.testJavaVersion());
+        assertEquals(MavenJavaVersionProvenance.SOURCE_TARGET, propertyProject.testJavaVersionProvenance());
 
         Files.writeString(tempDir.resolve("pom.xml"), """
                 <project>
@@ -124,6 +126,7 @@ final class MavenTestJavaVersionInspectionTest {
 
         assertEquals("8", pluginProject.javaVersion());
         assertEquals("11", pluginProject.testJavaVersion());
+        assertEquals(MavenJavaVersionProvenance.SOURCE_TARGET, pluginProject.testJavaVersionProvenance());
     }
 
     @Test
@@ -147,6 +150,7 @@ final class MavenTestJavaVersionInspectionTest {
 
         assertEquals("21", project.javaVersion());
         assertTrue(project.testJavaVersion().isBlank());
+        assertEquals(MavenJavaVersionProvenance.UNKNOWN, project.testJavaVersionProvenance());
         assertTrue(result.signals().isEmpty(), () -> result.signals().toString());
         assertFalse(text.contains("test java:"), () -> text);
         assertFalse(json.contains("testJavaVersion"), () -> json);
@@ -174,6 +178,7 @@ final class MavenTestJavaVersionInspectionTest {
 
         assertEquals("21", project.javaVersion());
         assertTrue(project.testJavaVersion().isBlank());
+        assertEquals(MavenJavaVersionProvenance.RELEASE, project.testJavaVersionProvenance());
         assertTrue(result.signals().isEmpty(), () -> result.signals().toString());
         assertFalse(text.contains("test java:"), () -> text);
         assertFalse(json.contains("testJavaVersion"), () -> json);

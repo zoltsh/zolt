@@ -1,6 +1,7 @@
 package sh.zolt.explain.maven;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -21,6 +22,7 @@ final class MavenStaticProjectInspectorRootsTest {
         Files.createDirectories(tempDir.resolve("src/main/java"));
         Files.createDirectories(tempDir.resolve("src/main/kotlin"));
         Files.createDirectories(tempDir.resolve("src/test/java"));
+        Files.createDirectories(tempDir.resolve("src/test/groovy"));
         Files.createDirectories(tempDir.resolve("src/test/kotlin"));
         Files.createDirectories(tempDir.resolve("src/main/resources"));
         Files.createDirectories(tempDir.resolve("src/test/resources"));
@@ -29,7 +31,13 @@ final class MavenStaticProjectInspectorRootsTest {
         MavenProjectInspection project = inspector.inspect(tempDir).projects().getFirst();
 
         assertEquals(List.of("src/main/java", "src/main/kotlin"), project.sourceRoots());
-        assertEquals(List.of("src/test/java", "src/test/kotlin"), project.testSourceRoots());
+        assertEquals(
+                List.of("src/test/java", "src/test/kotlin"),
+                project.testSourceRoots());
+        assertFalse(project.explicitSourceDirectory());
+        assertFalse(project.explicitTestSourceDirectory());
+        assertTrue(project.groovyTestSourcesPresent());
+        assertFalse(project.modularSources());
         assertEquals(List.of("src/main/resources"), project.resourceRoots());
         assertEquals(List.of("src/test/resources"), project.testResourceRoots());
     }
@@ -42,6 +50,9 @@ final class MavenStaticProjectInspectorRootsTest {
 
         assertEquals(List.of(), project.sourceRoots());
         assertEquals(List.of(), project.testSourceRoots());
+        assertFalse(project.explicitSourceDirectory());
+        assertFalse(project.explicitTestSourceDirectory());
+        assertFalse(project.groovyTestSourcesPresent());
         assertEquals(List.of(), project.resourceRoots());
         assertEquals(List.of(), project.testResourceRoots());
     }
@@ -93,6 +104,8 @@ final class MavenStaticProjectInspectorRootsTest {
 
         assertEquals(List.of("src/java", "src/gen"), project.sourceRoots());
         assertEquals(List.of("src/tests"), project.testSourceRoots());
+        assertTrue(project.explicitSourceDirectory());
+        assertTrue(project.explicitTestSourceDirectory());
         assertEquals(List.of("config"), project.resourceRoots());
         assertEquals(List.of("test-config"), project.testResourceRoots());
     }
