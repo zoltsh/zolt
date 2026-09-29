@@ -160,6 +160,42 @@ final class InspectionToManifestRootsTest {
     }
 
     @Test
+    void gradleDraftKeepsDiscoveredKotlinRootsAsAuditedReviewData() throws IOException {
+        Files.createDirectories(tempDir.resolve("src/main/kotlin/com/example"));
+        Files.createDirectories(tempDir.resolve("src/test/kotlin/com/example"));
+        Files.writeString(tempDir.resolve("settings.gradle"), "rootProject.name = 'kotlin-roots'\n");
+        Files.writeString(tempDir.resolve("build.gradle"), """
+                plugins {
+                    id 'org.jetbrains.kotlin.jvm' version '2.2.20'
+                }
+                group = 'com.example'
+                version = '1.0.0'
+                dependencies {
+                    implementation 'org.jetbrains.kotlin:kotlin-stdlib:2.2.20'
+                }
+                """);
+
+        DraftZoltToml draft = mapper.fromGradle(new GradleStaticProjectInspector().inspect(tempDir));
+
+        assertTrue(
+                draft.manifest().build().build().isEmpty(),
+                () -> "Kotlin roots must not be authored before bounded emission: "
+                        + draft.manifest().build().build());
+        assertTrue(draft.manifest().toolchains().kotlin().isEmpty());
+        assertTrue(draft.manifest().build().tests().isEmpty());
+        assertTrue(
+                draft.notes().stream().anyMatch(note ->
+                        note.contains("a main source root at `src/main/kotlin`")
+                                && note.contains("cannot migrate automatically")),
+                () -> "expected the audited Kotlin main root as review data: " + draft.notes());
+        assertTrue(
+                draft.notes().stream().anyMatch(note ->
+                        note.contains("a test source root at `src/test/kotlin`")
+                                && note.contains("[test.sources].kotlin")),
+                () -> "expected the audited Kotlin test root as review data: " + draft.notes());
+    }
+
+    @Test
     void gradleDraftCarriesConventionalGroovyMainRootIntoBuildSources() throws IOException {
         Files.createDirectories(tempDir.resolve("src/main/java/com/example"));
         Files.createDirectories(tempDir.resolve("src/main/groovy/com/example"));

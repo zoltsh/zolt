@@ -12,8 +12,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 public final class GradleStaticProjectInspector {
+    private static final Pattern APPLY_FALSE =
+            Pattern.compile("\\bapply\\s*(?:\\(\\s*)?false\\s*\\)?");
+    private static final Pattern SOURCE_SETS_CONFIGURATION = Pattern.compile("\\bsourceSets\\b");
+
     private final GradleBuildFileParser buildFileParser = new GradleBuildFileParser();
     private final GradleMigrationSignalDetector signalDetector = new GradleMigrationSignalDetector();
 
@@ -140,6 +145,7 @@ public final class GradleStaticProjectInspector {
                 ? buildFileParser.constraints(content, versionCatalog, catalogBundles, dependencyProperties, project, signals)
                 : List.of();
         signals.addAll(signalDetector.signals(project, content, dependencies, plugins));
+        boolean kotlinConvention = usesKotlinJvmConvention(content, plugins);
         if (javaPlatform) {
             long imports = dependencies.stream().filter(GradleDependencyInspection::isPlatform).count();
             signals.add(ExplainSignals.GRADLE_BOM_DETECTED.signal(
@@ -159,12 +165,8 @@ public final class GradleStaticProjectInspector {
                 plugins,
                 repositories(content, settingsRepositories),
                 dependencies,
-                mainSourceRoots(projectDirectory, content),
-                buildFileParser.sourceRoots(
-                        content,
-                        "test",
-                        "src/test/java",
-                        Files.isDirectory(projectDirectory.resolve("src/test/java"))),
+                mainSourceRoots(projectDirectory, content, kotlinConvention),
+                testSourceRoots(projectDirectory, content, kotlinConvention),
                 buildFileParser.sourceRoots(
                         content,
                         "test",
@@ -224,7 +226,10 @@ public final class GradleStaticProjectInspector {
         return path.toString().replace('\\', '/');
     }
 
-    private List<String> mainSourceRoots(Path projectDirectory, String content) {
+    private List<String> mainSourceRoots(
+            Path projectDirectory,
+            String content,
+            boolean kotlinConvention) {
         List<String> roots = new ArrayList<>(buildFileParser.sourceRoots(
                 content,
                 "main",
@@ -233,7 +238,38 @@ public final class GradleStaticProjectInspector {
         if (Files.isDirectory(projectDirectory.resolve("src/main/groovy"))) {
             roots.add("src/main/groovy");
         }
+        if (kotlinConvention && Files.isDirectory(projectDirectory.resolve("src/main/kotlin"))) {
+            roots.add("src/main/kotlin");
+        }
         return roots.stream().distinct().toList();
+    }
+
+    private List<String> testSourceRoots(
+            Path projectDirectory,
+            String content,
+            boolean kotlinConvention) {
+        List<String> roots = new ArrayList<>(buildFileParser.sourceRoots(
+                content,
+                "test",
+                "src/test/java",
+                Files.isDirectory(projectDirectory.resolve("src/test/java"))));
+        if (kotlinConvention && Files.isDirectory(projectDirectory.resolve("src/test/kotlin"))) {
+            roots.add("src/test/kotlin");
+        }
+        return roots.stream().distinct().toList();
+    }
+
+    private static boolean usesKotlinJvmConvention(
+            String content,
+            List<GradlePluginInspection> plugins) {
+        Optional<String> pluginsBlock = GradleScriptBlocks.topLevelBlock(content, "plugins");
+        if (pluginsBlock.isEmpty()
+                || APPLY_FALSE.matcher(pluginsBlock.orElseThrow()).find()
+                || SOURCE_SETS_CONFIGURATION.matcher(content).find()) {
+            return false;
+        }
+        return plugins.stream().map(GradlePluginInspection::id).anyMatch(id ->
+                id.equals("org.jetbrains.kotlin.jvm") || id.equals("kotlin"));
     }
 
     private static boolean hasGroovyTestSources(Path projectDirectory, String content) {

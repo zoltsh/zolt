@@ -108,4 +108,111 @@ final class GradleStaticProjectInspectorRootsTest {
                                 && signal.message().contains("localGroovy()")),
                 () -> "localGroovy() must remain an explicit dependency review item: " + result.signals());
     }
+
+    @Test
+    void discoversConventionalKotlinJvmRootsInStableLanguageOrder() throws IOException {
+        Files.createDirectories(tempDir.resolve("src/main/java/com/example"));
+        Files.createDirectories(tempDir.resolve("src/main/groovy/com/example"));
+        Files.createDirectories(tempDir.resolve("src/main/kotlin/com/example"));
+        Files.createDirectories(tempDir.resolve("src/test/java/com/example"));
+        Files.createDirectories(tempDir.resolve("src/test/groovy/com/example"));
+        Files.createDirectories(tempDir.resolve("src/test/kotlin/com/example"));
+        Files.writeString(tempDir.resolve("settings.gradle"), "rootProject.name = 'mixed-kotlin'\n");
+        Files.writeString(tempDir.resolve("build.gradle"), """
+                plugins {
+                    id 'java'
+                    id 'groovy'
+                    id 'org.jetbrains.kotlin.jvm' version '2.2.20'
+                }
+                """);
+
+        GradleInspectionResult result = inspector.inspect(tempDir);
+        GradleProjectInspection project = result.projects().getFirst();
+
+        assertEquals(
+                List.of("src/main/java", "src/main/groovy", "src/main/kotlin"),
+                project.sourceRoots());
+        assertEquals(List.of("src/test/java", "src/test/kotlin"), project.testSourceRoots());
+        assertEquals(List.of("src/test/groovy"), project.groovyTestSourceRoots());
+        assertTrue(
+                result.signals().stream()
+                        .anyMatch(signal -> signal.id().equals("gradle.kotlin.manual-migration")),
+                () -> "Kotlin roots must remain paired with the manual-migration signal: " + result.signals());
+    }
+
+    @Test
+    void ignoresKotlinDirectoriesWithoutAnAppliedJvmPlugin() throws IOException {
+        Files.createDirectories(tempDir.resolve("src/main/kotlin/com/example"));
+        Files.createDirectories(tempDir.resolve("src/test/kotlin/com/example"));
+        Files.writeString(tempDir.resolve("settings.gradle"), "rootProject.name = 'stray-kotlin'\n");
+        Files.writeString(tempDir.resolve("build.gradle"), "plugins { id 'java' }\n");
+
+        GradleInspectionResult result = inspector.inspect(tempDir);
+        GradleProjectInspection project = result.projects().getFirst();
+
+        assertEquals(List.of(), project.sourceRoots());
+        assertEquals(List.of(), project.testSourceRoots());
+        assertFalse(result.signals().stream()
+                .anyMatch(signal -> signal.id().equals("gradle.kotlin.manual-migration")));
+    }
+
+    @Test
+    void ignoresKotlinJvmConventionDeclaredApplyFalse() throws IOException {
+        Files.createDirectories(tempDir.resolve("src/main/kotlin/com/example"));
+        Files.createDirectories(tempDir.resolve("src/test/kotlin/com/example"));
+        Files.writeString(tempDir.resolve("settings.gradle"), "rootProject.name = 'inactive-kotlin'\n");
+        Files.writeString(tempDir.resolve("build.gradle"), """
+                plugins {
+                    id 'org.jetbrains.kotlin.jvm' version '2.2.20' apply false
+                }
+                """);
+
+        GradleProjectInspection project = inspector.inspect(tempDir).projects().getFirst();
+
+        assertEquals(List.of(), project.sourceRoots());
+        assertEquals(List.of(), project.testSourceRoots());
+    }
+
+    @Test
+    void ignoresKotlinJvmConventionForOtherKotlinPlatforms() throws IOException {
+        Files.createDirectories(tempDir.resolve("src/main/kotlin/com/example"));
+        Files.createDirectories(tempDir.resolve("src/test/kotlin/com/example"));
+        Files.writeString(tempDir.resolve("settings.gradle"), "rootProject.name = 'multiplatform-kotlin'\n");
+        Files.writeString(tempDir.resolve("build.gradle"), """
+                plugins {
+                    id 'org.jetbrains.kotlin.multiplatform' version '2.2.20'
+                }
+                """);
+
+        GradleInspectionResult result = inspector.inspect(tempDir);
+        GradleProjectInspection project = result.projects().getFirst();
+
+        assertEquals(List.of(), project.sourceRoots());
+        assertEquals(List.of(), project.testSourceRoots());
+        assertTrue(result.signals().stream()
+                .anyMatch(signal -> signal.id().equals("gradle.language.unsupported")));
+    }
+
+    @Test
+    void doesNotInferKotlinConventionAcrossExplicitSourceSets() throws IOException {
+        Files.createDirectories(tempDir.resolve("src/main/kotlin/com/example"));
+        Files.createDirectories(tempDir.resolve("src/test/kotlin/com/example"));
+        Files.writeString(tempDir.resolve("settings.gradle"), "rootProject.name = 'custom-kotlin-roots'\n");
+        Files.writeString(tempDir.resolve("build.gradle"), """
+                plugins {
+                    id 'org.jetbrains.kotlin.jvm' version '2.2.20'
+                }
+                kotlin.sourceSets.named('main') {
+                    kotlin.setSrcDirs(['src/custom/kotlin'])
+                }
+                kotlin.sourceSets.named('test') {
+                    kotlin.setSrcDirs(['src/custom-test/kotlin'])
+                }
+                """);
+
+        GradleProjectInspection project = inspector.inspect(tempDir).projects().getFirst();
+
+        assertEquals(List.of(), project.sourceRoots());
+        assertEquals(List.of(), project.testSourceRoots());
+    }
 }
