@@ -236,12 +236,20 @@ public final class GradleMigrationReadinessFindings {
                     "[publish] and zolt publish --dry-run",
                     "",
                     signal.nextStep());
+            case "gradle.kotlin.manual-migration" -> MigrationReadinessFindings.finding(
+                    "ci",
+                    MigrationReadinessCategory.PLANNED,
+                    signal,
+                    "Gradle Kotlin/JVM plugin requiring manual migration",
+                    "[toolchain.kotlin], Kotlin source roots, and [dependencies]",
+                    "",
+                    signal.nextStep());
             case "gradle.language.unsupported" -> MigrationReadinessFindings.finding(
                     "ci",
                     MigrationReadinessCategory.UNSUPPORTED,
                     signal,
-                    "Gradle Kotlin or Scala plugin",
-                    "supported Java or Groovy application modules",
+                    "Gradle unsupported language or Kotlin build plugin",
+                    "supported Java, Groovy, or bounded Kotlin/JVM modules",
                     "",
                     signal.nextStep());
             case "gradle.android.unsupported" -> MigrationReadinessFindings.finding(

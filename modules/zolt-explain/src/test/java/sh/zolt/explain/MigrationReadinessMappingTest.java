@@ -21,74 +21,177 @@ final class MigrationReadinessMappingTest {
     private Path tempDir;
 
     @Test
-    void gradleKotlinPluginMapsToUnsupportedCiFinding() throws IOException {
+    void gradleKotlinJvmPluginMapsToPlannedManualMigration() throws IOException {
         Files.writeString(tempDir.resolve("settings.gradle"), "rootProject.name = 'kotlin-app'\n");
-        Files.writeString(tempDir.resolve("build.gradle"), """
+        Files.writeString(tempDir.resolve("build.gradle.kts"), """
                 plugins {
-                    id 'java'
-                    id 'org.jetbrains.kotlin.jvm' version '1.9.24'
+                    java
+                    kotlin("jvm") version "2.2.0"
                 }
                 repositories { mavenCentral() }
                 """);
 
-        MigrationReadinessScorecard scorecard = MigrationReadinessScorecards.from(
-                new GradleStaticProjectInspector().inspect(tempDir));
-        MigrationReadinessFinding finding = finding(scorecard, "gradle.language.unsupported");
+        GradleInspectionResult inspection = new GradleStaticProjectInspector().inspect(tempDir);
+        MigrationReadinessScorecard scorecard = MigrationReadinessScorecards.from(inspection);
+        MigrationBlockerReport blockers = MigrationBlockerReports.from(scorecard);
+        MigrationReadinessFinding finding = finding(scorecard, "gradle.kotlin.manual-migration");
         String scorecardText = new MigrationReadinessScorecardFormatter().text(scorecard);
-        String blockerText = new MigrationBlockerReportFormatter().text(MigrationBlockerReports.from(scorecard));
+        String blockerText = new MigrationBlockerReportFormatter().text(blockers);
 
-        assertEquals(MigrationReadinessCategory.UNSUPPORTED, finding.category());
+        assertTrue(inspection.signals().stream().anyMatch(signal ->
+                signal.id().equals("gradle.kotlin.manual-migration")
+                        && signal.severity() == ExplainSignal.Severity.WARN));
+        assertFalse(inspection.signals().stream().anyMatch(signal ->
+                signal.id().equals("gradle.language.unsupported")));
+        assertEquals("planned", scorecard.status());
+        assertEquals("planned", blockers.status());
+        assertEquals(MigrationReadinessCategory.PLANNED, finding.category());
         assertEquals("ci", concernFor(finding));
-        assertEquals("concern:ci Gradle Kotlin or Scala plugin", finding.sourcePattern());
-        assertEquals("supported Java or Groovy application modules", finding.zoltPrimitive());
+        assertEquals("concern:ci Gradle Kotlin/JVM plugin requiring manual migration", finding.sourcePattern());
+        assertEquals("[toolchain.kotlin], Kotlin source roots, and [dependencies]", finding.zoltPrimitive());
         assertTrue(scorecardText.contains(
-                "unsupported  Gradle Kotlin or Scala plugin -> supported Java or Groovy application modules"),
+                "planned  Gradle Kotlin/JVM plugin requiring manual migration"
+                        + " -> [toolchain.kotlin], Kotlin source roots, and [dependencies]"),
                 () -> scorecardText);
         assertTrue(blockerText.contains(
-                "unsupported  Gradle Kotlin or Scala plugin -> supported Java or Groovy application modules"),
+                "planned  Gradle Kotlin/JVM plugin requiring manual migration"
+                        + " -> [toolchain.kotlin], Kotlin source roots, and [dependencies]"),
                 () -> blockerText);
-        assertFalse(scorecardText.contains("gradle.language.unsupported -> explicit Zolt model"), () -> scorecardText);
-        assertFalse(blockerText.contains("gradle.language.unsupported -> explicit Zolt model"), () -> blockerText);
     }
 
     @Test
-    void mavenKotlinPluginMapsToUnsupportedCiFinding() throws IOException {
+    void mavenKotlinJvmPluginMapsToPlannedManualMigration() throws IOException {
         Files.writeString(tempDir.resolve("pom.xml"), """
                 <project>
                   <modelVersion>4.0.0</modelVersion>
                   <groupId>com.acme</groupId>
                   <artifactId>kotlin-service</artifactId>
                   <version>1.0.0</version>
+                  <properties>
+                    <maven.compiler.release>21</maven.compiler.release>
+                  </properties>
                   <build>
                     <plugins>
                       <plugin>
                         <groupId>org.jetbrains.kotlin</groupId>
                         <artifactId>kotlin-maven-plugin</artifactId>
                         <version>1.9.24</version>
+                        <executions>
+                          <execution>
+                            <goals>
+                              <goal>compile</goal>
+                              <goal>test-compile</goal>
+                            </goals>
+                          </execution>
+                        </executions>
                       </plugin>
                     </plugins>
                   </build>
                 </project>
                 """);
 
-        MigrationReadinessScorecard scorecard = MigrationReadinessScorecards.from(
-                new MavenStaticProjectInspector().inspect(tempDir));
-        MigrationReadinessFinding finding = finding(scorecard, "maven.language.unsupported");
+        MavenInspectionResult inspection = new MavenStaticProjectInspector().inspect(tempDir);
+        MigrationReadinessScorecard scorecard = MigrationReadinessScorecards.from(inspection);
+        MigrationBlockerReport blockers = MigrationBlockerReports.from(scorecard);
+        MigrationReadinessFinding finding = finding(scorecard, "maven.kotlin.manual-migration");
         String scorecardText = new MigrationReadinessScorecardFormatter().text(scorecard);
-        String blockerText = new MigrationBlockerReportFormatter().text(MigrationBlockerReports.from(scorecard));
+        String blockerText = new MigrationBlockerReportFormatter().text(blockers);
 
-        assertEquals(MigrationReadinessCategory.UNSUPPORTED, finding.category());
+        assertTrue(inspection.signals().stream().anyMatch(signal ->
+                signal.id().equals("maven.kotlin.manual-migration")
+                        && signal.severity() == ExplainSignal.Severity.WARN));
+        assertFalse(inspection.signals().stream().anyMatch(signal ->
+                signal.id().equals("maven.language.unsupported")));
+        assertEquals("planned", scorecard.status());
+        assertEquals("planned", blockers.status());
+        assertEquals(MigrationReadinessCategory.PLANNED, finding.category());
         assertEquals("ci", concernFor(finding));
-        assertEquals("concern:ci Maven unsupported language or Android plugin", finding.sourcePattern());
-        assertEquals("normal Java application modules", finding.zoltPrimitive());
+        assertEquals("concern:ci Maven Kotlin/JVM plugin requiring manual migration", finding.sourcePattern());
+        assertEquals("[toolchain.kotlin], Kotlin source roots, and [dependencies]", finding.zoltPrimitive());
         assertTrue(scorecardText.contains(
-                "unsupported  Maven unsupported language or Android plugin -> normal Java application modules"),
+                "planned  Maven Kotlin/JVM plugin requiring manual migration"
+                        + " -> [toolchain.kotlin], Kotlin source roots, and [dependencies]"),
                 () -> scorecardText);
         assertTrue(blockerText.contains(
-                "unsupported  Maven unsupported language or Android plugin -> normal Java application modules"),
+                "planned  Maven Kotlin/JVM plugin requiring manual migration"
+                        + " -> [toolchain.kotlin], Kotlin source roots, and [dependencies]"),
                 () -> blockerText);
-        assertFalse(scorecardText.contains("maven.language.unsupported -> explicit Zolt model"), () -> scorecardText);
-        assertFalse(blockerText.contains("maven.language.unsupported -> explicit Zolt model"), () -> blockerText);
+    }
+
+    @Test
+    void gradleMultiplatformPluginRemainsUnsupported() throws IOException {
+        Files.writeString(tempDir.resolve("settings.gradle.kts"), "rootProject.name = \"multiplatform\"\n");
+        Files.writeString(tempDir.resolve("build.gradle.kts"), """
+                plugins {
+                    kotlin("multiplatform") version "2.2.0"
+                }
+                """);
+
+        GradleInspectionResult inspection = new GradleStaticProjectInspector().inspect(tempDir);
+        MigrationReadinessScorecard scorecard = MigrationReadinessScorecards.from(inspection);
+
+        assertFalse(inspection.signals().stream().anyMatch(signal ->
+                signal.id().equals("gradle.kotlin.manual-migration")));
+        assertTrue(inspection.signals().stream().anyMatch(signal ->
+                signal.id().equals("gradle.language.unsupported")
+                        && signal.severity() == ExplainSignal.Severity.BLOCK));
+        assertEquals(MigrationReadinessCategory.UNSUPPORTED,
+                finding(scorecard, "gradle.language.unsupported").category());
+    }
+
+    @Test
+    void legacyGradleKotlinPluginMapsToManualMigration() throws IOException {
+        Files.writeString(tempDir.resolve("settings.gradle"), "rootProject.name = 'legacy-kotlin'\n");
+        Files.writeString(tempDir.resolve("build.gradle"), """
+                plugins {
+                    id('kotlin')
+                }
+                """);
+
+        GradleInspectionResult inspection = new GradleStaticProjectInspector().inspect(tempDir);
+
+        assertTrue(inspection.signals().stream().anyMatch(signal ->
+                signal.id().equals("gradle.kotlin.manual-migration")
+                        && signal.severity() == ExplainSignal.Severity.WARN));
+        assertFalse(inspection.signals().stream().anyMatch(signal ->
+                signal.id().equals("gradle.language.unsupported")));
+    }
+
+    @Test
+    void mavenKaptExecutionRemainsUnsupported() throws IOException {
+        Files.writeString(tempDir.resolve("pom.xml"), """
+                <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>com.acme</groupId>
+                  <artifactId>kapt-service</artifactId>
+                  <version>1.0.0</version>
+                  <build>
+                    <plugins>
+                      <plugin>
+                        <groupId>org.jetbrains.kotlin</groupId>
+                        <artifactId>kotlin-maven-plugin</artifactId>
+                        <version>2.2.0</version>
+                        <executions>
+                          <execution>
+                            <goals><goal>kapt</goal></goals>
+                          </execution>
+                        </executions>
+                      </plugin>
+                    </plugins>
+                  </build>
+                </project>
+                """);
+
+        MavenInspectionResult inspection = new MavenStaticProjectInspector().inspect(tempDir);
+        MigrationReadinessScorecard scorecard = MigrationReadinessScorecards.from(inspection);
+
+        assertFalse(inspection.signals().stream().anyMatch(signal ->
+                signal.id().equals("maven.kotlin.manual-migration")));
+        assertTrue(inspection.signals().stream().anyMatch(signal ->
+                signal.id().equals("maven.language.unsupported")
+                        && signal.severity() == ExplainSignal.Severity.BLOCK));
+        assertEquals(MigrationReadinessCategory.UNSUPPORTED,
+                finding(scorecard, "maven.language.unsupported").category());
     }
 
     @Test

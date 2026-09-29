@@ -66,10 +66,19 @@ final class GradleMigrationSignalDetector {
                         project,
                         "Gradle plugin `" + plugin.id() + "` declares an Android project, which is outside the Zolt public beta."));
             }
-            if (id.startsWith("org.jetbrains.kotlin") || id.equals("kotlin") || id.equals("scala")) {
+            if (id.equals("org.jetbrains.kotlin.jvm") || id.equals("kotlin")) {
+                signals.add(ExplainSignals.GRADLE_KOTLIN_MANUAL_MIGRATION.signal(
+                        project,
+                        "Gradle plugin `" + plugin.id()
+                                + "` declares bounded Kotlin/JVM compilation that requires manual Zolt migration."));
+            } else if (id.equals("org.jetbrains.kotlin")
+                    || id.startsWith("org.jetbrains.kotlin.")
+                    || id.equals("scala")) {
                 signals.add(ExplainSignals.GRADLE_LANGUAGE_UNSUPPORTED.signal(
                         project,
-                        "Gradle plugin `" + plugin.id() + "` declares an unsupported public-beta language."));
+                        "Gradle plugin `" + plugin.id()
+                                + "` declares behavior outside Zolt's bounded Kotlin/JVM and supported"
+                                + " Java/Groovy build surface."));
             }
             if (id.equals("org.graalvm.buildtools.native") || id.equals("io.micronaut.aot")) {
                 signals.add(ExplainSignals.GRADLE_FRAMEWORK_NATIVE_UNSUPPORTED.signal(

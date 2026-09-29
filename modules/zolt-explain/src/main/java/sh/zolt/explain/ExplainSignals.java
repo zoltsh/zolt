@@ -66,11 +66,21 @@ public final class ExplainSignals {
             ExplainSignal.Severity.BLOCK,
             ExplainSignal.Category.BUILDABILITY,
             "Review profile-declared modules and add active members explicitly before relying on workspace emit.");
+    public static final ExplainSignalDefinition MAVEN_KOTLIN_MANUAL_MIGRATION = new ExplainSignalDefinition(
+            "maven.kotlin.manual-migration",
+            ExplainSignal.Severity.WARN,
+            ExplainSignal.Category.BUILDABILITY,
+            "Zolt supports bounded Kotlin/JVM compilation, but zolt explain does not translate"
+                    + " kotlin-maven-plugin executions or compiler settings. Author [toolchain.kotlin],"
+                    + " [build].sources, [test.sources].kotlin, and Kotlin runtime dependencies by hand;"
+                    + " separately review KAPT, generated sources, compiler plugins, scripts, and non-JVM"
+                    + " or Android targets.");
     public static final ExplainSignalDefinition MAVEN_LANGUAGE_UNSUPPORTED = new ExplainSignalDefinition(
             "maven.language.unsupported",
             ExplainSignal.Severity.BLOCK,
             ExplainSignal.Category.MIGRATION_BLOCKER,
-            "Keep Kotlin, Scala, and Android modules outside the public beta or migrate a plain Java module first.");
+            "Keep Scala, Android, Kotlin compiler-plugin/KAPT, and non-JVM Kotlin build shapes outside"
+                    + " the public beta, or migrate a bounded Kotlin/JVM module first.");
     public static final ExplainSignalDefinition MAVEN_FRAMEWORK_NATIVE_UNSUPPORTED = new ExplainSignalDefinition(
             "maven.framework-native.unsupported",
             ExplainSignal.Severity.BLOCK,
@@ -276,11 +286,20 @@ public final class ExplainSignals {
             ExplainSignal.Severity.WARN,
             ExplainSignal.Category.BUILDABILITY,
             "Map Maven Publish configuration to Zolt publication metadata, dry-run routing, and credential policy.");
+    public static final ExplainSignalDefinition GRADLE_KOTLIN_MANUAL_MIGRATION = new ExplainSignalDefinition(
+            "gradle.kotlin.manual-migration",
+            ExplainSignal.Severity.WARN,
+            ExplainSignal.Category.BUILDABILITY,
+            "Zolt supports bounded Kotlin/JVM compilation, but zolt explain does not translate Gradle"
+                    + " Kotlin plugin configuration. Author [toolchain.kotlin], [build].sources,"
+                    + " [test.sources].kotlin, and Kotlin runtime dependencies by hand; separately review"
+                    + " KAPT, generated sources, compiler plugins, scripts, and non-JVM or Android targets.");
     public static final ExplainSignalDefinition GRADLE_LANGUAGE_UNSUPPORTED = new ExplainSignalDefinition(
             "gradle.language.unsupported",
             ExplainSignal.Severity.BLOCK,
             ExplainSignal.Category.MIGRATION_BLOCKER,
-            "Keep Kotlin and Scala modules outside the public beta or migrate a supported Java or Groovy module first.");
+            "Keep Scala, Kotlin compiler-plugin/KAPT, and non-JVM Kotlin build shapes outside the public"
+                    + " beta, or migrate a bounded Kotlin/JVM module first.");
     public static final ExplainSignalDefinition GRADLE_ANDROID_UNSUPPORTED = new ExplainSignalDefinition(
             "gradle.android.unsupported",
             ExplainSignal.Severity.BLOCK,

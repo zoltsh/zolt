@@ -164,12 +164,20 @@ public final class MavenMigrationReadinessFindings {
                     "[workspace] reviewed members",
                     "",
                     signal.nextStep());
+            case "maven.kotlin.manual-migration" -> MigrationReadinessFindings.finding(
+                    "ci",
+                    MigrationReadinessCategory.PLANNED,
+                    signal,
+                    "Maven Kotlin/JVM plugin requiring manual migration",
+                    "[toolchain.kotlin], Kotlin source roots, and [dependencies]",
+                    "",
+                    signal.nextStep());
             case "maven.language.unsupported" -> MigrationReadinessFindings.finding(
                     "ci",
                     MigrationReadinessCategory.UNSUPPORTED,
                     signal,
                     "Maven unsupported language or Android plugin",
-                    "normal Java application modules",
+                    "normal Java, Groovy, or bounded Kotlin/JVM modules",
                     "",
                     signal.nextStep());
             case "maven.framework-native.unsupported" -> MigrationReadinessFindings.finding(

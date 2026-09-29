@@ -38,7 +38,9 @@ public final class MigrationBlockerReports {
             case PLANNED -> finding.severity() == ExplainSignal.Severity.BLOCK
                     || finding.signalId().equals("maven.annotation-processor.path")
                     || finding.signalId().equals("maven.reactor.detected")
+                    || finding.signalId().equals("maven.kotlin.manual-migration")
                     || finding.signalId().equals("gradle.custom-task.detected")
+                    || finding.signalId().equals("gradle.kotlin.manual-migration")
                     || finding.signalId().equals("gradle.openapi.generated-sources")
                     || finding.signalId().equals("gradle.publication.detected");
             case SUPPORTED -> false;

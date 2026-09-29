@@ -36,10 +36,20 @@ final class MavenSignalRules {
     }
 
     static boolean gmavenPlusPlugin(String coordinate) {
-        String[] parts = coordinate.toLowerCase(Locale.ROOT).split(":", -1);
-        return parts.length >= 2
-                && "org.codehaus.gmavenplus".equals(parts[0])
-                && "gmavenplus-plugin".equals(parts[1]);
+        return plugin(coordinate, "org.codehaus.gmavenplus", "gmavenplus-plugin");
+    }
+
+    static boolean kotlinMavenPlugin(String coordinate) {
+        return plugin(coordinate, "org.jetbrains.kotlin", "kotlin-maven-plugin");
+    }
+
+    static boolean boundedKotlinJvmCompilation(MavenPluginInspection plugin) {
+        if (!kotlinMavenPlugin(plugin.coordinate())) {
+            return false;
+        }
+        return plugin.goals().stream()
+                .map(goal -> goal.toLowerCase(Locale.ROOT))
+                .allMatch(Set.of("compile", "test-compile")::contains);
     }
 
     /**
@@ -79,9 +89,15 @@ final class MavenSignalRules {
 
     static boolean unsupportedLanguagePlugin(String coordinate) {
         String lower = coordinate.toLowerCase();
-        return lower.contains(":kotlin-maven-plugin")
-                || lower.contains(":scala-maven-plugin")
+        return lower.contains(":scala-maven-plugin")
                 || lower.contains(":android-maven-plugin");
+    }
+
+    private static boolean plugin(String coordinate, String groupId, String artifactId) {
+        String[] parts = coordinate.toLowerCase(Locale.ROOT).split(":", -1);
+        return parts.length >= 2
+                && groupId.equals(parts[0])
+                && artifactId.equals(parts[1]);
     }
 
     static boolean unsupportedFrameworkNativePlugin(MavenPluginInspection plugin) {

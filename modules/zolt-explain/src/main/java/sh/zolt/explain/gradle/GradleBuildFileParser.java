@@ -11,6 +11,8 @@ import java.util.regex.Pattern;
 
 final class GradleBuildFileParser {
     private static final Pattern ID_PLUGIN_PATTERN = Pattern.compile("\\bid\\s*(?:\\(\\s*)?['\"]([^'\"]+)['\"]\\s*\\)?(?:\\s*version\\s*['\"]([^'\"]+)['\"])?");
+    private static final Pattern KOTLIN_PLUGIN_PATTERN = Pattern.compile(
+            "\\bkotlin\\s*\\(\\s*['\"]([^'\"]+)['\"]\\s*\\)(?:\\s*version\\s*['\"]([^'\"]+)['\"])?");
     private static final Pattern GROOVY_PLUGIN_PATTERN = Pattern.compile("(?m)^\\s*([A-Za-z][A-Za-z0-9_-]*)\\s*$");
     // Kotlin-DSL backtick accessor form, e.g. `java-library`, `application`, `java`.
     private static final Pattern BACKTICK_PLUGIN_PATTERN = Pattern.compile("`([A-Za-z][A-Za-z0-9_.-]*)`");
@@ -23,6 +25,13 @@ final class GradleBuildFileParser {
         Matcher idMatcher = ID_PLUGIN_PATTERN.matcher(block);
         while (idMatcher.find()) {
             plugins.add(new GradlePluginInspection(idMatcher.group(1), nullToEmpty(idMatcher.group(2))));
+        }
+        Matcher kotlinMatcher = KOTLIN_PLUGIN_PATTERN.matcher(block);
+        while (kotlinMatcher.find()) {
+            String id = "org.jetbrains.kotlin." + kotlinMatcher.group(1);
+            if (plugins.stream().noneMatch(plugin -> plugin.id().equals(id))) {
+                plugins.add(new GradlePluginInspection(id, nullToEmpty(kotlinMatcher.group(2))));
+            }
         }
         Matcher backtickMatcher = BACKTICK_PLUGIN_PATTERN.matcher(block);
         while (backtickMatcher.find()) {

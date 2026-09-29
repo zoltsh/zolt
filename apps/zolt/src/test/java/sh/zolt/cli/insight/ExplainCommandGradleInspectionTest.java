@@ -87,11 +87,36 @@ final class ExplainCommandGradleInspectionTest {
                 "--format", "json");
 
         assertEquals(0, result.exitCode());
-        assertTrue(result.stdout().contains("\"id\": \"gradle.language.unsupported\""));
+        assertTrue(result.stdout().contains("\"id\": \"gradle.kotlin.manual-migration\""));
+        assertFalse(result.stdout().contains("\"id\": \"gradle.language.unsupported\""));
         assertTrue(result.stdout().contains("\"id\": \"gradle.android.unsupported\""));
         assertTrue(result.stdout().contains("\"id\": \"gradle.framework-native.unsupported\""));
         assertTrue(result.stdout().contains("\"id\": \"gradle.dependency.dynamic-version\""));
         assertTrue(result.stdout().contains("\"status\": \"blocked\""));
+        assertEquals("", result.stderr());
+    }
+
+    @Test
+    void explainGradleClassifiesKotlinJvmAsManualReview() throws IOException {
+        Files.writeString(tempDir.resolve("settings.gradle.kts"), "rootProject.name = \"kotlin-app\"\n");
+        Files.writeString(tempDir.resolve("build.gradle.kts"), """
+                plugins {
+                    kotlin("jvm") version "2.2.0"
+                }
+                """);
+
+        CommandResult result = execute(
+                "explain",
+                "--cwd", tempDir.toString(),
+                "--source", "gradle",
+                "--format", "json");
+
+        assertEquals(0, result.exitCode());
+        assertTrue(result.stdout().contains("\"blockers\": 0"));
+        assertTrue(result.stdout().contains("\"warnings\": 1"));
+        assertTrue(result.stdout().contains("\"id\": \"gradle.kotlin.manual-migration\""));
+        assertTrue(result.stdout().contains("\"status\": \"manual-review\""));
+        assertFalse(result.stdout().contains("\"id\": \"gradle.language.unsupported\""));
         assertEquals("", result.stderr());
     }
 

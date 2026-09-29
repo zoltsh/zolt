@@ -74,6 +74,41 @@ final class GradleBuildFileParserTest {
     }
 
     @Test
+    void parsesKotlinDslPluginAccessorsAsCanonicalPluginIds() {
+        String content = """
+                plugins {
+                    kotlin("jvm") version "2.2.0"
+                    kotlin("multiplatform") version "2.1.21"
+                    kotlin("plugin.serialization")
+                }
+                """;
+
+        assertEquals(
+                java.util.List.of(
+                        new GradlePluginInspection("org.jetbrains.kotlin.jvm", "2.2.0"),
+                        new GradlePluginInspection("org.jetbrains.kotlin.multiplatform", "2.1.21"),
+                        new GradlePluginInspection("org.jetbrains.kotlin.plugin.serialization", "")),
+                parser.plugins(content));
+    }
+
+    @Test
+    void doesNotTreatKotlinCallsOutsidePluginsAsPluginAccessors() {
+        String content = """
+                plugins { java }
+                dependencies {
+                    implementation(kotlin("stdlib"))
+                }
+                kotlin {
+                    jvmToolchain(21)
+                }
+                """;
+
+        assertEquals(
+                java.util.List.of(new GradlePluginInspection("java", "")),
+                parser.plugins(content));
+    }
+
+    @Test
     void parsesDependencyNotationsAndCatalogAliases() {
         String content = """
                 dependencies {

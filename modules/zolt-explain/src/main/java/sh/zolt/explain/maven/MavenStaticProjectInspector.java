@@ -235,10 +235,18 @@ public final class MavenStaticProjectInspector {
                                 + "` declares gmavenplus behavior outside Zolt's replaced compile/compileTests shape"
                                 + " with goal(s) " + plugin.goals()
                                 + MavenSignalRules.phaseSuffix(plugin) + "."));
-            } else if (MavenSignalRules.unsupportedLanguagePlugin(plugin.coordinate())) {
+            } else if (MavenSignalRules.boundedKotlinJvmCompilation(plugin)) {
+                signals.add(ExplainSignals.MAVEN_KOTLIN_MANUAL_MIGRATION.signal(
+                        project,
+                        "Plugin `" + plugin.coordinate()
+                                + "` declares bounded Kotlin/JVM compilation that requires manual Zolt migration."));
+            } else if (MavenSignalRules.kotlinMavenPlugin(plugin.coordinate())
+                    || MavenSignalRules.unsupportedLanguagePlugin(plugin.coordinate())) {
                 signals.add(ExplainSignals.MAVEN_LANGUAGE_UNSUPPORTED.signal(
                         project,
-                        "Plugin `" + plugin.coordinate() + "` declares an unsupported public-beta language or Android build."));
+                        "Plugin `" + plugin.coordinate()
+                                + "` declares behavior outside Zolt's bounded Kotlin/JVM and supported"
+                                + " Java/Groovy build surface, or an Android build."));
             } else if (MavenSignalRules.unsupportedFrameworkNativePlugin(plugin)) {
                 signals.add(ExplainSignals.MAVEN_FRAMEWORK_NATIVE_UNSUPPORTED.signal(
                         project,
