@@ -37,6 +37,7 @@ public record AuthoredExecStep(
 
     public AuthoredExecStep {
         Objects.requireNonNull(settings, "Exec step settings must not be null.");
+        settings.language().ifPresent(language -> language.requireJavaFor("Exec"));
         Objects.requireNonNull(tool, "Exec step tool reference must not be null.");
         mainClass = Objects.requireNonNull(mainClass, "Exec step main class must not be null.");
         validateProjectMainClass(tool, mainClass);

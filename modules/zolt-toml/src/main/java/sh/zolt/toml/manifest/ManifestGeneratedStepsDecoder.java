@@ -59,9 +59,9 @@ final class ManifestGeneratedStepsDecoder {
         ValidatedManifestField kindField = row.required(ManifestGeneratedStepFields.Slot.KIND);
         String kind = ManifestTomlValues.string(kindField);
         return switch (kind) {
-            case "openapi" -> openApi(row, row.language());
-            case "protobuf" -> protobuf(row, row.language());
-            case "exec" -> ManifestGeneratedExecStepDecoder.decode(row, row.language());
+            case "openapi" -> openApi(row, row.javaLanguage("OpenAPI"));
+            case "protobuf" -> protobuf(row, row.javaLanguage("Protobuf"));
+            case "exec" -> ManifestGeneratedExecStepDecoder.decode(row, row.javaLanguage("Exec"));
             case "declared-root" -> declaredRoot(row, row.language());
             default -> throw new IllegalStateException(
                     "Final manifest schema accepted generated-step kind `" + kind
@@ -293,6 +293,14 @@ final class ManifestGeneratedStepsDecoder {
         Optional<GeneratedLanguage> language() {
             return field(ManifestGeneratedStepFields.Slot.LANGUAGE).map(value ->
                     generatedLanguage(value, ManifestTomlValues.string(value)));
+        }
+
+        Optional<GeneratedLanguage> javaLanguage(String stepKind) {
+            return field(ManifestGeneratedStepFields.Slot.LANGUAGE).map(field ->
+                    ManifestSemanticDiagnostics.construct(
+                            field,
+                            () -> generatedLanguage(field, ManifestTomlValues.string(field))
+                                    .requireJavaFor(stepKind)));
         }
 
         GeneratedStepSettings settings(Optional<GeneratedLanguage> language) {

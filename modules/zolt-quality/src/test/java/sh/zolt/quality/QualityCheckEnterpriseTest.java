@@ -97,7 +97,7 @@ final class QualityCheckEnterpriseTest extends QualityCheckServiceTestSupport {
     }
 
     @Test
-    void ciContextRejectsUnsupportedGeneratedSourceLanguageBeforeChecksRun() throws IOException {
+    void ciContextRejectsUnknownGeneratedSourceLanguageBeforeChecksRun() throws IOException {
         Path projectDir = tempDir.resolve("unsupported-generated-language");
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), """
@@ -109,7 +109,7 @@ final class QualityCheckEnterpriseTest extends QualityCheckServiceTestSupport {
 
                 [generated.main.openapi]
                 kind = "declared-root"
-                language = "kotlin"
+                language = "scala"
                 output = "target/generated/sources/openapi"
                 inputs = ["src/main/openapi/api.yaml"]
                 required = true
@@ -124,14 +124,14 @@ final class QualityCheckEnterpriseTest extends QualityCheckServiceTestSupport {
 
         assertEquals("error", report.status());
         assertEquals(List.of(
-                        "execution-context|zolt.toml|Invalid symbol `kotlin` for `generated.main.openapi.language`; expected one of [java].",
-                        "lockfile|zolt.toml|Invalid symbol `kotlin` for `generated.main.openapi.language`; expected one of [java].",
-                        "project-model|zolt.toml|Invalid symbol `kotlin` for `generated.main.openapi.language`; expected one of [java].",
-                        "dependency-metadata|zolt.toml|Invalid symbol `kotlin` for `generated.main.openapi.language`; expected one of [java].",
-                        "dependency-policy|zolt.toml|Invalid symbol `kotlin` for `generated.main.openapi.language`; expected one of [java].",
-                        "license-policy|zolt.toml|Invalid symbol `kotlin` for `generated.main.openapi.language`; expected one of [java].",
-                        "generated-sources|zolt.toml|Invalid symbol `kotlin` for `generated.main.openapi.language`; expected one of [java].",
-                        "package-contents|zolt.toml|Invalid symbol `kotlin` for `generated.main.openapi.language`; expected one of [java]."),
+                        "execution-context|zolt.toml|Invalid symbol `scala` for `generated.main.openapi.language`; expected one of [java, kotlin].",
+                        "lockfile|zolt.toml|Invalid symbol `scala` for `generated.main.openapi.language`; expected one of [java, kotlin].",
+                        "project-model|zolt.toml|Invalid symbol `scala` for `generated.main.openapi.language`; expected one of [java, kotlin].",
+                        "dependency-metadata|zolt.toml|Invalid symbol `scala` for `generated.main.openapi.language`; expected one of [java, kotlin].",
+                        "dependency-policy|zolt.toml|Invalid symbol `scala` for `generated.main.openapi.language`; expected one of [java, kotlin].",
+                        "license-policy|zolt.toml|Invalid symbol `scala` for `generated.main.openapi.language`; expected one of [java, kotlin].",
+                        "generated-sources|zolt.toml|Invalid symbol `scala` for `generated.main.openapi.language`; expected one of [java, kotlin].",
+                        "package-contents|zolt.toml|Invalid symbol `scala` for `generated.main.openapi.language`; expected one of [java, kotlin]."),
                 report.checks().stream()
                         .map(check -> check.id() + "|" + check.subject() + "|" + check.message())
                         .toList());

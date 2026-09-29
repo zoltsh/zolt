@@ -127,6 +127,29 @@ final class ManifestGeneratedTypedStepsDecoderTest {
     }
 
     @ParameterizedTest
+    @MethodSource("lanes")
+    void acceptsKotlinDeclaredRootsAndRejectsKotlinJavaGenerators(Lane lane) {
+        AuthoredDeclaredRootStep declared = assertInstanceOf(
+                AuthoredDeclaredRootStep.class,
+                step(lane, """
+                        kind = "declared-root"
+                        language = "kotlin"
+                        inputs = ["generated/kotlin"]
+                        output = "target/generated/kotlin"
+                        """));
+        assertEquals(Optional.of(GeneratedLanguage.KOTLIN), declared.settings().language());
+
+        assertFailure(
+                lane.source("kind = \"openapi\"\nlanguage = \"kotlin\"\ninput = \"api.yaml\"\n"),
+                lane.path("language"),
+                "OpenAPI generated steps support only language `java`.");
+        assertFailure(
+                lane.source("kind = \"protobuf\"\nlanguage = \"kotlin\"\ninputs = [\"schema.proto\"]\n"),
+                lane.path("language"),
+                "Protobuf generated steps support only language `java`.");
+    }
+
+    @ParameterizedTest
     @MethodSource("requiredFailures")
     void reportsTypedRequiredAndCollectionFailuresAtTheCausalPath(
             Lane lane,

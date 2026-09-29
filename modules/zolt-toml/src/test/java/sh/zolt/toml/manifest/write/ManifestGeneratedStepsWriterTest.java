@@ -134,6 +134,29 @@ final class ManifestGeneratedStepsWriterTest {
         assertFalse(output.contains("cache ="));
     }
 
+    @ParameterizedTest
+    @MethodSource("lanes")
+    void emitsAndRoundTripsKotlinDeclaredRoots(Lane lane) {
+        AuthoredDeclaredRootStep step = new AuthoredDeclaredRootStep(
+                new GeneratedStepSettings(
+                        Optional.of(GeneratedLanguage.KOTLIN), Optional.empty(), Optional.empty()),
+                List.of(glob("generated/kotlin")),
+                path("target/generated/kotlin"));
+
+        String output = write(lane, Map.of(id("kotlin"), step));
+
+        assertEquals(
+                """
+                [generated.<lane>.kotlin]
+                kind = "declared-root"
+                language = "kotlin"
+                inputs = ["generated/kotlin"]
+                output = "target/generated/kotlin"
+                """.replace("<lane>", lane.segment()),
+                output);
+        assertEquals(output, write(lane, lane.steps(decode(lane, output))));
+    }
+
     @Test
     void wrapsEveryLongDirectExecArrayAndKeepsItemsOnOneLine() {
         String argument = "a".repeat(91);

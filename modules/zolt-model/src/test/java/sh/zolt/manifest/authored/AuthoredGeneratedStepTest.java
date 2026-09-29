@@ -12,6 +12,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import sh.zolt.manifest.EnvironmentVariableName;
 import sh.zolt.manifest.GeneratedCachePolicy;
+import sh.zolt.manifest.GeneratedLanguage;
 import sh.zolt.manifest.GeneratedOutputKind;
 import sh.zolt.manifest.GeneratedStepSettings;
 import sh.zolt.manifest.JavaBinaryClassName;
@@ -62,6 +63,56 @@ final class AuthoredGeneratedStepTest {
                 GeneratedStepSettings.defaultsOmitted(),
                 List.of(),
                 new ManifestRelativePath("target/generated/test-sources/fixtures")));
+    }
+
+    @Test
+    void kotlinLanguageIsReservedForDeclaredRoots() {
+        GeneratedStepSettings kotlin = new GeneratedStepSettings(
+                Optional.of(GeneratedLanguage.KOTLIN), Optional.empty(), Optional.empty());
+        AuthoredDeclaredRootStep declared = new AuthoredDeclaredRootStep(
+                kotlin,
+                List.of(new ResourceGlob("generated/kotlin")),
+                new ManifestRelativePath("target/generated/kotlin"));
+
+        assertEquals(Optional.of(GeneratedLanguage.KOTLIN), declared.settings().language());
+        assertEquals(
+                "OpenAPI generated steps support only language `java`.",
+                assertThrows(IllegalArgumentException.class, () -> new AuthoredOpenApiStep(
+                                kotlin,
+                                Optional.empty(),
+                                new ResourceGlob("api.yaml"),
+                                Optional.empty(),
+                                Optional.empty(),
+                                AuthoredOpenApiOptions.empty()))
+                        .getMessage());
+        assertEquals(
+                "Protobuf generated steps support only language `java`.",
+                assertThrows(IllegalArgumentException.class, () -> new AuthoredProtobufStep(
+                                kotlin,
+                                Optional.empty(),
+                                List.of(new ResourceGlob("schema.proto")),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()))
+                        .getMessage());
+        assertEquals(
+                "Exec generated steps support only language `java`.",
+                assertThrows(IllegalArgumentException.class, () -> new AuthoredExecStep(
+                                kotlin,
+                                new LocalId("tool"),
+                                Optional.empty(),
+                                List.of(),
+                                List.of(new ResourceGlob("input")),
+                                new ManifestRelativePath("target/generated/exec"),
+                                GeneratedOutputKind.JAVA_SOURCES,
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Map.of(),
+                                Map.of(),
+                                List.of(),
+                                Optional.empty()))
+                        .getMessage());
     }
 
     @Test

@@ -52,7 +52,7 @@ final class FinalManifestSymbolsTest {
                 Map.entry("generated-tool-kind", List.of("openapi", "protobuf", "jvm", "process")),
                 Map.entry("generated-preset-kind", List.of("openapi")),
                 Map.entry("generated-step-kind", List.of("openapi", "protobuf", "exec", "declared-root")),
-                Map.entry("generated-language", List.of("java")),
+                Map.entry("generated-language", List.of("java", "kotlin")),
                 Map.entry(
                         "generated-lane",
                         List.of("java-sources", "test-sources", "resources", "test-resources", "intermediate")),

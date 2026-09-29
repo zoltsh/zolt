@@ -75,7 +75,7 @@ public final class FinalManifestSymbols {
             family("generated-tool-kind", "openapi", "protobuf", "jvm", "process"),
             family("generated-preset-kind", "openapi"),
             family("generated-step-kind", "openapi", "protobuf", "exec", "declared-root"),
-            family("generated-language", "java"),
+            family("generated-language", "java", "kotlin"),
             family("generated-lane", "java-sources", "test-sources", "resources", "test-resources", "intermediate"),
             family("generated-cache-policy", "content", "none"),
             family("signing-method", "gpg"),

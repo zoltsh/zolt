@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
+import sh.zolt.manifest.GeneratedLanguage;
 import sh.zolt.manifest.GeneratedStepSettings;
 import sh.zolt.manifest.DependencyCoordinate;
 import sh.zolt.manifest.LocalId;
@@ -177,7 +178,7 @@ final class ProjectConfigGenerated {
         return new GeneratedSourceStep(
                 id.value(),
                 GeneratedSourceKind.DECLARED_ROOT,
-                JAVA,
+                settings.language().orElse(GeneratedLanguage.JAVA).configValue(),
                 step.output().value(),
                 step.inputs().stream().map(ResourceGlob::value).toList(),
                 settings.required().orElse(true),

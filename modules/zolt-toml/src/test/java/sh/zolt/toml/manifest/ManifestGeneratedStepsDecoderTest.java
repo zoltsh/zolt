@@ -144,7 +144,7 @@ final class ManifestGeneratedStepsDecoderTest {
         assertSymbolParity(
                 FinalManifestGeneratedMainFields.GENERATED_MAIN_LANGUAGE,
                 FinalManifestGeneratedTestFields.GENERATED_TEST_LANGUAGE,
-                List.of("java"));
+                List.of("java", "kotlin"));
         assertSymbolParity(
                 FinalManifestGeneratedMainFields.GENERATED_MAIN_PRODUCES,
                 FinalManifestGeneratedTestFields.GENERATED_TEST_PRODUCES,

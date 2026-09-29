@@ -98,6 +98,7 @@ final class ManifestGeneratedConfigAdapterTest {
 
                 [generated.test.fixtures]
                 kind = "declared-root"
+                language = "kotlin"
                 inputs = ["src/test/fixtures"]
                 output = "target/generated/test-sources/fixtures"
                 required = false
@@ -165,6 +166,7 @@ final class ManifestGeneratedConfigAdapterTest {
 
         GeneratedSourceStep fixtures = step(adapted.build().generatedTestSources(), "fixtures");
         assertEquals(GeneratedSourceKind.DECLARED_ROOT, fixtures.kind());
+        assertEquals("kotlin", fixtures.language());
         assertEquals(List.of("src/test/fixtures"), fixtures.inputs());
         assertEquals("target/generated/test-sources/fixtures", fixtures.output());
         assertFalse(fixtures.required());
