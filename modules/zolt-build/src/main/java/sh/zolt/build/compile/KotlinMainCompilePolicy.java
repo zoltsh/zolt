@@ -34,9 +34,9 @@ final class KotlinMainCompilePolicy {
                 .anyMatch(KotlinMainCompilePolicy::producesOwnedJavaSources)) {
             throw unsupported(
                     "owned Java main-source generation is configured",
-                    "Use kind = \"declared-root\" for pre-generated Java, move generated Java into a separate"
-                            + " member, or keep this member Java-only until generator ownership is qualified for"
-                            + " Kotlin/Java joint compilation.");
+                    "Use kind = \"declared-root\" for a pre-generated Java or Kotlin root, move generated"
+                            + " Java into a separate member, or keep this member Java-only until generator"
+                            + " ownership is qualified for Kotlin/Java joint compilation.");
         }
         if (!classpaths.processor().entries().isEmpty()) {
             throw unsupported(

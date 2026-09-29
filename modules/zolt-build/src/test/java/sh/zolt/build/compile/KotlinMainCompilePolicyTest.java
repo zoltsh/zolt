@@ -223,6 +223,7 @@ final class KotlinMainCompilePolicyTest {
                             jdkStatus("21.0.11", "21")));
 
             assertTrue(failure.getMessage().contains("owned Java main-source generation"));
+            assertTrue(failure.getMessage().contains("pre-generated Java or Kotlin root"));
         }
 
         for (ProducesLane lane : List.of(ProducesLane.RESOURCES, ProducesLane.INTERMEDIATE)) {
@@ -236,6 +237,7 @@ final class KotlinMainCompilePolicyTest {
         }
         assertEquals("21", declaredRoot.release());
         assertTrue(generatedJavaFailure.getMessage().contains("owned Java main-source generation"));
+        assertTrue(generatedJavaFailure.getMessage().contains("pre-generated Java or Kotlin root"));
     }
 
     @Test

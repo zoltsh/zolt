@@ -40,9 +40,10 @@ final class KotlinTestCompilePolicy {
                 .anyMatch(KotlinTestCompilePolicy::producesOwnedJavaSources)) {
             throw unsupported(
                     "owned Java test-source generation is configured",
-                    "Use kind = \"declared-root\" for pre-generated Java tests, move generated Java"
-                            + " tests into a separate member, or keep this test source set Java-only"
-                            + " until generator ownership is qualified for Kotlin/Java joint compilation.");
+                    "Use kind = \"declared-root\" for a pre-generated Java or Kotlin test root, move"
+                            + " generated Java tests into a separate member, or keep this test source set"
+                            + " Java-only until generator ownership is qualified for Kotlin/Java joint"
+                            + " compilation.");
         }
         if (!classpaths.testProcessor().entries().isEmpty()) {
             throw unsupported(

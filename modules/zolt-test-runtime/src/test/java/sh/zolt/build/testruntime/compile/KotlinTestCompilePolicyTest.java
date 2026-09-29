@@ -236,6 +236,7 @@ final class KotlinTestCompilePolicyTest {
                             null));
 
             assertTrue(failure.getMessage().contains("owned Java test-source generation"));
+            assertTrue(failure.getMessage().contains("pre-generated Java or Kotlin test root"));
             assertTrue(failure.getMessage().contains("kind = \"declared-root\""));
         }
 
@@ -250,6 +251,7 @@ final class KotlinTestCompilePolicyTest {
                             null));
 
             assertTrue(failure.getMessage().contains("owned Java test-source generation"));
+            assertTrue(failure.getMessage().contains("pre-generated Java or Kotlin test root"));
         }
 
         for (ProducesLane lane : List.of(ProducesLane.TEST_RESOURCES, ProducesLane.INTERMEDIATE)) {
