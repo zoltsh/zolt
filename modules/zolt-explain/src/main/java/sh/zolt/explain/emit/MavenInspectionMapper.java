@@ -117,9 +117,10 @@ final class MavenInspectionMapper {
                         primary.testResourceRoots(),
                         notes));
         if (kotlin.isPresent()) {
-            build = DraftManifests.withMavenKotlinModules(
+            build = DraftManifests.withKotlinModules(
                     build,
                     primary.artifactId(),
+                    primary.artifactId() + "-test",
                     kotlin.orElseThrow());
         }
         if (generated.isPresent()) {

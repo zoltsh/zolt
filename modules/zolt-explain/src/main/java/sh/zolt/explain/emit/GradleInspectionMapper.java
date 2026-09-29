@@ -4,6 +4,7 @@ import sh.zolt.explain.gradle.GradleInspectionResult;
 import sh.zolt.explain.gradle.GradleProjectInspection;
 import sh.zolt.explain.gradle.GradleRepositoryInspection;
 import sh.zolt.explain.gradle.GradleVersionCatalogAlias;
+import sh.zolt.manifest.authored.AuthoredBuildConfiguration;
 import sh.zolt.manifest.authored.AuthoredManifest;
 import sh.zolt.manifest.authored.AuthoredPackaging;
 import sh.zolt.manifest.authored.AuthoredToolchains;
@@ -70,6 +71,13 @@ final class GradleInspectionMapper {
         }
         DraftDependencies dependencies = new DraftDependencies(notes);
         new GradleDependencySectionMapper(dependencies, registry, notes).map(primary.dependencies());
+        GradleKotlinDraftAssessor.Result kotlinAssessment =
+                GradleKotlinDraftAssessor.assess(primary, dependencies);
+        kotlinAssessment.reviewNote().ifPresent(notes::add);
+        Optional<KotlinJvmDraftEligibility.Decision.Eligible> kotlin =
+                kotlinAssessment.decision() instanceof KotlinJvmDraftEligibility.Decision.Eligible eligible
+                        ? Optional.of(eligible)
+                        : Optional.empty();
         addCatalogNotes(aliases, notes);
         addRepositoryNotes(primary.repositories(), notes);
 
@@ -86,6 +94,31 @@ final class GradleInspectionMapper {
                 primary.sourceRoots(),
                 primary.testSourceRoots(),
                 primary.groovyTestSourceRoots());
+        if (kotlin.isPresent()) {
+            toolchains = DraftManifests.withKotlinToolchain(toolchains, kotlin.orElseThrow());
+        }
+        AuthoredBuildConfiguration build = kotlin
+                .map(eligible -> InspectionBuildSettingsMapper.fromKotlinRoots(
+                        primary.sourceRoots(),
+                        primary.testSourceRoots(),
+                        List.of(),
+                        List.of(),
+                        eligible,
+                        notes))
+                .orElseGet(() -> InspectionBuildSettingsMapper.fromRoots(
+                        primary.sourceRoots(),
+                        primary.testSourceRoots(),
+                        primary.groovyTestSourceRoots(),
+                        List.of(),
+                        List.of(),
+                        notes));
+        if (kotlin.isPresent()) {
+            build = DraftManifests.withKotlinModules(
+                    build,
+                    primary.name(),
+                    primary.name() + "_test",
+                    kotlin.orElseThrow());
+        }
         AuthoredManifest manifest = DraftManifests.project(
                 DraftManifests.identity(
                         primary.name(),
@@ -98,13 +131,7 @@ final class GradleInspectionMapper {
                 toolchains,
                 dependencies,
                 Optional.empty(),
-                InspectionBuildSettingsMapper.fromRoots(
-                        primary.sourceRoots(),
-                        primary.testSourceRoots(),
-                        primary.groovyTestSourceRoots(),
-                        List.of(),
-                        List.of(),
-                        notes),
+                build,
                 Optional.empty(),
                 AuthoredPackaging.empty());
         return new DraftZoltToml(manifest, notes);

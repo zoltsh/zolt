@@ -177,19 +177,20 @@ final class DraftManifests {
                 Optional.of(new AuthoredKotlinToolchain(kotlin.version())));
     }
 
-    /** Preserves the Kotlin Maven plugin's observable main and test module identities. */
-    static AuthoredBuildConfiguration withMavenKotlinModules(
+    /** Preserves the source build's observable Kotlin main and test module identities. */
+    static AuthoredBuildConfiguration withKotlinModules(
             AuthoredBuildConfiguration build,
-            String artifactId,
+            String mainModuleName,
+            String testModuleName,
             KotlinJvmDraftEligibility.Decision.Eligible kotlin) {
         Optional<String> mainModule = kotlin.main()
-                ? Optional.of(artifactId)
+                ? Optional.of(mainModuleName)
                 : Optional.empty();
         Optional<AuthoredCompiler.Test> test = kotlin.test()
                 ? Optional.of(new AuthoredCompiler.Test(
                         Optional.empty(),
                         List.of(),
-                        Optional.of(artifactId + "-test")))
+                        Optional.of(testModuleName)))
                 : Optional.empty();
         AuthoredCompiler compiler = new AuthoredCompiler(
                 Optional.of("UTF8"),
