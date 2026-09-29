@@ -66,6 +66,34 @@ final class GeneratedSourceQualityCheckTest extends QualityCheckServiceTestSuppo
     }
 
     @Test
+    void passesForFreshDeclaredKotlinRoots() throws IOException {
+        Path projectDir = tempDir.resolve("fresh-generated-kotlin");
+        Path outputFile = projectDir.resolve("generated/main/com/example/Generated.kt");
+        Path inputFile = projectDir.resolve("schema/generated.marker");
+        Files.createDirectories(outputFile.getParent());
+        Files.createDirectories(inputFile.getParent());
+        Files.writeString(inputFile, "generated Kotlin\n");
+        Files.writeString(outputFile, "package com.example\nobject Generated\n");
+        Files.setLastModifiedTime(inputFile, FileTime.fromMillis(1_000));
+        Files.setLastModifiedTime(outputFile, FileTime.fromMillis(2_000));
+        ProjectConfig config = parseProject(
+                projectDir,
+                generatedSourceConfig(
+                                "main",
+                                "kotlin",
+                                "generated/main",
+                                "schema/generated.marker",
+                                true)
+                        .replace("language = \"java\"", "language = \"kotlin\""));
+
+        QualityCheckResult result = check.check(Optional.empty(), projectDir, config).getFirst();
+
+        assertEquals(QualityCheckStatus.PASSED, result.status());
+        assertEquals("[generated.main.kotlin]", result.subject());
+        assertTrue(result.message().contains("exported as IDE source root `generated-main-kotlin`"));
+    }
+
+    @Test
     void reportsMissingRequiredOutputWithActionableStep() throws IOException {
         Path projectDir = tempDir.resolve("missing-required-output");
         Files.createDirectories(projectDir.resolve("src/main/openapi"));
@@ -199,15 +227,15 @@ final class GeneratedSourceQualityCheckTest extends QualityCheckServiceTestSuppo
     }
 
     @Test
-    void rejectsUnsupportedGeneratedSourceLanguageWithMvpNextStep() throws IOException {
+    void rejectsUnknownGeneratedSourceLanguageWithBoundedNextStep() throws IOException {
         Path projectDir = tempDir.resolve("bad-generated-language");
         ProjectConfig parsed = parseProject(projectDir, "");
         ProjectConfig config = parsed.withBuildSettings(parsed.build().withGeneratedSources(
                 List.of(new GeneratedSourceStep(
-                        "kotlin-api",
+                        "scala-api",
                         GeneratedSourceKind.DECLARED_ROOT,
-                        "kotlin",
-                        "target/generated/sources/kotlin",
+                        "scala",
+                        "target/generated/sources/scala",
                         List.of("src/main/openapi/api.yaml"),
                         true,
                         false)),
@@ -218,9 +246,34 @@ final class GeneratedSourceQualityCheckTest extends QualityCheckServiceTestSuppo
         assertResult(
                 result,
                 QualityCheckStatus.FAILED,
-                "[generated.main.kotlin-api]",
+                "[generated.main.scala-api]",
+                "Unsupported generated source language `scala`.",
+                "Use language = \"java\", or use language = \"kotlin\" with kind = \"declared-root\".");
+    }
+
+    @Test
+    void rejectsKotlinForJavaOnlyGeneratedKinds() throws IOException {
+        Path projectDir = tempDir.resolve("bad-kotlin-kind");
+        ProjectConfig parsed = parseProject(projectDir, "");
+        ProjectConfig config = parsed.withBuildSettings(parsed.build().withGeneratedSources(
+                List.of(new GeneratedSourceStep(
+                        "openapi",
+                        GeneratedSourceKind.OPENAPI,
+                        "kotlin",
+                        "target/generated/sources/openapi",
+                        List.of("src/main/openapi/api.yaml"),
+                        true,
+                        false)),
+                List.of()));
+
+        QualityCheckResult result = check.check(Optional.empty(), projectDir, config).getFirst();
+
+        assertResult(
+                result,
+                QualityCheckStatus.FAILED,
+                "[generated.main.openapi]",
                 "Unsupported generated source language `kotlin`.",
-                "Use language = \"java\" for MVP generated-source steps.");
+                "Use language = \"java\", or use language = \"kotlin\" with kind = \"declared-root\".");
     }
 
     @Test

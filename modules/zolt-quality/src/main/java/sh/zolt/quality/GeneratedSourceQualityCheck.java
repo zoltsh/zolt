@@ -183,13 +183,13 @@ final class GeneratedSourceQualityCheck {
                 return invalidExec;
             }
         }
-        if (!"java".equals(step.language())) {
+        if (!supportedLanguage(step)) {
             return Optional.of(QualityCheckResult.failed(
                     QualityCheckService.GENERATED_SOURCES,
                     member,
                     subject,
                     "Unsupported generated source language `" + step.language() + "`.",
-                    "Use language = \"java\" for MVP generated-source steps."));
+                    "Use language = \"java\", or use language = \"kotlin\" with kind = \"declared-root\"."));
         }
         Optional<QualityCheckResult> invalidOutput = invalidGeneratedPath(
                 member,
@@ -212,6 +212,12 @@ final class GeneratedSourceQualityCheck {
             }
         }
         return Optional.empty();
+    }
+
+    private static boolean supportedLanguage(GeneratedSourceStep step) {
+        return "java".equals(step.language())
+                || ("kotlin".equals(step.language())
+                        && step.kind() == GeneratedSourceKind.DECLARED_ROOT);
     }
 
     private static Optional<QualityCheckResult> invalidGeneratedPath(
