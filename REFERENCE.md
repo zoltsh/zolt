@@ -711,13 +711,15 @@ compile classpath. Java can therefore resolve the Kotlin declarations, including
 the circular relationship above. Kotlin-only main source sets skip the second
 phase.
 
-Pre-generated Java may join that main source set through a
-`[generated.main.<id>]` step whose `kind` is `"declared-root"`. Zolt treats the
-declared tree as a protected input, includes its Java files and declared producer
-inputs in reuse decisions, and never removes it during compile-output cleanup.
-Its Java may refer to Kotlin declarations and Kotlin may refer back to it. This
-exception is only for an already-present declared root; Zolt-owned OpenAPI,
-Protobuf, and source-producing exec steps remain outside Kotlin joint compilation.
+A pre-generated Java or Kotlin tree may join that main source set through a
+`[generated.main.<id>]` step whose `kind` is `"declared-root"`. Set
+`language = "kotlin"` for a Kotlin tree because the default is Java. Zolt treats
+the declared tree as a protected input, includes its matching source files and
+declared producer inputs in reuse decisions, and never removes it during
+compile-output cleanup. Java and Kotlin declarations may refer to one another
+across authored and declared roots. This exception is only for an already-present
+declared root; Zolt-owned OpenAPI, Protobuf, and source-producing exec steps
+remain outside Kotlin joint compilation.
 
 This is intentionally a bounded preview. Zolt fails before cache restoration or
 output cleanup when any of these conditions applies:
@@ -729,8 +731,8 @@ output cleanup when any of these conditions applies:
 - `[compiler].args` contains a flag other than `-parameters` or `-Werror`, or
   repeats either supported flag; or
 - a Zolt-owned Java-source-producing OpenAPI, Protobuf, or exec main generation
-  step is configured. A pre-generated Java `declared-root` is admitted; exec
-  steps that produce resources or intermediate outputs do not by themselves
+  step is configured. A pre-generated Java or Kotlin `declared-root` is admitted;
+  exec steps that produce resources or intermediate outputs do not by themselves
   cross this boundary.
 
 Kotlin main compilation supports workspace API and implementation dependencies;
@@ -744,9 +746,10 @@ may coexist with a Kotlin-only or mixed Java/Kotlin main source set.
 Tests may use their own member's `internal` main declarations: Zolt passes only
 that member's main output as a Kotlin friend path. Internal declarations from
 workspace dependency members remain inaccessible. Kotlin integration-test
-roots are admitted through `[test.integration].sources`; generated Kotlin,
-KAPT, and automatic migration of Kotlin shapes outside the bounded Maven subset
-described under Migration Explain are not supported. Sources are read as UTF-8.
+roots are admitted through `[test.integration].sources`; Kotlin generation owned
+by Zolt, KAPT, and automatic migration of Kotlin shapes outside the bounded
+Maven subset described under Migration Explain are not supported. Sources are
+read as UTF-8.
 The effective Java release must not exceed the selected complete JDK;
 `[compiler].jdkApi = "host"` selects host-platform API semantics instead of
 Kotlin `-Xjdk-release` and javac `--release`. When the selected JDK itself is
@@ -1869,13 +1872,14 @@ compiler and need the ordinary `org.jetbrains.kotlin:kotlin-stdlib` dependency
 on the applicable test classpath. The preview accepts Kotlin-only and mixed
 Java/Kotlin test source sets with an empty, Java-only, Kotlin-only, or mixed
 Java/Kotlin main source set. Java may be authored under the configured test
-roots or supplied by a `[generated.test.<id>]` step whose `kind` is
-`"declared-root"`. A declared root is an already-present protected input: its
-Java files and declared producer inputs participate in fingerprint, workspace,
-and output-cache decisions, while compile cleanup and cache restoration leave
-the tree untouched. The Java may refer to Kotlin test declarations and Kotlin
-may refer back to it. This applies to both unit tests and the projected
-integration-test source set.
+roots. Pre-generated Java or Kotlin tests may instead be supplied by a
+`[generated.test.<id>]` step whose `kind` is `"declared-root"`. Set
+`language = "kotlin"` for Kotlin. A declared root is an already-present protected
+input: its matching source files and declared producer inputs participate in
+fingerprint, workspace, and output-cache decisions, while compile cleanup and
+cache restoration leave the tree untouched. Java and Kotlin test declarations
+may refer to one another across authored and declared roots. This applies to
+both unit tests and the projected integration-test source set.
 
 Mixed tests use the same cleaned two-phase model as mixed main sources:
 `kotlinc` first analyzes all admitted Java and Kotlin test sources and emits the
@@ -1895,12 +1899,12 @@ rejects Groovy test sources, `module-info.java`, test annotation processors,
 or repeating either flag, Java-source-producing generated-test steps, and
 Quarkus in the same member. The generated-test restriction applies to
 Zolt-owned OpenAPI, Protobuf, and source-producing exec steps; pre-generated
-Java `declared-root` steps are the supported exception. Exec generation steps
-that produce test resources or intermediate outputs remain compatible.
-Generated Kotlin and KAPT remain unsupported. Test dependencies remain isolated
-from main compilation and main runtime. Any source change in a Kotlin-bearing
-test source set uses cleaned full-scope compilation rather than incremental
-javac state.
+Java or Kotlin `declared-root` steps are the supported exception. Exec generation
+steps that produce test resources or intermediate outputs remain compatible.
+Zolt-owned Kotlin generation and KAPT remain unsupported. Test dependencies
+remain isolated from main compilation and main runtime. Any source change in a
+Kotlin-bearing test source set uses cleaned full-scope compilation rather than
+incremental javac state.
 
 Test commands support class/method selection, glob patterns, JUnit tags, JVM
 arguments, XML reports, deterministic shards, named suites, and optional profile
@@ -1985,8 +1989,29 @@ preset = "spring-api"
 repeat `kind` on a reserved id. A step's `tool` defaults to the built-in for its
 kind and its `output` defaults to `<build.output.root>/generated/sources/<id>`
 (`generated/test-sources/<id>` for a test step), so neither is written unless it
-differs. `language` is omitted while Java is the sole supported generated-source
-language.
+differs. `language` defaults to `"java"`. The value `"kotlin"` is accepted only
+for `kind = "declared-root"`, which admits an already-present protected Kotlin
+tree without making Zolt its producer. OpenAPI, Protobuf, and source-producing
+exec steps remain Java-only.
+
+For example, an external generator can hand an existing Kotlin tree to Zolt
+without granting cleanup ownership:
+
+```toml
+[generated.main.external-model]
+kind = "declared-root"
+language = "kotlin"
+output = "generated/main/kotlin"
+inputs = ["schema/model.yaml"]
+required = true
+clean = false
+```
+
+The same shape works under `[generated.test.<id>]`. The matching `.kt` files and
+declared producer inputs participate in compilation, workspace dirtiness,
+fingerprints, and output-cache validation. The output tree must already exist
+when `required = true`, and compile cleanup, cache restoration, and `zolt clean`
+do not remove it when `clean = false`.
 
 Protobuf/gRPC configuration can look like this:
 

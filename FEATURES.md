@@ -36,8 +36,9 @@ zolt run
   roots, including circular cross-language references. A bounded preview also
   compiles authored Kotlin/JVM main sources alone or together with Java,
   including circular cross-language references, plus authored Kotlin/JVM unit
-  and integration tests alone or together with Java. Unsupported language and
-  compiler combinations fail closed.
+  and integration tests alone or together with Java. Protected, pre-generated
+  Kotlin main and test trees may join through declared roots. Unsupported
+  language and compiler combinations fail closed.
 - **Dependencies.** Use API, implementation, runtime, provided, development,
   test, and annotation-processor lanes under one `[dependencies]` namespace.
 - **Metadata.** Import BOMs and configure version aliases, exclusions,
