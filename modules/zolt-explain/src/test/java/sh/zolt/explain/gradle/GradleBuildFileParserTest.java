@@ -51,6 +51,8 @@ final class GradleBuildFileParserTest {
 
     @Test
     void parsesLegacyJavaVersionNotationBeforeEmitNormalization() {
+        assertEquals("21", parser.javaVersion(
+                "languageVersion.set(JavaLanguageVersion.of(21))"));
         assertEquals("1.8", parser.javaVersion("sourceCompatibility = 1.8"));
         assertEquals("1.8", parser.javaVersion("targetCompatibility = 1.8"));
         assertEquals("1.8", parser.javaVersion("sourceCompatibility = JavaVersion.VERSION_1_8"));

@@ -40,6 +40,11 @@ final class GradleKotlinProjectEvidenceTest {
         assertTrue(evidence.kotlinProperties().isEmpty());
         assertFalse(evidence.annotationProcessingConfigured());
         assertFalse(evidence.buildSrcPresent());
+        assertTrue(evidence.projectNameProven());
+        assertTrue(evidence.settingsShapeProven());
+        assertTrue(evidence.pluginBlockShapeProven());
+        assertTrue(evidence.declarativeBuildShapeProven());
+        assertFalse(evidence.dependencyResolutionConfigured());
         assertEquals(sh.zolt.explain.SourceTreeEvidence.none(), evidence.sourceTree());
     }
 
@@ -73,6 +78,9 @@ final class GradleKotlinProjectEvidenceTest {
                 dependencies {
                     kapt 'com.google.dagger:dagger-compiler:2.56.2'
                 }
+                configurations.all {
+                    resolutionStrategy.force 'org.jetbrains.kotlin:kotlin-stdlib:2.3.21'
+                }
                 tasks.named('compileTestKotlin') {
                     enabled = false
                 }
@@ -92,6 +100,9 @@ final class GradleKotlinProjectEvidenceTest {
                 evidence.kotlinProperties());
         assertTrue(evidence.annotationProcessingConfigured());
         assertTrue(evidence.buildSrcPresent());
+        assertTrue(evidence.pluginBlockShapeProven());
+        assertFalse(evidence.declarativeBuildShapeProven());
+        assertTrue(evidence.dependencyResolutionConfigured());
     }
 
     @Test

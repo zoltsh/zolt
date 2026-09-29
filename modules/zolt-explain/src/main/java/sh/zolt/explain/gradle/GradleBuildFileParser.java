@@ -105,7 +105,8 @@ final class GradleBuildFileParser {
 
     String javaVersion(String content) {
         for (Pattern pattern : List.of(
-                Pattern.compile("\\blanguageVersion\\s*=\\s*JavaLanguageVersion\\.of\\((\\d+)\\)"),
+                Pattern.compile("\\blanguageVersion\\s*(?:=\\s*|\\.set\\s*\\(\\s*)"
+                        + "JavaLanguageVersion\\.of\\s*\\(\\s*(\\d+)\\s*\\)"),
                 Pattern.compile("\\bsourceCompatibility\\s*=\\s*JavaVersion\\.VERSION_([0-9_]+)"),
                 Pattern.compile("\\btargetCompatibility\\s*=\\s*JavaVersion\\.VERSION_([0-9_]+)"),
                 Pattern.compile("\\bsourceCompatibility\\s*=\\s*['\"]([^'\"]+)['\"]"),

@@ -45,6 +45,8 @@ public final class GradleStaticProjectInspector {
                 catalogPlugins,
                 signals));
         String settingsContent = settingsFile.map(GradleStaticProjectInspector::read).orElse("");
+        boolean kotlinSettingsShape = GradleKotlinProjectEvidence
+                .standaloneSettingsShapeProven(settingsContent);
         List<String> includedProjects = settingsFile.isPresent()
                 ? GradleSettingsScripts.includedProjects(settingsContent)
                 : List.of();
@@ -68,6 +70,7 @@ public final class GradleStaticProjectInspector {
                 rootProjectName,
                 rootProperties,
                 buildFileParser.settingsRepositories(settingsContent),
+                kotlinSettingsShape,
                 versionCatalog,
                 catalogBundles,
                 catalogPlugins,
@@ -84,6 +87,7 @@ public final class GradleStaticProjectInspector {
                         Optional.empty(),
                         rootProperties,
                         List.of(),
+                        kotlinSettingsShape,
                         versionCatalog,
                         catalogBundles,
                         catalogPlugins,
@@ -124,6 +128,7 @@ public final class GradleStaticProjectInspector {
             Optional<String> declaredName,
             Map<String, String> rootProperties,
             List<GradleRepositoryInspection> settingsRepositories,
+            boolean kotlinSettingsShape,
             Map<String, String> versionCatalog,
             Map<String, List<String>> catalogBundles,
             Map<String, GradlePluginInspection> catalogPlugins,
@@ -186,6 +191,8 @@ public final class GradleStaticProjectInspector {
                         rootProperties,
                         projectProperties,
                         Files.isDirectory(root.resolve("buildSrc")),
+                        declaredName.isPresent(),
+                        kotlinSettingsShape,
                         sourceTree));
     }
 
