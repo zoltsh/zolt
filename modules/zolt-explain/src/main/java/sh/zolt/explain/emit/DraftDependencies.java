@@ -139,6 +139,13 @@ final class DraftDependencies {
         return versions.size() == 1 ? Optional.of(versions.getFirst()) : Optional.empty();
     }
 
+    /** Every valid ordinary declaration attempted for one coordinate, including lane collisions. */
+    List<AuthoredDependency> ordinaryCandidates(String coordinate) {
+        return ordinaryCandidates.stream()
+                .filter(dependency -> dependency.coordinate().value().equals(coordinate))
+                .toList();
+    }
+
     private void declare(
             DependencyLane lane,
             DependencyCoordinate coordinate,
