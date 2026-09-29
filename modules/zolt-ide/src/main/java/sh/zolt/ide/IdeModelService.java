@@ -128,7 +128,8 @@ public final class IdeModelService {
         return Map.of(
                 "compileClasspathEntries", Integer.toString(classpaths.compile().size()),
                 "runtimeClasspathEntries", Integer.toString(classpaths.runtime().size()),
-                "testClasspathEntries", Integer.toString(classpaths.test().size()));
+                "testClasspathEntries", Integer.toString(classpaths.test().size()),
+                "integrationTestClasspathEntries", Integer.toString(classpaths.integrationTest().size()));
     }
 
     private static Map<String, String> ideModelAttributes(IdeModel model) {

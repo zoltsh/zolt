@@ -34,6 +34,7 @@ final class IdeModelJsonWriterTest {
         assertTrue(json.contains(expectedMessage));
         assertTrue(json.contains("\"path\": \"C:/repo/zolt.toml\""));
         assertTrue(json.contains("\"nextStep\": \"Fix \\\"zolt.toml\\\" and retry.\""));
+        assertTrue(json.contains("\"integrationTest\": []"));
     }
 
     @Test
@@ -103,7 +104,8 @@ final class IdeModelJsonWriterTest {
                 List.of(),
                 new IdeModel.OutputInfo(null, null, null),
                 new IdeModel.DependencyInfo(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of()),
-                new IdeModel.ClasspathInfo(List.of(), List.of(), List.of(), List.of(), List.of(), List.of()),
+                new IdeModel.ClasspathInfo(
+                        List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of()),
                 frameworks,
                 diagnostics);
     }

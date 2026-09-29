@@ -112,7 +112,8 @@ final class IdeModelServiceTest {
                 Map.of(
                         "compileClasspathEntries", "0",
                         "runtimeClasspathEntries", "1",
-                        "testClasspathEntries", "2"),
+                        "testClasspathEntries", "2",
+                        "integrationTestClasspathEntries", "2"),
                 recorder.attributesByPhase().get("build ide classpaths"));
         assertEquals(
                 Map.of(

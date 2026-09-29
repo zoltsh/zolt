@@ -230,6 +230,7 @@ public final class IdeModelJsonWriter {
         pathArrayField(json, 2, "compile", classpaths.compile(), true);
         pathArrayField(json, 2, "runtime", classpaths.runtime(), true);
         pathArrayField(json, 2, "test", classpaths.test(), true);
+        pathArrayField(json, 2, "integrationTest", classpaths.integrationTest(), true);
         pathArrayField(json, 2, "processor", classpaths.processor(), true);
         pathArrayField(json, 2, "testProcessor", classpaths.testProcessor(), true);
         pathArrayField(json, 2, "quarkusDeployment", classpaths.quarkusDeployment(), false);

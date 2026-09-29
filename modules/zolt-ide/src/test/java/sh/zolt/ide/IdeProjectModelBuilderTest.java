@@ -168,7 +168,8 @@ final class IdeProjectModelBuilderTest {
                 List.of(),
                 outputInfo,
                 new IdeModel.DependencyInfo(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of()),
-                new IdeModel.ClasspathInfo(List.of(), List.of(), List.of(), List.of(), List.of(), List.of()),
+                new IdeModel.ClasspathInfo(
+                        List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of()),
                 new IdeModel.FrameworkInfo(new IdeModel.QuarkusInfo(
                         false,
                         null,

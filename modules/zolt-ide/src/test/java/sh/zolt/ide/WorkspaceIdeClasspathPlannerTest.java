@@ -42,6 +42,7 @@ final class WorkspaceIdeClasspathPlannerTest {
         assertEquals(List.of(), apiClasspaths.compile());
         assertEquals(List.of(), apiClasspaths.runtime());
         assertEquals(List.of(), apiClasspaths.test());
+        assertEquals(List.of(), apiClasspaths.integrationTest());
         assertEquals(List.of(), apiClasspaths.processor());
         assertEquals(List.of(), apiClasspaths.testProcessor());
         assertEquals(List.of(), apiClasspaths.quarkusDeployment());
@@ -84,10 +85,16 @@ final class WorkspaceIdeClasspathPlannerTest {
                 apiClasspaths.runtime());
         assertEquals(
                 List.of(
-                        tempDir.resolve("apps/api/target/classes").toAbsolutePath().normalize(),
                         tempDir.resolve("apps/api/target/test-classes").toAbsolutePath().normalize(),
+                        tempDir.resolve("apps/api/target/classes").toAbsolutePath().normalize(),
                         tempDir.resolve("modules/core/target/classes").toAbsolutePath().normalize()),
                 apiClasspaths.test());
+        assertEquals(
+                List.of(
+                        tempDir.resolve("apps/api/target/integration-test-classes").toAbsolutePath().normalize(),
+                        tempDir.resolve("apps/api/target/classes").toAbsolutePath().normalize(),
+                        tempDir.resolve("modules/core/target/classes").toAbsolutePath().normalize()),
+                apiClasspaths.integrationTest());
     }
 
     private Workspace workspace(List<WorkspaceMember> members, List<WorkspaceProjectEdge> edges) {

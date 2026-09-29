@@ -52,6 +52,7 @@ final class IdeModelCommandJsonTest {
         assertTrue(json.contains("\"outputs\": {\n    \"mainClasses\": \""));
         assertTrue(json.contains("\"integrationTestClasses\": \""
                 + jsonPathValue(projectRoot.resolve("target/integration-test-classes"))));
+        assertTrue(json.contains("\"integrationTest\": ["));
         assertTrue(json.contains("\"dependencies\": {\n    \"versionAliases\": {}"));
     }
 }

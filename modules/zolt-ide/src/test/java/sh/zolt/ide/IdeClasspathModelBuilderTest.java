@@ -2,6 +2,7 @@ package sh.zolt.ide;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static sh.zolt.ide.IdeContentAddressedLockTestSupport.cachedJar;
 import static sh.zolt.ide.IdeContentAddressedLockTestSupport.write;
 
@@ -79,6 +80,13 @@ final class IdeClasspathModelBuilderTest {
                 lane = "test-processor"
                 resolvedScope = "test-processor"
 
+                [[dependencyRoot]]
+                member = "."
+                id = "org.jetbrains.kotlin:kotlin-stdlib"
+                version = "2.2.20"
+                lane = "test"
+                resolvedScope = "test"
+
                 [[package]]
                 id = "org.springframework.boot:spring-boot-starter-webmvc"
                 version = "4.0.6"
@@ -116,6 +124,15 @@ final class IdeClasspathModelBuilderTest {
                 dependencies = []
 
                 [[package]]
+                id = "org.jetbrains.kotlin:kotlin-stdlib"
+                version = "2.2.20"
+                source = "maven-central"
+                scope = "test"
+                direct = true
+                jar = "org/jetbrains/kotlin/kotlin-stdlib/2.2.20/kotlin-stdlib-2.2.20.jar"
+                dependencies = []
+
+                [[package]]
                 id = "io.quarkus:quarkus-rest-deployment"
                 version = "3.33.2"
                 source = "maven-central"
@@ -141,6 +158,7 @@ final class IdeClasspathModelBuilderTest {
         Path springWebMvc = cachedJar(lockfile, absoluteCache, "org.springframework:spring-webmvc");
         Path lombok = cachedJar(lockfile, absoluteCache, "org.projectlombok:lombok");
         Path testProcessor = cachedJar(lockfile, absoluteCache, "com.example:test-processor");
+        Path kotlinStdlib = cachedJar(lockfile, absoluteCache, "org.jetbrains.kotlin:kotlin-stdlib");
         Path quarkusDeployment = cachedJar(
                 lockfile, absoluteCache, "io.quarkus:quarkus-rest-deployment");
         assertEquals(List.of(
@@ -152,6 +170,20 @@ final class IdeClasspathModelBuilderTest {
                 springBoot,
                 springWebMvc),
                 classpaths.runtime());
+        assertEquals(List.of(
+                root.resolve("target/test-classes"),
+                root.resolve("target/classes"),
+                kotlinStdlib,
+                springBoot,
+                springWebMvc),
+                classpaths.test());
+        assertEquals(List.of(
+                root.resolve("target/integration-test-classes"),
+                root.resolve("target/classes"),
+                kotlinStdlib,
+                springBoot,
+                springWebMvc),
+                classpaths.integrationTest());
         assertEquals(List.of(lombok), classpaths.processor());
         assertEquals(List.of(testProcessor), classpaths.testProcessor());
         assertEquals(List.of(quarkusDeployment), classpaths.quarkusDeployment());
@@ -159,6 +191,7 @@ final class IdeClasspathModelBuilderTest {
 
         String json = new IdeModelJsonWriter().write(modelWith(classpaths, diagnostics));
         assertTrue(json.contains("\"processor\": ["));
+        assertTrue(json.contains("\"integrationTest\": ["));
         assertTrue(json.contains("\"testProcessor\": ["));
         assertTrue(json.contains("\"quarkusDeployment\": ["));
     }
@@ -239,6 +272,7 @@ final class IdeClasspathModelBuilderTest {
         assertEquals(List.of(), classpaths.compile());
         assertEquals(List.of(), classpaths.runtime());
         assertEquals(List.of(), classpaths.test());
+        assertEquals(List.of(), classpaths.integrationTest());
         assertEquals(List.of(), classpaths.processor());
         assertEquals(List.of(), classpaths.testProcessor());
         assertEquals(List.of(), classpaths.quarkusDeployment());
@@ -246,6 +280,42 @@ final class IdeClasspathModelBuilderTest {
         assertEquals("LOCKFILE_UNREADABLE", diagnostic.code());
         assertTrue(diagnostic.message().contains("zolt.lock"));
         assertEquals("Run zolt resolve.", diagnostic.nextStep());
+    }
+
+    @Test
+    void omitsSymlinkEscapedIntegrationTestOutput() throws IOException {
+        Path projectDir = tempDir.resolve("escaped-integration-output");
+        Path outside = tempDir.resolve("outside-project");
+        Files.createDirectories(projectDir.resolve("target"));
+        Files.createDirectories(outside);
+        try {
+            Files.createSymbolicLink(projectDir.resolve("target/integration-test-classes"), outside);
+        } catch (UnsupportedOperationException | IOException exception) {
+            assumeTrue(false, "symbolic links are unavailable: " + exception.getMessage());
+        }
+        Files.writeString(projectDir.resolve("zolt.toml"), """
+                [project]
+                name = "escaped-integration-output"
+                version = "0.1.0"
+                group = "com.example"
+                java = 21
+                """);
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
+        List<IdeModel.Diagnostic> diagnostics = new ArrayList<>();
+
+        IdeModel.ClasspathInfo classpaths = builder.build(
+                projectDir.resolve("zolt.lock").toAbsolutePath().normalize(),
+                tempDir.resolve("cache").toAbsolutePath().normalize(),
+                projectDir.toAbsolutePath().normalize(),
+                parse(projectDir),
+                diagnostics);
+
+        Path root = projectDir.toAbsolutePath().normalize();
+        assertEquals(List.of(root.resolve("target/classes")), classpaths.integrationTest());
+        assertEquals(1, diagnostics.size());
+        assertEquals("PROJECT_PATH_INVALID", diagnostics.getFirst().code());
+        assertTrue(diagnostics.getFirst().message().contains("[build.output].integration"));
+        assertTrue(diagnostics.getFirst().message().contains("resolved through symlinks"));
     }
 
     @Test
@@ -262,6 +332,7 @@ final class IdeClasspathModelBuilderTest {
         assertEquals(List.of(), classpaths.compile());
         assertEquals(List.of(), classpaths.runtime());
         assertEquals(List.of(), classpaths.test());
+        assertEquals(List.of(), classpaths.integrationTest());
         assertEquals(List.of(), classpaths.processor());
         assertEquals(List.of(), classpaths.testProcessor());
         assertEquals(List.of(), classpaths.quarkusDeployment());

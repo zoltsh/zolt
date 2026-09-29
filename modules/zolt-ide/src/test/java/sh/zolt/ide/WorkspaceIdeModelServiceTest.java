@@ -175,6 +175,18 @@ final class WorkspaceIdeModelServiceTest {
                 .toAbsolutePath()
                 .normalize()));
         assertEquals(
+                List.of(
+                        tempDir.resolve("apps/api/target/test-classes").toAbsolutePath().normalize(),
+                        tempDir.resolve("apps/api/target/classes").toAbsolutePath().normalize(),
+                        tempDir.resolve("modules/core/target/classes").toAbsolutePath().normalize()),
+                apiModel.classpaths().test());
+        assertEquals(
+                List.of(
+                        tempDir.resolve("apps/api/target/integration-test-classes").toAbsolutePath().normalize(),
+                        tempDir.resolve("apps/api/target/classes").toAbsolutePath().normalize(),
+                        tempDir.resolve("modules/core/target/classes").toAbsolutePath().normalize()),
+                apiModel.classpaths().integrationTest());
+        assertEquals(
                 List.of(cachedJar(tempDir.resolve("zolt.lock"), cacheRoot, "org.projectlombok:lombok")),
                 apiModel.classpaths().processor());
         assertEquals(
@@ -257,7 +269,8 @@ final class WorkspaceIdeModelServiceTest {
                         "members", "2",
                         "compileClasspathEntries", "0",
                         "runtimeClasspathEntries", "2",
-                        "testClasspathEntries", "4"),
+                        "testClasspathEntries", "4",
+                        "integrationTestClasspathEntries", "4"),
                 recorder.attributesByPhase().get("plan workspace ide classpaths"));
         assertEquals(
                 Map.of("edges", "1"),
@@ -292,7 +305,8 @@ final class WorkspaceIdeModelServiceTest {
                         "members", "1",
                         "compileClasspathEntries", "0",
                         "runtimeClasspathEntries", "0",
-                        "testClasspathEntries", "0"),
+                        "testClasspathEntries", "0",
+                        "integrationTestClasspathEntries", "0"),
                 recorder.attributesByPhase().get("plan workspace ide classpaths"));
     }
 
