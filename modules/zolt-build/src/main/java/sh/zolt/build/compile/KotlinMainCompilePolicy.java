@@ -34,9 +34,10 @@ final class KotlinMainCompilePolicy {
                 .anyMatch(KotlinMainCompilePolicy::producesOwnedJavaSources)) {
             throw unsupported(
                     "owned Java main-source generation is configured",
-                    "Use kind = \"declared-root\" for a pre-generated Java or Kotlin root, move generated"
-                            + " Java into a separate member, or keep this member Java-only until generator"
-                            + " ownership is qualified for Kotlin/Java joint compilation.");
+                    "Use language = \"kotlin\" for an exec step that emits Kotlin, use kind ="
+                            + " \"declared-root\" for a pre-generated Java or Kotlin root, move generated Java"
+                            + " into a separate member, or keep this member Java-only until generator ownership"
+                            + " is qualified for Kotlin/Java joint compilation.");
         }
         if (!classpaths.processor().entries().isEmpty()) {
             throw unsupported(
@@ -58,8 +59,9 @@ final class KotlinMainCompilePolicy {
         return switch (step.kind()) {
             case DECLARED_ROOT -> false;
             case OPENAPI, PROTOBUF -> true;
-            case EXEC -> step.exec().produces() == ProducesLane.JAVA_SOURCES
-                    || step.exec().produces() == ProducesLane.TEST_SOURCES;
+            case EXEC -> "java".equals(step.language())
+                    && (step.exec().produces() == ProducesLane.JAVA_SOURCES
+                            || step.exec().produces() == ProducesLane.TEST_SOURCES);
         };
     }
 

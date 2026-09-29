@@ -61,7 +61,7 @@ final class ManifestGeneratedStepsDecoder {
         return switch (kind) {
             case "openapi" -> openApi(row, row.javaLanguage("OpenAPI"));
             case "protobuf" -> protobuf(row, row.javaLanguage("Protobuf"));
-            case "exec" -> ManifestGeneratedExecStepDecoder.decode(row, row.javaLanguage("Exec"));
+            case "exec" -> ManifestGeneratedExecStepDecoder.decode(row, row.language());
             case "declared-root" -> declaredRoot(row, row.language());
             default -> throw new IllegalStateException(
                     "Final manifest schema accepted generated-step kind `" + kind

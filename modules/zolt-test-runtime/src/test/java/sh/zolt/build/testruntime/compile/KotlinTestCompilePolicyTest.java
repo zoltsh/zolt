@@ -268,6 +268,18 @@ final class KotlinTestCompilePolicyTest {
     }
 
     @Test
+    void acceptsOwnedKotlinExecGeneration() {
+        KotlinCompilerRunner.Options options = KotlinTestCompilePolicy.options(
+                configWithGeneratedTestStep(execStep("kotlin", ProducesLane.TEST_SOURCES)),
+                sources(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(KOTLIN_TEST)),
+                classpaths(List.of()),
+                jdkStatus(),
+                null);
+
+        assertEquals("21", options.release());
+    }
+
+    @Test
     void rejectsTestAnnotationProcessors() {
         KotlinCompileException processorFailure = assertThrows(
                 KotlinCompileException.class,
@@ -368,10 +380,14 @@ final class KotlinTestCompilePolicyTest {
     }
 
     private static GeneratedSourceStep execStep(ProducesLane lane) {
+        return execStep("java", lane);
+    }
+
+    private static GeneratedSourceStep execStep(String language, ProducesLane lane) {
         return new GeneratedSourceStep(
                 "generate",
                 GeneratedSourceKind.EXEC,
-                "java",
+                language,
                 "target/generated-test/generate",
                 List.of(),
                 true,

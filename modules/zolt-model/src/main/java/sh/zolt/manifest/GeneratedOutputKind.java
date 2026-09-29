@@ -21,4 +21,8 @@ public enum GeneratedOutputKind {
     public boolean producesResources() {
         return this == RESOURCES || this == TEST_RESOURCES;
     }
+
+    public boolean producesSources() {
+        return this == JAVA_SOURCES || this == TEST_SOURCES;
+    }
 }

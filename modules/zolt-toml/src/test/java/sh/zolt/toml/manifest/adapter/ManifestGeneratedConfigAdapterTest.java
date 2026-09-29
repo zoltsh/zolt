@@ -77,6 +77,7 @@ final class ManifestGeneratedConfigAdapterTest {
 
                 [generated.main.jooq-model]
                 kind = "exec"
+                language = "kotlin"
                 tool = "jooq"
                 args = ["src/main/jooq/config.xml"]
                 inputs = ["src/main/jooq/config.xml"]
@@ -139,7 +140,9 @@ final class ManifestGeneratedConfigAdapterTest {
         assertEquals(Optional.of("com.example.protocol"), protobuf.protobuf().javaPackage());
         assertFalse(protobuf.protobuf().grpc());
 
-        ExecGenerationSettings jooq = step(adapted.build().generatedMainSources(), "jooq-model").exec();
+        GeneratedSourceStep jooqStep = step(adapted.build().generatedMainSources(), "jooq-model");
+        assertEquals("kotlin", jooqStep.language());
+        ExecGenerationSettings jooq = jooqStep.exec();
         assertEquals("jooq", jooq.toolName());
         assertEquals("jvm", jooq.tool().runner());
         assertEquals("org.jooq.codegen.GenerationTool", jooq.tool().mainClass());

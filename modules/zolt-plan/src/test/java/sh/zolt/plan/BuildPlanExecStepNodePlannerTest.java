@@ -45,6 +45,7 @@ final class BuildPlanExecStepNodePlannerTest {
         assertEquals("exec-step", node.kind());
         assertEquals(PlanNodeStatus.READY, node.status());
         assertTrue(node.blockers().isEmpty(), node.blockers().toString());
+        assertTrue(node.details().contains("language: java"));
         assertTrue(node.details().contains("tool: tool"));
         assertTrue(node.details().contains("derivedPosition: before compile"));
         assertTrue(node.details().contains("toolCoordinates: org.jooq:jooq-codegen:3.19.15"));
@@ -189,6 +190,37 @@ final class BuildPlanExecStepNodePlannerTest {
         nodes.forEach(node -> assertBlocker(node, "exec-ordering-cycle"));
     }
 
+    @Test
+    void acceptsKotlinForSourceProducingExecSteps() throws IOException {
+        writeInput("src/main/jooq/config.xml");
+        GeneratedSourceStep step = execStep(
+                "model",
+                "kotlin",
+                "target/generated/sources/jooq",
+                List.of("src/main/jooq/config.xml"),
+                ProducesLane.JAVA_SOURCES,
+                JVM_TOOL);
+
+        PlanNode node = node(step, true, false, "missing");
+
+        assertEquals(PlanNodeStatus.READY, node.status());
+        assertTrue(node.details().contains("language: kotlin"));
+    }
+
+    @Test
+    void blocksKotlinForNonSourceExecSteps() throws IOException {
+        writeInput("src/main/jooq/config.xml");
+        GeneratedSourceStep step = execStep(
+                "model",
+                "kotlin",
+                "target/generated/resources/jooq",
+                List.of("src/main/jooq/config.xml"),
+                ProducesLane.RESOURCES,
+                JVM_TOOL);
+
+        assertBlocker(node(step, true, false, "missing"), "unsupported-exec-language");
+    }
+
     private PlanNode node(GeneratedSourceStep step, boolean toolLocked, boolean outputExists, String freshness) {
         return node(step, BuildSettings.defaults(), toolLocked, outputExists, freshness);
     }
@@ -241,12 +273,22 @@ final class BuildPlanExecStepNodePlannerTest {
             List<String> inputs,
             ProducesLane produces,
             ExecToolSettings tool) {
+        return execStep(id, "java", output, inputs, produces, tool);
+    }
+
+    private static GeneratedSourceStep execStep(
+            String id,
+            String language,
+            String output,
+            List<String> inputs,
+            ProducesLane produces,
+            ExecToolSettings tool) {
         ExecGenerationSettings exec = new ExecGenerationSettings(
                 "tool", tool, List.of(), produces, Optional.empty(), Map.of(), "content");
         return new GeneratedSourceStep(
                 id,
                 GeneratedSourceKind.EXEC,
-                "java",
+                language,
                 output,
                 inputs,
                 true,

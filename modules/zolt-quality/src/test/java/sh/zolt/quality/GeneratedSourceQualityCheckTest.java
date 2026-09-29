@@ -248,7 +248,8 @@ final class GeneratedSourceQualityCheckTest extends QualityCheckServiceTestSuppo
                 QualityCheckStatus.FAILED,
                 "[generated.main.scala-api]",
                 "Unsupported generated source language `scala`.",
-                "Use language = \"java\", or use language = \"kotlin\" with kind = \"declared-root\".");
+                "Use language = \"java\", or use language = \"kotlin\" with kind = \"declared-root\""
+                        + " or a source-producing exec step.");
     }
 
     @Test
@@ -273,7 +274,8 @@ final class GeneratedSourceQualityCheckTest extends QualityCheckServiceTestSuppo
                 QualityCheckStatus.FAILED,
                 "[generated.main.openapi]",
                 "Unsupported generated source language `kotlin`.",
-                "Use language = \"java\", or use language = \"kotlin\" with kind = \"declared-root\".");
+                "Use language = \"java\", or use language = \"kotlin\" with kind = \"declared-root\""
+                        + " or a source-producing exec step.");
     }
 
     @Test
@@ -288,6 +290,29 @@ final class GeneratedSourceQualityCheckTest extends QualityCheckServiceTestSuppo
         Files.setLastModifiedTime(inputFile, FileTime.fromMillis(1_000));
         Files.setLastModifiedTime(outputFile, FileTime.fromMillis(2_000));
         ProjectConfig config = parseProject(projectDir, execConfig("java-sources"));
+
+        QualityCheckResult result = check.check(Optional.empty(), projectDir, config).getFirst();
+
+        assertEquals(QualityCheckStatus.PASSED, result.status());
+        assertEquals("[generated.main.model]", result.subject());
+    }
+
+    @Test
+    void passesForFreshKotlinExecStep() throws IOException {
+        Path projectDir = tempDir.resolve("fresh-kotlin-exec");
+        Path inputFile = projectDir.resolve("src/main/jooq/config.xml");
+        Path outputFile = projectDir.resolve("target/generated/sources/jooq/com/example/Model.kt");
+        Files.createDirectories(inputFile.getParent());
+        Files.createDirectories(outputFile.getParent());
+        Files.writeString(inputFile, "<configuration/>\n");
+        Files.writeString(outputFile, "package com.example\nobject Model\n");
+        Files.setLastModifiedTime(inputFile, FileTime.fromMillis(1_000));
+        Files.setLastModifiedTime(outputFile, FileTime.fromMillis(2_000));
+        ProjectConfig config = parseProject(
+                projectDir,
+                execConfig("java-sources").replace(
+                        "kind = \"exec\"",
+                        "kind = \"exec\"\nlanguage = \"kotlin\""));
 
         QualityCheckResult result = check.check(Optional.empty(), projectDir, config).getFirst();
 

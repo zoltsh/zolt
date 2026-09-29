@@ -5,6 +5,7 @@ import sh.zolt.generated.GeneratedSourceEvidenceService;
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.GeneratedSourceKind;
 import sh.zolt.project.GeneratedSourceStep;
+import sh.zolt.project.ProducesLane;
 import sh.zolt.project.ProjectConfig;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -189,7 +190,8 @@ final class GeneratedSourceQualityCheck {
                     member,
                     subject,
                     "Unsupported generated source language `" + step.language() + "`.",
-                    "Use language = \"java\", or use language = \"kotlin\" with kind = \"declared-root\"."));
+                    "Use language = \"java\", or use language = \"kotlin\" with kind = \"declared-root\""
+                            + " or a source-producing exec step."));
         }
         Optional<QualityCheckResult> invalidOutput = invalidGeneratedPath(
                 member,
@@ -217,7 +219,10 @@ final class GeneratedSourceQualityCheck {
     private static boolean supportedLanguage(GeneratedSourceStep step) {
         return "java".equals(step.language())
                 || ("kotlin".equals(step.language())
-                        && step.kind() == GeneratedSourceKind.DECLARED_ROOT);
+                        && (step.kind() == GeneratedSourceKind.DECLARED_ROOT
+                                || (step.kind() == GeneratedSourceKind.EXEC
+                                        && (step.exec().produces() == ProducesLane.JAVA_SOURCES
+                                                || step.exec().produces() == ProducesLane.TEST_SOURCES))));
     }
 
     private static Optional<QualityCheckResult> invalidGeneratedPath(

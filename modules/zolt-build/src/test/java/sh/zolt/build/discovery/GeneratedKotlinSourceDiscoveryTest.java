@@ -8,12 +8,19 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import sh.zolt.build.SourceDiscoveryException;
 import sh.zolt.project.BuildSettings;
+import sh.zolt.project.ExecGenerationSettings;
+import sh.zolt.project.ExecToolSettings;
 import sh.zolt.project.GeneratedSourceKind;
 import sh.zolt.project.GeneratedSourceStep;
+import sh.zolt.project.OpenApiGenerationSettings;
+import sh.zolt.project.ProducesLane;
+import sh.zolt.project.ProtobufGenerationSettings;
 
 final class GeneratedKotlinSourceDiscoveryTest {
     private final SourceDiscoverer discoverer = new SourceDiscoverer();
@@ -43,6 +50,29 @@ final class GeneratedKotlinSourceDiscoveryTest {
     }
 
     @Test
+    void partitionsExecGeneratedKotlinRootsByLanguageInBothScopes() throws IOException {
+        Path mainKotlin = source("target/generated/main/com/example/Generated.kt");
+        Path testKotlin = source("target/generated/test/com/example/GeneratedTest.kt");
+        source("target/generated/main/com/example/NotKotlin.java");
+        source("target/generated/test/com/example/NotKotlinTest.java");
+        source("schema/main.marker");
+        source("schema/test.marker");
+
+        SourceDiscoveryResult result = discoverer.discover(
+                projectDir,
+                BuildSettings.defaults().withGeneratedSources(
+                        List.of(exec("main", "target/generated/main", "schema/main.marker",
+                                ProducesLane.JAVA_SOURCES)),
+                        List.of(exec("test", "target/generated/test", "schema/test.marker",
+                                ProducesLane.TEST_SOURCES))));
+
+        assertEquals(List.of(mainKotlin), result.kotlinMainSources());
+        assertEquals(List.of(testKotlin), result.kotlinTestSources());
+        assertEquals(List.of(), result.mainSources());
+        assertEquals(List.of(), result.testSources());
+    }
+
+    @Test
     void rejectsKotlinForGeneratedKindsThatRemainJavaOnly() {
         GeneratedSourceStep openApi = new GeneratedSourceStep(
                 "api",
@@ -60,7 +90,9 @@ final class GeneratedKotlinSourceDiscoveryTest {
                         BuildSettings.defaults().withGeneratedSources(List.of(openApi), List.of())));
 
         assertTrue(failure.getMessage().contains("[generated.main.api]"), failure.getMessage());
-        assertTrue(failure.getMessage().contains("requires kind = \"declared-root\""), failure.getMessage());
+        assertTrue(
+                failure.getMessage().contains("requires kind = \"declared-root\" or a source-producing exec step"),
+                failure.getMessage());
     }
 
     @Test
@@ -86,6 +118,31 @@ final class GeneratedKotlinSourceDiscoveryTest {
                 List.of(input),
                 true,
                 false);
+    }
+
+    private GeneratedSourceStep exec(
+            String id,
+            String output,
+            String input,
+            ProducesLane produces) {
+        return new GeneratedSourceStep(
+                id,
+                GeneratedSourceKind.EXEC,
+                "kotlin",
+                output,
+                List.of(input),
+                true,
+                true,
+                OpenApiGenerationSettings.empty(),
+                ProtobufGenerationSettings.empty(),
+                new ExecGenerationSettings(
+                        "generator",
+                        ExecToolSettings.empty(),
+                        List.of(),
+                        produces,
+                        Optional.empty(),
+                        Map.of(),
+                        "content"));
     }
 
     private Path source(String relativePath) throws IOException {

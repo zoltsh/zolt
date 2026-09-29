@@ -52,6 +52,7 @@ final class ManifestGeneratedExecStepDecoder {
         ValidatedManifestField producesField = row.required(ManifestGeneratedStepFields.Slot.PRODUCES);
         GeneratedOutputKind produces = outputKind(
                 producesField, ManifestTomlValues.string(producesField));
+        validateLanguage(row, language, produces);
         Optional<ValidatedManifestField> intoField = row.field(ManifestGeneratedStepFields.Slot.INTO);
         Optional<ManifestRelativePath> into = intoField.map(field ->
                 ManifestSemanticDiagnostics.construct(
@@ -258,6 +259,20 @@ final class ManifestGeneratedExecStepDecoder {
                 GeneratedOutputKind.values(),
                 GeneratedOutputKind::configValue,
                 "generated output kind");
+    }
+
+    private static void validateLanguage(
+            ManifestGeneratedStepsDecoder.Row row,
+            Optional<GeneratedLanguage> language,
+            GeneratedOutputKind produces) {
+        if (language.orElse(GeneratedLanguage.JAVA) == GeneratedLanguage.KOTLIN
+                && !produces.producesSources()) {
+            row.field(ManifestGeneratedStepFields.Slot.LANGUAGE).ifPresent(field ->
+                    ManifestGeneratedStepsDecoder.invalid(
+                            field,
+                            "Exec generated steps may use language `kotlin` only with produces ="
+                                    + " `java-sources` or `test-sources`."));
+        }
     }
 
     private static GeneratedCachePolicy cachePolicy(ValidatedManifestField field, String value) {

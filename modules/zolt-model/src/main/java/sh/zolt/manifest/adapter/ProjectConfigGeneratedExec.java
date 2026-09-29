@@ -8,6 +8,7 @@ import java.util.Optional;
 import sh.zolt.manifest.DependencySelector;
 import sh.zolt.manifest.GeneratedArtifactRequest;
 import sh.zolt.manifest.GeneratedCachePolicy;
+import sh.zolt.manifest.GeneratedLanguage;
 import sh.zolt.manifest.GeneratedOutputKind;
 import sh.zolt.manifest.LocalId;
 import sh.zolt.manifest.ManifestRelativePath;
@@ -36,8 +37,6 @@ import sh.zolt.project.ProtobufGenerationSettings;
  */
 final class ProjectConfigGeneratedExec {
     private static final LocalId PROJECT = new LocalId("project");
-    private static final String JAVA = "java";
-
     private ProjectConfigGeneratedExec() {
     }
 
@@ -67,7 +66,7 @@ final class ProjectConfigGeneratedExec {
         return new GeneratedSourceStep(
                 id.value(),
                 GeneratedSourceKind.EXEC,
-                JAVA,
+                step.settings().language().orElse(GeneratedLanguage.JAVA).configValue(),
                 step.output().value(),
                 step.inputs().stream().map(ResourceGlob::value).toList(),
                 step.settings().required().orElse(true),

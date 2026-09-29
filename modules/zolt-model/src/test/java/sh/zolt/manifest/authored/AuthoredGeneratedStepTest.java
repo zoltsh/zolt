@@ -66,7 +66,7 @@ final class AuthoredGeneratedStepTest {
     }
 
     @Test
-    void kotlinLanguageIsReservedForDeclaredRoots() {
+    void kotlinLanguageIsLimitedToDeclaredRootsAndExecSourceOutputs() {
         GeneratedStepSettings kotlin = new GeneratedStepSettings(
                 Optional.of(GeneratedLanguage.KOTLIN), Optional.empty(), Optional.empty());
         AuthoredDeclaredRootStep declared = new AuthoredDeclaredRootStep(
@@ -95,8 +95,25 @@ final class AuthoredGeneratedStepTest {
                                 Optional.empty(),
                                 Optional.empty()))
                         .getMessage());
+        AuthoredExecStep exec = new AuthoredExecStep(
+                kotlin,
+                new LocalId("tool"),
+                Optional.empty(),
+                List.of(),
+                List.of(new ResourceGlob("input")),
+                new ManifestRelativePath("target/generated/exec"),
+                GeneratedOutputKind.JAVA_SOURCES,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Map.of(),
+                Map.of(),
+                List.of(),
+                Optional.empty());
+        assertEquals(Optional.of(GeneratedLanguage.KOTLIN), exec.settings().language());
         assertEquals(
-                "Exec generated steps support only language `java`.",
+                "Exec generated steps may use language `kotlin` only with produces = `java-sources`"
+                        + " or `test-sources`.",
                 assertThrows(IllegalArgumentException.class, () -> new AuthoredExecStep(
                                 kotlin,
                                 new LocalId("tool"),
@@ -104,7 +121,7 @@ final class AuthoredGeneratedStepTest {
                                 List.of(),
                                 List.of(new ResourceGlob("input")),
                                 new ManifestRelativePath("target/generated/exec"),
-                                GeneratedOutputKind.JAVA_SOURCES,
+                                GeneratedOutputKind.RESOURCES,
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),

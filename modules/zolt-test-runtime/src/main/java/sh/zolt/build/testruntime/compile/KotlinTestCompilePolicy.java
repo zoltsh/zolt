@@ -40,10 +40,10 @@ final class KotlinTestCompilePolicy {
                 .anyMatch(KotlinTestCompilePolicy::producesOwnedJavaSources)) {
             throw unsupported(
                     "owned Java test-source generation is configured",
-                    "Use kind = \"declared-root\" for a pre-generated Java or Kotlin test root, move"
-                            + " generated Java tests into a separate member, or keep this test source set"
-                            + " Java-only until generator ownership is qualified for Kotlin/Java joint"
-                            + " compilation.");
+                    "Use language = \"kotlin\" for an exec step that emits Kotlin, use kind ="
+                            + " \"declared-root\" for a pre-generated Java or Kotlin test root, move generated"
+                            + " Java tests into a separate member, or keep this test source set Java-only until"
+                            + " generator ownership is qualified for Kotlin/Java joint compilation.");
         }
         if (!classpaths.testProcessor().entries().isEmpty()) {
             throw unsupported(
@@ -80,8 +80,9 @@ final class KotlinTestCompilePolicy {
         return switch (step.kind()) {
             case DECLARED_ROOT -> false;
             case OPENAPI, PROTOBUF -> true;
-            case EXEC -> step.exec().produces() == ProducesLane.JAVA_SOURCES
-                    || step.exec().produces() == ProducesLane.TEST_SOURCES;
+            case EXEC -> "java".equals(step.language())
+                    && (step.exec().produces() == ProducesLane.JAVA_SOURCES
+                            || step.exec().produces() == ProducesLane.TEST_SOURCES);
         };
     }
 

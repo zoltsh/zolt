@@ -61,12 +61,23 @@ final class ManifestGeneratedExecStepDecoderTest {
 
     @ParameterizedTest
     @MethodSource("lanes")
-    void rejectsKotlinForJavaShapedExecOutputLanes(Lane lane) {
+    void acceptsKotlinForSourceProducingExecSteps(Lane lane) {
+        AuthoredExecStep step = exec(
+                lane,
+                "kind = \"exec\"\nlanguage = \"kotlin\"\ntool = \"tool\"\n"
+                        + requiredTail(lane == Lane.MAIN ? "java-sources" : "test-sources"));
+
+        assertEquals(Optional.of(GeneratedLanguage.KOTLIN), step.settings().language());
+    }
+
+    @ParameterizedTest
+    @MethodSource("lanes")
+    void rejectsKotlinForNonSourceExecOutputsAtLanguage(Lane lane) {
         assertFailure(
                 lane.source("kind = \"exec\"\nlanguage = \"kotlin\"\ntool = \"tool\"\n"
-                        + requiredTail("java-sources")),
+                        + requiredTail("intermediate")),
                 lane.path("language"),
-                "Exec generated steps support only language `java`.");
+                "may use language `kotlin` only with produces = `java-sources` or `test-sources`");
     }
 
     @ParameterizedTest(name = "{0} accepts {1}")
