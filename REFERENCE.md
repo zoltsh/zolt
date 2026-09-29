@@ -2382,8 +2382,24 @@ compiler-module settings only when the static model proves all of the following:
 Additional Maven/Kotlin compiler properties, lifecycle extensions, competing
 language plugins, annotation processors, generated outputs, custom roots, or
 unresolved values keep Kotlin as review data and produce a manual-migration
-note instead of an optimistic Kotlin draft. Ordinary Maven/Gradle audit output
-and non-Kotlin draft behavior are unchanged by this gate.
+note instead of an optimistic Kotlin draft.
+
+Gradle Kotlin/JVM emission uses a separate, equally conservative gate.
+`zolt explain --emit-toml` authors Kotlin settings only for a standalone root
+whose settings contain one literal `rootProject.name`, whose build uses exactly
+one applied, fixed `org.jetbrains.kotlin.jvm` 2.2.x or 2.3.x plugin, and whose
+literal Java 8-21 toolchain matches the project release. Main and test roots
+must be conventional and Kotlin-only; mixed Java, Groovy, JPMS, symlinked source
+trees, custom source sets, annotation or symbol processing, compiler options,
+Kotlin extension/task configuration, `buildSrc`, resolution rules, other active
+plugins, and executable build logic keep the project in review-only mode.
+
+The emitted runtime is either one explicit plain `kotlin-stdlib` at the plugin
+version or the same dependency Gradle would add automatically. The draft also
+preserves the pre-2.4 Gradle module identities (`project.name` and
+`project.name + "_test"`). Kotlin 2.4 and newer remain review-only until their
+changed default module identity is represented explicitly. Ordinary Maven and
+Gradle audit output and non-Kotlin draft behavior are unchanged by these gates.
 
 Gradle BOM shapes map like their Maven counterparts. A `platform('g:a:v')` or
 `enforcedPlatform(...)` import — Groovy or Kotlin DSL, a string coordinate or a

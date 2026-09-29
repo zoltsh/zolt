@@ -256,8 +256,8 @@ public final class GradleMigrationReadinessFindings {
                     "ci",
                     MigrationReadinessCategory.PLANNED,
                     signal,
-                    "Gradle Kotlin/JVM plugin requiring manual migration",
-                    "[toolchain.kotlin], Kotlin source roots, and [dependencies]",
+                    "Gradle Kotlin/JVM plugin with conditional draft emission",
+                    "qualified [toolchain.kotlin], Kotlin roots, runtime, and compiler modules",
                     "",
                     signal.nextStep());
             case "gradle.language.unsupported" -> MigrationReadinessFindings.finding(

@@ -304,10 +304,10 @@ public final class ExplainSignals {
             "gradle.kotlin.manual-migration",
             ExplainSignal.Severity.WARN,
             ExplainSignal.Category.BUILDABILITY,
-            "Zolt supports bounded Kotlin/JVM compilation, but zolt explain does not translate Gradle"
-                    + " Kotlin plugin configuration. Author [toolchain.kotlin], [build].sources,"
-                    + " [test.sources].kotlin, and Kotlin runtime dependencies by hand; separately review"
-                    + " KAPT, generated sources, compiler plugins, scripts, and non-JVM or Android targets.");
+            "Zolt explain emits only a proven Gradle Kotlin/JVM subset: fixed Kotlin 2.2/2.3 JVM plugin,"
+                    + " aligned literal Java 8-21 toolchain, conventional Kotlin-only roots, matching stdlib,"
+                    + " and no hidden build controls. Review the draft; migrate Kotlin 2.4+, mixed Java,"
+                    + " KAPT/KSP, compiler plugins, JPMS, scripts, non-JVM, and Android shapes by hand.");
     public static final ExplainSignalDefinition GRADLE_LANGUAGE_UNSUPPORTED = new ExplainSignalDefinition(
             "gradle.language.unsupported",
             ExplainSignal.Severity.BLOCK,

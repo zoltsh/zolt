@@ -76,7 +76,8 @@ final class GradleMigrationSignalDetector {
                 signals.add(ExplainSignals.GRADLE_KOTLIN_MANUAL_MIGRATION.signal(
                         project,
                         "Gradle plugin `" + plugin.id()
-                                + "` declares bounded Kotlin/JVM compilation that requires manual Zolt migration."));
+                                + "` declares bounded Kotlin/JVM compilation; `zolt explain --emit-toml`"
+                                + " drafts it only when the complete project matches the strict conventional subset."));
             } else if (id.equals("org.jetbrains.kotlin")
                     || id.startsWith("org.jetbrains.kotlin.")
                     || id.equals("scala")) {

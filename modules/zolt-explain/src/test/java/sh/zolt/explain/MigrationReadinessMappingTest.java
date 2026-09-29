@@ -21,7 +21,7 @@ final class MigrationReadinessMappingTest {
     private Path tempDir;
 
     @Test
-    void gradleKotlinJvmPluginMapsToPlannedManualMigration() throws IOException {
+    void gradleKotlinJvmPluginMapsToPlannedConditionalDraftReview() throws IOException {
         Files.writeString(tempDir.resolve("settings.gradle"), "rootProject.name = 'kotlin-app'\n");
         Files.writeString(tempDir.resolve("build.gradle.kts"), """
                 plugins {
@@ -47,15 +47,15 @@ final class MigrationReadinessMappingTest {
         assertEquals("planned", blockers.status());
         assertEquals(MigrationReadinessCategory.PLANNED, finding.category());
         assertEquals("ci", concernFor(finding));
-        assertEquals("concern:ci Gradle Kotlin/JVM plugin requiring manual migration", finding.sourcePattern());
-        assertEquals("[toolchain.kotlin], Kotlin source roots, and [dependencies]", finding.zoltPrimitive());
+        assertEquals("concern:ci Gradle Kotlin/JVM plugin with conditional draft emission", finding.sourcePattern());
+        assertEquals("qualified [toolchain.kotlin], Kotlin roots, runtime, and compiler modules", finding.zoltPrimitive());
         assertTrue(scorecardText.contains(
-                "planned  Gradle Kotlin/JVM plugin requiring manual migration"
-                        + " -> [toolchain.kotlin], Kotlin source roots, and [dependencies]"),
+                "planned  Gradle Kotlin/JVM plugin with conditional draft emission"
+                        + " -> qualified [toolchain.kotlin], Kotlin roots, runtime, and compiler modules"),
                 () -> scorecardText);
         assertTrue(blockerText.contains(
-                "planned  Gradle Kotlin/JVM plugin requiring manual migration"
-                        + " -> [toolchain.kotlin], Kotlin source roots, and [dependencies]"),
+                "planned  Gradle Kotlin/JVM plugin with conditional draft emission"
+                        + " -> qualified [toolchain.kotlin], Kotlin roots, runtime, and compiler modules"),
                 () -> blockerText);
     }
 

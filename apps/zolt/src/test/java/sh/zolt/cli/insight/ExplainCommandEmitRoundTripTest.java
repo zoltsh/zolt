@@ -145,6 +145,43 @@ final class ExplainCommandEmitRoundTripTest {
     }
 
     @Test
+    void boundedGradleKotlinDraftRoundTripsToEffectiveCompilerInputs() throws IOException {
+        Files.createDirectories(tempDir.resolve("src/main/kotlin"));
+        Files.createDirectories(tempDir.resolve("src/test/kotlin"));
+        Files.writeString(tempDir.resolve("settings.gradle"),
+                "rootProject.name = 'kotlin-service'\n");
+        Files.writeString(tempDir.resolve("build.gradle"), """
+                plugins {
+                    id 'org.jetbrains.kotlin.jvm' version '2.3.21'
+                }
+                group = 'com.acme'
+                version = '1.4.0'
+                java {
+                    toolchain {
+                        languageVersion = JavaLanguageVersion.of(21)
+                    }
+                }
+                dependencies {
+                }
+                """);
+
+        emit("gradle");
+
+        Path manifest = tempDir.resolve("zolt.toml");
+        AuthoredManifest parsed = assertCanonical(manifest);
+        assertEquals("2.3.21", parsed.toolchains().kotlin().orElseThrow().version().value());
+        ProjectConfig effective = LOADER.load(manifest);
+        assertEquals(List.of("src/main/kotlin"), effective.build().sourceRoots());
+        assertEquals(List.of("src/test/java"), effective.build().testSources());
+        assertEquals(List.of("src/test/kotlin"), effective.build().kotlinTestSources());
+        assertEquals("2.3.21", effective.compilerSettings().kotlinVersion());
+        assertEquals("UTF8", effective.compilerSettings().encoding());
+        assertEquals("kotlin-service", effective.compilerSettings().kotlinModule());
+        assertEquals("kotlin-service_test", effective.compilerSettings().kotlinTestModule());
+        assertEquals("2.3.21", effective.dependencies().get("org.jetbrains.kotlin:kotlin-stdlib"));
+    }
+
+    @Test
     void mavenReactorWorkspaceDocumentsParseBackThroughTheFinalLoader() throws IOException {
         writeReactor();
 
