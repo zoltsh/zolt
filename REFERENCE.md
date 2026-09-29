@@ -629,9 +629,9 @@ example.
 
 ### Kotlin/JVM main compilation preview
 
-Zolt can compile authored Kotlin/JVM main sources alone or together with authored
-Java, using an isolated, locked Kotlin/JVM compiler. Kotlin roots are explicit
-during this preview: the default main root remains `src/main/java`, so declare
+Zolt can compile Kotlin/JVM main sources alone or together with Java, using an
+isolated, locked Kotlin/JVM compiler. Authored Kotlin roots are explicit during
+this preview: the default main root remains `src/main/java`, so declare
 `src/main/kotlin` (or another root) under `[build].sources`. Zolt discovers `.kt`
 files, but not Kotlin scripts (`.kts`). A mixed executable project looks like
 this:
@@ -704,7 +704,7 @@ dependency without embedding compiler tooling, while uber JARs merge the
 application runtime and remain directly executable with `java -jar`.
 
 Mixed Java/Kotlin main compilation is a cleaned, full-scope two-phase operation.
-First, Zolt passes the complete admitted Java and authored Kotlin source set to
+First, Zolt passes the complete admitted Java and Kotlin source set to
 `kotlinc` so Kotlin can resolve Java declarations. `kotlinc` emits the Kotlin
 bytecode. Zolt then passes the Java sources to `javac` with that Kotlin output first on the
 compile classpath. Java can therefore resolve the Kotlin declarations, including
@@ -717,9 +717,11 @@ A pre-generated Java or Kotlin tree may join that main source set through a
 the declared tree as a protected input, includes its matching source files and
 declared producer inputs in reuse decisions, and never removes it during
 compile-output cleanup. Java and Kotlin declarations may refer to one another
-across authored and declared roots. This exception is only for an already-present
-declared root; Zolt-owned OpenAPI, Protobuf, and source-producing exec steps
-remain outside Kotlin joint compilation.
+across authored and declared roots. A pinned `kind = "exec"` step may instead
+own the Kotlin tree when it sets `language = "kotlin"` and produces the
+`"java-sources"` lane. Its tool, arguments, declared inputs, and output bytes
+participate in reuse decisions, and Zolt regenerates it before source discovery.
+OpenAPI and Protobuf generation remain Java-only.
 
 This is intentionally a bounded preview. Zolt fails before cache restoration or
 output cleanup when any of these conditions applies:
@@ -731,9 +733,10 @@ output cleanup when any of these conditions applies:
 - `[compiler].args` contains a flag other than `-parameters` or `-Werror`, or
   repeats either supported flag; or
 - a Zolt-owned Java-source-producing OpenAPI, Protobuf, or exec main generation
-  step is configured. A pre-generated Java or Kotlin `declared-root` is admitted;
-  exec steps that produce resources or intermediate outputs do not by themselves
-  cross this boundary.
+  step is configured. A pre-generated Java or Kotlin `declared-root`, or a
+  source-producing exec step explicitly marked `language = "kotlin"`, is
+  admitted; exec steps that produce resources or intermediate outputs do not by
+  themselves cross this boundary.
 
 Kotlin main compilation supports workspace API and implementation dependencies;
 dependency class ABI and Kotlin module metadata participate in downstream
@@ -746,10 +749,10 @@ may coexist with a Kotlin-only or mixed Java/Kotlin main source set.
 Tests may use their own member's `internal` main declarations: Zolt passes only
 that member's main output as a Kotlin friend path. Internal declarations from
 workspace dependency members remain inaccessible. Kotlin integration-test
-roots are admitted through `[test.integration].sources`; Kotlin generation owned
-by Zolt, KAPT, and automatic migration of Kotlin shapes outside the bounded
-Maven subset described under Migration Explain are not supported. Sources are
-read as UTF-8.
+roots are admitted through `[test.integration].sources`; Kotlin output from
+OpenAPI or Protobuf, KAPT, and automatic migration of Kotlin shapes outside the
+bounded Maven subset described under Migration Explain are not supported.
+Sources are read as UTF-8.
 The effective Java release must not exceed the selected complete JDK;
 `[compiler].jdkApi = "host"` selects host-platform API semantics instead of
 Kotlin `-Xjdk-release` and javac `--release`. When the selected JDK itself is
@@ -761,7 +764,7 @@ A sources jar includes authored `.kt` files. Kotlin API documentation requires
 Dokka, which is outside this preview, so Zolt rejects `[package].javadoc = true`
 for a Kotlin source set instead of publishing an empty `-javadoc.jar`.
 
-Every authored Kotlin or Java source change in a member with Kotlin main sources
+Every admitted Kotlin or Java source change in a member with Kotlin main sources
 uses a cleaned full-scope compilation; mixed members rerun both phases. An
 unchanged fingerprint may skip compilation, and a verified output-cache entry
 may restore the complete class and `META-INF/*.kotlin_module` inventory.
@@ -1818,8 +1821,9 @@ observe that change, and paranoid mode does not help there either.
 ## Tests and Coverage
 
 Zolt runs JUnit Platform based tests and can compile Java and Groovy test
-sources when configured. A bounded preview also compiles authored Kotlin/JVM
-unit and integration tests alone or together with admitted Java tests;
+sources when configured. A bounded preview also compiles Kotlin/JVM unit and
+integration tests from authored or admitted generated roots, alone or together
+with admitted Java tests;
 Groovy/Kotlin test source sets remain unsupported. Kotlin unit-test roots are
 explicit: declare them under `[test.sources].kotlin`. Zolt discovers `.kt`
 files, but not Kotlin scripts (`.kts`), only from those roots. A `.kt` file found
@@ -1877,9 +1881,13 @@ roots. Pre-generated Java or Kotlin tests may instead be supplied by a
 `language = "kotlin"` for Kotlin. A declared root is an already-present protected
 input: its matching source files and declared producer inputs participate in
 fingerprint, workspace, and output-cache decisions, while compile cleanup and
-cache restoration leave the tree untouched. Java and Kotlin test declarations
-may refer to one another across authored and declared roots. This applies to
-both unit tests and the projected integration-test source set.
+cache restoration leave the tree untouched. A pinned `kind = "exec"` step may
+own generated Kotlin tests when it sets `language = "kotlin"` and
+`produces = "test-sources"`; generation runs before discovery and its producer
+identity and output participate in test reuse decisions. Java and Kotlin test
+declarations may refer to one another across authored, declared, and exec-owned
+roots. This applies to both unit tests and the projected integration-test source
+set.
 
 Mixed tests use the same cleaned two-phase model as mixed main sources:
 `kotlinc` first analyzes all admitted Java and Kotlin test sources and emits the
@@ -1898,11 +1906,12 @@ rejects Groovy test sources, `module-info.java`, test annotation processors,
 `[compiler.test].args` containing a flag other than `-parameters` or `-Werror`
 or repeating either flag, Java-source-producing generated-test steps, and
 Quarkus in the same member. The generated-test restriction applies to
-Zolt-owned OpenAPI, Protobuf, and source-producing exec steps; pre-generated
-Java or Kotlin `declared-root` steps are the supported exception. Exec generation
-steps that produce test resources or intermediate outputs remain compatible.
-Zolt-owned Kotlin generation and KAPT remain unsupported. Test dependencies
-remain isolated from main compilation and main runtime. Any source change in a
+Zolt-owned OpenAPI, Protobuf, and exec steps whose language remains Java;
+pre-generated Java or Kotlin `declared-root` steps and source-producing exec
+steps explicitly marked `language = "kotlin"` are admitted. Exec steps that
+produce test resources or intermediate outputs remain compatible. Kotlin output
+from OpenAPI or Protobuf and KAPT remain unsupported. Test dependencies remain
+isolated from main compilation and main runtime. Any source change in a
 Kotlin-bearing test source set uses cleaned full-scope compilation rather than
 incremental javac state.
 
@@ -1989,10 +1998,11 @@ preset = "spring-api"
 repeat `kind` on a reserved id. A step's `tool` defaults to the built-in for its
 kind and its `output` defaults to `<build.output.root>/generated/sources/<id>`
 (`generated/test-sources/<id>` for a test step), so neither is written unless it
-differs. `language` defaults to `"java"`. The value `"kotlin"` is accepted only
-for `kind = "declared-root"`, which admits an already-present protected Kotlin
-tree without making Zolt its producer. OpenAPI, Protobuf, and source-producing
-exec steps remain Java-only.
+differs. `language` defaults to `"java"`. The value `"kotlin"` is accepted for
+`kind = "declared-root"`, which admits an already-present protected Kotlin tree
+without making Zolt its producer, and for `kind = "exec"` when `produces` is
+`"java-sources"` or `"test-sources"`. OpenAPI, Protobuf, and non-source exec
+outputs remain Java-only.
 
 For example, an external generator can hand an existing Kotlin tree to Zolt
 without granting cleanup ownership:
@@ -2071,6 +2081,14 @@ anchor, `after`, or `dependsOn`. `produces = "java-sources"` (or
 input equal to or under another exec step's declared output creates an ordering
 edge; steps run serially in the topological order of those edges, with ties
 broken alphabetically by id, and a cycle is a configuration error.
+
+Source-producing exec steps default to Java. Set `language = "kotlin"` when
+the tool emits `.kt` files; use `"java-sources"` under `[generated.main]` and
+`"test-sources"` under `[generated.test]`. Zolt runs the generator before
+source discovery, routes only the matching language into compilation, and owns
+the output tree according to the step's `clean` setting. Kotlin is rejected for
+resource, test-resource, and intermediate exec outputs because those lanes do
+not enter Kotlin compilation.
 
 Determinism follows the OpenAPI cache: an exec step re-runs only when its
 fingerprint changes — locked tool jar hashes, argv, the content of its expanded

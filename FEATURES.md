@@ -34,11 +34,11 @@ zolt run
   and integration-test roots.
 - **Languages.** Jointly compile Java and Groovy main sources across declared
   roots, including circular cross-language references. A bounded preview also
-  compiles authored Kotlin/JVM main sources alone or together with Java,
-  including circular cross-language references, plus authored Kotlin/JVM unit
-  and integration tests alone or together with Java. Protected, pre-generated
-  Kotlin main and test trees may join through declared roots. Unsupported
-  language and compiler combinations fail closed.
+  compiles Kotlin/JVM main sources alone or together with Java, including
+  circular cross-language references, plus Kotlin/JVM unit and integration
+  tests alone or together with Java. Kotlin main and test trees may be authored,
+  protected pre-generated roots, or owned outputs of pinned exec generators.
+  Unsupported language and compiler combinations fail closed.
 - **Dependencies.** Use API, implementation, runtime, provided, development,
   test, and annotation-processor lanes under one `[dependencies]` namespace.
 - **Metadata.** Import BOMs and configure version aliases, exclusions,
