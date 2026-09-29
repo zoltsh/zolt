@@ -281,6 +281,32 @@ final class SourceDiscovererTest {
     }
 
     @Test
+    void mainDiscoveryLeavesRequiredGeneratedTestRootsForTheTestGenerationPhase() throws IOException {
+        Path main = source("src/main/java/com/example/Main.java");
+        source("schema/test.marker");
+        BuildSettings settings = BuildSettings.defaults().withGeneratedSources(
+                List.of(),
+                List.of(new GeneratedSourceStep(
+                        "generated-tests",
+                        GeneratedSourceKind.DECLARED_ROOT,
+                        "kotlin",
+                        "target/generated/test-sources/kotlin",
+                        List.of("schema/test.marker"),
+                        true,
+                        false)));
+
+        SourceDiscoveryResult result = discoverer.discoverMain(projectDir, settings);
+
+        assertEquals(List.of(main), result.mainSources());
+        assertTrue(result.allTestSources().isEmpty());
+        SourceDiscoveryException failure = assertThrows(
+                SourceDiscoveryException.class,
+                () -> discoverer.discover(projectDir, settings));
+        assertTrue(failure.getMessage().contains(
+                "Generated source root `target/generated/test-sources/kotlin` is missing"));
+    }
+
+    @Test
     void doesNotTreatGroovyFilesInJavaGeneratedRootsAsMainSources() throws IOException {
         Path main = source("src/main/groovy/com/example/Main.groovy");
         source("target/generated/sources/openapi/com/example/Unexpected.groovy");

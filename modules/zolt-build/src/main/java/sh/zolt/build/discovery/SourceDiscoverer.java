@@ -19,6 +19,18 @@ public final class SourceDiscoverer {
     private static final Set<String> OUTPUT_DIRECTORY_NAMES = Set.of("target", "build");
 
     public SourceDiscoveryResult discover(Path projectDirectory, BuildSettings settings) {
+        return discover(projectDirectory, settings, true);
+    }
+
+    /** Discovers only main sources, leaving owned test roots for the test-generation phase. */
+    public SourceDiscoveryResult discoverMain(Path projectDirectory, BuildSettings settings) {
+        return discover(projectDirectory, settings, false);
+    }
+
+    private SourceDiscoveryResult discover(
+            Path projectDirectory,
+            BuildSettings settings,
+            boolean includeTestSources) {
         Path projectRoot = ProjectPaths.root(projectDirectory);
         Path output = outputPath(projectRoot, "[build.output].main", settings.output());
         Path testOutput = outputPath(projectRoot, "[build.output].test", settings.testOutput());
@@ -31,6 +43,21 @@ public final class SourceDiscoverer {
         mainJavaRoots.addAll(generatedMainRoots.java());
         List<SourceRoot> mainKotlinRoots = new ArrayList<>(authoredMainRoots);
         mainKotlinRoots.addAll(generatedMainRoots.kotlin());
+        List<Path> mainSources = discoverSources(
+                projectRoot, mainJavaRoots, output, testOutput, ".java");
+        List<Path> groovyMainSources = discoverSources(
+                projectRoot, authoredMainRoots, output, testOutput, ".groovy");
+        List<Path> kotlinMainSources = discoverSources(
+                projectRoot, mainKotlinRoots, output, testOutput, ".kt");
+        if (!includeTestSources) {
+            return new SourceDiscoveryResult(
+                    mainSources,
+                    groovyMainSources,
+                    kotlinMainSources,
+                    List.of(),
+                    List.of(),
+                    List.of());
+        }
         List<SourceRoot> authoredTestRoots = settings.testSources().stream()
                 .map(root -> inputRoot(projectRoot, "[test.sources].java", root))
                 .toList();
@@ -56,9 +83,9 @@ public final class SourceDiscoverer {
                 output,
                 testOutput);
         return new SourceDiscoveryResult(
-                discoverSources(projectRoot, mainJavaRoots, output, testOutput, ".java"),
-                discoverSources(projectRoot, authoredMainRoots, output, testOutput, ".groovy"),
-                discoverSources(projectRoot, mainKotlinRoots, output, testOutput, ".kt"),
+                mainSources,
+                groovyMainSources,
+                kotlinMainSources,
                 discoverSources(projectRoot, testJavaRoots, output, testOutput, ".java"),
                 discoverSources(projectRoot, authoredGroovyTestRoots, output, testOutput, ".groovy"),
                 kotlinTestSources);

@@ -240,7 +240,7 @@ public final class BuildService {
             return new BuildResult(
                     resolveResult, 0, 0, projectDirectory.resolve(config.build().output()), "", true);
         }
-        SourceDiscoveryResult sources = sourceDiscoverer.discover(projectDirectory, config.build());
+        SourceDiscoveryResult sources = sourceDiscoverer.discoverMain(projectDirectory, config.build());
         SourceLanguagePolicy.requireMainSupported(sources);
         JdkStatus jdkStatus = jdkDetector.detect(config.project().java());
         if (!jdkStatus.ok()) {
