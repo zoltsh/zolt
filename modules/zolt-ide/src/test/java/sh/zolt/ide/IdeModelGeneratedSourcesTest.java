@@ -123,6 +123,62 @@ final class IdeModelGeneratedSourcesTest {
     }
 
     @Test
+    void exportsExecGeneratedKotlinRootsForEditors() throws IOException {
+        Path projectDir = tempDir.resolve("exec-generated-kotlin");
+        Path input = projectDir.resolve("schema/model.yaml");
+        Path output = projectDir.resolve(
+                "target/generated/sources/model/com/example/GeneratedModel.kt");
+        Files.createDirectories(input.getParent());
+        Files.createDirectories(output.getParent());
+        Files.writeString(input, "model: demo\n");
+        Files.writeString(output, "package com.example\nobject GeneratedModel\n");
+        Files.setLastModifiedTime(input, FileTime.fromMillis(1_000));
+        Files.setLastModifiedTime(output, FileTime.fromMillis(2_000));
+        Files.writeString(projectDir.resolve("zolt.toml"), """
+                [project]
+                name = "exec-generated-kotlin"
+                version = "0.1.0"
+                group = "com.example"
+                java = 21
+
+                [generated.tools.generator]
+                kind = "process"
+                binary = "generator"
+                versionCommand = ["generator", "--version"]
+                allowUnpinnedTool = true
+
+                [generated.main.model]
+                kind = "exec"
+                language = "kotlin"
+                tool = "generator"
+                inputs = ["schema/model.yaml"]
+                output = "target/generated/sources/model"
+                produces = "java-sources"
+                """);
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
+
+        IdeModel model = service.export(projectDir, tempDir.resolve("cache"));
+
+        Path root = projectDir.toAbsolutePath().normalize();
+        assertTrue(model.sourceRoots().contains(new IdeModel.SourceRoot(
+                "generated-main-model",
+                "main",
+                "kotlin",
+                root.resolve("target/generated/sources/model"),
+                true)));
+        IdeModel.GeneratedSourceInfo generatedSource = model.generatedSources().getFirst();
+        assertEquals("exec", generatedSource.kind());
+        assertEquals("kotlin", generatedSource.language());
+        assertEquals("zolt-owned-clean", generatedSource.ownership());
+        assertEquals("main-compile", generatedSource.compileLane());
+        assertEquals("fresh", generatedSource.freshness());
+
+        String json = new IdeModelJsonWriter().write(model);
+        assertTrue(json.contains("\"kind\": \"exec\""));
+        assertTrue(json.contains("\"language\": \"kotlin\""));
+    }
+
+    @Test
     void exportsOpenApiToolVersionRefForGeneratedSourceEvidence() throws IOException {
         Path projectDir = tempDir.resolve("openapi-tool-version-ref");
         Path input = projectDir.resolve("src/main/openapi/public-api.yaml");
