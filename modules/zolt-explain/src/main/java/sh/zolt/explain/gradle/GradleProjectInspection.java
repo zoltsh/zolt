@@ -19,7 +19,8 @@ public record GradleProjectInspection(
         List<String> sourceRoots,
         List<String> testSourceRoots,
         List<String> groovyTestSourceRoots,
-        List<GradleDependencyInspection> constraints) {
+        List<GradleDependencyInspection> constraints,
+        GradleKotlinProjectEvidence kotlinEvidence) {
     public GradleProjectInspection {
         group = group == null ? Optional.empty() : group;
         version = version == null ? Optional.empty() : version;
@@ -31,5 +32,8 @@ public record GradleProjectInspection(
         testSourceRoots = List.copyOf(testSourceRoots);
         groovyTestSourceRoots = List.copyOf(groovyTestSourceRoots);
         constraints = constraints == null ? List.of() : List.copyOf(constraints);
+        kotlinEvidence = kotlinEvidence == null
+                ? GradleKotlinProjectEvidence.none()
+                : kotlinEvidence;
     }
 }

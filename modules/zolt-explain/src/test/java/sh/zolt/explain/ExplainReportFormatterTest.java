@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import sh.zolt.explain.gradle.GradleDependencyInspection;
 import sh.zolt.explain.gradle.GradleExplainFormatter;
 import sh.zolt.explain.gradle.GradleInspectionResult;
+import sh.zolt.explain.gradle.GradleKotlinProjectEvidence;
 import sh.zolt.explain.gradle.GradlePluginInspection;
 import sh.zolt.explain.gradle.GradleProjectInspection;
 import sh.zolt.explain.gradle.GradleRepositoryInspection;
@@ -167,7 +168,8 @@ final class ExplainReportFormatterTest {
                         List.of("src/main/java"),
                         List.of("src/test/java"),
                         List.of(),
-                        List.of())),
+                        List.of(),
+                        GradleKotlinProjectEvidence.none())),
                 ExplainSignals.sorted(List.of(
                         ExplainSignals.GRADLE_CUSTOM_TASK_DETECTED.signal(
                                 ".",
@@ -272,7 +274,8 @@ final class ExplainReportFormatterTest {
                         List.of("src/main/java"),
                         List.of("src/test/java"),
                         List.of(),
-                        List.of())),
+                        List.of(),
+                        GradleKotlinProjectEvidence.none())),
                 List.of());
 
         String text = new GradleExplainFormatter().text(result);
@@ -364,7 +367,8 @@ final class ExplainReportFormatterTest {
                 List.of("src/main/java"),
                 List.of("src/test/java"),
                 List.of(),
-                List.of());
+                List.of(),
+                GradleKotlinProjectEvidence.none());
     }
 
     private static void assertSummaryValue(String json, String key, int value) {

@@ -171,7 +171,12 @@ public final class GradleStaticProjectInspector {
                         "test",
                         "src/test/groovy",
                         hasGroovyTestSources(projectDirectory, content)),
-                constraints);
+                constraints,
+                GradleKotlinProjectEvidence.inspect(
+                        content,
+                        rootProperties,
+                        projectProperties,
+                        Files.isDirectory(root.resolve("buildSrc"))));
     }
 
     private List<GradleRepositoryInspection> repositories(
