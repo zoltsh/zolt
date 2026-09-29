@@ -95,6 +95,26 @@ final class GradleBuildFileParserTest {
     }
 
     @Test
+    void tracksWhetherEachPluginDeclarationIsApplied() {
+        String content = """
+                plugins {
+                    id 'org.jetbrains.kotlin.jvm' version '2.2.20' apply false
+                    id("com.android.application") version "8.13.0" apply(false)
+                    kotlin("plugin.serialization") version "2.2.20" apply true
+                    id 'java'
+                }
+                """;
+
+        assertEquals(
+                List.of(
+                        new GradlePluginInspection("com.android.application", "8.13.0", false),
+                        new GradlePluginInspection("java", "", true),
+                        new GradlePluginInspection("org.jetbrains.kotlin.jvm", "2.2.20", false),
+                        new GradlePluginInspection("org.jetbrains.kotlin.plugin.serialization", "2.2.20", true)),
+                parser.plugins(content));
+    }
+
+    @Test
     void doesNotTreatKotlinCallsOutsidePluginsAsPluginAccessors() {
         String content = """
                 plugins { java }

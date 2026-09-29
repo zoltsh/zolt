@@ -105,6 +105,29 @@ final class GradleJavaPlatformBomEmitTest {
     }
 
     @Test
+    void inactiveJavaPlatformDeclarationDoesNotDraftBomMember() throws IOException {
+        Files.writeString(tempDir.resolve("settings.gradle"), "rootProject.name = 'regular-library'\n");
+        Files.writeString(tempDir.resolve("build.gradle"), """
+                plugins {
+                    id 'java-library'
+                    id 'java-platform' apply false
+                }
+                dependencies {
+                    implementation 'org.slf4j:slf4j-api:2.0.16'
+                }
+                """);
+
+        DraftManifestSubject subject = DraftManifestSubject.of(draft());
+
+        assertTrue(subject.bom().isEmpty(),
+                () -> "an unapplied java-platform declaration must not draft a [bom] member: "
+                        + subject.manifest());
+        assertEquals(
+                java.util.Set.of("org.slf4j:slf4j-api"),
+                subject.coordinates(DependencyLane.IMPLEMENTATION));
+    }
+
+    @Test
     void catalogConstraintReferenceResolvesIntoBomVersions() throws IOException {
         Files.createDirectories(tempDir.resolve("gradle"));
         Files.writeString(tempDir.resolve("gradle/libs.versions.toml"), """

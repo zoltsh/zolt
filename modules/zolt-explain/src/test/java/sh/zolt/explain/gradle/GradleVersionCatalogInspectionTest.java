@@ -115,7 +115,7 @@ final class GradleVersionCatalogInspectionTest {
         assertTrue(app.plugins().contains(
                 new GradlePluginInspection("org.jetbrains.kotlin.jvm", "2.2.0")));
         assertTrue(app.plugins().contains(
-                new GradlePluginInspection("com.diffplug.spotless", "7.0.0")));
+                new GradlePluginInspection("com.diffplug.spotless", "7.0.0", false)));
         assertTrue(app.plugins().contains(
                 new GradlePluginInspection("com.example.rich", "1.2.3")));
         assertTrue(idOnly.plugins().contains(

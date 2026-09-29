@@ -15,8 +15,6 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 
 public final class GradleStaticProjectInspector {
-    private static final Pattern APPLY_FALSE =
-            Pattern.compile("\\bapply\\s*(?:\\(\\s*)?false\\s*\\)?");
     private static final Pattern SOURCE_SETS_CONFIGURATION = Pattern.compile("\\bsourceSets\\b");
 
     private final GradleBuildFileParser buildFileParser = new GradleBuildFileParser();
@@ -140,7 +138,8 @@ public final class GradleStaticProjectInspector {
         dependencyProperties.putAll(buildFileParser.extProperties(content));
         List<GradleDependencyInspection> dependencies =
                 buildFileParser.dependencies(content, versionCatalog, catalogBundles, dependencyProperties, project, signals);
-        boolean javaPlatform = plugins.stream().anyMatch(plugin -> "java-platform".equals(plugin.id()));
+        boolean javaPlatform = plugins.stream().anyMatch(plugin ->
+                plugin.applied() && "java-platform".equals(plugin.id()));
         List<GradleDependencyInspection> constraints = javaPlatform
                 ? buildFileParser.constraints(content, versionCatalog, catalogBundles, dependencyProperties, project, signals)
                 : List.of();
@@ -264,12 +263,13 @@ public final class GradleStaticProjectInspector {
             List<GradlePluginInspection> plugins) {
         Optional<String> pluginsBlock = GradleScriptBlocks.topLevelBlock(content, "plugins");
         if (pluginsBlock.isEmpty()
-                || APPLY_FALSE.matcher(pluginsBlock.orElseThrow()).find()
                 || SOURCE_SETS_CONFIGURATION.matcher(content).find()) {
             return false;
         }
-        return plugins.stream().map(GradlePluginInspection::id).anyMatch(id ->
-                id.equals("org.jetbrains.kotlin.jvm") || id.equals("kotlin"));
+        return plugins.stream()
+                .filter(GradlePluginInspection::applied)
+                .map(GradlePluginInspection::id)
+                .anyMatch(id -> id.equals("org.jetbrains.kotlin.jvm") || id.equals("kotlin"));
     }
 
     private static boolean hasGroovyTestSources(Path projectDirectory, String content) {

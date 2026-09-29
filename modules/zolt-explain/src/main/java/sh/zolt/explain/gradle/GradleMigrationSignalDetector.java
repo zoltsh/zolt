@@ -45,6 +45,9 @@ final class GradleMigrationSignalDetector {
     private static List<ExplainSignal> conventionPluginSignals(String project, List<GradlePluginInspection> plugins) {
         List<ExplainSignal> signals = new ArrayList<>();
         for (GradlePluginInspection plugin : plugins) {
+            if (!plugin.applied()) {
+                continue;
+            }
             if (GradleSignalPatterns.isConventionPlugin(plugin)) {
                 signals.add(ExplainSignals.GRADLE_PLUGIN_CONVENTION.signal(
                         project,
@@ -60,6 +63,9 @@ final class GradleMigrationSignalDetector {
             List<GradlePluginInspection> plugins) {
         List<ExplainSignal> signals = new ArrayList<>();
         for (GradlePluginInspection plugin : plugins) {
+            if (!plugin.applied()) {
+                continue;
+            }
             String id = plugin.id().toLowerCase();
             if (id.startsWith("com.android.") || id.equals("android")) {
                 signals.add(ExplainSignals.GRADLE_ANDROID_UNSUPPORTED.signal(
@@ -165,12 +171,16 @@ final class GradleMigrationSignalDetector {
     private static List<ExplainSignal> pluginSignals(String project, List<GradlePluginInspection> plugins) {
         List<ExplainSignal> signals = new ArrayList<>();
         boolean enterpriseContext = plugins.stream()
+                .filter(GradlePluginInspection::applied)
                 .map(GradlePluginInspection::id)
                 .anyMatch(GradleMigrationSignalDetector::enterprisePluginContext);
         if (!enterpriseContext) {
             return signals;
         }
         for (GradlePluginInspection plugin : plugins) {
+            if (!plugin.applied()) {
+                continue;
+            }
             String mapping = enterprisePluginMapping(plugin.id());
             if (!mapping.isBlank()) {
                 signals.add(ExplainSignals.GRADLE_ENTERPRISE_PLUGIN_MAPPED.signal(

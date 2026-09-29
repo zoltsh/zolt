@@ -167,10 +167,37 @@ final class GradleStaticProjectInspectorRootsTest {
                 }
                 """);
 
-        GradleProjectInspection project = inspector.inspect(tempDir).projects().getFirst();
+        GradleInspectionResult result = inspector.inspect(tempDir);
+        GradleProjectInspection project = result.projects().getFirst();
 
         assertEquals(List.of(), project.sourceRoots());
         assertEquals(List.of(), project.testSourceRoots());
+        assertEquals(
+                List.of(new GradlePluginInspection("org.jetbrains.kotlin.jvm", "2.2.20", false)),
+                project.plugins());
+        assertFalse(result.signals().stream()
+                .anyMatch(signal -> signal.id().equals("gradle.kotlin.manual-migration")));
+    }
+
+    @Test
+    void unrelatedApplyFalsePluginDoesNotSuppressActiveKotlinJvmConvention() throws IOException {
+        Files.createDirectories(tempDir.resolve("src/main/kotlin/com/example"));
+        Files.createDirectories(tempDir.resolve("src/test/kotlin/com/example"));
+        Files.writeString(tempDir.resolve("settings.gradle"), "rootProject.name = 'active-kotlin'\n");
+        Files.writeString(tempDir.resolve("build.gradle"), """
+                plugins {
+                    id 'org.jetbrains.kotlin.jvm' version '2.2.20'
+                    id 'com.example.optional' version '1.0' apply false
+                }
+                """);
+
+        GradleInspectionResult result = inspector.inspect(tempDir);
+        GradleProjectInspection project = result.projects().getFirst();
+
+        assertEquals(List.of("src/main/kotlin"), project.sourceRoots());
+        assertEquals(List.of("src/test/kotlin"), project.testSourceRoots());
+        assertTrue(result.signals().stream()
+                .anyMatch(signal -> signal.id().equals("gradle.kotlin.manual-migration")));
     }
 
     @Test

@@ -58,6 +58,19 @@ final class GradleJavaPlatformBomSignalTest {
                 () -> result.signals().toString());
     }
 
+    @Test
+    void unappliedJavaPlatformPluginHasNoBomSignal() throws IOException {
+        GradleInspectionResult result = inspect("""
+                plugins {
+                    id 'java'
+                    id 'java-platform' apply false
+                }
+                """);
+
+        assertFalse(result.signals().stream().anyMatch(signal -> signal.id().equals("gradle.bom.detected")),
+                () -> result.signals().toString());
+    }
+
     private GradleInspectionResult inspect(String buildGradle) throws IOException {
         Files.writeString(tempDir.resolve("settings.gradle"), "rootProject.name = 'demo'\n");
         Files.writeString(tempDir.resolve("build.gradle"), buildGradle);

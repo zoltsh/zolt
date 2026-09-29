@@ -23,7 +23,8 @@ final class GradleBomDraftMapper {
     }
 
     static boolean isBom(GradleProjectInspection primary) {
-        return primary.plugins().stream().anyMatch(plugin -> "java-platform".equals(plugin.id()));
+        return primary.plugins().stream().anyMatch(plugin ->
+                plugin.applied() && "java-platform".equals(plugin.id()));
     }
 
     static DraftZoltToml map(GradleProjectInspection primary, List<String> notes) {

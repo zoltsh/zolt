@@ -111,6 +111,27 @@ final class GradleDynamicSignalDetectorTest {
                 () -> "Groovy main sources are supported and must not block migration: " + result.signals());
     }
 
+    @Test
+    void inactivePluginsDoNotDescribeProjectCapabilities() throws IOException {
+        Files.writeString(tempDir.resolve("settings.gradle"), "rootProject.name = 'inactive-plugins'\n");
+        Files.writeString(tempDir.resolve("build.gradle"), """
+                plugins {
+                    id 'com.android.application' version '8.13.0' apply false
+                    id 'junitbuild.build-metadata' version '1.0.0' apply false
+                    id 'org.springframework.boot' version '3.5.6' apply false
+                    id 'io.spring.dependency-management' version '1.1.7' apply false
+                }
+                """);
+
+        GradleInspectionResult result = inspector.inspect(tempDir);
+
+        assertFalse(result.signals().stream().anyMatch(signal ->
+                        signal.id().equals("gradle.language.unsupported")
+                                || signal.id().equals("gradle.plugin.convention")
+                                || signal.id().equals("gradle.enterprise-plugin.mapped")),
+                () -> "unapplied plugins must not describe project behavior: " + result.signals());
+    }
+
     private static void assertSignalIds(GradleInspectionResult result, String... expectedIds) {
         for (String expectedId : expectedIds) {
             assertTrue(
