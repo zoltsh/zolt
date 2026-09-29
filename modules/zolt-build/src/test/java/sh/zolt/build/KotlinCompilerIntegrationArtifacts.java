@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -25,6 +26,9 @@ import sh.zolt.lockfile.toml.ZoltLockfileWriter;
 /** Seeds a real checksum-verified Kotlin compiler closure for BuildService integration tests. */
 final class KotlinCompilerIntegrationArtifacts {
     static final String KOTLIN_VERSION = "2.2.0";
+    static final String EXEC_TOOL_VERSION = "1.0.0";
+
+    private static final PackageId EXEC_TOOL = new PackageId("com.example", "gen-tool");
 
     private static final ArtifactSpec COMPILER = artifact(
             "org.jetbrains.kotlin",
@@ -74,12 +78,26 @@ final class KotlinCompilerIntegrationArtifacts {
     private KotlinCompilerIntegrationArtifacts() {}
 
     static Prepared prepare(Path cacheRoot, Path lockfilePath) throws IOException {
+        return prepare(cacheRoot, lockfilePath, Optional.empty());
+    }
+
+    static Prepared prepareWithExecTool(
+            Path cacheRoot,
+            Path lockfilePath,
+            Path execToolJar) throws IOException {
+        return prepare(cacheRoot, lockfilePath, Optional.of(execToolJar));
+    }
+
+    private static Prepared prepare(
+            Path cacheRoot,
+            Path lockfilePath,
+            Optional<Path> execToolJar) throws IOException {
         Map<PackageId, CachedArtifact> cached = new LinkedHashMap<>();
         for (ArtifactSpec spec : ARTIFACTS) {
             cached.put(spec.packageId(), cache(cacheRoot, spec));
         }
 
-        List<LockPackage> packages = List.of(
+        List<LockPackage> packages = new ArrayList<>(List.of(
                 lockPackage(cached, STDLIB, DependencyScope.COMPILE, true,
                         List.of(edge(ANNOTATIONS, DependencyScope.COMPILE))),
                 lockPackage(cached, ANNOTATIONS, DependencyScope.COMPILE, false, List.of()),
@@ -95,7 +113,13 @@ final class KotlinCompilerIntegrationArtifacts {
                 lockPackage(cached, STDLIB, DependencyScope.TOOL_KOTLIN, false,
                         List.of(edge(ANNOTATIONS, DependencyScope.TOOL_KOTLIN))),
                 lockPackage(cached, COROUTINES, DependencyScope.TOOL_KOTLIN, false, List.of()),
-                lockPackage(cached, ANNOTATIONS, DependencyScope.TOOL_KOTLIN, false, List.of()));
+                lockPackage(cached, ANNOTATIONS, DependencyScope.TOOL_KOTLIN, false, List.of())));
+        if (execToolJar.isPresent()) {
+            packages.add(execToolPackage(cache(
+                    cacheRoot,
+                    execToolJar.orElseThrow(),
+                    "gen-tool-" + EXEC_TOOL_VERSION + ".jar")));
+        }
         LockDependencyRoot runtimeRoot = new LockDependencyRoot(
                 ".",
                 STDLIB.packageId(),
@@ -110,7 +134,7 @@ final class KotlinCompilerIntegrationArtifacts {
                 Optional.empty(),
                 Optional.empty(),
                 List.of(),
-                packages,
+                List.copyOf(packages),
                 List.of(),
                 List.of(),
                 List.of(),
@@ -151,8 +175,15 @@ final class KotlinCompilerIntegrationArtifacts {
 
     private static CachedArtifact cache(Path cacheRoot, ArtifactSpec spec) throws IOException {
         Path source = markerJar(spec.markerClass());
+        return cache(cacheRoot, source, spec.fileName());
+    }
+
+    private static CachedArtifact cache(
+            Path cacheRoot,
+            Path source,
+            String fileName) throws IOException {
         String sha256 = sha256(source);
-        Path relative = Path.of("blobs", "v2", "sha256", sha256, spec.fileName());
+        Path relative = Path.of("blobs", "v2", "sha256", sha256, fileName);
         Path target = cacheRoot.resolve(relative).toAbsolutePath().normalize();
         Files.createDirectories(target.getParent());
         Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
@@ -160,6 +191,29 @@ final class KotlinCompilerIntegrationArtifacts {
                 target,
                 relative.toString().replace('\\', '/'),
                 sha256);
+    }
+
+    private static LockPackage execToolPackage(CachedArtifact artifact) {
+        return new LockPackage(
+                EXEC_TOOL,
+                EXEC_TOOL_VERSION,
+                "central",
+                DependencyScope.TOOL_EXEC,
+                true,
+                Optional.of(artifact.relativePath()),
+                Optional.empty(),
+                Optional.of(artifact.sha256()),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of("gen-tool"));
     }
 
     private static Path markerJar(String markerClass) {
