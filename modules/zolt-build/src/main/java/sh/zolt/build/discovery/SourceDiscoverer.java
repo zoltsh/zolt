@@ -25,8 +25,12 @@ public final class SourceDiscoverer {
         List<SourceRoot> authoredMainRoots = settings.sourceRoots().stream()
                 .map(root -> inputRoot(projectRoot, "[build].sources", root))
                 .toList();
-        List<SourceRoot> mainRoots = new ArrayList<>(authoredMainRoots);
-        mainRoots.addAll(generatedRoots(projectRoot, settings.generatedMainSources(), "main"));
+        GeneratedRoots generatedMainRoots = generatedRoots(
+                projectRoot, settings.generatedMainSources(), "main");
+        List<SourceRoot> mainJavaRoots = new ArrayList<>(authoredMainRoots);
+        mainJavaRoots.addAll(generatedMainRoots.java());
+        List<SourceRoot> mainKotlinRoots = new ArrayList<>(authoredMainRoots);
+        mainKotlinRoots.addAll(generatedMainRoots.kotlin());
         List<SourceRoot> authoredTestRoots = settings.testSources().stream()
                 .map(root -> inputRoot(projectRoot, "[test.sources].java", root))
                 .toList();
@@ -36,10 +40,14 @@ public final class SourceDiscoverer {
         List<SourceRoot> authoredKotlinTestRoots = settings.kotlinTestSources().stream()
                 .map(root -> inputRoot(projectRoot, "[test.sources].kotlin", root))
                 .toList();
-        List<SourceRoot> testRoots = new ArrayList<>(authoredTestRoots);
-        testRoots.addAll(generatedRoots(projectRoot, settings.generatedTestSources(), "test"));
+        GeneratedRoots generatedTestRoots = generatedRoots(
+                projectRoot, settings.generatedTestSources(), "test");
+        List<SourceRoot> testJavaRoots = new ArrayList<>(authoredTestRoots);
+        testJavaRoots.addAll(generatedTestRoots.java());
+        List<SourceRoot> kotlinTestRoots = new ArrayList<>(authoredKotlinTestRoots);
+        kotlinTestRoots.addAll(generatedTestRoots.kotlin());
         List<Path> kotlinTestSources = discoverSources(
-                projectRoot, authoredKotlinTestRoots, output, testOutput, ".kt");
+                projectRoot, kotlinTestRoots, output, testOutput, ".kt");
         rejectMisplacedKotlinTests(
                 projectRoot,
                 authoredTestRoots,
@@ -48,10 +56,10 @@ public final class SourceDiscoverer {
                 output,
                 testOutput);
         return new SourceDiscoveryResult(
-                discoverSources(projectRoot, mainRoots, output, testOutput, ".java"),
+                discoverSources(projectRoot, mainJavaRoots, output, testOutput, ".java"),
                 discoverSources(projectRoot, authoredMainRoots, output, testOutput, ".groovy"),
-                discoverSources(projectRoot, authoredMainRoots, output, testOutput, ".kt"),
-                discoverSources(projectRoot, testRoots, output, testOutput, ".java"),
+                discoverSources(projectRoot, mainKotlinRoots, output, testOutput, ".kt"),
+                discoverSources(projectRoot, testJavaRoots, output, testOutput, ".java"),
                 discoverSources(projectRoot, authoredGroovyTestRoots, output, testOutput, ".groovy"),
                 kotlinTestSources);
     }
@@ -81,11 +89,12 @@ public final class SourceDiscoverer {
                         + "Move it under a root declared in [test.sources].kotlin or declare its current root there.");
     }
 
-    private static List<SourceRoot> generatedRoots(
+    private static GeneratedRoots generatedRoots(
             Path projectRoot,
             List<GeneratedSourceStep> steps,
             String scope) {
-        List<SourceRoot> roots = new ArrayList<>();
+        List<SourceRoot> javaRoots = new ArrayList<>();
+        List<SourceRoot> kotlinRoots = new ArrayList<>();
         for (GeneratedSourceStep step : steps) {
             if (step.kind() == GeneratedSourceKind.EXEC
                     && step.exec().produces() != ProducesLane.JAVA_SOURCES
@@ -107,16 +116,7 @@ public final class SourceDiscoverer {
                                 + step.id()
                                 + "]. Use declared-root for already generated Java sources.");
             }
-            if (!"java".equals(step.language())) {
-                throw new SourceDiscoveryException(
-                        "Unsupported generated source language `"
-                                + step.language()
-                                + "` for [generated."
-                                + scope
-                                + "."
-                                + step.id()
-                                + "]. Supported generated source language is java.");
-            }
+            List<SourceRoot> roots = languageRoots(step, scope, javaRoots, kotlinRoots);
             validateInputs(projectRoot, step, scope);
             String key = "[generated." + scope + "." + step.id() + "].output";
             Path output = outputPath(projectRoot, key, step.output(), scope, step.id(), "output");
@@ -135,7 +135,31 @@ public final class SourceDiscoverer {
             }
             roots.add(new SourceRoot(output, key));
         }
-        return roots;
+        return new GeneratedRoots(javaRoots, kotlinRoots);
+    }
+
+    private static List<SourceRoot> languageRoots(
+            GeneratedSourceStep step,
+            String scope,
+            List<SourceRoot> javaRoots,
+            List<SourceRoot> kotlinRoots) {
+        String subject = "[generated." + scope + "." + step.id() + "]";
+        return switch (step.language()) {
+            case "java" -> javaRoots;
+            case "kotlin" -> {
+                if (step.kind() != GeneratedSourceKind.DECLARED_ROOT) {
+                    throw new SourceDiscoveryException(
+                            "Generated source language `kotlin` for " + subject
+                                    + " requires kind = \"declared-root\".");
+                }
+                yield kotlinRoots;
+            }
+            default -> throw new SourceDiscoveryException(
+                    "Unsupported generated source language `" + step.language() + "` for "
+                            + subject
+                            + ". Supported generated source languages are java and kotlin; kotlin requires"
+                            + " kind = \"declared-root\".");
+        };
     }
 
     private static void validateInputs(Path projectRoot, GeneratedSourceStep step, String scope) {
@@ -261,5 +285,12 @@ public final class SourceDiscoverer {
     }
 
     private record SourceRoot(Path path, String key) {
+    }
+
+    private record GeneratedRoots(List<SourceRoot> java, List<SourceRoot> kotlin) {
+        private GeneratedRoots {
+            java = List.copyOf(java);
+            kotlin = List.copyOf(kotlin);
+        }
     }
 }
