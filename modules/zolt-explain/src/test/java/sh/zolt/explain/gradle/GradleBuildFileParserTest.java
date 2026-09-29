@@ -4,6 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.explain.ExplainSignal;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
@@ -84,7 +87,7 @@ final class GradleBuildFileParserTest {
                 """;
 
         assertEquals(
-                java.util.List.of(
+                List.of(
                         new GradlePluginInspection("org.jetbrains.kotlin.jvm", "2.2.0"),
                         new GradlePluginInspection("org.jetbrains.kotlin.multiplatform", "2.1.21"),
                         new GradlePluginInspection("org.jetbrains.kotlin.plugin.serialization", "")),
@@ -103,9 +106,11 @@ final class GradleBuildFileParserTest {
                 }
                 """;
 
+        List<ExplainSignal> signals = new ArrayList<>();
         assertEquals(
-                java.util.List.of(new GradlePluginInspection("java", "")),
-                parser.plugins(content));
+                List.of(new GradlePluginInspection("java", "")),
+                parser.plugins(content, Map.of(), ".", signals));
+        assertTrue(signals.isEmpty(), () -> "non-plugin Kotlin calls must not emit signals: " + signals);
     }
 
     @Test
@@ -392,19 +397,19 @@ final class GradleBuildFileParserTest {
                 """;
 
         assertEquals(
-                java.util.List.of("src/main/java", "build/generated/sources/openapi"),
+                List.of("src/main/java", "build/generated/sources/openapi"),
                 parser.sourceRoots(content, "main", "src/main/java"));
         assertEquals(
-                java.util.List.of("src/test/java", "src/integrationTest/java"),
+                List.of("src/test/java", "src/integrationTest/java"),
                 parser.sourceRoots(content, "test", "src/test/java"));
         assertEquals(
-                java.util.List.of("src/fixtures/java"),
+                List.of("src/fixtures/java"),
                 parser.sourceRoots(content, "fixtures", "src/fixtures/java"));
         assertEquals(
-                java.util.List.of("src/integrationTest/java"),
+                List.of("src/integrationTest/java"),
                 parser.sourceRoots(content, "test", "src/test/java", false));
         assertEquals(
-                java.util.List.of(),
+                List.of(),
                 parser.sourceRoots(content, "fixtures", "src/fixtures/java", false));
     }
 }

@@ -121,6 +121,30 @@ final class ExplainCommandGradleInspectionTest {
     }
 
     @Test
+    void explainGradleKeepsUnresolvedPluginAliasesUnknown() throws IOException {
+        Files.writeString(tempDir.resolve("settings.gradle.kts"), "rootProject.name = \"unknown-plugin\"\n");
+        Files.writeString(tempDir.resolve("build.gradle.kts"), """
+                plugins {
+                    alias(libs.plugins.kotlin.jvm)
+                }
+                """);
+
+        CommandResult result = execute(
+                "explain",
+                "--cwd", tempDir.toString(),
+                "--source", "gradle",
+                "--format", "json");
+
+        assertEquals(0, result.exitCode());
+        assertTrue(result.stdout().contains("\"blockers\": 0"));
+        assertTrue(result.stdout().contains("\"unknown\": 1"));
+        assertTrue(result.stdout().contains("\"plugins\": []"));
+        assertTrue(result.stdout().contains("\"id\": \"gradle.plugin-alias.unresolved\""));
+        assertTrue(result.stdout().contains("\"status\": \"manual-review\""));
+        assertEquals("", result.stderr());
+    }
+
+    @Test
     void explainGradleScorecardJsonReportsReadinessConcerns() throws IOException {
         Files.writeString(tempDir.resolve("settings.gradle"), "rootProject.name = 'demo'\n");
         Files.writeString(tempDir.resolve("build.gradle"), """

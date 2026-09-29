@@ -33,10 +33,12 @@ public final class GradleStaticProjectInspector {
         List<ExplainSignal> signals = new ArrayList<>();
         Map<String, String> versionCatalog = new LinkedHashMap<>();
         Map<String, List<String>> catalogBundles = new LinkedHashMap<>();
+        Map<String, GradlePluginInspection> catalogPlugins = new LinkedHashMap<>();
         List<GradleVersionCatalogAlias> aliases = new ArrayList<>(GradleVersionCatalogParser.parse(
                 normalizedRoot.resolve("gradle/libs.versions.toml"),
                 versionCatalog,
                 catalogBundles,
+                catalogPlugins,
                 signals));
         String settingsContent = settingsFile.map(GradleStaticProjectInspector::read).orElse("");
         List<String> includedProjects = settingsFile.isPresent()
@@ -64,6 +66,7 @@ public final class GradleStaticProjectInspector {
                 buildFileParser.settingsRepositories(settingsContent),
                 versionCatalog,
                 catalogBundles,
+                catalogPlugins,
                 signals)));
         for (String includedProject : includedProjects) {
             Path projectDirectory = normalizedRoot.resolve(includedProject).normalize();
@@ -79,6 +82,7 @@ public final class GradleStaticProjectInspector {
                         List.of(),
                         versionCatalog,
                         catalogBundles,
+                        catalogPlugins,
                         signals));
                 continue;
             }
@@ -118,12 +122,14 @@ public final class GradleStaticProjectInspector {
             List<GradleRepositoryInspection> settingsRepositories,
             Map<String, String> versionCatalog,
             Map<String, List<String>> catalogBundles,
+            Map<String, GradlePluginInspection> catalogPlugins,
             List<ExplainSignal> signals) {
         String content = stripComments(read(buildFile));
         Map<String, String> projectProperties = GradleProperties.read(projectDirectory.resolve("gradle.properties"));
         Path relativePath = relativePath(root, projectDirectory);
         String project = path(relativePath);
-        List<GradlePluginInspection> plugins = buildFileParser.plugins(content);
+        List<GradlePluginInspection> plugins = buildFileParser.plugins(
+                content, catalogPlugins, project, signals);
         Map<String, String> dependencyProperties = new LinkedHashMap<>(rootProperties);
         dependencyProperties.putAll(projectProperties);
         dependencyProperties.putAll(buildFileParser.extProperties(content));

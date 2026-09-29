@@ -51,6 +51,22 @@ public final class GradleMigrationReadinessFindings {
                     "workspace members",
                     "",
                     signal.nextStep());
+            case "gradle.plugin-alias.unresolved" -> MigrationReadinessFindings.finding(
+                    "ci",
+                    MigrationReadinessCategory.UNKNOWN,
+                    signal,
+                    "unresolved Gradle version-catalog plugin alias",
+                    "explicit plugin identity before Zolt migration",
+                    "",
+                    signal.nextStep());
+            case "gradle.kotlin.plugin-unresolved" -> MigrationReadinessFindings.finding(
+                    "ci",
+                    MigrationReadinessCategory.UNKNOWN,
+                    signal,
+                    "computed Gradle Kotlin plugin selector",
+                    "literal Kotlin/JVM plugin identity and [toolchain.kotlin]",
+                    "",
+                    signal.nextStep());
             case "gradle.plugin.convention" -> MigrationReadinessFindings.finding(
                     "ci",
                     MigrationReadinessCategory.BLOCKED,

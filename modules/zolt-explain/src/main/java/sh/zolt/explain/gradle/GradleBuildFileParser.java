@@ -1,6 +1,7 @@
 package sh.zolt.explain.gradle;
 
 import sh.zolt.explain.ExplainSignal;
+import sh.zolt.explain.ExplainSignals;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -11,8 +12,15 @@ import java.util.regex.Pattern;
 
 final class GradleBuildFileParser {
     private static final Pattern ID_PLUGIN_PATTERN = Pattern.compile("\\bid\\s*(?:\\(\\s*)?['\"]([^'\"]+)['\"]\\s*\\)?(?:\\s*version\\s*['\"]([^'\"]+)['\"])?");
-    private static final Pattern KOTLIN_PLUGIN_PATTERN = Pattern.compile(
-            "\\bkotlin\\s*\\(\\s*['\"]([^'\"]+)['\"]\\s*\\)(?:\\s*version\\s*['\"]([^'\"]+)['\"])?");
+    private static final Pattern KOTLIN_PLUGIN_CALL_PATTERN = Pattern.compile(
+            "\\bkotlin\\s*\\(([^)]*)\\)(?:\\s*version\\s*(['\"])([^'\"]+)\\2)?");
+    private static final Pattern KOTLIN_SELECTOR_PATTERN = Pattern.compile("[A-Za-z][A-Za-z0-9_.-]*");
+    private static final Pattern ALIAS_PLUGIN_CALL_PATTERN = Pattern.compile("\\balias\\s*\\(([^)]*)\\)");
+    private static final Pattern BARE_ALIAS_PLUGIN_CALL_PATTERN = Pattern.compile(
+            "(?m)(?:^|[;\\r\\n])\\s*alias\\s+(?!\\()([^\\s;]+)"
+                    + "(?:\\s+apply\\s+(?:true|false))?\\s*(?=;|\\r?$)");
+    private static final Pattern DEFAULT_ALIAS_ARGUMENT_PATTERN = Pattern.compile(
+            "\\s*libs\\.plugins\\.([A-Za-z0-9_.]+)\\s*");
     private static final Pattern GROOVY_PLUGIN_PATTERN = Pattern.compile("(?m)^\\s*([A-Za-z][A-Za-z0-9_-]*)\\s*$");
     // Kotlin-DSL backtick accessor form, e.g. `java-library`, `application`, `java`.
     private static final Pattern BACKTICK_PLUGIN_PATTERN = Pattern.compile("`([A-Za-z][A-Za-z0-9_.-]*)`");
@@ -20,35 +28,119 @@ final class GradleBuildFileParser {
     private static final Pattern QUOTED_PATTERN = Pattern.compile("['\"]([^'\"]+)['\"]");
 
     List<GradlePluginInspection> plugins(String content) {
+        return plugins(content, Map.of(), ".", new ArrayList<>());
+    }
+
+    List<GradlePluginInspection> plugins(
+            String content,
+            Map<String, GradlePluginInspection> catalogPlugins,
+            String project,
+            List<ExplainSignal> signals) {
         String block = GradleScriptBlocks.topLevelBlock(content, "plugins").orElse("");
         List<GradlePluginInspection> plugins = new ArrayList<>();
         Matcher idMatcher = ID_PLUGIN_PATTERN.matcher(block);
         while (idMatcher.find()) {
-            plugins.add(new GradlePluginInspection(idMatcher.group(1), nullToEmpty(idMatcher.group(2))));
+            addPlugin(plugins, new GradlePluginInspection(
+                    idMatcher.group(1), nullToEmpty(idMatcher.group(2))));
         }
-        Matcher kotlinMatcher = KOTLIN_PLUGIN_PATTERN.matcher(block);
-        while (kotlinMatcher.find()) {
-            String id = "org.jetbrains.kotlin." + kotlinMatcher.group(1);
-            if (plugins.stream().noneMatch(plugin -> plugin.id().equals(id))) {
-                plugins.add(new GradlePluginInspection(id, nullToEmpty(kotlinMatcher.group(2))));
+        Matcher kotlinCallMatcher = KOTLIN_PLUGIN_CALL_PATTERN.matcher(block);
+        while (kotlinCallMatcher.find()) {
+            String expression = kotlinCallMatcher.group(1).strip();
+            Optional<String> selector = literalKotlinSelector(expression);
+            if (selector.isEmpty()) {
+                signals.add(ExplainSignals.GRADLE_KOTLIN_PLUGIN_UNRESOLVED.signal(
+                        project,
+                        "Gradle kotlin(...) plugin selector `"
+                                + (expression.isBlank() ? "<empty>" : expression)
+                                + "` is computed and cannot be classified statically."));
+            } else {
+                addPlugin(plugins, new GradlePluginInspection(
+                        "org.jetbrains.kotlin." + selector.orElseThrow(),
+                        nullToEmpty(kotlinCallMatcher.group(3))));
             }
+        }
+        Matcher aliasCallMatcher = ALIAS_PLUGIN_CALL_PATTERN.matcher(block);
+        while (aliasCallMatcher.find()) {
+            addAliasPlugin(
+                    aliasCallMatcher.group(1), catalogPlugins, project, signals, plugins);
+        }
+        Matcher bareAliasCallMatcher = BARE_ALIAS_PLUGIN_CALL_PATTERN.matcher(block);
+        while (bareAliasCallMatcher.find()) {
+            addAliasPlugin(
+                    bareAliasCallMatcher.group(1), catalogPlugins, project, signals, plugins);
         }
         Matcher backtickMatcher = BACKTICK_PLUGIN_PATTERN.matcher(block);
         while (backtickMatcher.find()) {
             String id = backtickMatcher.group(1);
-            if (plugins.stream().noneMatch(plugin -> plugin.id().equals(id))) {
-                plugins.add(new GradlePluginInspection(id, ""));
-            }
+            addPlugin(plugins, new GradlePluginInspection(id, ""));
         }
         Matcher groovyMatcher = GROOVY_PLUGIN_PATTERN.matcher(block);
         while (groovyMatcher.find()) {
             String id = groovyMatcher.group(1);
-            if (!"id".equals(id) && plugins.stream().noneMatch(plugin -> plugin.id().equals(id))) {
-                plugins.add(new GradlePluginInspection(id, ""));
+            if (!"id".equals(id)) {
+                addPlugin(plugins, new GradlePluginInspection(id, ""));
             }
         }
         plugins.sort(Comparator.comparing(GradlePluginInspection::id).thenComparing(GradlePluginInspection::version));
         return plugins;
+    }
+
+    private static void addAliasPlugin(
+            String rawExpression,
+            Map<String, GradlePluginInspection> catalogPlugins,
+            String project,
+            List<ExplainSignal> signals,
+            List<GradlePluginInspection> plugins) {
+        String expression = rawExpression.strip();
+        Matcher defaultAlias = DEFAULT_ALIAS_ARGUMENT_PATTERN.matcher(expression);
+        if (!defaultAlias.matches()) {
+            signals.add(ExplainSignals.GRADLE_PLUGIN_ALIAS_UNRESOLVED.signal(
+                    project,
+                    "Gradle plugin alias expression `"
+                            + (expression.isBlank() ? "<empty>" : expression)
+                            + "` cannot be resolved from the default version catalog."));
+            return;
+        }
+        String alias = defaultAlias.group(1);
+        GradlePluginInspection plugin = catalogPlugins.get(alias);
+        if (plugin == null) {
+            signals.add(ExplainSignals.GRADLE_PLUGIN_ALIAS_UNRESOLVED.signal(
+                    project,
+                    "Gradle plugin alias `libs.plugins." + alias
+                            + "` was not resolved from the default version catalog."));
+            return;
+        }
+        addPlugin(plugins, plugin);
+    }
+
+    private static void addPlugin(
+            List<GradlePluginInspection> plugins,
+            GradlePluginInspection candidate) {
+        for (int index = 0; index < plugins.size(); index++) {
+            GradlePluginInspection existing = plugins.get(index);
+            if (!existing.id().equals(candidate.id())) {
+                continue;
+            }
+            if (existing.version().isBlank() && !candidate.version().isBlank()) {
+                plugins.set(index, candidate);
+            }
+            return;
+        }
+        plugins.add(candidate);
+    }
+
+    private static Optional<String> literalKotlinSelector(String expression) {
+        if (expression.length() < 3) {
+            return Optional.empty();
+        }
+        char quote = expression.charAt(0);
+        if ((quote != '\'' && quote != '"') || expression.charAt(expression.length() - 1) != quote) {
+            return Optional.empty();
+        }
+        String selector = expression.substring(1, expression.length() - 1);
+        return KOTLIN_SELECTOR_PATTERN.matcher(selector).matches()
+                ? Optional.of(selector)
+                : Optional.empty();
     }
 
     List<GradleRepositoryInspection> repositories(String content) {

@@ -158,6 +158,45 @@ final class MigrationReadinessMappingTest {
     }
 
     @Test
+    void unresolvedGradlePluginSelectorsRemainUnknownAndVisible() throws IOException {
+        Files.writeString(tempDir.resolve("settings.gradle.kts"), "rootProject.name = \"unresolved\"\n");
+        Files.writeString(tempDir.resolve("build.gradle.kts"), """
+                plugins {
+                    alias(libs.plugins.kotlin.jvm)
+                    alias(tools.plugins.kotlin.jvm)
+                    kotlin(pluginSelector)
+                    kotlin("jvm-$suffix")
+                }
+                """);
+
+        GradleInspectionResult inspection = new GradleStaticProjectInspector().inspect(tempDir);
+        MigrationReadinessScorecard scorecard = MigrationReadinessScorecards.from(inspection);
+        MigrationBlockerReport blockers = MigrationBlockerReports.from(scorecard);
+
+        assertEquals(2, inspection.signals().stream()
+                .filter(signal -> signal.id().equals("gradle.plugin-alias.unresolved")
+                        && signal.severity() == ExplainSignal.Severity.UNKNOWN)
+                .count());
+        assertEquals(2, inspection.signals().stream()
+                .filter(signal -> signal.id().equals("gradle.kotlin.plugin-unresolved")
+                        && signal.severity() == ExplainSignal.Severity.UNKNOWN)
+                .count());
+        assertFalse(inspection.signals().stream().anyMatch(signal ->
+                signal.id().equals("gradle.kotlin.manual-migration")));
+        assertEquals("unknown", scorecard.status());
+        assertEquals("unknown", blockers.status());
+        assertEquals(MigrationReadinessCategory.UNKNOWN,
+                finding(scorecard, "gradle.plugin-alias.unresolved").category());
+        assertEquals(MigrationReadinessCategory.UNKNOWN,
+                finding(scorecard, "gradle.kotlin.plugin-unresolved").category());
+        assertEquals("unknown", scorecard.concerns().stream()
+                .filter(concern -> concern.name().equals("dependencies"))
+                .findFirst()
+                .orElseThrow()
+                .status());
+    }
+
+    @Test
     void mavenKaptExecutionRemainsUnsupported() throws IOException {
         Files.writeString(tempDir.resolve("pom.xml"), """
                 <project>

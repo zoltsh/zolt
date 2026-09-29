@@ -166,6 +166,20 @@ public final class ExplainSignals {
             ExplainSignal.Severity.UNKNOWN,
             ExplainSignal.Category.BUILDABILITY,
             "Review the settings buildFileName logic and choose the included project's build file before generating Zolt metadata.");
+    public static final ExplainSignalDefinition GRADLE_PLUGIN_ALIAS_UNRESOLVED = new ExplainSignalDefinition(
+            "gradle.plugin-alias.unresolved",
+            ExplainSignal.Severity.UNKNOWN,
+            ExplainSignal.Category.BUILDABILITY,
+            "Define the plugin alias in the default gradle/libs.versions.toml catalog with a literal plugin"
+                    + " id and version, or replace alias(...) with a literal id before relying on migration"
+                    + " inspection.");
+    public static final ExplainSignalDefinition GRADLE_KOTLIN_PLUGIN_UNRESOLVED = new ExplainSignalDefinition(
+            "gradle.kotlin.plugin-unresolved",
+            ExplainSignal.Severity.UNKNOWN,
+            ExplainSignal.Category.BUILDABILITY,
+            "Replace the computed kotlin(...) plugin selector with literal kotlin(\"jvm\") or"
+                    + " id(\"org.jetbrains.kotlin.jvm\") before migration inspection; other Kotlin targets"
+                    + " remain outside the bounded Kotlin/JVM surface.");
     public static final ExplainSignalDefinition GRADLE_PLUGIN_CONVENTION = new ExplainSignalDefinition(
             "gradle.plugin.convention",
             ExplainSignal.Severity.BLOCK,

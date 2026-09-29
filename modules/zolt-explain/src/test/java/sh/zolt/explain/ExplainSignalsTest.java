@@ -50,6 +50,14 @@ final class ExplainSignalsTest {
                 ExplainSignal.Severity.UNKNOWN,
                 ExplainSignal.Category.BUILDABILITY);
         assertDefinition(
+                "gradle.plugin-alias.unresolved",
+                ExplainSignal.Severity.UNKNOWN,
+                ExplainSignal.Category.BUILDABILITY);
+        assertDefinition(
+                "gradle.kotlin.plugin-unresolved",
+                ExplainSignal.Severity.UNKNOWN,
+                ExplainSignal.Category.BUILDABILITY);
+        assertDefinition(
                 "gradle.custom-task.detected",
                 ExplainSignal.Severity.WARN,
                 ExplainSignal.Category.BUILDABILITY);

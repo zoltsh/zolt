@@ -34,6 +34,8 @@ final class ExplainSignalRegistry {
             ExplainSignals.GRADLE_BUILD_SRC_DETECTED,
             ExplainSignals.GRADLE_PROJECT_MISSING_BUILD_FILE,
             ExplainSignals.GRADLE_PROJECT_BUILD_FILE_NAME_UNRESOLVED,
+            ExplainSignals.GRADLE_PLUGIN_ALIAS_UNRESOLVED,
+            ExplainSignals.GRADLE_KOTLIN_PLUGIN_UNRESOLVED,
             ExplainSignals.GRADLE_PLUGIN_CONVENTION,
             ExplainSignals.GRADLE_SCRIPT_PLUGIN_APPLY_FROM,
             ExplainSignals.GRADLE_PLUGIN_CONDITIONAL_APPLY,

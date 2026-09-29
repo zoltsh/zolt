@@ -158,10 +158,17 @@ final class GradleDependencyParser {
         List<String> aliases = catalogAliases(notation);
         if (!aliases.isEmpty()) {
             String catalogNotation = notation;
-            return aliases.stream()
-                    .map(key -> new GradleDependencyInspection(
-                            configuration, catalogNotation, versionCatalog.getOrDefault(key, ""), key, platformKind))
-                    .toList();
+            List<GradleDependencyInspection> catalogDependencies = new ArrayList<>();
+            for (String key : aliases) {
+                String coordinate = versionCatalog.get(key);
+                if (coordinate == null || coordinate.isBlank()) {
+                    unresolvedDependencySignal(project, configuration, catalogNotation, signals);
+                    coordinate = "";
+                }
+                catalogDependencies.add(new GradleDependencyInspection(
+                        configuration, catalogNotation, coordinate, key, platformKind));
+            }
+            return catalogDependencies;
         }
         unresolvedDependencySignal(project, configuration, notation, signals);
         return List.of();
