@@ -2,20 +2,14 @@ package sh.zolt.ide;
 
 import sh.zolt.generated.GeneratedSourceEvidence;
 import sh.zolt.generated.GeneratedSourceEvidenceService;
-import sh.zolt.manifest.SourceRootLanguage;
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectPathException;
 import sh.zolt.project.ProjectPaths;
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
-import java.util.stream.Stream;
 
 final class IdeRootModelBuilder {
     private final GeneratedSourceEvidenceService generatedSourceEvidenceService;
@@ -38,7 +32,7 @@ final class IdeRootModelBuilder {
             Path sourceRoot = inputRoot(
                     root, "[build].sources", settings.sourceRoots().get(index), diagnostics);
             resolvedMainRoots.add(sourceRoot);
-            for (String language : sourceLanguages(
+            for (String language : IdeSourceRootLanguages.detect(
                     settings.sourceRoots().get(index), sourceRoot)) {
                 addSourceRoot(
                         roots,
@@ -52,7 +46,8 @@ final class IdeRootModelBuilder {
         for (int index = 0; index < settings.sourceRoots().size(); index++) {
             Path sourceRoot = resolvedMainRoots.get(index);
             if (sourceRoot != null
-                    && isGroovyMainRoot(settings.sourceRoots().get(index), sourceRoot)) {
+                    && IdeSourceRootLanguages.includesGroovy(
+                            settings.sourceRoots().get(index), sourceRoot)) {
                 addSourceRoot(
                         roots,
                         mainSourceRootId("groovy", index),
@@ -174,7 +169,7 @@ final class IdeRootModelBuilder {
             String configuredRoot = configuredRoots.get(index);
             Path sourceRoot = inputRoot(
                     root, "[test.integration].sources", configuredRoot, diagnostics);
-            for (String language : sourceLanguages(configuredRoot, sourceRoot)) {
+            for (String language : IdeSourceRootLanguages.detect(configuredRoot, sourceRoot)) {
                 addSourceRoot(
                         roots,
                         "integration-test-" + language + "-" + (index + 1),
@@ -189,51 +184,6 @@ final class IdeRootModelBuilder {
     private static String mainSourceRootId(String language, int index) {
         String prefix = "main-" + language;
         return index == 0 ? prefix : prefix + "-" + (index + 1);
-    }
-
-    private static List<String> sourceLanguages(
-            String configuredRoot, Path sourceRoot) {
-        boolean containsJava = containsSource(sourceRoot, ".java");
-        boolean containsKotlin = containsSource(sourceRoot, ".kt");
-        boolean configuredKotlin = SourceRootLanguage.unsupported(configuredRoot).orElse(null)
-                == SourceRootLanguage.KOTLIN;
-        if (containsJava && (containsKotlin || configuredKotlin)) {
-            return List.of("java", "kotlin");
-        }
-        if (containsKotlin || configuredKotlin) {
-            return List.of("kotlin");
-        }
-        return List.of("java");
-    }
-
-    private static boolean isGroovyMainRoot(String configuredRoot, Path sourceRoot) {
-        return hasGroovyPathSegment(configuredRoot) || containsSource(sourceRoot, ".groovy");
-    }
-
-    private static boolean hasGroovyPathSegment(String configuredRoot) {
-        String normalized = configuredRoot.replace('\\', '/').toLowerCase(Locale.ROOT);
-        for (String segment : normalized.split("/")) {
-            if ("groovy".equals(segment)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static boolean containsSource(Path sourceRoot, String extension) {
-        if (sourceRoot == null || !Files.isDirectory(sourceRoot)) {
-            return false;
-        }
-        try (Stream<Path> paths = Files.find(
-                sourceRoot,
-                Integer.MAX_VALUE,
-                (path, attributes) -> attributes.isRegularFile()
-                        && path.getFileName().toString().endsWith(extension))) {
-            return paths.findFirst().isPresent();
-        } catch (IOException | UncheckedIOException ignored) {
-            // IDE export remains best-effort when an otherwise valid source root cannot be scanned.
-            return false;
-        }
     }
 
     private static List<GeneratedSourceRoot> generatedRoots(

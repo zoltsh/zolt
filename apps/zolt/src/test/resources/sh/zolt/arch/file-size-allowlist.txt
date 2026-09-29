@@ -6,6 +6,7 @@ modules/zolt-build/src/main/java/sh/zolt/build/BuildService.java|384|verified co
 modules/zolt-build/src/main/java/sh/zolt/build/compile/MainCompileSourceExecutor.java|447|full and experimental incremental compilation share cleanup and output attribution contracts
 modules/zolt-explain/src/main/java/sh/zolt/explain/ExplainSignals.java|355|migration signal definitions remain one discoverable registry with uniqueness coverage
 modules/zolt-explain/src/main/java/sh/zolt/explain/gradle/GradleMigrationReadinessFindings.java|352|Gradle signal readiness mappings remain one exhaustive switch with mapping coverage
+modules/zolt-ide/src/main/java/sh/zolt/ide/IdeModel.java|356|versioned IDE export schema keeps nested record names source-compatible
 modules/zolt-model/src/test/java/sh/zolt/manifest/authored/AuthoredManifestTest.java|480|authored manifest invariants share one exhaustive construction fixture
 modules/zolt-plan/src/test/java/sh/zolt/plan/BuildPlanServiceTest.java|463|plan node scenarios share one project fixture and node assertion vocabulary
 modules/zolt-workspace/src/test/java/sh/zolt/workspace/resolve/WorkspaceResolutionInputFingerprintTest.java|508|every fingerprint scenario mutates one shared two-member workspace fixture
