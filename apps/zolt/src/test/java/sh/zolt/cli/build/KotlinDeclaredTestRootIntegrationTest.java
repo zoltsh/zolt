@@ -25,6 +25,7 @@ import sh.zolt.cli.CliTestSupport.CommandResult;
 @Isolated("mutates user.home so the command reads an isolated build-cache config")
 final class KotlinDeclaredTestRootIntegrationTest {
     private static final String DECLARED_ROOT = "generated/test/java";
+    private static final String GENERATED_KOTLIN_ROOT = "generated/test/kotlin";
 
     @TempDir
     private Path tempDir;
@@ -108,6 +109,74 @@ final class KotlinDeclaredTestRootIntegrationTest {
         }
     }
 
+    @Test
+    void compilesCachesInvalidatesAndProtectsDeclaredKotlinTests() throws Exception {
+        assumeTrue(System.getenv("ZOLT_USER_HOME") == null, "test needs an isolated user.home fallback");
+        String previousUserHome = System.getProperty("user.home");
+        Path fakeUserHome = tempDir.resolve("kotlin-root-user-home");
+        System.setProperty("user.home", fakeUserHome.toString());
+        try (CliTestRepository repository = CliTestRepository.start()) {
+            Path project = tempDir.resolve("kotlin-root-project");
+            Path onlineCache = tempDir.resolve("kotlin-root-online-cache");
+            Path artifactCache = tempDir.resolve("kotlin-root-artifact-cache");
+            configureBuildCache(fakeUserHome);
+            seedGeneratedKotlin(repository, project, onlineCache, artifactCache);
+            repository.close();
+
+            CommandResult first = test(project, artifactCache);
+            Path declaredSource = project.resolve(
+                    GENERATED_KOTLIN_ROOT + "/com/example/GeneratedKotlinTest.kt");
+            Path declaredClass = project.resolve(
+                    "target/test-classes/com/example/GeneratedKotlinTest.class");
+            assertGeneratedKotlinSuccessful(first);
+            assertTrue(Files.isRegularFile(declaredSource));
+            assertTrue(Files.isRegularFile(declaredClass));
+            byte[] initialSource = Files.readAllBytes(declaredSource);
+            FileTime initialSourceTime = Files.getLastModifiedTime(declaredSource);
+            byte[] initialClass = Files.readAllBytes(declaredClass);
+            FileTime initialClassTime = Files.getLastModifiedTime(declaredClass);
+
+            CommandResult warm = test(project, artifactCache);
+            assertGeneratedKotlinSuccessful(warm);
+            assertTiming(warm, "compile test sources", "\"testCompilationMode\":\"skipped\"");
+            assertArrayEquals(initialClass, Files.readAllBytes(declaredClass));
+            assertEquals(initialClassTime, Files.getLastModifiedTime(declaredClass));
+
+            deleteTree(project.resolve("target"));
+            CommandResult restored = test(project, artifactCache);
+            assertGeneratedKotlinSuccessful(restored);
+            assertTiming(restored, "compile test sources", "\"testCompilationMode\":\"restored\"");
+            assertArrayEquals(initialClass, Files.readAllBytes(declaredClass));
+            assertArrayEquals(initialSource, Files.readAllBytes(declaredSource));
+            assertEquals(initialSourceTime, Files.getLastModifiedTime(declaredSource));
+
+            writeGeneratedKotlinTest(project, "after");
+            CommandResult changed = test(project, artifactCache);
+            assertGeneratedKotlinSuccessful(changed);
+            assertTiming(changed, "compile test sources", "\"testCompilationMode\":\"full\"");
+            assertFalse(java.util.Arrays.equals(initialClass, Files.readAllBytes(declaredClass)));
+            byte[] changedClass = Files.readAllBytes(declaredClass);
+
+            deleteTree(project.resolve(GENERATED_KOTLIN_ROOT));
+            CommandResult missing = test(project, artifactCache);
+            assertEquals(1, missing.exitCode());
+            assertTrue(missing.stderr().contains(
+                    "Generated source root `" + GENERATED_KOTLIN_ROOT + "` is missing"),
+                    missing.stderr());
+            assertArrayEquals(
+                    changedClass,
+                    Files.readAllBytes(declaredClass),
+                    "missing declared input must fail before owned output cleanup");
+            assertEquals(Map.of(), repository.authorizations());
+        } finally {
+            if (previousUserHome == null) {
+                System.clearProperty("user.home");
+            } else {
+                System.setProperty("user.home", previousUserHome);
+            }
+        }
+    }
+
     private static void seed(
             CliTestRepository repository,
             Path project,
@@ -116,6 +185,23 @@ final class KotlinDeclaredTestRootIntegrationTest {
         KotlinCompilerCliFixture.publish(repository);
         JUnitConsoleCliFixture.publish(repository);
         writeProject(project, repository);
+        CommandResult resolve = execute(
+                "resolve",
+                "--cwd", project.toString(),
+                "--cache-root", onlineCache.toString());
+        assertEquals(0, resolve.exitCode(), resolve.stderr());
+        Files.move(onlineCache, artifactCache);
+        repository.clearAuthorizations();
+    }
+
+    private static void seedGeneratedKotlin(
+            CliTestRepository repository,
+            Path project,
+            Path onlineCache,
+            Path artifactCache) throws IOException {
+        KotlinCompilerCliFixture.publish(repository);
+        JUnitConsoleCliFixture.publish(repository);
+        writeGeneratedKotlinProject(project, repository);
         CommandResult resolve = execute(
                 "resolve",
                 "--cwd", project.toString(),
@@ -221,6 +307,78 @@ final class KotlinDeclaredTestRootIntegrationTest {
                 """.formatted(revision));
     }
 
+    private static void writeGeneratedKotlinProject(
+            Path project,
+            CliTestRepository repository) throws IOException {
+        Files.createDirectories(project.resolve("src/main/java/com/example"));
+        Files.createDirectories(project.resolve(GENERATED_KOTLIN_ROOT + "/com/example"));
+        Files.writeString(project.resolve("zolt.toml"), """
+                [project]
+                name = "generated-kotlin-test-root"
+                version = "0.1.0"
+                group = "com.example"
+                java = %s
+
+                [toolchain.kotlin]
+                version = "%s"
+
+                [generated.test.declared]
+                kind = "declared-root"
+                language = "kotlin"
+                inputs = ["declared-tests.marker"]
+                output = "%s"
+                required = true
+                clean = false
+
+                [repositories]
+                central = false
+
+                [repositories.fixture]
+                url = "%s"
+
+                [dependencies.test]
+                "org.jetbrains.kotlin:kotlin-stdlib" = "%s"
+                "org.junit.platform:junit-platform-console-standalone" = "%s"
+                """.formatted(
+                currentJavaMajorVersion(),
+                KotlinCompilerCliFixture.KOTLIN_VERSION,
+                GENERATED_KOTLIN_ROOT,
+                repository.baseUri(),
+                KotlinCompilerCliFixture.KOTLIN_VERSION,
+                JUnitConsoleCliFixture.VERSION));
+        Files.writeString(project.resolve("declared-tests.marker"), "committed\n");
+        Files.writeString(project.resolve("src/main/java/com/example/Main.java"), """
+                package com.example;
+
+                public final class Main {
+                    public static String message() {
+                        return "main";
+                    }
+                }
+                """);
+        writeGeneratedKotlinTest(project, "before");
+    }
+
+    private static void writeGeneratedKotlinTest(Path project, String revision) throws IOException {
+        Files.writeString(
+                project.resolve(GENERATED_KOTLIN_ROOT + "/com/example/GeneratedKotlinTest.kt"),
+                """
+                package com.example
+
+                import org.junit.jupiter.api.Assertions.assertEquals
+                import org.junit.jupiter.api.Test
+
+                class GeneratedKotlinTest {
+                    @Test
+                    fun runsFromDeclaredRoot() {
+                        assertEquals("main-%s", Main.message() + "-" + revision())
+                    }
+
+                    private fun revision(): String = "%s"
+                }
+                """.formatted(revision, revision));
+    }
+
     private static void configureBuildCache(Path fakeUserHome) throws IOException {
         Path globalDirectory = fakeUserHome.resolve(".zolt");
         Files.createDirectories(globalDirectory);
@@ -246,6 +404,12 @@ final class KotlinDeclaredTestRootIntegrationTest {
         assertEquals(0, result.exitCode(), result.stderr());
         assertTrue(result.stdout().contains("Tests passed"), result.stdout());
         assertTrue(result.stdout().matches("(?s).*\\b2 tests successful\\b.*"), result.stdout());
+    }
+
+    private static void assertGeneratedKotlinSuccessful(CommandResult result) {
+        assertEquals(0, result.exitCode(), result.stderr());
+        assertTrue(result.stdout().contains("Tests passed"), result.stdout());
+        assertTrue(result.stdout().matches("(?s).*\\b1 tests successful\\b.*"), result.stdout());
     }
 
     private static void assertTiming(CommandResult result, String phase, String expected) {
