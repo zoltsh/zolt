@@ -113,6 +113,85 @@ final class TestRuntimeToolchainResolverTest {
     }
 
     @Test
+    void allowsNewerTestRuntimeForOrdinaryClasses() throws IOException {
+        Path project = writeProject("newer-ordinary", "21", "21", "allow-system", "22");
+        Path java = fakeJava("22");
+
+        TestRuntimeToolchain resolved = resolver(request -> ambient(request, "22", java))
+                .resolve(
+                        project,
+                        project,
+                        parse(project),
+                        HostPlatform.parse("linux-x64"),
+                        store())
+                .orElseThrow();
+
+        assertFalse(resolved.previewRequired());
+        assertTrue(resolved.releaseProblem().isEmpty());
+        assertTrue(resolved.ready());
+    }
+
+    @Test
+    void rejectsNewerTestRuntimeForMainPreviewClasses() throws IOException {
+        Path project = writeProject(
+                "newer-main-preview",
+                "21",
+                "21",
+                "allow-system",
+                "22",
+                """
+
+                [compiler]
+                args = ["-Xjvm-enable-preview"]
+                """);
+        Path java = fakeJava("22");
+
+        TestRuntimeToolchain resolved = resolver(request -> ambient(request, "22", java))
+                .resolve(
+                        project,
+                        project,
+                        parse(project),
+                        HostPlatform.parse("linux-x64"),
+                        store())
+                .orElseThrow();
+
+        assertTrue(resolved.previewRequired());
+        ActionableException exception = assertThrows(ActionableException.class, resolved::requireJava);
+        assertTrue(exception.getMessage().contains("JVM preview class files require the same Java feature release"));
+        assertTrue(exception.getMessage().contains("Set [toolchain.java.test].version to 21"));
+    }
+
+    @Test
+    void rejectsNewerTestRuntimeForTestPreviewClasses() throws IOException {
+        Path project = writeProject(
+                "newer-test-preview",
+                "21",
+                "21",
+                "allow-system",
+                "22",
+                """
+
+                [compiler.test]
+                args = ["-Xjvm-enable-preview"]
+                """);
+        Path java = fakeJava("22");
+
+        TestRuntimeToolchain resolved = resolver(request -> ambient(request, "22", java))
+                .resolve(
+                        project,
+                        project,
+                        parse(project),
+                        HostPlatform.parse("linux-x64"),
+                        store())
+                .orElseThrow();
+
+        assertTrue(resolved.previewRequired());
+        assertFalse(resolved.ready());
+        assertTrue(resolved.releaseProblem().orElseThrow().contains(
+                "Test runtime Java 22 does not match the compiled [project].java release 21"));
+    }
+
+    @Test
     void requireManagedTestRuntimeWithoutLockIsNotReady() throws IOException {
         Path project = writeProject("managed-missing", "17", "17", "require-managed", "17");
         TestRuntimeToolchainResolver resolver = resolver(request -> {
@@ -190,6 +269,16 @@ final class TestRuntimeToolchainResolverTest {
 
     private Path writeProject(
             String name, String projectJava, String mainVersion, String policy, String testVersion) throws IOException {
+        return writeProject(name, projectJava, mainVersion, policy, testVersion, "");
+    }
+
+    private Path writeProject(
+            String name,
+            String projectJava,
+            String mainVersion,
+            String policy,
+            String testVersion,
+            String compilerConfiguration) throws IOException {
         Path project = tempDir.resolve(name);
         Files.createDirectories(project);
         StringBuilder toml = new StringBuilder("""
@@ -205,6 +294,7 @@ final class TestRuntimeToolchainResolverTest {
                 features = []
                 policy = "%s"
                 """.formatted(name, projectJava, mainVersion, policy));
+        toml.append(compilerConfiguration);
         if (testVersion != null) {
             toml.append("\n[toolchain.java.test]\nversion = ").append(testVersion).append("\n");
         }

@@ -113,10 +113,8 @@ final class WorkspaceCommandToolchainState {
                     store);
             testToolchains.put(key, resolved);
         }
-        TestRuntimeToolchain memberToolchain = new TestRuntimeToolchain(
-                resolved.request(),
-                resolved.status(),
-                member.config().project().java());
+        TestRuntimeToolchain memberToolchain = TestRuntimeToolchain.forProject(
+                resolved.request(), resolved.status(), member.config());
         return TestRuntimeJdkChecker.of(memberToolchain);
     }
 
