@@ -93,22 +93,22 @@ final class KotlinCompilerArgumentPolicy {
                         if (!jvmDefaultMode.isEmpty()) {
                             throw duplicateArgument(scope, argument);
                         }
-                        jvmDefaultMode = jvmDefaultArgument(scope, argument);
+                        jvmDefaultMode = KotlinCompilerModeArguments.jvmDefault(scope, argument);
                     } else if (argument.startsWith("-Xexplicit-api=")) {
                         if (!explicitApiMode.isEmpty()) {
                             throw duplicateArgument(scope, argument);
                         }
-                        explicitApiMode = explicitApiArgument(scope, argument);
+                        explicitApiMode = KotlinCompilerModeArguments.explicitApi(scope, argument);
                     } else if (argument.startsWith("-Xstring-concat=")) {
                         if (!stringConcatMode.isEmpty()) {
                             throw duplicateArgument(scope, argument);
                         }
-                        stringConcatMode = stringConcatArgument(scope, argument);
+                        stringConcatMode = KotlinCompilerModeArguments.stringConcat(scope, argument);
                     } else if (argument.startsWith("-Xlambdas=")) {
                         if (!lambdaMode.isEmpty()) {
                             throw duplicateArgument(scope, argument);
                         }
-                        lambdaMode = lambdaArgument(scope, argument);
+                        lambdaMode = KotlinCompilerModeArguments.lambda(scope, argument);
                     } else if (argument.startsWith("-Xwarning-level=")) {
                         String warningLevel = warningLevelArgument(scope, argument);
                         String diagnostic = warningDiagnostic(warningLevel);
@@ -154,21 +154,6 @@ final class KotlinCompilerArgumentPolicy {
                 List.copyOf(optIns));
     }
 
-    private static String jvmDefaultArgument(
-            KotlinCompilationScope scope,
-            String argument) {
-        String value = argument.substring("-jvm-default=".length());
-        if (!List.of("enable", "no-compatibility", "disable").contains(value)) {
-            throw unsupported(
-                    scope,
-                    argumentsPath(scope)
-                            + " contains invalid Kotlin JVM-default argument `" + argument + "`",
-                    "Use `-jvm-default=enable`, `-jvm-default=no-compatibility`, or"
-                            + " `-jvm-default=disable`, or remove the argument.");
-        }
-        return value;
-    }
-
     private static String warningLevelArgument(
             KotlinCompilationScope scope,
             String argument) {
@@ -186,50 +171,6 @@ final class KotlinCompilerArgumentPolicy {
 
     private static String warningDiagnostic(String warningLevel) {
         return warningLevel.substring(0, warningLevel.indexOf(':'));
-    }
-
-    private static String explicitApiArgument(
-            KotlinCompilationScope scope,
-            String argument) {
-        String value = argument.substring("-Xexplicit-api=".length());
-        if (!List.of("strict", "warning", "disable").contains(value)) {
-            throw unsupported(
-                    scope,
-                    argumentsPath(scope)
-                            + " contains invalid Kotlin explicit-API argument `" + argument + "`",
-                    "Use `-Xexplicit-api=strict`, `-Xexplicit-api=warning`, or"
-                            + " `-Xexplicit-api=disable`, or remove the argument.");
-        }
-        return value;
-    }
-
-    private static String stringConcatArgument(
-            KotlinCompilationScope scope,
-            String argument) {
-        String value = argument.substring("-Xstring-concat=".length());
-        if (!List.of("indy-with-constants", "indy", "inline").contains(value)) {
-            throw unsupported(
-                    scope,
-                    argumentsPath(scope)
-                            + " contains invalid Kotlin string-concatenation argument `" + argument + "`",
-                    "Use `-Xstring-concat=indy-with-constants`, `-Xstring-concat=indy`, or"
-                            + " `-Xstring-concat=inline`, or remove the argument.");
-        }
-        return value;
-    }
-
-    private static String lambdaArgument(
-            KotlinCompilationScope scope,
-            String argument) {
-        String value = argument.substring("-Xlambdas=".length());
-        if (!List.of("class", "indy").contains(value)) {
-            throw unsupported(
-                    scope,
-                    argumentsPath(scope)
-                            + " contains invalid Kotlin lambda-generation argument `" + argument + "`",
-                    "Use `-Xlambdas=class` or `-Xlambdas=indy`, or remove the argument.");
-        }
-        return value;
     }
 
     private static String optInArgument(
