@@ -44,6 +44,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.reportAllWarnings()) {
             arguments.add("-Xreport-all-warnings");
         }
+        if (options.renderInternalDiagnosticNames()) {
+            arguments.add("-Xrender-internal-diagnostic-names");
+        }
         if (options.progressiveMode()) {
             arguments.add("-progressive");
         }

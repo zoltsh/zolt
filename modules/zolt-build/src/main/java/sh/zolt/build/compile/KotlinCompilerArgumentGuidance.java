@@ -8,6 +8,7 @@ final class KotlinCompilerArgumentGuidance {
     static String supportedArguments() {
         return "Use only a compatible, duplicate-free subset of `-parameters`, `-nowarn`,"
                 + " `-Werror`, `-Wextra`, `-Xreport-all-warnings`, `-progressive`,"
+                + " `-Xrender-internal-diagnostic-names`,"
                 + " `-Xcontext-sensitive-resolution`,"
                 + " `-Xcontext-parameters`, `-Xwhen-guards`, `-Xmulti-dollar-interpolation`,"
                 + " `-Xnon-local-break-continue`,"

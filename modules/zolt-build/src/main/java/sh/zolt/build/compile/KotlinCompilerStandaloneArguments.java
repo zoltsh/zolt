@@ -10,6 +10,7 @@ final class KotlinCompilerStandaloneArguments {
             "-nowarn",
             "-Wextra",
             "-Xreport-all-warnings",
+            "-Xrender-internal-diagnostic-names",
             "-progressive",
             "-Xcontext-sensitive-resolution",
             "-Xcontext-parameters",
