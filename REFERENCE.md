@@ -782,8 +782,8 @@ flags `-parameters`, `-nowarn`, `-Werror`, `-Wextra`, `-progressive`,
 `-Xcontext-parameters`, `-Xcontext-sensitive-resolution`, and `-Xwhen-guards`,
 plus `-Xnested-type-aliases`, `-Xannotation-target-all`,
 `-Xjvm-expose-boxed`, `-Xconsistent-data-class-copy-visibility`, and
-`-Xemit-jvm-type-annotations`. One each of the paired Kotlin arguments
-`-language-version <major.minor>` and
+`-Xemit-jvm-type-annotations`, plus `-Xno-new-java-annotation-targets`. One each
+of the paired Kotlin arguments `-language-version <major.minor>` and
 `-api-version <major.minor>` is also accepted. Distinct, repeatable
 `-opt-in=<qualified.annotation.Name>` arguments are also accepted. One
 `-jvm-default=<mode>` argument may also select `enable`, `no-compatibility`, or
@@ -814,6 +814,7 @@ args = [
   "-Xjvm-expose-boxed",
   "-Xconsistent-data-class-copy-visibility",
   "-Xemit-jvm-type-annotations",
+  "-Xno-new-java-annotation-targets",
   "-language-version", "1.9",
   "-api-version", "1.8",
   "-jvm-default=no-compatibility",
@@ -869,7 +870,7 @@ annotation defaulting and all-target annotations, language/API version pairs,
 boxed value-class exposure, JVM-default modes, explicit-API modes,
 data-class copy visibility, string-concatenation modes, lambda-generation modes,
 JVM type-annotation emission, SAM-conversion modes, diagnostic warning levels,
-and opt-ins go only to `kotlinc`.
+Java annotation-target compatibility, and opt-ins go only to `kotlinc`.
 `-Xnested-type-aliases` enables Kotlin 2.2's Beta support for aliases declared
 inside classes, interfaces, and objects. Such aliases cannot use type parameters
 from an enclosing declaration; they must declare independent type parameters
@@ -922,6 +923,18 @@ an emitted annotation. JVM type annotations require a JVM target of 1.8 or
 newer, which is within Zolt's supported Kotlin/JVM target range. Configure the
 flag independently in `[compiler].args` and `[compiler.test].args`; changing it
 invalidates the matching source set and performs a cleaned full compilation.
+`-Xno-new-java-annotation-targets` prevents a Kotlin annotation declaration
+whose Kotlin targets include `TYPE` or `TYPE_PARAMETER` from adding Java's
+`TYPE_USE` or `TYPE_PARAMETER` values to its generated
+`java.lang.annotation.Target`. This is useful for Android consumers below API
+level 26, where those enum values are unavailable. Other applicable Java targets
+remain present, and the annotation's Kotlin target set is unchanged. The flag
+does not lower bytecode, remove other newer API references, or replace Android
+desugaring and platform qualification. It is separate from
+`-Xemit-jvm-type-annotations`, which controls whether annotation uses are
+written to JVM type-annotation attributes. Configure the compatibility flag
+independently for main and test source sets; changing it also invalidates and
+cleanly recompiles the matching output.
 `-Xstring-concat=inline` emits concatenation through `StringBuilder`.
 `-Xstring-concat=indy` uses `StringConcatFactory.makeConcat`, while
 `indy-with-constants` uses `StringConcatFactory.makeConcatWithConstants`. The
