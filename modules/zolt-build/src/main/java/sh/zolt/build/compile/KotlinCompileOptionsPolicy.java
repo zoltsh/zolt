@@ -77,6 +77,7 @@ public final class KotlinCompileOptionsPolicy {
                 mappedArguments.noUnifiedNullChecks(),
                 mappedArguments.noOptimize(),
                 mappedArguments.noInline(),
+                mappedArguments.sanitizeParentheses(),
                 mappedArguments.validateBytecode(),
                 mappedArguments.indyAllowAnnotatedLambdas(),
                 mappedArguments.generateStrictMetadataVersion(),

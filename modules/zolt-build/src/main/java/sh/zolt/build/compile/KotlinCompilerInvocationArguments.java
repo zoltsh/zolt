@@ -89,6 +89,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.noInline()) {
             arguments.add("-Xno-inline");
         }
+        if (options.sanitizeParentheses()) {
+            arguments.add("-Xsanitize-parentheses");
+        }
         if (options.validateBytecode()) {
             arguments.add("-Xvalidate-bytecode");
         }
