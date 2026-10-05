@@ -43,9 +43,11 @@ zolt run
   and JVM-default compatibility modes. Public Kotlin APIs may be checked in
   warning or strict explicit-API mode. Progressive compilation may be enabled
   independently for main and test sources, as may the selected compiler's
-  context-parameter and context-sensitive-resolution previews; warnings may
-  likewise be expanded, enforced, suppressed, or adjusted by diagnostic per
-  source set. Kotlin/JVM string concatenation may use inline `StringBuilder` or
+  context-parameter and context-sensitive-resolution previews. Guarded `when`
+  branches may be explicitly enabled per source set for toolchains that still
+  expose them as a preview; warnings may likewise be expanded, enforced,
+  suppressed, or adjusted by diagnostic per source set. Kotlin/JVM string
+  concatenation may use inline `StringBuilder` or
   either invokedynamic scheme per source set; lambda generation may likewise
   select anonymous classes or invokedynamic, as may conversion to
   single-abstract-method interfaces. Unsupported language and compiler

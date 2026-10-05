@@ -779,9 +779,10 @@ disable the unchanged-input skip.
 
 For a Kotlin-bearing source set, compiler arguments may contain the standalone
 flags `-parameters`, `-nowarn`, `-Werror`, `-Wextra`, `-progressive`,
-`-Xcontext-parameters`, and `-Xcontext-sensitive-resolution`, plus one each of
-the paired Kotlin arguments `-language-version <major.minor>` and
-`-api-version <major.minor>`. Distinct, repeatable
+`-Xcontext-parameters`, `-Xcontext-sensitive-resolution`, and `-Xwhen-guards`,
+plus one each of the paired Kotlin arguments
+`-language-version <major.minor>` and `-api-version <major.minor>`. Distinct,
+repeatable
 `-opt-in=<qualified.annotation.Name>` arguments are also accepted. One
 `-jvm-default=<mode>` argument may also select `enable`, `no-compatibility`, or
 `disable`, and one `-Xexplicit-api=<mode>` argument may select `strict`,
@@ -803,6 +804,7 @@ args = [
   "-progressive",
   "-Xcontext-parameters",
   "-Xcontext-sensitive-resolution",
+  "-Xwhen-guards",
   "-language-version", "1.9",
   "-api-version", "1.8",
   "-jvm-default=no-compatibility",
@@ -847,8 +849,13 @@ deprecated `-Xcontext-receivers` switch remains outside the bounded argument
 set.
 `-Xcontext-sensitive-resolution` enables the selected Kotlin compiler's preview
 for resolving unqualified enum entries and sealed-class members when the
-surrounding context establishes the expected type. Extra warnings, progressive
-mode, context parameters, context-sensitive resolution, language/API version
+surrounding context establishes the expected type. `-Xwhen-guards` enables
+guarded branches for compilers that expose the syntax as a preview, including
+Kotlin 2.1. Kotlin 2.2 promotes guard conditions to stable, so that compiler
+also accepts the syntax without the flag. A language-version pin remains
+authoritative: Kotlin 2.2 does not backport guard syntax to language version 2.1
+merely because the flag is present. Extra warnings, progressive mode, context
+parameters, context-sensitive resolution, when guards, language/API version
 pairs, JVM-default modes, explicit-API modes, string-concatenation modes,
 lambda-generation modes, SAM-conversion modes, diagnostic warning levels, and
 opt-ins go only to `kotlinc`.
@@ -867,10 +874,10 @@ cleaned full compilation so obsolete synthetic lambda classes do not survive.
 Kotlin converts a function expression to a Kotlin or Java
 single-abstract-method interface, while `-Xsam-conversions=indy` uses
 `LambdaMetafactory` and avoids those class files. SAM-conversion mode is
-independent of `-Xlambdas`;
-configure both when ordinary Kotlin lambdas and SAM conversions require a
-particular scheme. Changing SAM-conversion modes likewise performs a cleaned
-full compilation so obsolete synthetic classes do not survive.
+independent of `-Xlambdas`; configure both when ordinary Kotlin lambdas and SAM
+conversions require a particular scheme. Changing SAM-conversion modes likewise
+performs a cleaned full compilation so obsolete synthetic classes do not
+survive.
 `-jvm-default=enable` emits interface default methods plus
 compatibility `DefaultImpls`, `no-compatibility` emits only interface default
 methods, and `disable` emits abstract interface methods plus `DefaultImpls`.
@@ -881,16 +888,17 @@ visibility and return types on public API declarations compilation errors;
 off. Main and test arguments are independent, and changing warning suppression
 or enforcement, a diagnostic warning level, progressive mode, version pairs,
 context parameters, context-sensitive resolution, JVM-default mode,
-explicit-API mode, string-concatenation mode, lambda-generation mode,
-SAM-conversion mode, or opt-ins invalidates reuse for that source set. Zolt
-validates warning-level syntax and duplicate names; the selected Kotlin compiler
-still determines supported diagnostic names, warnings, extra and progressive
-checks, version values, language/API combinations, JVM-default and explicit-API
-modes, string-concatenation, lambda-generation, and SAM-conversion modes,
-context-parameter behavior, and context-sensitive-resolution behavior. It also
-decides whether an opt-in annotation exists and applies. Other custom compiler
-arguments remain unsupported for Kotlin-bearing source sets because javac flags
-cannot in general be forwarded safely to `kotlinc`.
+explicit-API mode, when-guards configuration, string-concatenation mode,
+lambda-generation mode, SAM-conversion mode, or opt-ins invalidates reuse for
+that source set. Zolt validates warning-level syntax and duplicate names; the
+selected Kotlin compiler still determines supported diagnostic names, warnings,
+extra and progressive checks, version values, language/API combinations,
+JVM-default and explicit-API modes, string-concatenation, lambda-generation, and
+SAM-conversion modes, context-parameter, context-sensitive-resolution, and
+when-guards behavior. It also decides whether an opt-in annotation exists and
+applies. Other custom compiler arguments remain unsupported for Kotlin-bearing
+source sets because javac flags cannot in general be forwarded safely to
+`kotlinc`.
 
 Kotlin compiler module identity is explicit when compatibility with another
 build must be preserved:
