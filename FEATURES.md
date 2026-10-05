@@ -41,8 +41,8 @@ zolt run
   and Protobuf generators. Kotlin language and API versions may be pinned per
   main or test source set, with explicit compiler-wide experimental API opt-ins
   and JVM-default compatibility modes. Progressive compilation may be enabled
-  independently for main and test sources. Unsupported language and compiler
-  combinations fail closed.
+  independently for main and test sources, as may Kotlin's extra warning checks.
+  Unsupported language and compiler combinations fail closed.
 - **Dependencies.** Use API, implementation, runtime, provided, development,
   test, and annotation-processor lanes under one `[dependencies]` namespace.
 - **Metadata.** Import BOMs and configure version aliases, exclusions,
