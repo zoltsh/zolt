@@ -24,6 +24,7 @@ final class KotlinCompilerArgumentPolicy {
         boolean contextSensitiveResolution = false;
         boolean contextParameters = false;
         boolean whenGuards = false;
+        boolean nestedTypeAliases = false;
         String stringConcatMode = "";
         String lambdaMode = "";
         String samConversionMode = "";
@@ -83,6 +84,12 @@ final class KotlinCompilerArgumentPolicy {
                         throw duplicateArgument(scope, argument);
                     }
                     whenGuards = true;
+                }
+                case "-Xnested-type-aliases" -> {
+                    if (nestedTypeAliases) {
+                        throw duplicateArgument(scope, argument);
+                    }
+                    nestedTypeAliases = true;
                 }
                 case "-language-version" -> {
                     if (!languageVersion.isEmpty()) {
@@ -158,6 +165,7 @@ final class KotlinCompilerArgumentPolicy {
                 contextSensitiveResolution,
                 contextParameters,
                 whenGuards,
+                nestedTypeAliases,
                 stringConcatMode,
                 lambdaMode,
                 samConversionMode,
@@ -258,7 +266,7 @@ final class KotlinCompilerArgumentPolicy {
                 argumentsPath(scope) + " contains unsupported compiler argument `" + argument + "`",
                 "Use only a compatible, duplicate-free subset of `-parameters`, `-nowarn`,"
                         + " `-Werror`, `-Wextra`, `-progressive`, `-Xcontext-sensitive-resolution`,"
-                        + " `-Xcontext-parameters`, `-Xwhen-guards`,"
+                        + " `-Xcontext-parameters`, `-Xwhen-guards`, `-Xnested-type-aliases`,"
                         + " `-language-version <major.minor>`, `-api-version <major.minor>`, and one"
                         + " `-jvm-default=<mode>`, plus repeatable"
                         + " `-opt-in=<qualified.annotation.Name>` arguments and one"
@@ -292,6 +300,7 @@ final class KotlinCompilerArgumentPolicy {
             boolean contextSensitiveResolution,
             boolean contextParameters,
             boolean whenGuards,
+            boolean nestedTypeAliases,
             String stringConcatMode,
             String lambdaMode,
             String samConversionMode,

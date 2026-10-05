@@ -53,6 +53,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.whenGuards()) {
             arguments.add("-Xwhen-guards");
         }
+        if (options.nestedTypeAliases()) {
+            arguments.add("-Xnested-type-aliases");
+        }
         if (!options.stringConcatMode().isEmpty()) {
             arguments.add("-Xstring-concat=" + options.stringConcatMode());
         }
