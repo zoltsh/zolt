@@ -47,7 +47,8 @@ zolt run
   likewise be expanded, enforced, suppressed, or adjusted by diagnostic per
   source set. Kotlin/JVM string concatenation may use inline `StringBuilder` or
   either invokedynamic scheme per source set; lambda generation may likewise
-  select anonymous classes or invokedynamic. Unsupported language and compiler
+  select anonymous classes or invokedynamic, as may conversion to
+  single-abstract-method interfaces. Unsupported language and compiler
   combinations fail closed.
 - **Dependencies.** Use API, implementation, runtime, provided, development,
   test, and annotation-processor lanes under one `[dependencies]` namespace.

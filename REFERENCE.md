@@ -787,7 +787,8 @@ the paired Kotlin arguments `-language-version <major.minor>` and
 `disable`, and one `-Xexplicit-api=<mode>` argument may select `strict`,
 `warning`, or `disable`. One `-Xstring-concat=<mode>` argument may select
 `inline`, `indy`, or `indy-with-constants`, and one `-Xlambdas=<mode>` argument
-may select `class` or `indy`. Distinct, repeatable
+may select `class` or `indy`. One `-Xsam-conversions=<mode>` argument may also
+select `class` or `indy`. Distinct, repeatable
 `-Xwarning-level=DIAGNOSTIC_NAME:<level>` arguments may set an uppercase Kotlin
 diagnostic to `error`, `warning`, or `disabled`. The standalone and version
 options must be spelled as separate array entries and may appear at most once;
@@ -808,6 +809,7 @@ args = [
   "-Xexplicit-api=strict",
   "-Xstring-concat=indy-with-constants",
   "-Xlambdas=indy",
+  "-Xsam-conversions=indy",
   "-Xwarning-level=REDUNDANT_VISIBILITY_MODIFIER:disabled",
   "-opt-in=kotlin.ExperimentalStdlibApi",
 ]
@@ -848,8 +850,8 @@ for resolving unqualified enum entries and sealed-class members when the
 surrounding context establishes the expected type. Extra warnings, progressive
 mode, context parameters, context-sensitive resolution, language/API version
 pairs, JVM-default modes, explicit-API modes, string-concatenation modes,
-lambda-generation modes, diagnostic warning levels, and opt-ins go only to
-`kotlinc`.
+lambda-generation modes, SAM-conversion modes, diagnostic warning levels, and
+opt-ins go only to `kotlinc`.
 `-Xstring-concat=inline` emits concatenation through `StringBuilder`.
 `-Xstring-concat=indy` uses `StringConcatFactory.makeConcat`, while
 `indy-with-constants` uses `StringConcatFactory.makeConcatWithConstants`. The
@@ -861,6 +863,14 @@ form produces lighter output but its lambdas are not serializable unless marked
 `@JvmSerializableLambda`, do not work with Kotlin's experimental `reflect()`
 API, and have a less descriptive `toString()`. Changing modes performs a
 cleaned full compilation so obsolete synthetic lambda classes do not survive.
+`-Xsam-conversions=class` emits explicit synthetic implementation classes when
+Kotlin converts a function expression to a Kotlin or Java
+single-abstract-method interface, while `-Xsam-conversions=indy` uses
+`LambdaMetafactory` and avoids those class files. SAM-conversion mode is
+independent of `-Xlambdas`;
+configure both when ordinary Kotlin lambdas and SAM conversions require a
+particular scheme. Changing SAM-conversion modes likewise performs a cleaned
+full compilation so obsolete synthetic classes do not survive.
 `-jvm-default=enable` emits interface default methods plus
 compatibility `DefaultImpls`, `no-compatibility` emits only interface default
 methods, and `disable` emits abstract interface methods plus `DefaultImpls`.
@@ -871,16 +881,16 @@ visibility and return types on public API declarations compilation errors;
 off. Main and test arguments are independent, and changing warning suppression
 or enforcement, a diagnostic warning level, progressive mode, version pairs,
 context parameters, context-sensitive resolution, JVM-default mode,
-explicit-API mode, string-concatenation mode, lambda-generation mode, or opt-ins
-invalidates reuse for that source set. Zolt validates warning-level syntax and
-duplicate names; the selected Kotlin compiler still determines supported
-diagnostic names, warnings, extra and progressive checks, version values,
-language/API combinations, JVM-default and explicit-API modes,
-string-concatenation and lambda-generation modes, context-parameter behavior,
-and context-sensitive-resolution behavior. It also decides whether an opt-in
-annotation exists and applies. Other custom compiler arguments remain
-unsupported for Kotlin-bearing source sets because javac flags cannot in
-general be forwarded safely to `kotlinc`.
+explicit-API mode, string-concatenation mode, lambda-generation mode,
+SAM-conversion mode, or opt-ins invalidates reuse for that source set. Zolt
+validates warning-level syntax and duplicate names; the selected Kotlin compiler
+still determines supported diagnostic names, warnings, extra and progressive
+checks, version values, language/API combinations, JVM-default and explicit-API
+modes, string-concatenation, lambda-generation, and SAM-conversion modes,
+context-parameter behavior, and context-sensitive-resolution behavior. It also
+decides whether an opt-in annotation exists and applies. Other custom compiler
+arguments remain unsupported for Kotlin-bearing source sets because javac flags
+cannot in general be forwarded safely to `kotlinc`.
 
 Kotlin compiler module identity is explicit when compatibility with another
 build must be preserved:
