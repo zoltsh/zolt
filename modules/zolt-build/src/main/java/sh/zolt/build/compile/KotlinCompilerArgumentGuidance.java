@@ -23,7 +23,7 @@ final class KotlinCompilerArgumentGuidance {
                 + " `-Xvalidate-bytecode`,"
                 + " `-Xindy-allow-annotated-lambdas` with `-Xlambdas=indy`,"
                 + " `-Xgenerate-strict-metadata-version`, `-Xannotations-in-metadata`,"
-                + " `-Xallow-unstable-dependencies`,"
+                + " `-Xuse-type-table`, `-Xallow-unstable-dependencies`,"
                 + " `-language-version <major.minor>`, `-api-version <major.minor>`, and one"
                 + " `-jvm-default=<mode>`, plus repeatable"
                 + " `-opt-in=<qualified.annotation.Name>` arguments and one"

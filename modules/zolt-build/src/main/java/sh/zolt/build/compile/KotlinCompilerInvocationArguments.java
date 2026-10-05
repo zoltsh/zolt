@@ -119,6 +119,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.annotationsInMetadata()) {
             arguments.add("-Xannotations-in-metadata");
         }
+        if (options.useTypeTable()) {
+            arguments.add("-Xuse-type-table");
+        }
         if (options.allowUnstableDependencies()) {
             arguments.add("-Xallow-unstable-dependencies");
         }
