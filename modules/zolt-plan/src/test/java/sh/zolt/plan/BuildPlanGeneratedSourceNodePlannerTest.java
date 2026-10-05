@@ -98,11 +98,11 @@ final class BuildPlanGeneratedSourceNodePlannerTest {
     }
 
     @Test
-    void blocksIncompleteOpenApiSettingsAndUnsupportedLanguage() {
+    void blocksIncompleteOpenApiSettingsAndUnknownLanguage() {
         GeneratedSourceStep step = new GeneratedSourceStep(
                 "openapi",
                 GeneratedSourceKind.OPENAPI,
-                "kotlin",
+                "scala",
                 "target/generated/sources/openapi",
                 List.of(),
                 true,
@@ -228,7 +228,7 @@ final class BuildPlanGeneratedSourceNodePlannerTest {
                 Optional.of("7.12.0"),
                 Optional.of("openapi-generator"),
                 Optional.empty(),
-                Optional.of("java"),
+                Optional.of("kotlin"),
                 Optional.empty(),
                 Optional.of("com.example.api"),
                 Optional.of("com.example.model"),
@@ -245,7 +245,7 @@ final class BuildPlanGeneratedSourceNodePlannerTest {
         GeneratedSourceStep step = new GeneratedSourceStep(
                 "client",
                 GeneratedSourceKind.OPENAPI,
-                "java",
+                "kotlin",
                 "target/generated/sources/client",
                 List.of("src/main/openapi/api.yaml"),
                 true,

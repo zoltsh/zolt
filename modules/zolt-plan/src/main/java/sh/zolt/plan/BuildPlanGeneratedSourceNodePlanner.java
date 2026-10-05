@@ -41,7 +41,8 @@ final class BuildPlanGeneratedSourceNodePlanner {
             blockers.add(new PlanBlocker(
                     "unsupported-generated-source-language",
                     "Generated source language `" + step.language() + "` is not supported yet.",
-                    "Use language = \"java\", or use language = \"kotlin\" with kind = \"declared-root\"."));
+                    "Use language = \"java\", or use language = \"kotlin\" with kind = \"openapi\""
+                            + " or kind = \"declared-root\"."));
         }
         addInvalidPathBlocker(blockers, root, step.output(), "output");
         for (int index = 0; index < step.inputs().size(); index++) {
@@ -112,7 +113,8 @@ final class BuildPlanGeneratedSourceNodePlanner {
     private static boolean supportedLanguage(GeneratedSourceStep step) {
         return "java".equals(step.language())
                 || ("kotlin".equals(step.language())
-                        && step.kind() == GeneratedSourceKind.DECLARED_ROOT);
+                        && (step.kind() == GeneratedSourceKind.OPENAPI
+                                || step.kind() == GeneratedSourceKind.DECLARED_ROOT));
     }
 
     private static List<GeneratedSourceEvidence> generatedSourcesForScope(

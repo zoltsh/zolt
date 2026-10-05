@@ -248,13 +248,21 @@ final class GeneratedSourceQualityCheckTest extends QualityCheckServiceTestSuppo
                 QualityCheckStatus.FAILED,
                 "[generated.main.scala-api]",
                 "Unsupported generated source language `scala`.",
-                "Use language = \"java\", or use language = \"kotlin\" with kind = \"declared-root\""
-                        + " or a source-producing exec step.");
+                "Use language = \"java\", or use language = \"kotlin\" with kind = \"openapi\","
+                        + " kind = \"declared-root\", or a source-producing exec step.");
     }
 
     @Test
-    void rejectsKotlinForJavaOnlyGeneratedKinds() throws IOException {
-        Path projectDir = tempDir.resolve("bad-kotlin-kind");
+    void passesForFreshKotlinOpenApiOutput() throws IOException {
+        Path projectDir = tempDir.resolve("fresh-kotlin-openapi");
+        Path input = projectDir.resolve("src/main/openapi/api.yaml");
+        Path output = projectDir.resolve("target/generated/sources/openapi/com/example/Client.kt");
+        Files.createDirectories(input.getParent());
+        Files.createDirectories(output.getParent());
+        Files.writeString(input, "openapi: 3.1.0\n");
+        Files.writeString(output, "package com.example\nclass Client\n");
+        Files.setLastModifiedTime(input, FileTime.fromMillis(1_000));
+        Files.setLastModifiedTime(output, FileTime.fromMillis(2_000));
         ProjectConfig parsed = parseProject(projectDir, "");
         ProjectConfig config = parsed.withBuildSettings(parsed.build().withGeneratedSources(
                 List.of(new GeneratedSourceStep(
@@ -269,13 +277,9 @@ final class GeneratedSourceQualityCheckTest extends QualityCheckServiceTestSuppo
 
         QualityCheckResult result = check.check(Optional.empty(), projectDir, config).getFirst();
 
-        assertResult(
-                result,
-                QualityCheckStatus.FAILED,
-                "[generated.main.openapi]",
-                "Unsupported generated source language `kotlin`.",
-                "Use language = \"java\", or use language = \"kotlin\" with kind = \"declared-root\""
-                        + " or a source-producing exec step.");
+        assertEquals(QualityCheckStatus.PASSED, result.status());
+        assertEquals("[generated.main.openapi]", result.subject());
+        assertTrue(result.message().contains("ownership `zolt-owned-openapi`"), result.message());
     }
 
     @Test
