@@ -38,7 +38,9 @@ zolt run
   circular cross-language references, plus Kotlin/JVM unit and integration
   tests alone or together with Java. Kotlin main and test trees may be authored,
   protected pre-generated roots, or owned outputs of pinned exec and OpenAPI
-  generators. Unsupported language and compiler combinations fail closed.
+  and Protobuf generators. Kotlin language and API versions may be pinned per
+  main or test source set. Unsupported language and compiler combinations fail
+  closed.
 - **Dependencies.** Use API, implementation, runtime, provided, development,
   test, and annotation-processor lanes under one `[dependencies]` namespace.
 - **Metadata.** Import BOMs and configure version aliases, exclusions,

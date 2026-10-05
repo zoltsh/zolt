@@ -777,15 +777,28 @@ may restore the complete class and `META-INF/*.kotlin_module` inventory.
 `--no-build-cache` only bypasses output-cache restore and storage; it does not
 disable the unchanged-input skip.
 
-For a Kotlin-bearing source set, compiler arguments may contain `-parameters`,
-`-Werror`, or both in either order, with no duplicates. For main sources,
-`[compiler].args = ["-parameters"]` enables Java reflection parameter metadata
-in both the Kotlin and authored Java halves of mixed compilation. The contract
-covers source-declared constructor, function, and method parameters; Kotlin
-compiler-generated synthetic parameters are outside it. `-Werror` makes a
-warning from either compiler phase fail that source set. Tests opt in
-independently through `[compiler.test].args`, so main and test warning and
-parameter-metadata policies do not leak into one another. Other custom compiler
+For a Kotlin-bearing source set, compiler arguments may contain the standalone
+flags `-parameters` and `-Werror`, plus one each of the paired Kotlin arguments
+`-language-version <major.minor>` and `-api-version <major.minor>`. Every option
+must be spelled as a separate array entry and may appear at most once:
+
+```toml
+[compiler]
+args = ["-parameters", "-language-version", "1.9", "-api-version", "1.9"]
+
+[compiler.test]
+args = ["-language-version", "2.0", "-api-version", "2.0"]
+```
+
+`-parameters` enables Java reflection parameter metadata in both the Kotlin and
+authored Java halves of mixed compilation. The contract covers source-declared
+constructor, function, and method parameters; Kotlin compiler-generated
+synthetic parameters are outside it. `-Werror` makes a warning from either
+compiler phase fail that source set. Language/API version pairs go only to
+`kotlinc`, while the matching javac phase receives neither. Main and test
+arguments are independent, and changing either version pair invalidates reuse
+for that source set. The selected Kotlin compiler still decides which version
+values and language/API combinations it supports. Other custom compiler
 arguments remain unsupported for Kotlin-bearing source sets because javac flags
 cannot in general be forwarded safely to kotlinc.
 
