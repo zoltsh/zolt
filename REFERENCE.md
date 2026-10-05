@@ -792,7 +792,7 @@ plus `-Xmulti-dollar-interpolation`, `-Xnon-local-break-continue`,
 `-Xmultifile-parts-inherit`,
 `-Xvalidate-bytecode`,
 `-Xgenerate-strict-metadata-version`, `-Xannotations-in-metadata`,
-`-Xuse-type-table`, and
+`-Xuse-type-table`, `-Xjvm-enable-preview`, and
 `-Xallow-unstable-dependencies`, plus
 `-Xindy-allow-annotated-lambdas` when paired with `-Xlambdas=indy`. One each of
 the paired Kotlin arguments
@@ -860,6 +860,7 @@ args = [
   "-Xgenerate-strict-metadata-version",
   "-Xannotations-in-metadata",
   "-Xuse-type-table",
+  "-Xjvm-enable-preview",
   "-Xabi-stability=stable",
   "-language-version", "1.9",
   "-api-version", "1.8",
@@ -951,6 +952,8 @@ complete warning reporting, internal diagnostic-name rendering,
 generated-bytecode validation, annotations in metadata, metadata type-table
 serialization, ABI-stability marking,
 unstable-dependency opt-in, and opt-ins go only to `kotlinc`.
+JVM preview-class generation is coordinated across `kotlinc`, the javac phase
+of mixed compilation, and Zolt-owned runtime launches.
 `-Xmulti-dollar-interpolation` enables Kotlin 2.1's preview syntax when the
 source set pins `-language-version 2.1`. Kotlin 2.2 promotes the syntax to
 Stable and accepts it without the flag. Prefixing a regular or multiline string
@@ -1168,6 +1171,22 @@ table encoding and reader compatibility. Configure the flag independently for
 main and test source sets; changing it invalidates and cleanly recompiles the
 matching output, and removing it restores the compiler's default metadata
 layout.
+`-Xjvm-enable-preview` asks the selected Kotlin compiler to mark every emitted
+class as using JVM preview features and forwards `--enable-preview` to the javac
+phase of a mixed source set. Preview compilation requires Java 12 or newer, and
+the effective Java target must equal the selected build JDK's feature release;
+preview class files are tied to that exact Java feature. In the qualified Java
+21 and Kotlin 2.2.0 case, Kotlin and Java classes using preview syntax have
+class-file version `65.65535` instead of `65.0`. Zolt automatically adds
+`--enable-preview` to its own `run`, `run-package`, workspace, framework, test,
+and coverage JVM launches whenever they can load preview-marked main or test
+output. An explicitly configured `[test.runtime].jvmArgs` entry is not
+duplicated. External launchers and consumers remain responsible for using the
+same Java feature release and passing `java --enable-preview`; packaging does
+not make preview bytecode ordinary or cross-release compatible. Configure the
+flag independently for main and test source sets. Test execution enables the
+runtime when either source set requires it, and changing either setting
+invalidates and cleanly recompiles the matching output.
 `-Xannotations-in-metadata` writes declaration annotations into Kotlin metadata
 in addition to their ordinary JVM class-file attributes, and lets the selected
 compiler read annotations already represented there. In the qualified Kotlin
@@ -1286,8 +1305,8 @@ exceptions, strict metadata-version semantics, annotations in metadata, backend
 optimization, method inlining, inline-scope debug numbering, JVM-name
 parentheses sanitization, legacy inline-class mangling, multifile-part
 inheritance, complete warning reporting, internal diagnostic-name rendering,
-generated-bytecode validation, or opt-ins invalidates reuse for that source
-set.
+generated-bytecode validation, JVM preview-class generation, or opt-ins
+invalidates reuse for that source set.
 Zolt validates warning-level syntax and duplicate names; the selected Kotlin
 compiler still determines
 supported diagnostic names, warnings, extra and progressive checks, version
@@ -1296,7 +1315,8 @@ string-concatenation, lambda-generation, annotated-lambda indy compatibility,
 backend optimization, method inlining, inline-scope debug numbering, legacy
 inline-class mangling, complete warning reporting, generated-bytecode
 validation, internal diagnostic-name rendering,
-JVM-name sanitization, multifile-part inheritance, and SAM-conversion modes,
+JVM preview-class generation, JVM-name sanitization, multifile-part inheritance,
+and SAM-conversion modes,
 context-parameter, context-sensitive-resolution, when-guards,
 nested-type-aliases, multi-dollar-interpolation, non-local loop control,
 annotation-target, package-specific nullability, boxed value-class, and
