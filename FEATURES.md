@@ -40,7 +40,8 @@ zolt run
   protected pre-generated roots, or owned outputs of pinned exec and OpenAPI
   and Protobuf generators. Kotlin language and API versions may be pinned per
   main or test source set, with explicit compiler-wide experimental API opt-ins
-  and JVM-default compatibility modes. Progressive compilation may be enabled
+  and JVM-default compatibility modes. Public Kotlin APIs may be checked in
+  warning or strict explicit-API mode. Progressive compilation may be enabled
   independently for main and test sources; warnings may likewise be expanded,
   enforced, or suppressed per source set.
   Unsupported language and compiler combinations fail closed.
