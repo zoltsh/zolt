@@ -52,7 +52,8 @@ final class KotlinCompilerArgumentPolicy {
                         "-Xconsistent-data-class-copy-visibility",
                         "-Xemit-jvm-type-annotations",
                         "-Xno-new-java-annotation-targets",
-                        "-Xno-source-debug-extension" -> {
+                        "-Xno-source-debug-extension",
+                        "-Xgenerate-strict-metadata-version" -> {
                     if (!standaloneArguments.add(argument)) {
                         throw duplicateArgument(scope, argument);
                     }
@@ -179,6 +180,7 @@ final class KotlinCompilerArgumentPolicy {
                 standaloneArguments.contains("-Xemit-jvm-type-annotations"),
                 standaloneArguments.contains("-Xno-new-java-annotation-targets"),
                 standaloneArguments.contains("-Xno-source-debug-extension"),
+                standaloneArguments.contains("-Xgenerate-strict-metadata-version"),
                 annotationDefaultTargetMode,
                 assertionMode,
                 jspecifyAnnotationsMode,
@@ -285,6 +287,7 @@ final class KotlinCompilerArgumentPolicy {
             boolean emitJvmTypeAnnotations,
             boolean noNewJavaAnnotationTargets,
             boolean noSourceDebugExtension,
+            boolean generateStrictMetadataVersion,
             String annotationDefaultTargetMode,
             String assertionMode,
             String jspecifyAnnotationsMode,

@@ -74,6 +74,7 @@ public final class KotlinCompileOptionsPolicy {
                 mappedArguments.emitJvmTypeAnnotations(),
                 mappedArguments.noNewJavaAnnotationTargets(),
                 mappedArguments.noSourceDebugExtension(),
+                mappedArguments.generateStrictMetadataVersion(),
                 mappedArguments.annotationDefaultTargetMode(),
                 mappedArguments.assertionMode(),
                 mappedArguments.jspecifyAnnotationsMode(),

@@ -80,6 +80,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.noSourceDebugExtension()) {
             arguments.add("-Xno-source-debug-extension");
         }
+        if (options.generateStrictMetadataVersion()) {
+            arguments.add("-Xgenerate-strict-metadata-version");
+        }
         if (!options.annotationDefaultTargetMode().isEmpty()) {
             arguments.add("-Xannotation-default-target=" + options.annotationDefaultTargetMode());
         }

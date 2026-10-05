@@ -14,6 +14,7 @@ final class KotlinCompilerArgumentGuidance {
                 + " `-Xannotation-target-all`, `-Xjvm-expose-boxed`,"
                 + " `-Xconsistent-data-class-copy-visibility`, `-Xemit-jvm-type-annotations`,"
                 + " `-Xno-new-java-annotation-targets`, `-Xno-source-debug-extension`,"
+                + " `-Xgenerate-strict-metadata-version`,"
                 + " `-language-version <major.minor>`, `-api-version <major.minor>`, and one"
                 + " `-jvm-default=<mode>`, plus repeatable"
                 + " `-opt-in=<qualified.annotation.Name>` arguments and one"
