@@ -35,38 +35,13 @@ final class KotlinCompilerArgumentPolicy {
         List<String> optIns = new ArrayList<>();
         for (int index = 0; index < arguments.size(); index++) {
             String argument = arguments.get(index);
-            switch (argument) {
-                case "-parameters",
-                        "-Werror",
-                        "-nowarn",
-                        "-Wextra",
-                        "-Xreport-all-warnings",
-                        "-progressive",
-                        "-Xcontext-sensitive-resolution",
-                        "-Xcontext-parameters",
-                        "-Xwhen-guards",
-                        "-Xmulti-dollar-interpolation",
-                        "-Xnon-local-break-continue",
-                        "-Xnested-type-aliases",
-                        "-Xannotation-target-all",
-                        "-Xjvm-expose-boxed",
-                        "-Xconsistent-data-class-copy-visibility",
-                        "-Xemit-jvm-type-annotations",
-                        "-Xno-new-java-annotation-targets",
-                        "-Xno-source-debug-extension",
-                        "-Xno-unified-null-checks",
-                        "-Xno-optimize",
-                        "-Xno-inline",
-                        "-Xsanitize-parentheses",
-                        "-Xmultifile-parts-inherit",
-                        "-Xvalidate-bytecode",
-                        "-Xindy-allow-annotated-lambdas",
-                        "-Xgenerate-strict-metadata-version",
-                        "-Xannotations-in-metadata" -> {
-                    if (!standaloneArguments.add(argument)) {
-                        throw duplicateArgument(scope, argument);
-                    }
+            if (KotlinCompilerStandaloneArguments.supports(argument)) {
+                if (!standaloneArguments.add(argument)) {
+                    throw duplicateArgument(scope, argument);
                 }
+                continue;
+            }
+            switch (argument) {
                 case "-language-version" -> {
                     if (!languageVersion.isEmpty()) {
                         throw duplicateArgument(scope, argument);
