@@ -4,6 +4,7 @@ import sh.zolt.classpath.Classpath;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.build.BuildException;
 import sh.zolt.build.JavaRunException;
+import sh.zolt.build.compile.kotlin.KotlinJvmPreviewPolicy;
 import sh.zolt.build.run.JavaRunResult;
 import sh.zolt.build.run.JavaRunner;
 import sh.zolt.build.testruntime.compile.TestCompileResult;
@@ -116,7 +117,10 @@ public final class CompiledTestRunner {
                 config.build().testRuntime(),
                 jvmArguments,
                 cliEvents);
-        TestJvmArguments testJvmArguments = testRuntime.jvmArguments();
+        TestJvmArguments testJvmArguments = new TestJvmArguments(
+                KotlinJvmPreviewPolicy.testJvmArguments(
+                        config,
+                        testRuntime.jvmArguments().values()));
         Map<String, String> testEnvironment = profileEnvironment(
                 testRuntime.environment(),
                 testProfileSettings,

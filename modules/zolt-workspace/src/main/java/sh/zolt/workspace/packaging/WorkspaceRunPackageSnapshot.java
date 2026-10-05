@@ -29,9 +29,11 @@ public record WorkspaceRunPackageSnapshot(
             PackageResult snapshotPackage,
             List<Path> runtimeEntries,
             Path java,
-            String mainClass) {
+            String mainClass,
+            List<String> jvmArguments) {
         public MemberLaunch {
             runtimeEntries = List.copyOf(runtimeEntries);
+            jvmArguments = List.copyOf(jvmArguments);
         }
     }
 }

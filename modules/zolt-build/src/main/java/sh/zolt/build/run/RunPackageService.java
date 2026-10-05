@@ -2,6 +2,7 @@ package sh.zolt.build.run;
 
 import sh.zolt.build.BuildResultWithClasspaths;
 import sh.zolt.build.BuildService;
+import sh.zolt.build.compile.kotlin.KotlinJvmPreviewPolicy;
 import sh.zolt.build.packageplan.PackagePlanService;
 import sh.zolt.build.packaging.PackageResult;
 import sh.zolt.build.packaging.PackageService;
@@ -151,6 +152,7 @@ public final class RunPackageService {
                 packageResult,
                 classpaths.runtime().entries(),
                 mainClass,
+                KotlinJvmPreviewPolicy.mainJvmArguments(config),
                 arguments);
         return new RunPackageResult(packageResult, javaRunResult);
     }

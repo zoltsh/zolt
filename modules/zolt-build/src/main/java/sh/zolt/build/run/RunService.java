@@ -3,6 +3,7 @@ package sh.zolt.build.run;
 import sh.zolt.build.BuildResultWithClasspaths;
 import sh.zolt.build.BuildService;
 import sh.zolt.build.RunException;
+import sh.zolt.build.compile.kotlin.KotlinJvmPreviewPolicy;
 import sh.zolt.build.lockfile.VerifiedArtifactIndex;
 import sh.zolt.classpath.Classpath;
 import sh.zolt.doctor.JdkChecker;
@@ -127,6 +128,7 @@ public final class RunService {
                     jdkStatus.java().orElseThrow(),
                     runResult.runnerJar(),
                     runResult.runnerDescription(),
+                    KotlinJvmPreviewPolicy.mainJvmArguments(config),
                     arguments,
                     outputConsumer);
             return new RunResult(buildResult.buildResult(), javaRunResult);
@@ -142,6 +144,7 @@ public final class RunService {
                 jdkStatus.java().orElseThrow(),
                 new Classpath(runtimeEntries),
                 mainClass,
+                KotlinJvmPreviewPolicy.mainJvmArguments(config),
                 arguments,
                 outputConsumer);
         return new RunResult(buildResult.buildResult(), javaRunResult);

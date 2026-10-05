@@ -27,6 +27,10 @@ public record WorkspaceRunSnapshot(
             WorkspaceBuildResult.MemberBuildResult build,
             Path java,
             Classpath classpath,
-            String mainClass) {
+            String mainClass,
+            List<String> jvmArguments) {
+        public MemberLaunch {
+            jvmArguments = List.copyOf(jvmArguments);
+        }
     }
 }

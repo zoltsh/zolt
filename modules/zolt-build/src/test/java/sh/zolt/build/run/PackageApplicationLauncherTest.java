@@ -72,6 +72,42 @@ final class PackageApplicationLauncherTest {
     }
 
     @Test
+    void forwardsJvmArgumentsToClasspathAndJarLaunches() {
+        launcher.launch(
+                Path.of("java"),
+                result(PackageMode.THIN),
+                List.of(Path.of("runtime.jar")),
+                "com.example.Main",
+                List.of("--enable-preview"),
+                List.of("thin"));
+        launcher.launch(
+                Path.of("java"),
+                result(PackageMode.UBER),
+                List.of(),
+                "com.example.Main",
+                List.of("--enable-preview"),
+                List.of("uber"));
+
+        assertEquals(
+                List.of(
+                        "java",
+                        "--enable-preview",
+                        "-classpath",
+                        "target/app.jar:runtime.jar",
+                        "com.example.Main",
+                        "thin"),
+                commands.get(0));
+        assertEquals(
+                List.of(
+                        "java",
+                        "--enable-preview",
+                        "-jar",
+                        "target/app.jar",
+                        "uber"),
+                commands.get(1));
+    }
+
+    @Test
     void nonRunnableModesShareActionableRejections() {
         assertRejected(
                 PackageMode.WAR,

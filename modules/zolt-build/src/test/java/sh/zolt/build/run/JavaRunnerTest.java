@@ -157,6 +157,26 @@ final class JavaRunnerTest {
     }
 
     @Test
+    void placesJarJvmArgumentsBeforeTheJarLauncherOption() {
+        List<List<String>> commands = new ArrayList<>();
+        JavaRunner runner = new JavaRunner(":", (command, outputConsumer) -> {
+            commands.add(command);
+            return new JavaRunner.ProcessResult(0, "preview\n");
+        });
+
+        runner.runJar(
+                Path.of("java"),
+                Path.of("target/demo.jar"),
+                "com.example.Main",
+                List.of("--enable-preview"),
+                List.of("one"));
+
+        assertEquals(
+                List.of("java", "--enable-preview", "-jar", "target/demo.jar", "one"),
+                commands.getFirst());
+    }
+
+    @Test
     void nonZeroExitIncludesApplicationOutput() {
         JavaRunner runner = new JavaRunner(":", (command, outputConsumer) -> new JavaRunner.ProcessResult(7, "boom\n"));
 

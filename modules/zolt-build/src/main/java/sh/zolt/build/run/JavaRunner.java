@@ -110,7 +110,17 @@ public final class JavaRunner {
             Path jar,
             String mainClass,
             List<String> arguments) {
-        return runJar(java, jar, mainClass, arguments, ignored -> {
+        return runJar(java, jar, mainClass, List.of(), arguments, ignored -> {
+        });
+    }
+
+    public JavaRunResult runJar(
+            Path java,
+            Path jar,
+            String mainClass,
+            List<String> jvmArguments,
+            List<String> arguments) {
+        return runJar(java, jar, mainClass, jvmArguments, arguments, ignored -> {
         });
     }
 
@@ -120,7 +130,17 @@ public final class JavaRunner {
             String mainClass,
             List<String> arguments,
             Consumer<String> outputConsumer) {
-        List<String> command = jarCommand(java, jar, arguments);
+        return runJar(java, jar, mainClass, List.of(), arguments, outputConsumer);
+    }
+
+    public JavaRunResult runJar(
+            Path java,
+            Path jar,
+            String mainClass,
+            List<String> jvmArguments,
+            List<String> arguments,
+            Consumer<String> outputConsumer) {
+        List<String> command = jarCommand(java, jar, jvmArguments, arguments);
         ProcessResult result = processRunner.run(command, outputConsumer);
         return result(mainClass, result);
     }
@@ -175,9 +195,11 @@ public final class JavaRunner {
     private static List<String> jarCommand(
             Path java,
             Path jar,
+            List<String> jvmArguments,
             List<String> arguments) {
         List<String> command = new ArrayList<>();
         command.add(java.toString());
+        command.addAll(jvmArguments);
         command.add("-jar");
         command.add(jar.normalize().toString());
         command.addAll(arguments);
