@@ -60,6 +60,7 @@ public final class KotlinCompileOptionsPolicy {
                 mappedArguments.warningsAsErrors(),
                 mappedArguments.languageVersion(),
                 mappedArguments.apiVersion(),
+                mappedArguments.jvmDefaultMode(),
                 mappedArguments.optIns(),
                 null);
     }
@@ -95,6 +96,7 @@ public final class KotlinCompileOptionsPolicy {
         boolean warningsAsErrors = false;
         String languageVersion = "";
         String apiVersion = "";
+        String jvmDefaultMode = "";
         List<String> optIns = new ArrayList<>();
         for (int index = 0; index < arguments.size(); index++) {
             String argument = arguments.get(index);
@@ -124,7 +126,12 @@ public final class KotlinCompileOptionsPolicy {
                     apiVersion = versionArgument(arguments, ++index, scope, argument);
                 }
                 default -> {
-                    if (argument.startsWith("-opt-in=")) {
+                    if (argument.startsWith("-jvm-default=")) {
+                        if (!jvmDefaultMode.isEmpty()) {
+                            throw duplicateArgument(scope, argument);
+                        }
+                        jvmDefaultMode = jvmDefaultArgument(scope, argument);
+                    } else if (argument.startsWith("-opt-in=")) {
                         String optIn = optInArgument(scope, argument);
                         if (optIns.contains(optIn)) {
                             throw duplicateArgument(scope, argument);
@@ -141,7 +148,23 @@ public final class KotlinCompileOptionsPolicy {
                 warningsAsErrors,
                 languageVersion,
                 apiVersion,
+                jvmDefaultMode,
                 List.copyOf(optIns));
+    }
+
+    private static String jvmDefaultArgument(
+            KotlinCompilationScope scope,
+            String argument) {
+        String value = argument.substring("-jvm-default=".length());
+        if (!List.of("enable", "no-compatibility", "disable").contains(value)) {
+            throw unsupported(
+                    scope,
+                    compilerArgumentsPath(scope)
+                            + " contains invalid Kotlin JVM-default argument `" + argument + "`",
+                    "Use `-jvm-default=enable`, `-jvm-default=no-compatibility`, or"
+                            + " `-jvm-default=disable`, or remove the argument.");
+        }
+        return value;
     }
 
     private static String optInArgument(
@@ -202,9 +225,10 @@ public final class KotlinCompileOptionsPolicy {
                 compilerArgumentsPath(scope)
                         + " contains unsupported compiler argument `" + argument + "`",
                 "Use only a duplicate-free subset of `-parameters`, `-Werror`,"
-                        + " `-language-version <major.minor>`, and `-api-version <major.minor>`, plus"
-                        + " repeatable `-opt-in=<qualified.annotation.Name>` arguments; otherwise keep"
-                        + " this source set Java-only.");
+                        + " `-language-version <major.minor>`, `-api-version <major.minor>`, and one"
+                        + " `-jvm-default=<mode>`, plus repeatable"
+                        + " `-opt-in=<qualified.annotation.Name>` arguments; otherwise keep this source"
+                        + " set Java-only.");
     }
 
     private static String compilerArgumentsPath(KotlinCompilationScope scope) {
@@ -302,6 +326,7 @@ public final class KotlinCompileOptionsPolicy {
             boolean warningsAsErrors,
             String languageVersion,
             String apiVersion,
+            String jvmDefaultMode,
             List<String> optIns) {
     }
 }
