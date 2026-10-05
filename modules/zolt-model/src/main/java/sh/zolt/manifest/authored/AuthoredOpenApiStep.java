@@ -17,7 +17,6 @@ public record AuthoredOpenApiStep(
         AuthoredOpenApiOptions overrides) implements AuthoredGeneratedStep {
     public AuthoredOpenApiStep {
         Objects.requireNonNull(settings, "OpenAPI step settings must not be null.");
-        settings.language().ifPresent(language -> language.requireJavaFor("OpenAPI"));
         tool = Objects.requireNonNull(tool, "OpenAPI step tool reference must not be null.");
         Objects.requireNonNull(input, "OpenAPI step input must not be null.");
         output = Objects.requireNonNull(output, "OpenAPI step output must not be null.");

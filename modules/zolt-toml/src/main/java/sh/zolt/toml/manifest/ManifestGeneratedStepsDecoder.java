@@ -59,7 +59,7 @@ final class ManifestGeneratedStepsDecoder {
         ValidatedManifestField kindField = row.required(ManifestGeneratedStepFields.Slot.KIND);
         String kind = ManifestTomlValues.string(kindField);
         return switch (kind) {
-            case "openapi" -> openApi(row, row.javaLanguage("OpenAPI"));
+            case "openapi" -> openApi(row, row.language());
             case "protobuf" -> protobuf(row, row.javaLanguage("Protobuf"));
             case "exec" -> ManifestGeneratedExecStepDecoder.decode(row, row.language());
             case "declared-root" -> declaredRoot(row, row.language());

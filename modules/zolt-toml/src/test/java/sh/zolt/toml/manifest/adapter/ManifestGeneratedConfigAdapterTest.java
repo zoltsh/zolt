@@ -21,6 +21,33 @@ import sh.zolt.project.ProjectConfig;
  */
 final class ManifestGeneratedConfigAdapterTest {
     @Test
+    void preservesKotlinOpenApiLanguage() {
+        ProjectConfig adapted = FinalManifests.load(
+                """
+                [project]
+                name = "kotlin-openapi"
+                version = "1.0.0"
+                group = "com.example"
+                java = 21
+
+                [generated.tools.openapi]
+                version = "7.11.0"
+
+                [generated.main.client]
+                kind = "openapi"
+                language = "kotlin"
+                input = "src/main/openapi/client.yaml"
+                generator = "kotlin"
+                """);
+
+        GeneratedSourceStep openApi = adapted.build().generatedMainSources().getFirst();
+
+        assertEquals(GeneratedSourceKind.OPENAPI, openApi.kind());
+        assertEquals("kotlin", openApi.language());
+        assertEquals(Optional.of("kotlin"), openApi.openApi().generator());
+    }
+
+    @Test
     void generatedToolsPresetsAndStepsReachTheProjectConfig() {
         ProjectConfig adapted = FinalManifests.load(
                 """

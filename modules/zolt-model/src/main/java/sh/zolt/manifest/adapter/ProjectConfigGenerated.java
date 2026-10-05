@@ -117,7 +117,7 @@ final class ProjectConfigGenerated {
         return new GeneratedSourceStep(
                 id.value(),
                 GeneratedSourceKind.OPENAPI,
-                JAVA,
+                step.settings().language().orElse(GeneratedLanguage.JAVA).configValue(),
                 derivedOutput(id, step.output(), outputRoot, mainScope),
                 List.of(step.input().value()),
                 step.settings().required().orElse(true),
