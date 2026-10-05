@@ -1180,13 +1180,18 @@ preview class files are tied to that exact Java feature. In the qualified Java
 class-file version `65.65535` instead of `65.0`. Zolt automatically adds
 `--enable-preview` to its own `run`, `run-package`, workspace, framework, test,
 and coverage JVM launches whenever they can load preview-marked main or test
-output. An explicitly configured `[test.runtime].jvmArgs` entry is not
-duplicated. External launchers and consumers remain responsible for using the
-same Java feature release and passing `java --enable-preview`; packaging does
-not make preview bytecode ordinary or cross-release compatible. Configure the
-flag independently for main and test source sets. Test execution enables the
-runtime when either source set requires it, and changing either setting
-invalidates and cleanly recompiles the matching output.
+output. Workspace `run`, `run-package`, unit-test, and integration-test launches
+also inherit the requirement from preview-enabled members in the selected
+member's applicable runtime or test dependency closure; the consuming member
+does not need to mark its own ordinary classes as preview classes. An explicitly
+configured `[test.runtime].jvmArgs` entry is not duplicated. Zolt cannot infer
+this requirement from an arbitrary third-party JAR's Maven metadata. External
+launchers and consumers remain responsible for using the same Java feature
+release and passing `java --enable-preview`; packaging does not make preview
+bytecode ordinary or cross-release compatible. Configure the flag independently
+for main and test source sets. Test execution enables the runtime when either
+source set requires it, and changing either setting invalidates and cleanly
+recompiles the matching output.
 `-Xannotations-in-metadata` writes declaration annotations into Kotlin metadata
 in addition to their ordinary JVM class-file attributes, and lets the selected
 compiler read annotations already represented there. In the qualified Kotlin
