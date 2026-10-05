@@ -134,6 +134,7 @@ public final class KotlinCompilerRunner {
             boolean emitJvmTypeAnnotations,
             boolean noNewJavaAnnotationTargets,
             String annotationDefaultTargetMode,
+            String assertionMode,
             String stringConcatMode,
             String lambdaMode,
             String samConversionMode,
@@ -238,6 +239,7 @@ public final class KotlinCompilerRunner {
                     "",
                     "",
                     "",
+                    "",
                     List.of(),
                     List.of(),
                     friendPath);
@@ -247,6 +249,7 @@ public final class KotlinCompilerRunner {
             release = require(release, "effective Java release");
             moduleName = require(moduleName, "module name");
             annotationDefaultTargetMode = optional(annotationDefaultTargetMode);
+            assertionMode = optional(assertionMode);
             stringConcatMode = optional(stringConcatMode);
             lambdaMode = optional(lambdaMode);
             samConversionMode = optional(samConversionMode);
@@ -290,6 +293,7 @@ public final class KotlinCompilerRunner {
                     emitJvmTypeAnnotations,
                     noNewJavaAnnotationTargets,
                     annotationDefaultTargetMode,
+                    assertionMode,
                     stringConcatMode,
                     lambdaMode,
                     samConversionMode,

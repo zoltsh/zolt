@@ -74,6 +74,9 @@ final class KotlinCompilerInvocationArguments {
         if (!options.annotationDefaultTargetMode().isEmpty()) {
             arguments.add("-Xannotation-default-target=" + options.annotationDefaultTargetMode());
         }
+        if (!options.assertionMode().isEmpty()) {
+            arguments.add("-Xassertions=" + options.assertionMode());
+        }
         if (!options.stringConcatMode().isEmpty()) {
             arguments.add("-Xstring-concat=" + options.stringConcatMode());
         }

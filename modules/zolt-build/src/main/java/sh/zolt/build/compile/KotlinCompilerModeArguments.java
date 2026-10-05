@@ -73,6 +73,17 @@ final class KotlinCompilerModeArguments {
                         + " `-Xannotation-default-target=param-property`, or remove the argument.");
     }
 
+    static String assertions(KotlinCompilationScope scope, String argument) {
+        return require(
+                scope,
+                argument,
+                "-Xassertions=",
+                "assertion",
+                List.of("always-enable", "always-disable", "jvm", "legacy"),
+                "Use `-Xassertions=always-enable`, `-Xassertions=always-disable`,"
+                        + " `-Xassertions=jvm`, or `-Xassertions=legacy`, or remove the argument.");
+    }
+
     private static String require(
             KotlinCompilationScope scope,
             String argument,
