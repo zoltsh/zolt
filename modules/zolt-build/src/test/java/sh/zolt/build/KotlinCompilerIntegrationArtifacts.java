@@ -24,11 +24,14 @@ import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileWriter;
 
 /** Seeds a real checksum-verified Kotlin compiler closure for BuildService integration tests. */
-final class KotlinCompilerIntegrationArtifacts {
-    static final String KOTLIN_VERSION = "2.2.0";
+public final class KotlinCompilerIntegrationArtifacts {
+    public static final String KOTLIN_VERSION = "2.2.0";
+    public static final String OPENAPI_TOOL_VERSION = "7.11.0";
     static final String EXEC_TOOL_VERSION = "1.0.0";
 
     private static final PackageId EXEC_TOOL = new PackageId("com.example", "gen-tool");
+    private static final PackageId OPENAPI_TOOL =
+            new PackageId("org.openapitools", "openapi-generator-cli");
 
     private static final ArtifactSpec COMPILER = artifact(
             "org.jetbrains.kotlin",
@@ -77,21 +80,29 @@ final class KotlinCompilerIntegrationArtifacts {
 
     private KotlinCompilerIntegrationArtifacts() {}
 
-    static Prepared prepare(Path cacheRoot, Path lockfilePath) throws IOException {
-        return prepare(cacheRoot, lockfilePath, Optional.empty());
+    public static Prepared prepare(Path cacheRoot, Path lockfilePath) throws IOException {
+        return prepare(cacheRoot, lockfilePath, Optional.empty(), Optional.empty());
     }
 
-    static Prepared prepareWithExecTool(
+    public static Prepared prepareWithExecTool(
             Path cacheRoot,
             Path lockfilePath,
             Path execToolJar) throws IOException {
-        return prepare(cacheRoot, lockfilePath, Optional.of(execToolJar));
+        return prepare(cacheRoot, lockfilePath, Optional.of(execToolJar), Optional.empty());
+    }
+
+    public static Prepared prepareWithOpenApiTool(
+            Path cacheRoot,
+            Path lockfilePath,
+            Path openApiToolJar) throws IOException {
+        return prepare(cacheRoot, lockfilePath, Optional.empty(), Optional.of(openApiToolJar));
     }
 
     private static Prepared prepare(
             Path cacheRoot,
             Path lockfilePath,
-            Optional<Path> execToolJar) throws IOException {
+            Optional<Path> execToolJar,
+            Optional<Path> openApiToolJar) throws IOException {
         Map<PackageId, CachedArtifact> cached = new LinkedHashMap<>();
         for (ArtifactSpec spec : ARTIFACTS) {
             cached.put(spec.packageId(), cache(cacheRoot, spec));
@@ -119,6 +130,12 @@ final class KotlinCompilerIntegrationArtifacts {
                     cacheRoot,
                     execToolJar.orElseThrow(),
                     "gen-tool-" + EXEC_TOOL_VERSION + ".jar")));
+        }
+        if (openApiToolJar.isPresent()) {
+            packages.add(openApiToolPackage(cache(
+                    cacheRoot,
+                    openApiToolJar.orElseThrow(),
+                    "openapi-generator-cli-" + OPENAPI_TOOL_VERSION + ".jar")));
         }
         LockDependencyRoot runtimeRoot = new LockDependencyRoot(
                 ".",
@@ -216,6 +233,20 @@ final class KotlinCompilerIntegrationArtifacts {
                 List.of("gen-tool"));
     }
 
+    private static LockPackage openApiToolPackage(CachedArtifact artifact) {
+        return new LockPackage(
+                OPENAPI_TOOL,
+                OPENAPI_TOOL_VERSION,
+                "central",
+                DependencyScope.TOOL_OPENAPI,
+                true,
+                Optional.of(artifact.relativePath()),
+                Optional.empty(),
+                Optional.of(artifact.sha256()),
+                Optional.empty(),
+                List.of());
+    }
+
     private static Path markerJar(String markerClass) {
         try {
             Class<?> marker = Class.forName(
@@ -267,8 +298,8 @@ final class KotlinCompilerIntegrationArtifacts {
         return new ArtifactSpec(new PackageId(groupId, artifactId), version, markerClass);
     }
 
-    record Prepared(List<Path> applicationClasspath, List<Path> compilerClasspath) {
-        Prepared {
+    public record Prepared(List<Path> applicationClasspath, List<Path> compilerClasspath) {
+        public Prepared {
             applicationClasspath = List.copyOf(applicationClasspath);
             compilerClasspath = List.copyOf(compilerClasspath);
         }
