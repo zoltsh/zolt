@@ -783,8 +783,9 @@ flags `-parameters`, `-nowarn`, `-Werror`, `-Wextra`, `-progressive`,
 plus `-Xmulti-dollar-interpolation`, `-Xnon-local-break-continue`,
 `-Xnested-type-aliases`, `-Xannotation-target-all`,
 `-Xjvm-expose-boxed`, `-Xconsistent-data-class-copy-visibility`, and
-`-Xemit-jvm-type-annotations`, plus `-Xno-new-java-annotation-targets`. One each
-of the paired Kotlin arguments `-language-version <major.minor>` and
+`-Xemit-jvm-type-annotations`, plus `-Xno-new-java-annotation-targets` and
+`-Xno-source-debug-extension`. One each of the paired Kotlin arguments
+`-language-version <major.minor>` and
 `-api-version <major.minor>` is also accepted. Distinct, repeatable
 `-opt-in=<qualified.annotation.Name>` arguments are also accepted. One
 `-jvm-default=<mode>` argument may also select `enable`, `no-compatibility`, or
@@ -829,6 +830,7 @@ args = [
   "-Xconsistent-data-class-copy-visibility",
   "-Xemit-jvm-type-annotations",
   "-Xno-new-java-annotation-targets",
+  "-Xno-source-debug-extension",
   "-language-version", "1.9",
   "-api-version", "1.8",
   "-jvm-default=no-compatibility",
@@ -970,6 +972,14 @@ desugaring and platform qualification. It is separate from
 written to JVM type-annotation attributes. Configure the compatibility flag
 independently for main and test source sets; changing it also invalidates and
 cleanly recompiles the matching output.
+`-Xno-source-debug-extension` removes Kotlin's runtime-invisible
+`kotlin.jvm.internal.SourceDebugExtension` annotation copy of the source-debug
+mapping from generated classes. It does not remove the standard JVM
+`SourceDebugExtension` attribute or line-number tables, so debugger SMAP data
+remains available. The option is useful when class-file consumers reject or
+duplicate that Kotlin-specific annotation; it does not reduce ordinary debug
+information. Configure it independently for main and test source sets; changing
+it invalidates and cleanly recompiles the matching output.
 `-Xassertions=always-enable` evaluates and enforces Kotlin `assert` calls even
 when JVM assertions are disabled. `always-disable` omits both the check and its
 condition evaluation. `jvm` matches Java assertion behavior: the condition is
@@ -1049,7 +1059,8 @@ explicit-API mode, when-guards, nested-type-aliases configuration, annotation
 default-target mode, all-target annotation support, multi-dollar interpolation,
 non-local loop control, string-concatenation mode, lambda-generation mode,
 SAM-conversion mode, boxed value-class exposure, data-class copy visibility,
-JSpecify, JSR-305, or package-specific Java nullness severity, or opt-ins
+source-debug annotation emission, JSpecify, JSR-305, or package-specific Java
+nullness severity, or opt-ins
 invalidates reuse for that source set.
 Zolt validates warning-level syntax and duplicate names; the selected Kotlin
 compiler still determines
@@ -1059,10 +1070,11 @@ string-concatenation, lambda-generation, and SAM-conversion modes,
 context-parameter, context-sensitive-resolution, when-guards,
 nested-type-aliases, multi-dollar-interpolation, non-local loop control,
 annotation-target, package-specific nullability, boxed value-class, and
-data-class copy visibility behavior. Main and test annotation,
-boxed-exposure, and copy-visibility settings are independent. Changing any of
-them performs a cleaned full compilation of that source set so obsolete
-placement, constructors, bridges, or method visibility cannot survive. The
+data-class copy visibility and source-debug annotation behavior. Main and test
+annotation, boxed-exposure, copy-visibility, and source-debug settings are
+independent. Changing any of them performs a cleaned full compilation of that
+source set so obsolete placement, constructors, bridges, or method visibility
+cannot survive. The
 compiler also decides whether an opt-in annotation exists and applies. Other
 custom compiler arguments remain unsupported for Kotlin-bearing source sets
 because javac flags cannot in general be forwarded safely to `kotlinc`.
