@@ -783,8 +783,9 @@ flags `-parameters`, `-nowarn`, `-Werror`, `-Wextra`, `-progressive`,
 plus `-Xmulti-dollar-interpolation`, `-Xnon-local-break-continue`,
 `-Xnested-type-aliases`, `-Xannotation-target-all`,
 `-Xjvm-expose-boxed`, `-Xconsistent-data-class-copy-visibility`, and
-`-Xemit-jvm-type-annotations`, plus `-Xno-new-java-annotation-targets` and
-`-Xno-source-debug-extension`. One each of the paired Kotlin arguments
+`-Xemit-jvm-type-annotations`, plus `-Xno-new-java-annotation-targets`,
+`-Xno-source-debug-extension`, and `-Xgenerate-strict-metadata-version`. One each
+of the paired Kotlin arguments
 `-language-version <major.minor>` and
 `-api-version <major.minor>` is also accepted. Distinct, repeatable
 `-opt-in=<qualified.annotation.Name>` arguments are also accepted. One
@@ -831,6 +832,7 @@ args = [
   "-Xemit-jvm-type-annotations",
   "-Xno-new-java-annotation-targets",
   "-Xno-source-debug-extension",
+  "-Xgenerate-strict-metadata-version",
   "-language-version", "1.9",
   "-api-version", "1.8",
   "-jvm-default=no-compatibility",
@@ -888,8 +890,9 @@ boxed value-class exposure, JVM-default modes, explicit-API modes,
 data-class copy visibility, string-concatenation modes, lambda-generation modes,
 JVM type-annotation emission, SAM-conversion modes, diagnostic warning levels,
 Java annotation-target compatibility, assertion modes, JSpecify and JSR-305
-nullness severity, package-specific Java nullability severity, and opt-ins go
-only to `kotlinc`.
+nullness severity, package-specific Java nullability severity, source-debug
+annotation emission, strict metadata-version semantics, and opt-ins go only to
+`kotlinc`.
 `-Xmulti-dollar-interpolation` enables Kotlin 2.1's preview syntax when the
 source set pins `-language-version 2.1`. Kotlin 2.2 promotes the syntax to
 Stable and accepts it without the flag. Prefixing a regular or multiline string
@@ -980,6 +983,14 @@ remains available. The option is useful when class-file consumers reject or
 duplicate that Kotlin-specific annotation; it does not reduce ordinary debug
 information. Configure it independently for main and test source sets; changing
 it invalidates and cleanly recompiles the matching output.
+`-Xgenerate-strict-metadata-version` marks generated `kotlin.Metadata` with the
+strict-version-semantics extra-int bit. With the qualified Kotlin 2.2.0
+toolchain, the tested class metadata changes from `xi=48` to `xi=56`; method
+behavior and ordinary JVM bytecode remain unchanged. This is a binary metadata
+compatibility contract for Kotlin-aware consumers, so enable it only when
+downstream compilers and metadata readers support the selected compiler's
+metadata version. Configure it independently for main and test source sets;
+changing it invalidates and cleanly recompiles the matching output.
 `-Xassertions=always-enable` evaluates and enforces Kotlin `assert` calls even
 when JVM assertions are disabled. `always-disable` omits both the check and its
 condition evaluation. `jvm` matches Java assertion behavior: the condition is
@@ -1060,7 +1071,7 @@ default-target mode, all-target annotation support, multi-dollar interpolation,
 non-local loop control, string-concatenation mode, lambda-generation mode,
 SAM-conversion mode, boxed value-class exposure, data-class copy visibility,
 source-debug annotation emission, JSpecify, JSR-305, or package-specific Java
-nullness severity, or opt-ins
+nullness severity, strict metadata-version semantics, or opt-ins
 invalidates reuse for that source set.
 Zolt validates warning-level syntax and duplicate names; the selected Kotlin
 compiler still determines
@@ -1070,11 +1081,12 @@ string-concatenation, lambda-generation, and SAM-conversion modes,
 context-parameter, context-sensitive-resolution, when-guards,
 nested-type-aliases, multi-dollar-interpolation, non-local loop control,
 annotation-target, package-specific nullability, boxed value-class, and
-data-class copy visibility and source-debug annotation behavior. Main and test
-annotation, boxed-exposure, copy-visibility, and source-debug settings are
-independent. Changing any of them performs a cleaned full compilation of that
-source set so obsolete placement, constructors, bridges, or method visibility
-cannot survive. The
+data-class copy visibility, source-debug annotation, and strict-metadata
+behavior. Main and test annotation, boxed-exposure, copy-visibility,
+source-debug, and strict-metadata settings are independent. Changing any of
+them performs a cleaned full compilation of that source set so obsolete
+placement, constructors, bridges, method visibility, or metadata cannot
+survive. The
 compiler also decides whether an opt-in annotation exists and applies. Other
 custom compiler arguments remain unsupported for Kotlin-bearing source sets
 because javac flags cannot in general be forwarded safely to `kotlinc`.
