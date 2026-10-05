@@ -780,9 +780,10 @@ disable the unchanged-input skip.
 For a Kotlin-bearing source set, compiler arguments may contain the standalone
 flags `-parameters`, `-nowarn`, `-Werror`, `-Wextra`, `-progressive`,
 `-Xcontext-parameters`, `-Xcontext-sensitive-resolution`, and `-Xwhen-guards`,
-plus `-Xnested-type-aliases` and `-Xannotation-target-all`, and one each of the
-paired Kotlin arguments `-language-version <major.minor>` and
-`-api-version <major.minor>`. Distinct, repeatable
+plus `-Xnested-type-aliases`, `-Xannotation-target-all`, and
+`-Xjvm-expose-boxed`, and one each of the paired Kotlin arguments
+`-language-version <major.minor>` and `-api-version <major.minor>`. Distinct,
+repeatable
 `-opt-in=<qualified.annotation.Name>` arguments are also accepted. One
 `-jvm-default=<mode>` argument may also select `enable`, `no-compatibility`, or
 `disable`, and one `-Xexplicit-api=<mode>` argument may select `strict`,
@@ -809,6 +810,7 @@ args = [
   "-Xnested-type-aliases",
   "-Xannotation-target-all",
   "-Xannotation-default-target=param-property",
+  "-Xjvm-expose-boxed",
   "-language-version", "1.9",
   "-api-version", "1.8",
   "-jvm-default=no-compatibility",
@@ -861,9 +863,9 @@ authoritative: Kotlin 2.2 does not backport guard syntax to language version 2.1
 merely because the flag is present. Extra warnings, progressive mode, context
 parameters, context-sensitive resolution, when guards, nested type aliases,
 annotation defaulting and all-target annotations, language/API version pairs,
-JVM-default modes, explicit-API modes, string-concatenation modes,
-lambda-generation modes, SAM-conversion modes, diagnostic warning levels, and
-opt-ins go only to `kotlinc`.
+boxed value-class exposure, JVM-default modes, explicit-API modes,
+string-concatenation modes, lambda-generation modes, SAM-conversion modes,
+diagnostic warning levels, and opt-ins go only to `kotlinc`.
 `-Xnested-type-aliases` enables Kotlin 2.2's Beta support for aliases declared
 inside classes, interfaces, and objects. Such aliases cannot use type parameters
 from an enclosing declaration; they must declare independent type parameters
@@ -889,6 +891,14 @@ does not propagate to types, extension receivers, context receivers, or context
 parameters; it cannot annotate delegated properties; and grouped syntax such as
 `@all:[A B]` is invalid, so each annotation needs its own `@all:` use. This flag
 is independent of annotation defaulting for unqualified annotations.
+`-Xjvm-expose-boxed` applies Kotlin 2.2's experimental `@JvmExposeBoxed`
+behavior across the source-set module. Value classes receive public boxed
+constructors, and declarations involving value classes receive unmangled boxed
+bridges that Java can call. The compiler retains the ordinary unboxed Kotlin
+representation and existing mangled declarations, so Kotlin call sites and
+runtime representation remain unchanged. Use declaration-level
+`@JvmExposeBoxed` when only selected APIs should be exposed; use the compiler
+flag when the whole source set needs the Java-facing surface.
 `-Xstring-concat=inline` emits concatenation through `StringBuilder`.
 `-Xstring-concat=indy` uses `StringConcatFactory.makeConcat`, while
 `indy-with-constants` uses `StringConcatFactory.makeConcatWithConstants`. The
@@ -920,19 +930,20 @@ or enforcement, a diagnostic warning level, progressive mode, version pairs,
 context parameters, context-sensitive resolution, JVM-default mode,
 explicit-API mode, when-guards, nested-type-aliases configuration, annotation
 default-target mode, all-target annotation support, string-concatenation mode,
-lambda-generation mode, SAM-conversion mode, or opt-ins invalidates reuse for
-that source set. Zolt validates warning-level
+lambda-generation mode, SAM-conversion mode, boxed value-class exposure, or
+opt-ins invalidates reuse for that source set. Zolt validates warning-level
 syntax and duplicate names; the selected Kotlin compiler still determines
 supported diagnostic names, warnings, extra and progressive checks, version
 values, language/API combinations, JVM-default and explicit-API modes,
 string-concatenation, lambda-generation, and SAM-conversion modes,
-context-parameter, context-sensitive-resolution, when-guards, and
-nested-type-aliases, and annotation-target behavior. Main and test annotation
-settings are independent, and changing either setting performs a cleaned full
-compilation of that source set so obsolete placement cannot survive. The
-compiler also decides whether an opt-in annotation exists and applies. Other
-custom compiler arguments remain unsupported for Kotlin-bearing source sets
-because javac flags cannot in general be forwarded safely to `kotlinc`.
+context-parameter, context-sensitive-resolution, when-guards,
+nested-type-aliases, annotation-target, and boxed value-class behavior. Main
+and test annotation and boxed-exposure settings are independent, and changing
+any of them performs a cleaned full compilation of that source set so obsolete
+placement, constructors, or bridges cannot survive. The compiler also decides
+whether an opt-in annotation exists and applies. Other custom compiler
+arguments remain unsupported for Kotlin-bearing source sets because javac flags
+cannot in general be forwarded safely to `kotlinc`.
 
 Kotlin compiler module identity is explicit when compatibility with another
 build must be preserved:

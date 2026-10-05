@@ -49,12 +49,14 @@ zolt run
   per source set. Annotation defaulting may retain first-target placement, add
   migration warnings, or propagate to both a constructor parameter and its
   property or field; Kotlin's preview `@all:` target may likewise be enabled
-  independently for main and test sources. Warnings may be expanded, enforced,
-  suppressed, or adjusted by diagnostic per source set. Kotlin/JVM string
-  concatenation may use inline `StringBuilder` or either invokedynamic scheme
-  per source set; lambda generation may likewise
-  select anonymous classes or invokedynamic, as may conversion to
-  single-abstract-method interfaces. Unsupported language and compiler
+  independently for main and test sources. Value classes may expose public
+  boxed constructors and function bridges to Java module-wide, independently
+  per source set. Warnings may be expanded, enforced, suppressed, or adjusted
+  by diagnostic per source set. Kotlin/JVM string concatenation may use inline
+  `StringBuilder` or either invokedynamic scheme per source set; lambda
+  generation may likewise select anonymous classes or invokedynamic. Conversion
+  to single-abstract-method interfaces may also select either scheme.
+  Unsupported language and compiler
   combinations fail closed.
 - **Dependencies.** Use API, implementation, runtime, provided, development,
   test, and annotation-processor lanes under one `[dependencies]` namespace.
