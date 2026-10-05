@@ -256,24 +256,28 @@ public final class KotlinCompilerRunner {
         }
 
         public Options {
-            release = require(release, "effective Java release");
-            moduleName = require(moduleName, "module name");
-            annotationDefaultTargetMode = optional(annotationDefaultTargetMode);
-            assertionMode = optional(assertionMode);
-            jspecifyAnnotationsMode = optional(jspecifyAnnotationsMode);
-            jsr305Mode = optional(jsr305Mode);
-            stringConcatMode = optional(stringConcatMode);
-            lambdaMode = optional(lambdaMode);
-            samConversionMode = optional(samConversionMode);
-            languageVersion = optional(languageVersion);
-            apiVersion = optional(apiVersion);
-            jvmDefaultMode = optional(jvmDefaultMode);
-            explicitApiMode = optional(explicitApiMode);
-            nullabilityAnnotations = copyValues(
+            release = KotlinCompilerOptionValues.require(release, "effective Java release");
+            moduleName = KotlinCompilerOptionValues.require(moduleName, "module name");
+            annotationDefaultTargetMode = KotlinCompilerOptionValues.optional(
+                    annotationDefaultTargetMode);
+            assertionMode = KotlinCompilerOptionValues.optional(assertionMode);
+            jspecifyAnnotationsMode = KotlinCompilerOptionValues.optional(
+                    jspecifyAnnotationsMode);
+            jsr305Mode = KotlinCompilerOptionValues.optional(jsr305Mode);
+            stringConcatMode = KotlinCompilerOptionValues.optional(stringConcatMode);
+            lambdaMode = KotlinCompilerOptionValues.optional(lambdaMode);
+            samConversionMode = KotlinCompilerOptionValues.optional(samConversionMode);
+            languageVersion = KotlinCompilerOptionValues.optional(languageVersion);
+            apiVersion = KotlinCompilerOptionValues.optional(apiVersion);
+            jvmDefaultMode = KotlinCompilerOptionValues.optional(jvmDefaultMode);
+            explicitApiMode = KotlinCompilerOptionValues.optional(explicitApiMode);
+            nullabilityAnnotations = KotlinCompilerOptionValues.copy(
                     nullabilityAnnotations,
                     "compiler nullability-annotation rule");
-            warningLevels = copyValues(warningLevels, "compiler warning level");
-            optIns = copyValues(optIns, "compiler opt-in annotation");
+            warningLevels = KotlinCompilerOptionValues.copy(
+                    warningLevels,
+                    "compiler warning level");
+            optIns = KotlinCompilerOptionValues.copy(optIns, "compiler opt-in annotation");
             friendPath = friendPath == null ? null : friendPath.normalize();
             if (friendPath != null && friendPath.toString().contains(",")) {
                 throw new KotlinCompileException(
@@ -326,24 +330,5 @@ public final class KotlinCompilerRunner {
                     Objects.requireNonNull(path, "Kotlin friend path is required."));
         }
 
-        private static String require(String value, String label) {
-            if (value == null || value.isBlank()) {
-                throw new KotlinCompileException("Kotlin compilation requires a " + label + ".");
-            }
-            return value.strip();
-        }
-
-        private static String optional(String value) {
-            return value == null || value.isBlank() ? "" : value.strip();
-        }
-
-        private static List<String> copyValues(List<String> values, String label) {
-            if (values == null) {
-                return List.of();
-            }
-            return values.stream()
-                    .map(value -> require(value, label))
-                    .toList();
-        }
     }
 }
