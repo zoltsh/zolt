@@ -37,6 +37,7 @@ final class KotlinCompilerInvocationArguments {
         }
         addVersion(arguments, "-language-version", options.languageVersion());
         addVersion(arguments, "-api-version", options.apiVersion());
+        options.optIns().forEach(optIn -> arguments.add("-opt-in=" + optIn));
         List<Path> compilationEntries = entries(compilationClasspath);
         if (!compilationEntries.isEmpty()) {
             arguments.add("-classpath");

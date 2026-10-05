@@ -60,6 +60,7 @@ public final class KotlinCompileOptionsPolicy {
                 mappedArguments.warningsAsErrors(),
                 mappedArguments.languageVersion(),
                 mappedArguments.apiVersion(),
+                mappedArguments.optIns(),
                 null);
     }
 
@@ -94,6 +95,7 @@ public final class KotlinCompileOptionsPolicy {
         boolean warningsAsErrors = false;
         String languageVersion = "";
         String apiVersion = "";
+        List<String> optIns = new ArrayList<>();
         for (int index = 0; index < arguments.size(); index++) {
             String argument = arguments.get(index);
             switch (argument) {
@@ -121,14 +123,39 @@ public final class KotlinCompileOptionsPolicy {
                     }
                     apiVersion = versionArgument(arguments, ++index, scope, argument);
                 }
-                default -> throw unsupportedArgument(scope, argument);
+                default -> {
+                    if (argument.startsWith("-opt-in=")) {
+                        String optIn = optInArgument(scope, argument);
+                        if (optIns.contains(optIn)) {
+                            throw duplicateArgument(scope, argument);
+                        }
+                        optIns.add(optIn);
+                    } else {
+                        throw unsupportedArgument(scope, argument);
+                    }
+                }
             }
         }
         return new MappedCompilerArguments(
                 javaParameters,
                 warningsAsErrors,
                 languageVersion,
-                apiVersion);
+                apiVersion,
+                List.copyOf(optIns));
+    }
+
+    private static String optInArgument(
+            KotlinCompilationScope scope,
+            String argument) {
+        String value = argument.substring("-opt-in=".length());
+        if (!value.matches("[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*")) {
+            throw unsupported(
+                    scope,
+                    compilerArgumentsPath(scope)
+                            + " contains invalid Kotlin opt-in argument `" + argument + "`",
+                    "Use `-opt-in=<qualified.annotation.Name>` or remove the argument.");
+        }
+        return value;
     }
 
     private static String versionArgument(
@@ -164,7 +191,7 @@ public final class KotlinCompileOptionsPolicy {
         return unsupported(
                 scope,
                 compilerArgumentsPath(scope) + " contains duplicate compiler argument `" + argument + "`",
-                "Use each supported compiler argument at most once, or keep this source set Java-only.");
+                "Use each exact compiler argument at most once, or keep this source set Java-only.");
     }
 
     private static KotlinCompileException unsupportedArgument(
@@ -175,8 +202,9 @@ public final class KotlinCompileOptionsPolicy {
                 compilerArgumentsPath(scope)
                         + " contains unsupported compiler argument `" + argument + "`",
                 "Use only a duplicate-free subset of `-parameters`, `-Werror`,"
-                        + " `-language-version <major.minor>`, and `-api-version <major.minor>`, or"
-                        + " keep this source set Java-only.");
+                        + " `-language-version <major.minor>`, and `-api-version <major.minor>`, plus"
+                        + " repeatable `-opt-in=<qualified.annotation.Name>` arguments; otherwise keep"
+                        + " this source set Java-only.");
     }
 
     private static String compilerArgumentsPath(KotlinCompilationScope scope) {
@@ -273,6 +301,7 @@ public final class KotlinCompileOptionsPolicy {
             boolean javaParameters,
             boolean warningsAsErrors,
             String languageVersion,
-            String apiVersion) {
+            String apiVersion,
+            List<String> optIns) {
     }
 }

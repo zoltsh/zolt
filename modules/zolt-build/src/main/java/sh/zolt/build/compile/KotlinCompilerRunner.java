@@ -173,9 +173,10 @@ public final class KotlinCompilerRunner {
             boolean warningsAsErrors,
             String languageVersion,
             String apiVersion,
+            List<String> optIns,
             Path friendPath) {
         public Options(String release, String moduleName, boolean hostPlatformApi) {
-            this(release, moduleName, hostPlatformApi, !hostPlatformApi, false, false, "", "", null);
+            this(release, moduleName, hostPlatformApi, !hostPlatformApi, false, false, "", "", List.of(), null);
         }
 
         public Options(
@@ -183,7 +184,7 @@ public final class KotlinCompilerRunner {
                 String moduleName,
                 boolean hostPlatformApi,
                 boolean useJdkRelease) {
-            this(release, moduleName, hostPlatformApi, useJdkRelease, false, false, "", "", null);
+            this(release, moduleName, hostPlatformApi, useJdkRelease, false, false, "", "", List.of(), null);
         }
 
         public Options(
@@ -192,7 +193,7 @@ public final class KotlinCompilerRunner {
                 boolean hostPlatformApi,
                 boolean useJdkRelease,
                 boolean javaParameters) {
-            this(release, moduleName, hostPlatformApi, useJdkRelease, javaParameters, false, "", "", null);
+            this(release, moduleName, hostPlatformApi, useJdkRelease, javaParameters, false, "", "", List.of(), null);
         }
 
         public Options(
@@ -211,6 +212,7 @@ public final class KotlinCompilerRunner {
                     warningsAsErrors,
                     "",
                     "",
+                    List.of(),
                     null);
         }
 
@@ -220,7 +222,7 @@ public final class KotlinCompilerRunner {
                 boolean hostPlatformApi,
                 boolean useJdkRelease,
                 Path friendPath) {
-            this(release, moduleName, hostPlatformApi, useJdkRelease, false, false, "", "", friendPath);
+            this(release, moduleName, hostPlatformApi, useJdkRelease, false, false, "", "", List.of(), friendPath);
         }
 
         /** Compatibility constructor for callers that predate mapped Kotlin warning policy. */
@@ -240,6 +242,7 @@ public final class KotlinCompilerRunner {
                     false,
                     "",
                     "",
+                    List.of(),
                     friendPath);
         }
 
@@ -261,6 +264,7 @@ public final class KotlinCompilerRunner {
                     warningsAsErrors,
                     "",
                     "",
+                    List.of(),
                     friendPath);
         }
 
@@ -269,6 +273,7 @@ public final class KotlinCompilerRunner {
             moduleName = require(moduleName, "module name");
             languageVersion = optional(languageVersion);
             apiVersion = optional(apiVersion);
+            optIns = copyOptIns(optIns);
             friendPath = friendPath == null ? null : friendPath.normalize();
             if (friendPath != null && friendPath.toString().contains(",")) {
                 throw new KotlinCompileException(
@@ -292,6 +297,7 @@ public final class KotlinCompilerRunner {
                     warningsAsErrors,
                     languageVersion,
                     apiVersion,
+                    optIns,
                     Objects.requireNonNull(path, "Kotlin friend path is required."));
         }
 
@@ -304,6 +310,15 @@ public final class KotlinCompilerRunner {
 
         private static String optional(String value) {
             return value == null || value.isBlank() ? "" : value.strip();
+        }
+
+        private static List<String> copyOptIns(List<String> values) {
+            if (values == null) {
+                return List.of();
+            }
+            return values.stream()
+                    .map(value -> require(value, "compiler opt-in annotation"))
+                    .toList();
         }
     }
 }
