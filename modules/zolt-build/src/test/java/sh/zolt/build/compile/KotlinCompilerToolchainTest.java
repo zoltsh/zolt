@@ -29,6 +29,27 @@ final class KotlinCompilerToolchainTest {
                         + "|launcher=" + CLOSURE,
                 toolchain.identity());
         assertTrue(toolchain.launcherClasspath().entries().getFirst().isAbsolute());
+        assertTrue(toolchain.kaptPluginJar().isEmpty());
+    }
+
+    @Test
+    void exposesNormalizedKaptPluginPath() {
+        KotlinCompilerToolchain toolchain = new KotlinCompilerToolchain(
+                "2.2.0",
+                SHA,
+                List.of(Path.of("relative/compiler.jar"), Path.of("relative/kapt.jar")),
+                CLOSURE,
+                Path.of("relative/kapt.jar"));
+
+        assertTrue(toolchain.kaptPluginJar().orElseThrow().isAbsolute());
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new KotlinCompilerToolchain(
+                        "2.2.0",
+                        SHA,
+                        List.of(Path.of("relative/compiler.jar")),
+                        CLOSURE,
+                        Path.of("relative/kapt.jar")));
     }
 
     @Test

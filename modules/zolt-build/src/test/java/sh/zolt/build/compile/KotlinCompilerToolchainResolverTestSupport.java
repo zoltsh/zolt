@@ -29,11 +29,15 @@ abstract class KotlinCompilerToolchainResolverTestSupport {
             new PackageId("org.jetbrains.kotlin", "kotlin-compiler-embeddable");
     static final PackageId STDLIB =
             new PackageId("org.jetbrains.kotlin", "kotlin-stdlib");
+    static final PackageId KAPT =
+            new PackageId("org.jetbrains.kotlin", "kotlin-annotation-processing-embeddable");
     static final PackageId ALPHA = new PackageId("com.example", "alpha-support");
     static final PackageId ZETA = new PackageId("org.example", "zeta-support");
     static final String VERSION = "2.2.0";
     static final String COMPILER_ENTRY =
             "org/jetbrains/kotlin/cli/jvm/K2JVMCompiler.class";
+    static final String KAPT_ENTRY =
+            "org/jetbrains/kotlin/kapt/KaptCommandLineProcessor.class";
 
     @TempDir
     Path tempDir;
@@ -80,6 +84,27 @@ abstract class KotlinCompilerToolchainResolverTestSupport {
                 writeCompilerJar(false, null, null, includeCompiler),
                 COMPILER,
                 VERSION);
+    }
+
+    VerifiedJar kaptJar(
+            String implementationVersion,
+            boolean includePlugin) throws IOException {
+        Path jar = tempDir.resolve("artifacts/kotlin-kapt-" + jarSequence++ + ".jar");
+        Files.createDirectories(jar.getParent());
+        Manifest manifest = new Manifest();
+        manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
+        manifest.getMainAttributes().put(
+                Attributes.Name.IMPLEMENTATION_TITLE,
+                "kotlin-annotation-processing-embeddable");
+        manifest.getMainAttributes().put(
+                Attributes.Name.IMPLEMENTATION_VERSION,
+                implementationVersion);
+        try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar), manifest)) {
+            if (includePlugin) {
+                writeEntry(output, KAPT_ENTRY, new byte[] {0});
+            }
+        }
+        return verifiedArtifact(jar, KAPT, VERSION);
     }
 
     VerifiedJar plainJar(

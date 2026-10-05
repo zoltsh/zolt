@@ -12,6 +12,8 @@ import sh.zolt.resolve.request.RequestVersionOrigin;
 public final class KotlinToolingDependencyContributor {
     private static final PackageId KOTLIN_COMPILER =
             new PackageId("org.jetbrains.kotlin", "kotlin-compiler-embeddable");
+    private static final PackageId KOTLIN_KAPT =
+            new PackageId("org.jetbrains.kotlin", "kotlin-annotation-processing-embeddable");
 
     public void contribute(ProjectConfig config, List<DependencyRequest> requests) {
         String version = config.compilerSettings().kotlinVersion();
@@ -29,5 +31,26 @@ public final class KotlinToolingDependencyContributor {
                     RequestOrigin.DIRECT,
                     RequestVersionOrigin.DECLARED));
         }
+        if (!config.annotationProcessors().isEmpty()
+                || !config.testAnnotationProcessors().isEmpty()) {
+            contributeKapt(version.strip(), requests);
+        }
+    }
+
+    private static void contributeKapt(
+            String version,
+            List<DependencyRequest> requests) {
+        boolean alreadyRequested = requests.stream()
+                .anyMatch(request -> request.packageId().equals(KOTLIN_KAPT)
+                        && request.scope() == DependencyScope.TOOL_KOTLIN);
+        if (alreadyRequested) {
+            return;
+        }
+        requests.add(new DependencyRequest(
+                KOTLIN_KAPT,
+                version,
+                DependencyScope.TOOL_KOTLIN,
+                RequestOrigin.DIRECT,
+                RequestVersionOrigin.DECLARED));
     }
 }

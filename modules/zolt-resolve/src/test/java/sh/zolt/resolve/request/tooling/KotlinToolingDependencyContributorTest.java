@@ -17,6 +17,8 @@ import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 final class KotlinToolingDependencyContributorTest {
     private static final PackageId KOTLIN_COMPILER =
             new PackageId("org.jetbrains.kotlin", "kotlin-compiler-embeddable");
+    private static final PackageId KOTLIN_KAPT =
+            new PackageId("org.jetbrains.kotlin", "kotlin-annotation-processing-embeddable");
 
     private final KotlinToolingDependencyContributor contributor =
             new KotlinToolingDependencyContributor();
@@ -67,7 +69,31 @@ final class KotlinToolingDependencyContributorTest {
         assertEquals(RequestOrigin.DIRECT, tool.origin());
     }
 
+    @Test
+    void contributesKaptOnlyForConfiguredProcessorLanes() {
+        List<DependencyRequest> requests = new ArrayList<>();
+
+        contributor.contribute(config("2.2.0", true), requests);
+        contributor.contribute(config("2.2.0", true), requests);
+
+        assertEquals(2, requests.size());
+        DependencyRequest kapt = requests.stream()
+                .filter(request -> request.packageId().equals(KOTLIN_KAPT))
+                .findFirst()
+                .orElseThrow();
+        assertEquals("2.2.0", kapt.requestedVersion());
+        assertEquals(DependencyScope.TOOL_KOTLIN, kapt.scope());
+        assertEquals(RequestOrigin.DIRECT, kapt.origin());
+        assertEquals(RequestVersionOrigin.DECLARED, kapt.versionOrigin());
+    }
+
     private static ProjectConfig config(String kotlinVersion) {
+        return config(kotlinVersion, false);
+    }
+
+    private static ProjectConfig config(
+            String kotlinVersion,
+            boolean processor) {
         String toolchain = kotlinVersion.isBlank()
                 ? ""
                 : """
@@ -75,6 +101,13 @@ final class KotlinToolingDependencyContributorTest {
                   [toolchain.kotlin]
                   version = "%s"
                   """.formatted(kotlinVersion);
+        String processors = processor
+                ? """
+
+                  [dependencies.processor]
+                  "com.example:processor" = "1.0.0"
+                  """
+                : "";
         return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
@@ -82,6 +115,7 @@ final class KotlinToolingDependencyContributorTest {
                 group = "com.example"
                 java = 21
                 %s
-                """.formatted(toolchain));
+                %s
+                """.formatted(toolchain, processors));
     }
 }

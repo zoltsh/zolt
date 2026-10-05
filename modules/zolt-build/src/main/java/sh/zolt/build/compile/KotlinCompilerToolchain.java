@@ -3,6 +3,7 @@ package sh.zolt.build.compile;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.regex.Pattern;
 import sh.zolt.classpath.Classpath;
 
@@ -17,12 +18,22 @@ public final class KotlinCompilerToolchain {
     private final String sha256;
     private final String identity;
     private final Classpath launcherClasspath;
+    private final Path kaptPluginJar;
 
     KotlinCompilerToolchain(
             String version,
             String sha256,
             List<Path> launcherJars,
             String launcherClosureIdentity) {
+        this(version, sha256, launcherJars, launcherClosureIdentity, null);
+    }
+
+    KotlinCompilerToolchain(
+            String version,
+            String sha256,
+            List<Path> launcherJars,
+            String launcherClosureIdentity,
+            Path kaptPluginJar) {
         this.version = require(version, "version");
         this.sha256 = require(sha256, "SHA-256");
         if (!SHA256.matcher(this.sha256).matches()) {
@@ -54,6 +65,14 @@ public final class KotlinCompilerToolchain {
         this.identity = COORDINATE + ":" + this.version + "@sha256:" + this.sha256
                 + "|launcher=" + closureIdentity;
         this.launcherClasspath = new Classpath(normalizedJars);
+        Path normalizedKapt = kaptPluginJar == null
+                ? null
+                : kaptPluginJar.toAbsolutePath().normalize();
+        if (normalizedKapt != null && !normalizedJars.contains(normalizedKapt)) {
+            throw new IllegalArgumentException(
+                    "KAPT plugin JAR must be part of the Kotlin compiler launcher closure.");
+        }
+        this.kaptPluginJar = normalizedKapt;
     }
 
     public String coordinate() {
@@ -75,6 +94,11 @@ public final class KotlinCompilerToolchain {
 
     public Classpath launcherClasspath() {
         return launcherClasspath;
+    }
+
+    /** The verified KAPT compiler plugin when processor lanes require it. */
+    public Optional<Path> kaptPluginJar() {
+        return Optional.ofNullable(kaptPluginJar);
     }
 
     private static String require(String value, String label) {

@@ -29,9 +29,15 @@ public final class KotlinCompilerToolchainResolver {
             new PackageId("org.jetbrains.kotlin", "kotlin-compiler-embeddable");
     private static final PackageId KOTLIN_STDLIB =
             new PackageId("org.jetbrains.kotlin", "kotlin-stdlib");
+    private static final PackageId KOTLIN_KAPT =
+            new PackageId("org.jetbrains.kotlin", "kotlin-annotation-processing-embeddable");
     private static final String COMPILER_ENTRY =
             "org/jetbrains/kotlin/cli/jvm/K2JVMCompiler.class";
     private static final String IMPLEMENTATION_TITLE = "kotlin-compiler-embeddable";
+    private static final String KAPT_ENTRY =
+            "org/jetbrains/kotlin/kapt/KaptCommandLineProcessor.class";
+    private static final String KAPT_IMPLEMENTATION_TITLE =
+            "kotlin-annotation-processing-embeddable";
 
     public KotlinCompilerToolchain resolve(
             List<ResolvedClasspathPackage> packages,
@@ -60,8 +66,11 @@ public final class KotlinCompilerToolchainResolver {
         List<ResolvedClasspathPackage> compilerRoots = directRoots.stream()
                 .filter(dependency -> dependency.resolvedPackage().packageId().equals(KOTLIN_COMPILER))
                 .toList();
+        List<ResolvedClasspathPackage> kaptRoots = directRoots.stream()
+                .filter(dependency -> dependency.resolvedPackage().packageId().equals(KOTLIN_KAPT))
+                .toList();
 
-        requireOneCompilerRoot(compilerRoots, directRoots, version);
+        requireToolRoots(compilerRoots, kaptRoots, directRoots, version);
         ResolvedClasspathPackage rootDependency = compilerRoots.getFirst();
         ResolvedPackage rootPackage = rootDependency.resolvedPackage();
         if (!version.equals(rootPackage.selectedVersion())) {
@@ -71,8 +80,14 @@ public final class KotlinCompilerToolchainResolver {
         }
 
         VerifiedCompilerArtifact root = verifiedClosureArtifact(rootDependency, true);
+        VerifiedCompilerArtifact kapt = kaptRoots.isEmpty()
+                ? null
+                : verifiedClosureArtifact(kaptRoots.getFirst(), true);
         List<VerifiedCompilerArtifact> closure = orderedClosure(toolClosure, rootDependency, root);
         inspectRoot(version, root.jar());
+        if (kapt != null) {
+            inspectKapt(version, kapt.jar());
+        }
         VerifiedCompilerArtifact runtime = requireRuntime(all, version, compilationScope);
         revalidate(closure);
         revalidate(List.of(runtime));
@@ -81,11 +96,13 @@ public final class KotlinCompilerToolchainResolver {
                 version,
                 root.sha256(),
                 closure.stream().map(VerifiedCompilerArtifact::jar).toList(),
-                closureIdentity(closure));
+                closureIdentity(closure),
+                kapt == null ? null : kapt.jar());
     }
 
-    private static void requireOneCompilerRoot(
+    private static void requireToolRoots(
             List<ResolvedClasspathPackage> compilerRoots,
+            List<ResolvedClasspathPackage> kaptRoots,
             List<ResolvedClasspathPackage> directRoots,
             String configuredVersion) {
         if (compilerRoots.isEmpty()) {
@@ -97,12 +114,25 @@ public final class KotlinCompilerToolchainResolver {
             throw invalid("zolt.lock has ambiguous direct " + KotlinCompilerToolchain.COORDINATE
                     + " roots in scope `tool-kotlin`: " + selections(compilerRoots));
         }
-        if (directRoots.size() > 1) {
-            List<ResolvedClasspathPackage> extras = directRoots.stream()
-                    .filter(dependency -> dependency != compilerRoots.getFirst())
-                    .toList();
+        if (kaptRoots.size() > 1) {
+            throw invalid("zolt.lock has ambiguous direct " + KOTLIN_KAPT
+                    + " roots in scope `tool-kotlin`: " + selections(kaptRoots));
+        }
+        List<ResolvedClasspathPackage> extras = directRoots.stream()
+                .filter(dependency -> !dependency.resolvedPackage().packageId().equals(KOTLIN_COMPILER))
+                .filter(dependency -> !dependency.resolvedPackage().packageId().equals(KOTLIN_KAPT))
+                .toList();
+        if (!extras.isEmpty()) {
             throw invalid("zolt.lock has extra direct roots in scope `tool-kotlin`: "
                     + selections(extras));
+        }
+        if (!kaptRoots.isEmpty()) {
+            String kaptVersion = kaptRoots.getFirst().resolvedPackage().selectedVersion();
+            if (!configuredVersion.equals(kaptVersion)) {
+                throw invalid("configured version `" + configuredVersion
+                        + "` does not match zolt.lock KAPT tool root version `"
+                        + kaptVersion + "`");
+            }
         }
     }
 
@@ -157,7 +187,7 @@ public final class KotlinCompilerToolchainResolver {
                     + identity.coordinate());
         }
         if (requireDefaultVariant && identity.classifier().isPresent()) {
-            throw invalid(KotlinCompilerToolchain.COORDINATE
+            throw invalid(resolved.packageId()
                     + " is not the default unclassified JAR variant");
         }
         Path jar = resolved.jarPath().toAbsolutePath().normalize();
@@ -236,22 +266,45 @@ public final class KotlinCompilerToolchainResolver {
     }
 
     private static void inspectRoot(String configuredVersion, Path jarPath) {
+        inspectToolJar(
+                configuredVersion,
+                jarPath,
+                COMPILER_ENTRY,
+                IMPLEMENTATION_TITLE,
+                "compiler");
+    }
+
+    private static void inspectKapt(String configuredVersion, Path jarPath) {
+        inspectToolJar(
+                configuredVersion,
+                jarPath,
+                KAPT_ENTRY,
+                KAPT_IMPLEMENTATION_TITLE,
+                "KAPT plugin");
+    }
+
+    private static void inspectToolJar(
+            String configuredVersion,
+            Path jarPath,
+            String requiredEntry,
+            String implementationTitle,
+            String label) {
         try (JarFile jar = new JarFile(jarPath.toFile(), false)) {
-            if (jar.getJarEntry(COMPILER_ENTRY) == null) {
-                throw invalid("the selected compiler JAR does not contain " + COMPILER_ENTRY);
+            if (jar.getJarEntry(requiredEntry) == null) {
+                throw invalid("the selected " + label + " JAR does not contain " + requiredEntry);
             }
             if (jar.getManifest() == null) {
-                throw invalid("the selected compiler JAR has no manifest");
+                throw invalid("the selected " + label + " JAR has no manifest");
             }
             Attributes attributes = jar.getManifest().getMainAttributes();
             String title = normalize(attributes.getValue(Attributes.Name.IMPLEMENTATION_TITLE));
-            if (!IMPLEMENTATION_TITLE.equals(title)) {
-                throw invalid("the selected compiler JAR reports Implementation-Title `"
-                        + title + "` instead of `" + IMPLEMENTATION_TITLE + "`");
+            if (!implementationTitle.equals(title)) {
+                throw invalid("the selected " + label + " JAR reports Implementation-Title `"
+                        + title + "` instead of `" + implementationTitle + "`");
             }
             String version = normalize(attributes.getValue(Attributes.Name.IMPLEMENTATION_VERSION));
             if (!matchesConfiguredVersion(configuredVersion, version)) {
-                throw invalid("the selected compiler JAR reports Implementation-Version `"
+                throw invalid("the selected " + label + " JAR reports Implementation-Version `"
                         + version + "` which does not match configured version `"
                         + configuredVersion + "`");
             }
@@ -259,7 +312,7 @@ public final class KotlinCompilerToolchainResolver {
             throw exception;
         } catch (IOException | RuntimeException exception) {
             throw new KotlinCompileException(
-                    "Could not inspect the checksum-verified Kotlin compiler JAR at " + jarPath
+                    "Could not inspect the checksum-verified Kotlin " + label + " JAR at " + jarPath
                             + ". Run `zolt resolve` to refresh the artifact cache, then retry.",
                     exception);
         }

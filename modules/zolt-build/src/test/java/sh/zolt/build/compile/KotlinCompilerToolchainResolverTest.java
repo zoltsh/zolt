@@ -64,6 +64,70 @@ final class KotlinCompilerToolchainResolverTest
     }
 
     @Test
+    void resolvesVerifiedKaptPluginAsAnIsolatedToolRoot() throws IOException {
+        VerifiedJar root = compilerJar("kotlin-compiler-embeddable", VERSION, true);
+        VerifiedJar runtime = plainJar(STDLIB, VERSION, "stdlib");
+        VerifiedJar kapt = kaptJar(VERSION + "-release-294", true);
+
+        KotlinCompilerToolchain toolchain = resolver.resolve(
+                validPackages(
+                        root,
+                        runtime,
+                        dependency(
+                                KAPT,
+                                kapt,
+                                VERSION,
+                                DependencyScope.TOOL_KOTLIN,
+                                true,
+                                NestedArtifactIdentity.external(KAPT, VERSION))),
+                VERSION);
+
+        assertEquals(
+                kapt.path().toAbsolutePath().normalize(),
+                toolchain.kaptPluginJar().orElseThrow());
+        assertTrue(toolchain.launcherClasspath().entries().contains(
+                kapt.path().toAbsolutePath().normalize()));
+        assertFalse(toolchain.identity().contains(tempDir.toString()));
+    }
+
+    @Test
+    void rejectsMismatchedOrInvalidKaptPluginRoots() throws IOException {
+        VerifiedJar root = compilerJar("kotlin-compiler-embeddable", VERSION, true);
+        VerifiedJar runtime = plainJar(STDLIB, VERSION, "stdlib");
+        VerifiedJar kapt = kaptJar(VERSION, true);
+        VerifiedJar missingEntry = kaptJar(VERSION, false);
+
+        assertMessageContains(
+                () -> resolver.resolve(
+                        validPackages(
+                                root,
+                                runtime,
+                                dependency(
+                                        KAPT,
+                                        kapt,
+                                        "2.2.1",
+                                        DependencyScope.TOOL_KOTLIN,
+                                        true,
+                                        NestedArtifactIdentity.external(KAPT, "2.2.1"))),
+                        VERSION),
+                "does not match zolt.lock KAPT tool root version `2.2.1`");
+        assertMessageContains(
+                () -> resolver.resolve(
+                        validPackages(
+                                root,
+                                runtime,
+                                dependency(
+                                        KAPT,
+                                        missingEntry,
+                                        VERSION,
+                                        DependencyScope.TOOL_KOTLIN,
+                                        true,
+                                        NestedArtifactIdentity.external(KAPT, VERSION))),
+                        VERSION),
+                "KAPT plugin JAR does not contain " + KAPT_ENTRY);
+    }
+
+    @Test
     void acceptsExactManifestVersionAndRelocatesClosureIdentity() throws IOException {
         VerifiedJar root = compilerJar("kotlin-compiler-embeddable", VERSION, true);
         VerifiedJar runtime = plainJar(STDLIB, VERSION, "stdlib");
