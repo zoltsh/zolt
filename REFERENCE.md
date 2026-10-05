@@ -785,9 +785,9 @@ plus `-Xmulti-dollar-interpolation`, `-Xnon-local-break-continue`,
 `-Xjvm-expose-boxed`, `-Xconsistent-data-class-copy-visibility`, and
 `-Xemit-jvm-type-annotations`, plus `-Xno-new-java-annotation-targets`,
 `-Xno-source-debug-extension`, `-Xno-unified-null-checks`, `-Xno-optimize`,
-`-Xvalidate-bytecode`, and `-Xgenerate-strict-metadata-version`, plus
-`-Xindy-allow-annotated-lambdas` when paired with `-Xlambdas=indy`. One each of
-the paired Kotlin arguments
+`-Xvalidate-bytecode`, `-Xgenerate-strict-metadata-version`, and
+`-Xannotations-in-metadata`, plus `-Xindy-allow-annotated-lambdas` when paired
+with `-Xlambdas=indy`. One each of the paired Kotlin arguments
 `-language-version <major.minor>` and
 `-api-version <major.minor>` is also accepted. Distinct, repeatable
 `-opt-in=<qualified.annotation.Name>` arguments are also accepted. One
@@ -838,6 +838,7 @@ args = [
   "-Xno-optimize",
   "-Xvalidate-bytecode",
   "-Xgenerate-strict-metadata-version",
+  "-Xannotations-in-metadata",
   "-language-version", "1.9",
   "-api-version", "1.8",
   "-jvm-default=no-compatibility",
@@ -899,8 +900,8 @@ Java annotation-target compatibility, assertion modes, JSpecify and JSR-305
 nullness severity, package-specific Java nullability severity, source-debug
 annotation emission, legacy null-check exception compatibility, strict
 metadata-version semantics, annotated-lambda indy compatibility, backend
-optimization control, generated-bytecode validation, and opt-ins go only to
-`kotlinc`.
+optimization control, generated-bytecode validation, annotations in metadata,
+and opt-ins go only to `kotlinc`.
 `-Xmulti-dollar-interpolation` enables Kotlin 2.1's preview syntax when the
 source set pins `-language-version 2.1`. Kotlin 2.2 promotes the syntax to
 Stable and accepts it without the flag. Prefixing a regular or multiline string
@@ -1025,6 +1026,16 @@ compatibility contract for Kotlin-aware consumers, so enable it only when
 downstream compilers and metadata readers support the selected compiler's
 metadata version. Configure it independently for main and test source sets;
 changing it invalidates and cleanly recompiles the matching output.
+`-Xannotations-in-metadata` writes declaration annotations into Kotlin metadata
+in addition to their ordinary JVM class-file attributes, and lets the selected
+compiler read annotations already represented there. In the qualified Kotlin
+2.2.0 case, a binary-retained class and method annotation add their descriptor,
+argument name, and argument values to `kotlin.Metadata.d2`; omitting the flag
+leaves those values out of `d2` without removing the JVM annotations. This
+changes the metadata contract consumed by Kotlin compilers and metadata tools,
+so enable it only when downstream readers support the selected compiler's
+representation. Configure it independently for main and test source sets;
+changing it invalidates and cleanly recompiles the matching output.
 `-Xassertions=always-enable` evaluates and enforces Kotlin `assert` calls even
 when JVM assertions are disabled. `always-disable` omits both the check and its
 condition evaluation. `jvm` matches Java assertion behavior: the condition is
@@ -1117,9 +1128,9 @@ non-local loop control, string-concatenation mode, lambda-generation mode,
 annotated-lambda indy compatibility, SAM-conversion mode, boxed value-class
 exposure, data-class copy visibility, source-debug annotation emission,
 JSpecify, JSR-305, or package-specific Java nullness severity, legacy null-check
-exceptions, strict metadata-version semantics, backend optimization,
-generated-bytecode validation, or opt-ins invalidates reuse for that source
-set.
+exceptions, strict metadata-version semantics, annotations in metadata, backend
+optimization, generated-bytecode validation, or opt-ins invalidates reuse for
+that source set.
 Zolt validates warning-level syntax and duplicate names; the selected Kotlin
 compiler still determines
 supported diagnostic names, warnings, extra and progressive checks, version
@@ -1132,12 +1143,13 @@ annotation-target, package-specific nullability, boxed value-class, and
 data-class copy visibility, source-debug annotation, and strict-metadata
 behavior, plus legacy null-check exception behavior. Main and test annotation,
 boxed-exposure, copy-visibility, source-debug, strict-metadata, and legacy
-null-check settings are independent. Changing any of them performs a cleaned
-full compilation of that source set so obsolete placement, constructors,
-bridges, method visibility, metadata, or null-check calls cannot survive. The
-compiler also decides whether an opt-in annotation exists and applies. Other
-custom compiler arguments remain unsupported for Kotlin-bearing source sets
-because javac flags cannot in general be forwarded safely to `kotlinc`.
+null-check and annotation-metadata settings are independent. Changing any of
+them performs a cleaned full compilation of that source set so obsolete
+placement, constructors, bridges, method visibility, metadata, or null-check
+calls cannot survive. The compiler also decides whether an opt-in annotation
+exists and applies. Other custom compiler arguments remain unsupported for
+Kotlin-bearing source sets because javac flags cannot in general be forwarded
+safely to `kotlinc`.
 
 Kotlin compiler module identity is explicit when compatibility with another
 build must be preserved:
