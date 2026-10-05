@@ -128,10 +128,13 @@ final class ManifestGeneratedTypedStepsDecoderTest {
 
     @ParameterizedTest
     @MethodSource("lanes")
-    void acceptsKotlinOpenApiAndDeclaredRootsButRejectsKotlinProtobuf(Lane lane) {
+    void acceptsKotlinTypedAndDeclaredSourceSteps(Lane lane) {
         AuthoredOpenApiStep openApi = assertInstanceOf(
                 AuthoredOpenApiStep.class,
                 step(lane, "kind = \"openapi\"\nlanguage = \"kotlin\"\ninput = \"api.yaml\"\n"));
+        AuthoredProtobufStep protobuf = assertInstanceOf(
+                AuthoredProtobufStep.class,
+                step(lane, "kind = \"protobuf\"\nlanguage = \"kotlin\"\ninputs = [\"schema.proto\"]\n"));
         AuthoredDeclaredRootStep declared = assertInstanceOf(
                 AuthoredDeclaredRootStep.class,
                 step(lane, """
@@ -141,12 +144,8 @@ final class ManifestGeneratedTypedStepsDecoderTest {
                         output = "target/generated/kotlin"
                         """));
         assertEquals(Optional.of(GeneratedLanguage.KOTLIN), openApi.settings().language());
+        assertEquals(Optional.of(GeneratedLanguage.KOTLIN), protobuf.settings().language());
         assertEquals(Optional.of(GeneratedLanguage.KOTLIN), declared.settings().language());
-
-        assertFailure(
-                lane.source("kind = \"protobuf\"\nlanguage = \"kotlin\"\ninputs = [\"schema.proto\"]\n"),
-                lane.path("language"),
-                "Protobuf generated steps support only language `java`.");
     }
 
     @ParameterizedTest

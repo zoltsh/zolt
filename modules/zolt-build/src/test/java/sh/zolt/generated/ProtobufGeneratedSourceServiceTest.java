@@ -62,6 +62,43 @@ final class ProtobufGeneratedSourceServiceTest {
     }
 
     @Test
+    void generatesDeterministicKotlinSourcesForMessagesAndGrpcServices() throws IOException {
+        Path proto = tempDir.resolve("src/main/proto/greeter.proto");
+        Files.createDirectories(proto.getParent());
+        Files.writeString(proto, """
+                syntax = "proto3";
+                package com.example.greeter;
+                option java_package = "com.example_$.greeter";
+
+                message HelloReply {}
+                service Greeter {}
+                """);
+        var config = manifestLoader.load(config("""
+                [generated.main.greeter]
+                kind = "protobuf"
+                language = "kotlin"
+                inputs = ["src/main/proto/greeter.proto"]
+                output = "target/generated/sources/protobuf"
+                """));
+
+        service.generateMain(tempDir, config);
+
+        Path output = tempDir.resolve("target/generated/sources/protobuf/com/example_$/greeter");
+        Path message = output.resolve("HelloReply.kt");
+        Path grpc = output.resolve("GreeterGrpc.kt");
+        assertTrue(Files.isRegularFile(message));
+        assertTrue(Files.isRegularFile(grpc));
+        assertTrue(Files.notExists(output.resolve("HelloReply.java")));
+        assertTrue(Files.readString(message).contains("package `com`.`example_$`.`greeter`"));
+        assertTrue(Files.readString(message).contains("fun getDefaultInstance(): `HelloReply`"));
+        assertTrue(Files.readString(grpc).contains("object `GreeterGrpc`"));
+        assertTrue(Files.readString(grpc).contains("\"com.example.greeter.Greeter\""));
+        assertTrue(Files.readString(tempDir.resolve(
+                        "target/generated/sources/protobuf/META-INF/zolt/protobuf/greeter.descriptor"))
+                .contains("language=kotlin"));
+    }
+
+    @Test
     void parserRejectsArbitraryProtocPlugins() {
         ZoltConfigException exception = assertThrows(
                 ZoltConfigException.class,

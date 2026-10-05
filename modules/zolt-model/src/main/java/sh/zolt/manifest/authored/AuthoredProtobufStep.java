@@ -19,7 +19,6 @@ public record AuthoredProtobufStep(
         Optional<Boolean> grpc) implements AuthoredGeneratedStep {
     public AuthoredProtobufStep {
         Objects.requireNonNull(settings, "Protobuf step settings must not be null.");
-        settings.language().ifPresent(language -> language.requireJavaFor("Protobuf"));
         tool = Objects.requireNonNull(tool, "Protobuf step tool reference must not be null.");
         inputs = ManifestModelValues.orderedDistinctList(inputs, "Protobuf step inputs");
         if (inputs.isEmpty()) {

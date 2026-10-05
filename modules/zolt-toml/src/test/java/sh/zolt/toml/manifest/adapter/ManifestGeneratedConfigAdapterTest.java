@@ -48,6 +48,28 @@ final class ManifestGeneratedConfigAdapterTest {
     }
 
     @Test
+    void preservesKotlinProtobufLanguage() {
+        ProjectConfig adapted = FinalManifests.load(
+                """
+                [project]
+                name = "kotlin-protobuf"
+                version = "1.0.0"
+                group = "com.example"
+                java = 21
+
+                [generated.main.protocol]
+                kind = "protobuf"
+                language = "kotlin"
+                inputs = ["src/main/proto/service.proto"]
+                """);
+
+        GeneratedSourceStep protobuf = adapted.build().generatedMainSources().getFirst();
+
+        assertEquals(GeneratedSourceKind.PROTOBUF, protobuf.kind());
+        assertEquals("kotlin", protobuf.language());
+    }
+
+    @Test
     void generatedToolsPresetsAndStepsReachTheProjectConfig() {
         ProjectConfig adapted = FinalManifests.load(
                 """

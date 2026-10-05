@@ -146,7 +146,7 @@ final class ProjectConfigGenerated {
         return new GeneratedSourceStep(
                 id.value(),
                 GeneratedSourceKind.PROTOBUF,
-                JAVA,
+                step.settings().language().orElse(GeneratedLanguage.JAVA).configValue(),
                 derivedOutput(id, step.output(), outputRoot, mainScope),
                 step.inputs().stream().map(ResourceGlob::value).toList(),
                 step.settings().required().orElse(true),

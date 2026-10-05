@@ -60,7 +60,7 @@ final class ManifestGeneratedStepsDecoder {
         String kind = ManifestTomlValues.string(kindField);
         return switch (kind) {
             case "openapi" -> openApi(row, row.language());
-            case "protobuf" -> protobuf(row, row.javaLanguage("Protobuf"));
+            case "protobuf" -> protobuf(row, row.language());
             case "exec" -> ManifestGeneratedExecStepDecoder.decode(row, row.language());
             case "declared-root" -> declaredRoot(row, row.language());
             default -> throw new IllegalStateException(

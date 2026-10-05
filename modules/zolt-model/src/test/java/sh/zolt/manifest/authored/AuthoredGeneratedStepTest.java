@@ -66,7 +66,7 @@ final class AuthoredGeneratedStepTest {
     }
 
     @Test
-    void kotlinLanguageIsAdmittedForOpenApiDeclaredRootsAndExecSourceOutputs() {
+    void kotlinLanguageIsAdmittedForTypedAndDeclaredSourceOutputs() {
         GeneratedStepSettings kotlin = new GeneratedStepSettings(
                 Optional.of(GeneratedLanguage.KOTLIN), Optional.empty(), Optional.empty());
         AuthoredOpenApiStep openApi = new AuthoredOpenApiStep(
@@ -80,19 +80,17 @@ final class AuthoredGeneratedStepTest {
                 kotlin,
                 List.of(new ResourceGlob("generated/kotlin")),
                 new ManifestRelativePath("target/generated/kotlin"));
+        AuthoredProtobufStep protobuf = new AuthoredProtobufStep(
+                kotlin,
+                Optional.empty(),
+                List.of(new ResourceGlob("schema.proto")),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
 
         assertEquals(Optional.of(GeneratedLanguage.KOTLIN), openApi.settings().language());
         assertEquals(Optional.of(GeneratedLanguage.KOTLIN), declared.settings().language());
-        assertEquals(
-                "Protobuf generated steps support only language `java`.",
-                assertThrows(IllegalArgumentException.class, () -> new AuthoredProtobufStep(
-                                kotlin,
-                                Optional.empty(),
-                                List.of(new ResourceGlob("schema.proto")),
-                                Optional.empty(),
-                                Optional.empty(),
-                                Optional.empty()))
-                        .getMessage());
+        assertEquals(Optional.of(GeneratedLanguage.KOTLIN), protobuf.settings().language());
         AuthoredExecStep exec = new AuthoredExecStep(
                 kotlin,
                 new LocalId("tool"),
