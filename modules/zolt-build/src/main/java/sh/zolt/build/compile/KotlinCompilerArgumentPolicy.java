@@ -25,6 +25,8 @@ final class KotlinCompilerArgumentPolicy {
         boolean contextParameters = false;
         boolean whenGuards = false;
         boolean nestedTypeAliases = false;
+        boolean annotationTargetAll = false;
+        String annotationDefaultTargetMode = "";
         String stringConcatMode = "";
         String lambdaMode = "";
         String samConversionMode = "";
@@ -91,6 +93,12 @@ final class KotlinCompilerArgumentPolicy {
                     }
                     nestedTypeAliases = true;
                 }
+                case "-Xannotation-target-all" -> {
+                    if (annotationTargetAll) {
+                        throw duplicateArgument(scope, argument);
+                    }
+                    annotationTargetAll = true;
+                }
                 case "-language-version" -> {
                     if (!languageVersion.isEmpty()) {
                         throw duplicateArgument(scope, argument);
@@ -129,6 +137,12 @@ final class KotlinCompilerArgumentPolicy {
                             throw duplicateArgument(scope, argument);
                         }
                         samConversionMode = KotlinCompilerModeArguments.samConversion(scope, argument);
+                    } else if (argument.startsWith("-Xannotation-default-target=")) {
+                        if (!annotationDefaultTargetMode.isEmpty()) {
+                            throw duplicateArgument(scope, argument);
+                        }
+                        annotationDefaultTargetMode =
+                                KotlinCompilerModeArguments.annotationDefaultTarget(scope, argument);
                     } else if (argument.startsWith("-Xwarning-level=")) {
                         String warningLevel = warningLevelArgument(scope, argument);
                         String diagnostic = warningDiagnostic(warningLevel);
@@ -166,6 +180,8 @@ final class KotlinCompilerArgumentPolicy {
                 contextParameters,
                 whenGuards,
                 nestedTypeAliases,
+                annotationTargetAll,
+                annotationDefaultTargetMode,
                 stringConcatMode,
                 lambdaMode,
                 samConversionMode,
@@ -267,11 +283,13 @@ final class KotlinCompilerArgumentPolicy {
                 "Use only a compatible, duplicate-free subset of `-parameters`, `-nowarn`,"
                         + " `-Werror`, `-Wextra`, `-progressive`, `-Xcontext-sensitive-resolution`,"
                         + " `-Xcontext-parameters`, `-Xwhen-guards`, `-Xnested-type-aliases`,"
+                        + " `-Xannotation-target-all`,"
                         + " `-language-version <major.minor>`, `-api-version <major.minor>`, and one"
                         + " `-jvm-default=<mode>`, plus repeatable"
                         + " `-opt-in=<qualified.annotation.Name>` arguments and one"
                         + " `-Xexplicit-api=<mode>`, one `-Xstring-concat=<mode>`, one"
-                        + " `-Xlambdas=<mode>`, one `-Xsam-conversions=<mode>`, and distinct repeatable"
+                        + " `-Xlambdas=<mode>`, one `-Xsam-conversions=<mode>`, one"
+                        + " `-Xannotation-default-target=<mode>`, and distinct repeatable"
                         + " `-Xwarning-level=DIAGNOSTIC_NAME:<level>` arguments; otherwise keep this"
                         + " source set Java-only.");
     }
@@ -301,6 +319,8 @@ final class KotlinCompilerArgumentPolicy {
             boolean contextParameters,
             boolean whenGuards,
             boolean nestedTypeAliases,
+            boolean annotationTargetAll,
+            String annotationDefaultTargetMode,
             String stringConcatMode,
             String lambdaMode,
             String samConversionMode,

@@ -128,6 +128,8 @@ public final class KotlinCompilerRunner {
             boolean contextParameters,
             boolean whenGuards,
             boolean nestedTypeAliases,
+            boolean annotationTargetAll,
+            String annotationDefaultTargetMode,
             String stringConcatMode,
             String lambdaMode,
             String samConversionMode,
@@ -219,6 +221,8 @@ public final class KotlinCompilerRunner {
                     false,
                     false,
                     false,
+                    false,
+                    "",
                     "",
                     "",
                     "",
@@ -234,6 +238,7 @@ public final class KotlinCompilerRunner {
         public Options {
             release = require(release, "effective Java release");
             moduleName = require(moduleName, "module name");
+            annotationDefaultTargetMode = optional(annotationDefaultTargetMode);
             stringConcatMode = optional(stringConcatMode);
             lambdaMode = optional(lambdaMode);
             samConversionMode = optional(samConversionMode);
@@ -271,6 +276,8 @@ public final class KotlinCompilerRunner {
                     contextParameters,
                     whenGuards,
                     nestedTypeAliases,
+                    annotationTargetAll,
+                    annotationDefaultTargetMode,
                     stringConcatMode,
                     lambdaMode,
                     samConversionMode,

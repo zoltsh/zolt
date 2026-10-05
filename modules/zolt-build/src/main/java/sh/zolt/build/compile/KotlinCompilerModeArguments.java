@@ -61,6 +61,18 @@ final class KotlinCompilerModeArguments {
                 "Use `-Xsam-conversions=class` or `-Xsam-conversions=indy`, or remove the argument.");
     }
 
+    static String annotationDefaultTarget(KotlinCompilationScope scope, String argument) {
+        return require(
+                scope,
+                argument,
+                "-Xannotation-default-target=",
+                "annotation-default-target",
+                List.of("first-only", "first-only-warn", "param-property"),
+                "Use `-Xannotation-default-target=first-only`,"
+                        + " `-Xannotation-default-target=first-only-warn`, or"
+                        + " `-Xannotation-default-target=param-property`, or remove the argument.");
+    }
+
     private static String require(
             KotlinCompilationScope scope,
             String argument,
