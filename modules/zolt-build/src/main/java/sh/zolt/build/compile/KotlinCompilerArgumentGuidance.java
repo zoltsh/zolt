@@ -10,7 +10,7 @@ final class KotlinCompilerArgumentGuidance {
                 + " `-Werror`, `-Wextra`, `-progressive`, `-Xcontext-sensitive-resolution`,"
                 + " `-Xcontext-parameters`, `-Xwhen-guards`, `-Xnested-type-aliases`,"
                 + " `-Xannotation-target-all`, `-Xjvm-expose-boxed`,"
-                + " `-Xconsistent-data-class-copy-visibility`,"
+                + " `-Xconsistent-data-class-copy-visibility`, `-Xemit-jvm-type-annotations`,"
                 + " `-language-version <major.minor>`, `-api-version <major.minor>`, and one"
                 + " `-jvm-default=<mode>`, plus repeatable"
                 + " `-opt-in=<qualified.annotation.Name>` arguments and one"

@@ -43,7 +43,8 @@ final class KotlinCompilerArgumentPolicy {
                         "-Xnested-type-aliases",
                         "-Xannotation-target-all",
                         "-Xjvm-expose-boxed",
-                        "-Xconsistent-data-class-copy-visibility" -> {
+                        "-Xconsistent-data-class-copy-visibility",
+                        "-Xemit-jvm-type-annotations" -> {
                     if (!standaloneArguments.add(argument)) {
                         throw duplicateArgument(scope, argument);
                     }
@@ -132,6 +133,7 @@ final class KotlinCompilerArgumentPolicy {
                 standaloneArguments.contains("-Xannotation-target-all"),
                 standaloneArguments.contains("-Xjvm-expose-boxed"),
                 standaloneArguments.contains("-Xconsistent-data-class-copy-visibility"),
+                standaloneArguments.contains("-Xemit-jvm-type-annotations"),
                 annotationDefaultTargetMode,
                 stringConcatMode,
                 lambdaMode,
@@ -262,6 +264,7 @@ final class KotlinCompilerArgumentPolicy {
             boolean annotationTargetAll,
             boolean jvmExposeBoxed,
             boolean consistentDataClassCopyVisibility,
+            boolean emitJvmTypeAnnotations,
             String annotationDefaultTargetMode,
             String stringConcatMode,
             String lambdaMode,

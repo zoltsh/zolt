@@ -69,6 +69,7 @@ public final class KotlinCompileOptionsPolicy {
                 mappedArguments.annotationTargetAll(),
                 mappedArguments.jvmExposeBoxed(),
                 mappedArguments.consistentDataClassCopyVisibility(),
+                mappedArguments.emitJvmTypeAnnotations(),
                 mappedArguments.annotationDefaultTargetMode(),
                 mappedArguments.stringConcatMode(),
                 mappedArguments.lambdaMode(),

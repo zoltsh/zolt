@@ -65,6 +65,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.consistentDataClassCopyVisibility()) {
             arguments.add("-Xconsistent-data-class-copy-visibility");
         }
+        if (options.emitJvmTypeAnnotations()) {
+            arguments.add("-Xemit-jvm-type-annotations");
+        }
         if (!options.annotationDefaultTargetMode().isEmpty()) {
             arguments.add("-Xannotation-default-target=" + options.annotationDefaultTargetMode());
         }
