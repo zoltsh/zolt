@@ -8,7 +8,6 @@ import sh.zolt.project.ProjectConfig;
 /** Derives the JVM launch flag required by Kotlin preview-marked class files. */
 public final class KotlinJvmPreviewPolicy {
     public static final String RUNTIME_ARGUMENT = "--enable-preview";
-    private static final String COMPILER_ARGUMENT = "-Xjvm-enable-preview";
 
     private KotlinJvmPreviewPolicy() {
     }
@@ -32,13 +31,11 @@ public final class KotlinJvmPreviewPolicy {
     public static boolean mainEnabled(ProjectConfig config) {
         return Objects.requireNonNull(config, "Project configuration is required.")
                 .compilerSettings()
-                .args()
-                .contains(COMPILER_ARGUMENT);
+                .mainKotlinJvmPreview();
     }
 
     public static boolean testRuntimeEnabled(ProjectConfig config) {
         ProjectConfig project = Objects.requireNonNull(config, "Project configuration is required.");
-        return mainEnabled(project)
-                || project.compilerSettings().testArgs().contains(COMPILER_ARGUMENT);
+        return project.compilerSettings().testKotlinJvmPreview();
     }
 }

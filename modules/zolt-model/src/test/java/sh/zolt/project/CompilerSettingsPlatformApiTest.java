@@ -110,4 +110,31 @@ final class CompilerSettingsPlatformApiTest {
         assertFalse(settings.mainHostPlatformApi());
         assertTrue(settings.testHostPlatformApi());
     }
+
+    @Test
+    void kotlinJvmPreviewTracksMainAndTestCompilerArguments() {
+        CompilerSettings ordinary = new CompilerSettings(
+                "gen", "gentest", "21", "", List.of(), List.of());
+        CompilerSettings mainPreview = new CompilerSettings(
+                "gen",
+                "gentest",
+                "21",
+                "",
+                List.of("-Xjvm-enable-preview"),
+                List.of());
+        CompilerSettings testPreview = new CompilerSettings(
+                "gen",
+                "gentest",
+                "21",
+                "",
+                List.of(),
+                List.of("-Xjvm-enable-preview"));
+
+        assertFalse(ordinary.mainKotlinJvmPreview());
+        assertFalse(ordinary.testKotlinJvmPreview());
+        assertTrue(mainPreview.mainKotlinJvmPreview());
+        assertTrue(mainPreview.testKotlinJvmPreview());
+        assertFalse(testPreview.mainKotlinJvmPreview());
+        assertTrue(testPreview.testKotlinJvmPreview());
+    }
 }

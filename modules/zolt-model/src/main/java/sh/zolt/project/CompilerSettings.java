@@ -15,6 +15,7 @@ public record CompilerSettings(
         String kotlinVersion,
         String kotlinModule,
         String kotlinTestModule) {
+    private static final String KOTLIN_JVM_PREVIEW_ARGUMENT = "-Xjvm-enable-preview";
     private static final String DEFAULT_GENERATED_SOURCES = "target/generated/sources/annotations";
     private static final String DEFAULT_GENERATED_TEST_SOURCES = "target/generated/test-sources/annotations";
 
@@ -160,6 +161,16 @@ public record CompilerSettings(
     /** Whether test compilation should use the host JDK platform API instead of {@code --release}. */
     public boolean testHostPlatformApi() {
         return PLATFORM_API_HOST.equals(effectiveTestPlatformApi());
+    }
+
+    /** Whether main Kotlin compilation emits JVM preview-marked class files. */
+    public boolean mainKotlinJvmPreview() {
+        return args.contains(KOTLIN_JVM_PREVIEW_ARGUMENT);
+    }
+
+    /** Whether main or test Kotlin compilation emits JVM preview-marked class files. */
+    public boolean testKotlinJvmPreview() {
+        return mainKotlinJvmPreview() || testArgs.contains(KOTLIN_JVM_PREVIEW_ARGUMENT);
     }
 
     private static String stringOrDefault(String value, String defaultValue) {
