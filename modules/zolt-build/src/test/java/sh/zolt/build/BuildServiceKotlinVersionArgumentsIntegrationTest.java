@@ -62,12 +62,31 @@ final class BuildServiceKotlinVersionArgumentsIntegrationTest {
                         true));
         assertTrue(apiFailure.getMessage().contains("ExperimentalStdlibApi"), apiFailure.getMessage());
 
+        BuildResult optedIn = service.buildWithClasspaths(
+                        projectDir,
+                        config("1.9", "1.8", true),
+                        cacheRoot,
+                        true)
+                .buildResult();
+        assertEquals("full", optedIn.mainCompilationMode());
+        assertEquals(1, optedIn.sourceCount());
+        assertEquals("Marker:1", invoke(artifacts.applicationClasspath()));
+
+        BuildResult optedInWarm = service.buildWithClasspaths(
+                        projectDir,
+                        config("1.9", "1.8", true),
+                        cacheRoot,
+                        true)
+                .buildResult();
+        assertTrue(optedInWarm.mainCompilationSkipped());
+
         BuildResult first = service.buildWithClasspaths(
                         projectDir,
                         config("1.9", "1.9"),
                         cacheRoot,
                         true)
                 .buildResult();
+        assertFalse(first.mainCompilationSkipped());
         assertEquals("full", first.mainCompilationMode());
         assertEquals(1, first.sourceCount());
         assertEquals("Marker:1", invoke(artifacts.applicationClasspath()));
@@ -122,6 +141,16 @@ final class BuildServiceKotlinVersionArgumentsIntegrationTest {
     }
 
     private static ProjectConfig config(String languageVersion, String apiVersion) {
+        return config(languageVersion, apiVersion, false);
+    }
+
+    private static ProjectConfig config(
+            String languageVersion,
+            String apiVersion,
+            boolean optIn) {
+        String optInArgument = optIn
+                ? ", \"-opt-in=kotlin.ExperimentalStdlibApi\""
+                : "";
         return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "kotlin-version-arguments"
@@ -136,10 +165,10 @@ final class BuildServiceKotlinVersionArgumentsIntegrationTest {
                 version = "2.2.0"
 
                 [compiler]
-                args = ["-language-version", "%s", "-api-version", "%s"]
+                args = ["-language-version", "%s", "-api-version", "%s"%s]
 
                 [dependencies]
                 "org.jetbrains.kotlin:kotlin-stdlib" = "2.2.0"
-                """.formatted(languageVersion, apiVersion));
+                """.formatted(languageVersion, apiVersion, optInArgument));
     }
 }
