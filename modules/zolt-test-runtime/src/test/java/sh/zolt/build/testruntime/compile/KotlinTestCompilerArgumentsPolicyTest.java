@@ -86,7 +86,7 @@ final class KotlinTestCompilerArgumentsPolicyTest {
             KotlinCompileException failure = assertRejected(testArgs);
 
             assertTrue(failure.getMessage().contains("[compiler.test].args"));
-            assertTrue(failure.getMessage().contains("duplicate javac argument"));
+            assertTrue(failure.getMessage().contains("duplicate compiler argument"));
         }
     }
 
@@ -99,7 +99,7 @@ final class KotlinTestCompilerArgumentsPolicyTest {
             KotlinCompileException failure = assertRejected(testArgs);
 
             assertTrue(failure.getMessage().contains("[compiler.test].args"));
-            assertTrue(failure.getMessage().contains("unsupported javac argument"));
+            assertTrue(failure.getMessage().contains("unsupported compiler argument"));
             assertTrue(failure.getMessage().contains("duplicate-free subset"));
         }
     }

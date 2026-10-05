@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.StringJoiner;
@@ -80,12 +79,13 @@ public final class KotlinCompilerRunner {
             return new JavacResult(0, outputDirectory, "");
         }
 
-        List<String> compilerArguments = compilerArguments(
+        List<String> compilerArguments = KotlinCompilerInvocationArguments.build(
                 jdkHome,
                 sortedSources,
                 compilationClasspath,
                 outputDirectory,
-                options);
+                options,
+                pathSeparator);
         try (KotlinCompilerArgumentsFile argumentsFile =
                 KotlinCompilerArgumentsFile.create(compilerArguments)) {
             ProcessResult result = processRunner.run(launcherCommand(
@@ -122,49 +122,6 @@ public final class KotlinCompilerRunner {
                 joinedPath(entries(compilerLauncherClasspath)),
                 COMPILER_MAIN,
                 argumentsFile);
-    }
-
-    private List<String> compilerArguments(
-            Path jdkHome,
-            List<Path> sources,
-            Classpath compilationClasspath,
-            Path outputDirectory,
-            Options options) {
-        List<String> arguments = new ArrayList<>();
-        arguments.add("-no-stdlib");
-        arguments.add("-no-reflect");
-        arguments.add("-jdk-home");
-        arguments.add(jdkHome.toString());
-        if (!options.useJdkRelease()) {
-            arguments.add("-jvm-target");
-            arguments.add(jvmTarget(options.release()));
-        } else {
-            arguments.add("-Xjdk-release=" + options.release());
-        }
-        if (options.javaParameters()) {
-            arguments.add("-java-parameters");
-        }
-        if (options.warningsAsErrors()) {
-            arguments.add("-Werror");
-        }
-        List<Path> compilationEntries = entries(compilationClasspath);
-        if (!compilationEntries.isEmpty()) {
-            arguments.add("-classpath");
-            arguments.add(joinedPath(compilationEntries));
-        }
-        if (options.friendPath() != null) {
-            arguments.add("-Xfriend-paths=" + options.friendPath());
-        }
-        arguments.add("-module-name");
-        arguments.add(options.moduleName());
-        arguments.add("-d");
-        arguments.add(outputDirectory.toString());
-        sources.forEach(source -> arguments.add(source.toString()));
-        return List.copyOf(arguments);
-    }
-
-    private static String jvmTarget(String release) {
-        return "8".equals(release) ? "1.8" : release;
     }
 
     private static List<Path> entries(Classpath classpath) {
@@ -214,9 +171,11 @@ public final class KotlinCompilerRunner {
             boolean useJdkRelease,
             boolean javaParameters,
             boolean warningsAsErrors,
+            String languageVersion,
+            String apiVersion,
             Path friendPath) {
         public Options(String release, String moduleName, boolean hostPlatformApi) {
-            this(release, moduleName, hostPlatformApi, !hostPlatformApi, false, false, null);
+            this(release, moduleName, hostPlatformApi, !hostPlatformApi, false, false, "", "", null);
         }
 
         public Options(
@@ -224,7 +183,7 @@ public final class KotlinCompilerRunner {
                 String moduleName,
                 boolean hostPlatformApi,
                 boolean useJdkRelease) {
-            this(release, moduleName, hostPlatformApi, useJdkRelease, false, false, null);
+            this(release, moduleName, hostPlatformApi, useJdkRelease, false, false, "", "", null);
         }
 
         public Options(
@@ -233,7 +192,7 @@ public final class KotlinCompilerRunner {
                 boolean hostPlatformApi,
                 boolean useJdkRelease,
                 boolean javaParameters) {
-            this(release, moduleName, hostPlatformApi, useJdkRelease, javaParameters, false, null);
+            this(release, moduleName, hostPlatformApi, useJdkRelease, javaParameters, false, "", "", null);
         }
 
         public Options(
@@ -250,6 +209,8 @@ public final class KotlinCompilerRunner {
                     useJdkRelease,
                     javaParameters,
                     warningsAsErrors,
+                    "",
+                    "",
                     null);
         }
 
@@ -259,7 +220,7 @@ public final class KotlinCompilerRunner {
                 boolean hostPlatformApi,
                 boolean useJdkRelease,
                 Path friendPath) {
-            this(release, moduleName, hostPlatformApi, useJdkRelease, false, false, friendPath);
+            this(release, moduleName, hostPlatformApi, useJdkRelease, false, false, "", "", friendPath);
         }
 
         /** Compatibility constructor for callers that predate mapped Kotlin warning policy. */
@@ -277,12 +238,37 @@ public final class KotlinCompilerRunner {
                     useJdkRelease,
                     javaParameters,
                     false,
+                    "",
+                    "",
+                    friendPath);
+        }
+
+        /** Compatibility constructor for callers that predate Kotlin language/API pinning. */
+        public Options(
+                String release,
+                String moduleName,
+                boolean hostPlatformApi,
+                boolean useJdkRelease,
+                boolean javaParameters,
+                boolean warningsAsErrors,
+                Path friendPath) {
+            this(
+                    release,
+                    moduleName,
+                    hostPlatformApi,
+                    useJdkRelease,
+                    javaParameters,
+                    warningsAsErrors,
+                    "",
+                    "",
                     friendPath);
         }
 
         public Options {
             release = require(release, "effective Java release");
             moduleName = require(moduleName, "module name");
+            languageVersion = optional(languageVersion);
+            apiVersion = optional(apiVersion);
             friendPath = friendPath == null ? null : friendPath.normalize();
             if (friendPath != null && friendPath.toString().contains(",")) {
                 throw new KotlinCompileException(
@@ -304,6 +290,8 @@ public final class KotlinCompilerRunner {
                     useJdkRelease,
                     javaParameters,
                     warningsAsErrors,
+                    languageVersion,
+                    apiVersion,
                     Objects.requireNonNull(path, "Kotlin friend path is required."));
         }
 
@@ -312,6 +300,10 @@ public final class KotlinCompilerRunner {
                 throw new KotlinCompileException("Kotlin compilation requires a " + label + ".");
             }
             return value.strip();
+        }
+
+        private static String optional(String value) {
+            return value == null || value.isBlank() ? "" : value.strip();
         }
     }
 }

@@ -117,7 +117,7 @@ final class KotlinMappedCompilerArgumentsTest {
                     () -> mainOptions(arguments, List.of()));
 
             assertTrue(failure.getMessage().contains("[compiler].args"));
-            assertTrue(failure.getMessage().contains("unsupported javac argument"));
+            assertTrue(failure.getMessage().contains("unsupported compiler argument"));
             assertTrue(failure.getMessage().contains("-Xlint:all"));
             assertTrue(failure.getMessage().contains("-parameters"));
             assertTrue(failure.getMessage().contains("-Werror"));
@@ -132,7 +132,7 @@ final class KotlinMappedCompilerArgumentsTest {
                     () -> mainOptions(List.of(duplicate, duplicate), List.of()));
 
             assertTrue(failure.getMessage().contains("[compiler].args"));
-            assertTrue(failure.getMessage().contains("duplicate javac argument"));
+            assertTrue(failure.getMessage().contains("duplicate compiler argument"));
             assertTrue(failure.getMessage().contains("`" + duplicate + "`"));
             assertTrue(failure.getMessage().contains("at most once"));
         }

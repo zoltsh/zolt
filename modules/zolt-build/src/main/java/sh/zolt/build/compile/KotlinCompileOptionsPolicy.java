@@ -57,7 +57,10 @@ public final class KotlinCompileOptionsPolicy {
                 hostPlatformApi,
                 !hostPlatformApi && jdkFeature >= 9,
                 mappedArguments.javaParameters(),
-                mappedArguments.warningsAsErrors());
+                mappedArguments.warningsAsErrors(),
+                mappedArguments.languageVersion(),
+                mappedArguments.apiVersion(),
+                null);
     }
 
     /** Maps Kotlin platform targeting onto the matching deterministic javac phase. */
@@ -89,7 +92,10 @@ public final class KotlinCompileOptionsPolicy {
                 : compiler.testArgs();
         boolean javaParameters = false;
         boolean warningsAsErrors = false;
-        for (String argument : arguments) {
+        String languageVersion = "";
+        String apiVersion = "";
+        for (int index = 0; index < arguments.size(); index++) {
+            String argument = arguments.get(index);
             switch (argument) {
                 case "-parameters" -> {
                     if (javaParameters) {
@@ -103,10 +109,53 @@ public final class KotlinCompileOptionsPolicy {
                     }
                     warningsAsErrors = true;
                 }
+                case "-language-version" -> {
+                    if (!languageVersion.isEmpty()) {
+                        throw duplicateArgument(scope, argument);
+                    }
+                    languageVersion = versionArgument(arguments, ++index, scope, argument);
+                }
+                case "-api-version" -> {
+                    if (!apiVersion.isEmpty()) {
+                        throw duplicateArgument(scope, argument);
+                    }
+                    apiVersion = versionArgument(arguments, ++index, scope, argument);
+                }
                 default -> throw unsupportedArgument(scope, argument);
             }
         }
-        return new MappedCompilerArguments(javaParameters, warningsAsErrors);
+        return new MappedCompilerArguments(
+                javaParameters,
+                warningsAsErrors,
+                languageVersion,
+                apiVersion);
+    }
+
+    private static String versionArgument(
+            List<String> arguments,
+            int index,
+            KotlinCompilationScope scope,
+            String option) {
+        if (index >= arguments.size()) {
+            throw invalidVersionArgument(scope, option, "<missing>");
+        }
+        String value = arguments.get(index);
+        if (!value.matches("[1-9][0-9]*\\.[0-9]+")) {
+            throw invalidVersionArgument(scope, option, value);
+        }
+        return value;
+    }
+
+    private static KotlinCompileException invalidVersionArgument(
+            KotlinCompilationScope scope,
+            String option,
+            String value) {
+        return unsupported(
+                scope,
+                compilerArgumentsPath(scope)
+                        + " contains invalid Kotlin argument `" + option + " " + value + "`",
+                "Use `" + option + " <major.minor>` with a version supported by the selected"
+                        + " Kotlin compiler, or remove the pair.");
     }
 
     private static KotlinCompileException duplicateArgument(
@@ -114,10 +163,8 @@ public final class KotlinCompileOptionsPolicy {
             String argument) {
         return unsupported(
                 scope,
-                compilerArgumentsPath(scope)
-                        + " contains duplicate javac argument `" + argument + "`",
-                "Use each of `-parameters` and `-Werror` at most once, or keep this source set"
-                        + " Java-only.");
+                compilerArgumentsPath(scope) + " contains duplicate compiler argument `" + argument + "`",
+                "Use each supported compiler argument at most once, or keep this source set Java-only.");
     }
 
     private static KotlinCompileException unsupportedArgument(
@@ -126,9 +173,10 @@ public final class KotlinCompileOptionsPolicy {
         return unsupported(
                 scope,
                 compilerArgumentsPath(scope)
-                        + " contains unsupported javac argument `" + argument + "`",
-                "Use only a duplicate-free subset of `-parameters` and `-Werror`, or keep this"
-                        + " source set Java-only.");
+                        + " contains unsupported compiler argument `" + argument + "`",
+                "Use only a duplicate-free subset of `-parameters`, `-Werror`,"
+                        + " `-language-version <major.minor>`, and `-api-version <major.minor>`, or"
+                        + " keep this source set Java-only.");
     }
 
     private static String compilerArgumentsPath(KotlinCompilationScope scope) {
@@ -223,6 +271,8 @@ public final class KotlinCompileOptionsPolicy {
 
     private record MappedCompilerArguments(
             boolean javaParameters,
-            boolean warningsAsErrors) {
+            boolean warningsAsErrors,
+            String languageVersion,
+            String apiVersion) {
     }
 }
