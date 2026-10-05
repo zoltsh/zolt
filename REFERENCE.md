@@ -798,11 +798,14 @@ select `first-only`, `first-only-warn`, or `param-property`. One
 `jvm`, or `legacy`. One `-Xjspecify-annotations=<mode>` argument may select
 `ignore`, `warn`, or `strict`, and one global `-Xjsr305=<mode>` argument may
 select `ignore`, `warn`, or `strict`. Distinct, repeatable
-`-Xwarning-level=DIAGNOSTIC_NAME:<level>` arguments may set an uppercase Kotlin
-diagnostic to `error`, `warning`, or `disabled`. The standalone and version
-options must be spelled as separate array entries and may appear at most once;
-each opt-in and warning-level rule is one array entry, and the same annotation
-or diagnostic may not be repeated:
+`-Xnullability-annotations=@package.name:<mode>` arguments may select `ignore`,
+`warn`, or `strict` for compiler-recognized Java annotation packages. Distinct,
+repeatable `-Xwarning-level=DIAGNOSTIC_NAME:<level>` arguments may set an
+uppercase Kotlin diagnostic to `error`, `warning`, or `disabled`. The
+standalone and version options must be spelled as separate array entries and
+may appear at most once; each package rule, opt-in, and warning-level rule is
+one array entry, and the same package, annotation, or diagnostic may not be
+repeated:
 
 ```toml
 [compiler]
@@ -821,6 +824,7 @@ args = [
   "-Xassertions=jvm",
   "-Xjspecify-annotations=strict",
   "-Xjsr305=strict",
+  "-Xnullability-annotations=@org.jetbrains.annotations:strict",
   "-Xjvm-expose-boxed",
   "-Xconsistent-data-class-copy-visibility",
   "-Xemit-jvm-type-annotations",
@@ -882,7 +886,8 @@ boxed value-class exposure, JVM-default modes, explicit-API modes,
 data-class copy visibility, string-concatenation modes, lambda-generation modes,
 JVM type-annotation emission, SAM-conversion modes, diagnostic warning levels,
 Java annotation-target compatibility, assertion modes, JSpecify and JSR-305
-nullness severity, and opt-ins go only to `kotlinc`.
+nullness severity, package-specific Java nullability severity, and opt-ins go
+only to `kotlinc`.
 `-Xmulti-dollar-interpolation` enables Kotlin 2.1's preview syntax when the
 source set pins `-language-version 2.1`. Kotlin 2.2 promotes the syntax to
 Stable and accepts it without the flag. Prefixing a regular or multiline string
@@ -999,6 +1004,18 @@ does not admit the compiler's `under-migration:` or per-annotation `@name:`
 overrides, and Zolt does not inject a JSR-305 annotations artifact. Configure
 the global mode independently in `[compiler].args` and `[compiler.test].args`;
 changing it invalidates and cleanly recompiles the matching output.
+`-Xnullability-annotations=@package.name:strict` makes mismatches from
+nullability annotations in that compiler-recognized Java annotation package
+errors. `warn` reports those mismatches as warnings, so `-Werror` promotes them
+to compilation failures, while `ignore` suppresses them. The package is the
+annotation declaration's package, such as `org.jetbrains.annotations`, not the
+package containing the annotated API. The rule does not teach the compiler the
+meaning of arbitrary custom annotations; the selected compiler determines
+which annotation families and declarations it recognizes. Zolt accepts one
+rule per package, preserves distinct package-rule order, and does not inject an
+annotations artifact. Configure rules independently in `[compiler].args` and
+`[compiler.test].args`; changing any rule invalidates and cleanly recompiles the
+matching output.
 `-Xstring-concat=inline` emits concatenation through `StringBuilder`.
 `-Xstring-concat=indy` uses `StringConcatFactory.makeConcat`, while
 `indy-with-constants` uses `StringConcatFactory.makeConcatWithConstants`. The
@@ -1031,9 +1048,9 @@ context parameters, context-sensitive resolution, JVM-default mode,
 explicit-API mode, when-guards, nested-type-aliases configuration, annotation
 default-target mode, all-target annotation support, multi-dollar interpolation,
 non-local loop control, string-concatenation mode, lambda-generation mode,
-SAM-conversion mode, boxed
-value-class exposure, data-class copy visibility, JSpecify or JSR-305 nullness
-severity, or opt-ins invalidates reuse for that source set.
+SAM-conversion mode, boxed value-class exposure, data-class copy visibility,
+JSpecify, JSR-305, or package-specific Java nullness severity, or opt-ins
+invalidates reuse for that source set.
 Zolt validates warning-level syntax and duplicate names; the selected Kotlin
 compiler still determines
 supported diagnostic names, warnings, extra and progressive checks, version
@@ -1041,8 +1058,8 @@ values, language/API combinations, JVM-default and explicit-API modes,
 string-concatenation, lambda-generation, and SAM-conversion modes,
 context-parameter, context-sensitive-resolution, when-guards,
 nested-type-aliases, multi-dollar-interpolation, non-local loop control,
-annotation-target, boxed
-value-class, and data-class copy visibility behavior. Main and test annotation,
+annotation-target, package-specific nullability, boxed value-class, and
+data-class copy visibility behavior. Main and test annotation,
 boxed-exposure, and copy-visibility settings are independent. Changing any of
 them performs a cleaned full compilation of that source set so obsolete
 placement, constructors, bridges, or method visibility cannot survive. The
