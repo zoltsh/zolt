@@ -35,6 +35,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.warningsAsErrors()) {
             arguments.add("-Werror");
         }
+        if (options.progressiveMode()) {
+            arguments.add("-progressive");
+        }
         addVersion(arguments, "-language-version", options.languageVersion());
         addVersion(arguments, "-api-version", options.apiVersion());
         if (!options.jvmDefaultMode().isEmpty()) {

@@ -18,6 +18,7 @@ final class KotlinCompilerArgumentPolicy {
                 : compiler.testArgs();
         boolean javaParameters = false;
         boolean warningsAsErrors = false;
+        boolean progressiveMode = false;
         String languageVersion = "";
         String apiVersion = "";
         String jvmDefaultMode = "";
@@ -36,6 +37,12 @@ final class KotlinCompilerArgumentPolicy {
                         throw duplicateArgument(scope, argument);
                     }
                     warningsAsErrors = true;
+                }
+                case "-progressive" -> {
+                    if (progressiveMode) {
+                        throw duplicateArgument(scope, argument);
+                    }
+                    progressiveMode = true;
                 }
                 case "-language-version" -> {
                     if (!languageVersion.isEmpty()) {
@@ -70,6 +77,7 @@ final class KotlinCompilerArgumentPolicy {
         return new MappedArguments(
                 javaParameters,
                 warningsAsErrors,
+                progressiveMode,
                 languageVersion,
                 apiVersion,
                 jvmDefaultMode,
@@ -148,8 +156,8 @@ final class KotlinCompilerArgumentPolicy {
                 scope,
                 argumentsPath(scope) + " contains unsupported compiler argument `" + argument + "`",
                 "Use only a duplicate-free subset of `-parameters`, `-Werror`,"
-                        + " `-language-version <major.minor>`, `-api-version <major.minor>`, and one"
-                        + " `-jvm-default=<mode>`, plus repeatable"
+                        + " `-progressive`, `-language-version <major.minor>`,"
+                        + " `-api-version <major.minor>`, and one `-jvm-default=<mode>`, plus repeatable"
                         + " `-opt-in=<qualified.annotation.Name>` arguments; otherwise keep this source"
                         + " set Java-only.");
     }
@@ -172,6 +180,7 @@ final class KotlinCompilerArgumentPolicy {
     record MappedArguments(
             boolean javaParameters,
             boolean warningsAsErrors,
+            boolean progressiveMode,
             String languageVersion,
             String apiVersion,
             String jvmDefaultMode,

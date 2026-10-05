@@ -171,13 +171,14 @@ public final class KotlinCompilerRunner {
             boolean useJdkRelease,
             boolean javaParameters,
             boolean warningsAsErrors,
+            boolean progressiveMode,
             String languageVersion,
             String apiVersion,
             String jvmDefaultMode,
             List<String> optIns,
             Path friendPath) {
         public Options(String release, String moduleName, boolean hostPlatformApi) {
-            this(release, moduleName, hostPlatformApi, !hostPlatformApi, false, false, "", "", "", List.of(), null);
+            this(release, moduleName, hostPlatformApi, !hostPlatformApi, false, false, false, "", "", "", List.of(), null);
         }
 
         public Options(
@@ -185,7 +186,7 @@ public final class KotlinCompilerRunner {
                 String moduleName,
                 boolean hostPlatformApi,
                 boolean useJdkRelease) {
-            this(release, moduleName, hostPlatformApi, useJdkRelease, false, false, "", "", "", List.of(), null);
+            this(release, moduleName, hostPlatformApi, useJdkRelease, false, false, false, "", "", "", List.of(), null);
         }
 
         public Options(
@@ -194,7 +195,7 @@ public final class KotlinCompilerRunner {
                 boolean hostPlatformApi,
                 boolean useJdkRelease,
                 boolean javaParameters) {
-            this(release, moduleName, hostPlatformApi, useJdkRelease, javaParameters, false, "", "", "", List.of(), null);
+            this(release, moduleName, hostPlatformApi, useJdkRelease, javaParameters, false, false, "", "", "", List.of(), null);
         }
 
         public Options(
@@ -211,6 +212,7 @@ public final class KotlinCompilerRunner {
                     useJdkRelease,
                     javaParameters,
                     warningsAsErrors,
+                    false,
                     "",
                     "",
                     "",
@@ -224,7 +226,7 @@ public final class KotlinCompilerRunner {
                 boolean hostPlatformApi,
                 boolean useJdkRelease,
                 Path friendPath) {
-            this(release, moduleName, hostPlatformApi, useJdkRelease, false, false, "", "", "", List.of(), friendPath);
+            this(release, moduleName, hostPlatformApi, useJdkRelease, false, false, false, "", "", "", List.of(), friendPath);
         }
 
         /** Compatibility constructor for callers that predate mapped Kotlin warning policy. */
@@ -241,6 +243,7 @@ public final class KotlinCompilerRunner {
                     hostPlatformApi,
                     useJdkRelease,
                     javaParameters,
+                    false,
                     false,
                     "",
                     "",
@@ -265,6 +268,7 @@ public final class KotlinCompilerRunner {
                     useJdkRelease,
                     javaParameters,
                     warningsAsErrors,
+                    false,
                     "",
                     "",
                     "",
@@ -300,6 +304,7 @@ public final class KotlinCompilerRunner {
                     useJdkRelease,
                     javaParameters,
                     warningsAsErrors,
+                    progressiveMode,
                     languageVersion,
                     apiVersion,
                     jvmDefaultMode,
