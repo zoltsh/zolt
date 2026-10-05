@@ -22,6 +22,7 @@ final class KotlinCompilerArgumentPolicy {
         String annotationDefaultTargetMode = "";
         String assertionMode = "";
         String jspecifyAnnotationsMode = "";
+        String jsr305Mode = "";
         String stringConcatMode = "";
         String lambdaMode = "";
         String samConversionMode = "";
@@ -108,6 +109,11 @@ final class KotlinCompilerArgumentPolicy {
                         }
                         jspecifyAnnotationsMode =
                                 KotlinCompilerModeArguments.jspecifyAnnotations(scope, argument);
+                    } else if (argument.startsWith("-Xjsr305=")) {
+                        if (!jsr305Mode.isEmpty()) {
+                            throw duplicateArgument(scope, argument);
+                        }
+                        jsr305Mode = KotlinCompilerModeArguments.jsr305(scope, argument);
                     } else if (argument.startsWith("-Xwarning-level=")) {
                         String warningLevel = warningLevelArgument(scope, argument);
                         String diagnostic = warningDiagnostic(warningLevel);
@@ -154,6 +160,7 @@ final class KotlinCompilerArgumentPolicy {
                 annotationDefaultTargetMode,
                 assertionMode,
                 jspecifyAnnotationsMode,
+                jsr305Mode,
                 stringConcatMode,
                 lambdaMode,
                 samConversionMode,
@@ -289,6 +296,7 @@ final class KotlinCompilerArgumentPolicy {
             String annotationDefaultTargetMode,
             String assertionMode,
             String jspecifyAnnotationsMode,
+            String jsr305Mode,
             String stringConcatMode,
             String lambdaMode,
             String samConversionMode,

@@ -83,6 +83,9 @@ final class KotlinCompilerInvocationArguments {
         if (!options.jspecifyAnnotationsMode().isEmpty()) {
             arguments.add("-Xjspecify-annotations=" + options.jspecifyAnnotationsMode());
         }
+        if (!options.jsr305Mode().isEmpty()) {
+            arguments.add("-Xjsr305=" + options.jsr305Mode());
+        }
         if (!options.stringConcatMode().isEmpty()) {
             arguments.add("-Xstring-concat=" + options.stringConcatMode());
         }

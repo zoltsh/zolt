@@ -137,6 +137,7 @@ public final class KotlinCompilerRunner {
             String annotationDefaultTargetMode,
             String assertionMode,
             String jspecifyAnnotationsMode,
+            String jsr305Mode,
             String stringConcatMode,
             String lambdaMode,
             String samConversionMode,
@@ -244,6 +245,7 @@ public final class KotlinCompilerRunner {
                     "",
                     "",
                     "",
+                    "",
                     List.of(),
                     List.of(),
                     friendPath);
@@ -255,6 +257,7 @@ public final class KotlinCompilerRunner {
             annotationDefaultTargetMode = optional(annotationDefaultTargetMode);
             assertionMode = optional(assertionMode);
             jspecifyAnnotationsMode = optional(jspecifyAnnotationsMode);
+            jsr305Mode = optional(jsr305Mode);
             stringConcatMode = optional(stringConcatMode);
             lambdaMode = optional(lambdaMode);
             samConversionMode = optional(samConversionMode);
@@ -301,6 +304,7 @@ public final class KotlinCompilerRunner {
                     annotationDefaultTargetMode,
                     assertionMode,
                     jspecifyAnnotationsMode,
+                    jsr305Mode,
                     stringConcatMode,
                     lambdaMode,
                     samConversionMode,

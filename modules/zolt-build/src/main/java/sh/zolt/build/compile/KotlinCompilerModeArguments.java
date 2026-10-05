@@ -95,6 +95,17 @@ final class KotlinCompilerModeArguments {
                         + " `-Xjspecify-annotations=strict`, or remove the argument.");
     }
 
+    static String jsr305(KotlinCompilationScope scope, String argument) {
+        return require(
+                scope,
+                argument,
+                "-Xjsr305=",
+                "JSR-305",
+                List.of("ignore", "warn", "strict"),
+                "Use `-Xjsr305=ignore`, `-Xjsr305=warn`, or `-Xjsr305=strict`, or remove"
+                        + " the argument.");
+    }
+
     private static String require(
             KotlinCompilationScope scope,
             String argument,
