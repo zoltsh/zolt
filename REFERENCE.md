@@ -721,7 +721,10 @@ across authored and declared roots. A pinned `kind = "exec"` step may instead
 own the Kotlin tree when it sets `language = "kotlin"` and produces the
 `"java-sources"` lane. Its tool, arguments, declared inputs, and output bytes
 participate in reuse decisions, and Zolt regenerates it before source discovery.
-OpenAPI and Protobuf generation remain Java-only.
+An OpenAPI step may likewise own a Kotlin tree when it sets
+`language = "kotlin"`; generation, output-integrity repair, source discovery,
+compilation, and cache reuse all preserve that language choice. Protobuf
+generation remains Java-only.
 
 This is intentionally a bounded preview. Zolt fails before cache restoration or
 output cleanup when any of these conditions applies:
@@ -733,10 +736,10 @@ output cleanup when any of these conditions applies:
 - `[compiler].args` contains a flag other than `-parameters` or `-Werror`, or
   repeats either supported flag; or
 - a Zolt-owned Java-source-producing OpenAPI, Protobuf, or exec main generation
-  step is configured. A pre-generated Java or Kotlin `declared-root`, or a
-  source-producing exec step explicitly marked `language = "kotlin"`, is
-  admitted; exec steps that produce resources or intermediate outputs do not by
-  themselves cross this boundary.
+  step is configured. A pre-generated Java or Kotlin `declared-root`, an
+  OpenAPI step marked `language = "kotlin"`, or a source-producing exec step
+  marked `language = "kotlin"` is admitted; exec steps that produce resources
+  or intermediate outputs do not by themselves cross this boundary.
 
 Kotlin main compilation supports workspace API and implementation dependencies;
 dependency class ABI and Kotlin module metadata participate in downstream
@@ -749,8 +752,9 @@ may coexist with a Kotlin-only or mixed Java/Kotlin main source set.
 Tests may use their own member's `internal` main declarations: Zolt passes only
 that member's main output as a Kotlin friend path. Internal declarations from
 workspace dependency members remain inaccessible. Kotlin integration-test
-roots are admitted through `[test.integration].sources`; Kotlin output from
-OpenAPI or Protobuf, KAPT, and automatic migration of Kotlin shapes outside the
+roots are admitted through `[test.integration].sources`; OpenAPI steps marked
+`language = "kotlin"` may also supply owned main or test sources. Kotlin output
+from Protobuf, KAPT, and automatic migration of Kotlin shapes outside the
 bounded Maven subset described under Migration Explain are not supported.
 Sources are read as UTF-8.
 The effective Java release must not exceed the selected complete JDK;
@@ -1908,13 +1912,13 @@ rejects Groovy test sources, `module-info.java`, test annotation processors,
 or repeating either flag, Java-source-producing generated-test steps, and
 Quarkus in the same member. The generated-test restriction applies to
 Zolt-owned OpenAPI, Protobuf, and exec steps whose language remains Java;
-pre-generated Java or Kotlin `declared-root` steps and source-producing exec
-steps explicitly marked `language = "kotlin"` are admitted. Exec steps that
-produce test resources or intermediate outputs remain compatible. Kotlin output
-from OpenAPI or Protobuf and KAPT remain unsupported. Test dependencies remain
-isolated from main compilation and main runtime. Any source change in a
-Kotlin-bearing test source set uses cleaned full-scope compilation rather than
-incremental javac state.
+pre-generated Java or Kotlin `declared-root` steps, OpenAPI steps marked
+`language = "kotlin"`, and source-producing exec steps marked
+`language = "kotlin"` are admitted. Exec steps that produce test resources or
+intermediate outputs remain compatible. Kotlin output from Protobuf and KAPT
+remain unsupported. Test dependencies remain isolated from main compilation
+and main runtime. Any source change in a Kotlin-bearing test source set uses
+cleaned full-scope compilation rather than incremental javac state.
 
 Test commands support class/method selection, glob patterns, JUnit tags, JVM
 arguments, XML reports, deterministic shards, named suites, and optional profile
@@ -1965,7 +1969,7 @@ Zolt has project-model support for common Java application shapes:
   `[package] mode = "quarkus"`.
 - Micronaut-style annotation processor workflows.
 - Vert.x applications with platform BOMs and dependency exclusions.
-- OpenAPI generated Java sources with tool versioning and presets.
+- OpenAPI generated Java or Kotlin sources with tool versioning and presets.
 - Protobuf/gRPC generated Java sources.
 - Generic exec steps that run a pinned tool — a resolver-locked `jvm` tool, a
   PATH `process` tool, or the member's own `project` classpath — to produce Java
@@ -2001,9 +2005,12 @@ kind and its `output` defaults to `<build.output.root>/generated/sources/<id>`
 (`generated/test-sources/<id>` for a test step), so neither is written unless it
 differs. `language` defaults to `"java"`. The value `"kotlin"` is accepted for
 `kind = "declared-root"`, which admits an already-present protected Kotlin tree
-without making Zolt its producer, and for `kind = "exec"` when `produces` is
-`"java-sources"` or `"test-sources"`. OpenAPI, Protobuf, and non-source exec
-outputs remain Java-only.
+without making Zolt its producer; for `kind = "exec"` when `produces` is
+`"java-sources"` or `"test-sources"`; and for `kind = "openapi"`. A Kotlin
+OpenAPI step must select a generator and options that actually emit `.kt` files.
+Its owned output is generated before discovery and participates in fingerprint,
+workspace, and output-cache decisions. Protobuf and non-source exec outputs
+remain Java-only.
 
 For example, an external generator can hand an existing Kotlin tree to Zolt
 without granting cleanup ownership:

@@ -37,8 +37,8 @@ zolt run
   compiles Kotlin/JVM main sources alone or together with Java, including
   circular cross-language references, plus Kotlin/JVM unit and integration
   tests alone or together with Java. Kotlin main and test trees may be authored,
-  protected pre-generated roots, or owned outputs of pinned exec generators.
-  Unsupported language and compiler combinations fail closed.
+  protected pre-generated roots, or owned outputs of pinned exec and OpenAPI
+  generators. Unsupported language and compiler combinations fail closed.
 - **Dependencies.** Use API, implementation, runtime, provided, development,
   test, and annotation-processor lanes under one `[dependencies]` namespace.
 - **Metadata.** Import BOMs and configure version aliases, exclusions,
@@ -78,7 +78,7 @@ zolt coverage
 - **Quarkus.** Fast-jar packaging plus augmentation and test-plan inspection.
 - **Micronaut.** Documented HTTP application and annotation-processor examples.
 - **Vert.x.** Documented HTTP and PostgreSQL application examples.
-- **OpenAPI.** Locked tooling and generated Java sources.
+- **OpenAPI.** Locked tooling and generated Java or Kotlin sources.
 - **Protobuf.** Protobuf and gRPC generated Java sources.
 - **Exec.** Declared process or JVM generation steps with typed inputs, outputs,
   ordering, and cache policy.
