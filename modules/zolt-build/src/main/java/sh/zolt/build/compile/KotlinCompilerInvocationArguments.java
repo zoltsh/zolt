@@ -131,6 +131,10 @@ final class KotlinCompilerInvocationArguments {
         if (!options.jsr305Mode().isEmpty()) {
             arguments.add("-Xjsr305=" + options.jsr305Mode());
         }
+        if (!options.compatqualAnnotationsMode().isEmpty()) {
+            arguments.add("-Xsupport-compatqual-checker-framework-annotations="
+                    + options.compatqualAnnotationsMode());
+        }
         options.nullabilityAnnotations().forEach(value ->
                 arguments.add("-Xnullability-annotations=" + value));
         if (!options.stringConcatMode().isEmpty()) {

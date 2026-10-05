@@ -45,6 +45,7 @@ public record KotlinCompilerOptions(
         String assertionMode,
         String jspecifyAnnotationsMode,
         String jsr305Mode,
+        String compatqualAnnotationsMode,
         String stringConcatMode,
         String lambdaMode,
         String samConversionMode,
@@ -169,6 +170,7 @@ public record KotlinCompilerOptions(
                 "",
                 "",
                 "",
+                "",
                 List.of(),
                 List.of(),
                 List.of(),
@@ -184,6 +186,8 @@ public record KotlinCompilerOptions(
         jspecifyAnnotationsMode = KotlinCompilerOptionValues.optional(
                 jspecifyAnnotationsMode);
         jsr305Mode = KotlinCompilerOptionValues.optional(jsr305Mode);
+        compatqualAnnotationsMode = KotlinCompilerOptionValues.optional(
+                compatqualAnnotationsMode);
         stringConcatMode = KotlinCompilerOptionValues.optional(stringConcatMode);
         lambdaMode = KotlinCompilerOptionValues.optional(lambdaMode);
         samConversionMode = KotlinCompilerOptionValues.optional(samConversionMode);
@@ -251,6 +255,7 @@ public record KotlinCompilerOptions(
                 assertionMode,
                 jspecifyAnnotationsMode,
                 jsr305Mode,
+                compatqualAnnotationsMode,
                 stringConcatMode,
                 lambdaMode,
                 samConversionMode,

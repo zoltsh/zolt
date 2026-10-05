@@ -29,7 +29,8 @@ final class KotlinCompilerArgumentGuidance {
                 + " `-Xexplicit-api=<mode>`, one `-Xstring-concat=<mode>`, one"
                 + " `-Xlambdas=<mode>`, one `-Xsam-conversions=<mode>`, one"
                 + " `-Xannotation-default-target=<mode>`, one `-Xassertions=<mode>`, one"
-                + " `-Xjspecify-annotations=<mode>`, one `-Xjsr305=<mode>`, and distinct"
+                + " `-Xjspecify-annotations=<mode>`, one `-Xjsr305=<mode>`, one"
+                + " `-Xsupport-compatqual-checker-framework-annotations=<mode>`, and distinct"
                 + " repeatable `-Xnullability-annotations=@package.name:<mode>` and"
                 + " `-Xwarning-level=DIAGNOSTIC_NAME:<level>` arguments; otherwise keep this"
                 + " source set Java-only.";

@@ -106,6 +106,18 @@ final class KotlinCompilerModeArguments {
                         + " the argument.");
     }
 
+    static String compatqualAnnotations(KotlinCompilationScope scope, String argument) {
+        return require(
+                scope,
+                argument,
+                "-Xsupport-compatqual-checker-framework-annotations=",
+                "Checker Framework compatqual-annotation",
+                List.of("enable", "disable"),
+                "Use `-Xsupport-compatqual-checker-framework-annotations=enable` or"
+                        + " `-Xsupport-compatqual-checker-framework-annotations=disable`, or"
+                        + " remove the argument.");
+    }
+
     private static String require(
             KotlinCompilationScope scope,
             String argument,

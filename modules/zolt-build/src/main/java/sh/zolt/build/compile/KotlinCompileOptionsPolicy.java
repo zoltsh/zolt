@@ -91,6 +91,7 @@ public final class KotlinCompileOptionsPolicy {
                 mappedArguments.assertionMode(),
                 mappedArguments.jspecifyAnnotationsMode(),
                 mappedArguments.jsr305Mode(),
+                mappedArguments.compatqualAnnotationsMode(),
                 mappedArguments.stringConcatMode(),
                 mappedArguments.lambdaMode(),
                 mappedArguments.samConversionMode(),

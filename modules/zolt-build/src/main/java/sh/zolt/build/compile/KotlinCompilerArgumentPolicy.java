@@ -23,6 +23,7 @@ final class KotlinCompilerArgumentPolicy {
         String assertionMode = "";
         String jspecifyAnnotationsMode = "";
         String jsr305Mode = "";
+        String compatqualAnnotationsMode = "";
         String stringConcatMode = "";
         String lambdaMode = "";
         String samConversionMode = "";
@@ -102,6 +103,13 @@ final class KotlinCompilerArgumentPolicy {
                             throw duplicateArgument(scope, argument);
                         }
                         jsr305Mode = KotlinCompilerModeArguments.jsr305(scope, argument);
+                    } else if (argument.startsWith(
+                            "-Xsupport-compatqual-checker-framework-annotations=")) {
+                        if (!compatqualAnnotationsMode.isEmpty()) {
+                            throw duplicateArgument(scope, argument);
+                        }
+                        compatqualAnnotationsMode =
+                                KotlinCompilerModeArguments.compatqualAnnotations(scope, argument);
                     } else if (argument.startsWith("-Xnullability-annotations=")) {
                         String nullabilityAnnotation =
                                 KotlinCompilerRepeatableArgumentPolicy.nullabilityAnnotation(
@@ -193,6 +201,7 @@ final class KotlinCompilerArgumentPolicy {
                 assertionMode,
                 jspecifyAnnotationsMode,
                 jsr305Mode,
+                compatqualAnnotationsMode,
                 stringConcatMode,
                 lambdaMode,
                 samConversionMode,
@@ -312,6 +321,7 @@ final class KotlinCompilerArgumentPolicy {
             String assertionMode,
             String jspecifyAnnotationsMode,
             String jsr305Mode,
+            String compatqualAnnotationsMode,
             String stringConcatMode,
             String lambdaMode,
             String samConversionMode,
