@@ -18,6 +18,7 @@ final class KotlinCompilerArgumentPolicy {
                 : compiler.testArgs();
         boolean javaParameters = false;
         boolean warningsAsErrors = false;
+        boolean suppressWarnings = false;
         boolean extraWarnings = false;
         boolean progressiveMode = false;
         String languageVersion = "";
@@ -38,6 +39,12 @@ final class KotlinCompilerArgumentPolicy {
                         throw duplicateArgument(scope, argument);
                     }
                     warningsAsErrors = true;
+                }
+                case "-nowarn" -> {
+                    if (suppressWarnings) {
+                        throw duplicateArgument(scope, argument);
+                    }
+                    suppressWarnings = true;
                 }
                 case "-Wextra" -> {
                     if (extraWarnings) {
@@ -81,9 +88,16 @@ final class KotlinCompilerArgumentPolicy {
                 }
             }
         }
+        if (suppressWarnings && warningsAsErrors) {
+            throw incompatibleArguments(scope, "-nowarn", "-Werror");
+        }
+        if (suppressWarnings && extraWarnings) {
+            throw incompatibleArguments(scope, "-nowarn", "-Wextra");
+        }
         return new MappedArguments(
                 javaParameters,
                 warningsAsErrors,
+                suppressWarnings,
                 extraWarnings,
                 progressiveMode,
                 languageVersion,
@@ -157,14 +171,25 @@ final class KotlinCompilerArgumentPolicy {
                 "Use each exact compiler argument at most once, or keep this source set Java-only.");
     }
 
+    private static KotlinCompileException incompatibleArguments(
+            KotlinCompilationScope scope,
+            String left,
+            String right) {
+        return unsupported(
+                scope,
+                argumentsPath(scope) + " combines incompatible compiler arguments `"
+                        + left + "` and `" + right + "`",
+                "Choose warning suppression or warning enforcement, but not both.");
+    }
+
     private static KotlinCompileException unsupportedArgument(
             KotlinCompilationScope scope,
             String argument) {
         return unsupported(
                 scope,
                 argumentsPath(scope) + " contains unsupported compiler argument `" + argument + "`",
-                "Use only a duplicate-free subset of `-parameters`, `-Werror`, `-Wextra`,"
-                        + " `-progressive`, `-language-version <major.minor>`,"
+                "Use only a compatible, duplicate-free subset of `-parameters`, `-nowarn`,"
+                        + " `-Werror`, `-Wextra`, `-progressive`, `-language-version <major.minor>`,"
                         + " `-api-version <major.minor>`, and one `-jvm-default=<mode>`, plus repeatable"
                         + " `-opt-in=<qualified.annotation.Name>` arguments; otherwise keep this source"
                         + " set Java-only.");
@@ -188,6 +213,7 @@ final class KotlinCompilerArgumentPolicy {
     record MappedArguments(
             boolean javaParameters,
             boolean warningsAsErrors,
+            boolean suppressWarnings,
             boolean extraWarnings,
             boolean progressiveMode,
             String languageVersion,

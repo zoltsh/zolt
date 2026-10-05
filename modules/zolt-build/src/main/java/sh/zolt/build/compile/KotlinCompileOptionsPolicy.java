@@ -59,6 +59,7 @@ public final class KotlinCompileOptionsPolicy {
                 !hostPlatformApi && jdkFeature >= 9,
                 mappedArguments.javaParameters(),
                 mappedArguments.warningsAsErrors(),
+                mappedArguments.suppressWarnings(),
                 mappedArguments.extraWarnings(),
                 mappedArguments.progressiveMode(),
                 mappedArguments.languageVersion(),
@@ -76,6 +77,9 @@ public final class KotlinCompileOptionsPolicy {
         List<String> arguments = new ArrayList<>(2);
         if (options.javaParameters()) {
             arguments.add("-parameters");
+        }
+        if (options.suppressWarnings()) {
+            arguments.add("-nowarn");
         }
         if (options.warningsAsErrors()) {
             arguments.add("-Werror");

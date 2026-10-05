@@ -32,6 +32,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.javaParameters()) {
             arguments.add("-java-parameters");
         }
+        if (options.suppressWarnings()) {
+            arguments.add("-nowarn");
+        }
         if (options.warningsAsErrors()) {
             arguments.add("-Werror");
         }
