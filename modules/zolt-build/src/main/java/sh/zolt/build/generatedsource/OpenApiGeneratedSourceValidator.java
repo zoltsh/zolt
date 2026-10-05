@@ -13,7 +13,7 @@ final class OpenApiGeneratedSourceValidator {
     }
 
     static void validateStep(Path projectRoot, String scope, GeneratedSourceStep step) {
-        if (!"java".equals(step.language())) {
+        if (!"java".equals(step.language()) && !"kotlin".equals(step.language())) {
             throw new BuildException(
                     "OpenAPI generated source step [generated."
                             + scope
@@ -21,7 +21,7 @@ final class OpenApiGeneratedSourceValidator {
                             + step.id()
                             + "] uses unsupported language `"
                             + step.language()
-                            + "`. Zolt currently supports java.");
+                            + "`. Zolt supports java and kotlin for OpenAPI output.");
         }
         if (step.inputs().size() != 1) {
             throw new BuildException(

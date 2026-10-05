@@ -280,6 +280,18 @@ final class KotlinTestCompilePolicyTest {
     }
 
     @Test
+    void acceptsOwnedKotlinOpenApiGeneration() {
+        KotlinCompilerRunner.Options options = KotlinTestCompilePolicy.options(
+                configWithGeneratedTestStep(generatedStep(GeneratedSourceKind.OPENAPI, "kotlin")),
+                sources(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(KOTLIN_TEST)),
+                classpaths(List.of()),
+                jdkStatus(),
+                null);
+
+        assertEquals("21", options.release());
+    }
+
+    @Test
     void rejectsTestAnnotationProcessors() {
         KotlinCompileException processorFailure = assertThrows(
                 KotlinCompileException.class,
@@ -369,10 +381,14 @@ final class KotlinTestCompilePolicyTest {
     }
 
     private static GeneratedSourceStep generatedStep(GeneratedSourceKind kind) {
+        return generatedStep(kind, "java");
+    }
+
+    private static GeneratedSourceStep generatedStep(GeneratedSourceKind kind, String language) {
         return new GeneratedSourceStep(
                 "generated",
                 kind,
-                "java",
+                language,
                 "generated/test",
                 List.of(),
                 true,

@@ -252,6 +252,17 @@ final class KotlinMainCompilePolicyTest {
     }
 
     @Test
+    void acceptsOwnedKotlinOpenApiGeneration() {
+        KotlinCompilerRunner.Options options = KotlinMainCompilePolicy.options(
+                configWithGeneratedStep(generatedStep(GeneratedSourceKind.OPENAPI, "kotlin")),
+                sources(List.of(), List.of(), List.of(KOTLIN)),
+                classpaths(List.of()),
+                jdkStatus("21.0.11", "21"));
+
+        assertEquals("21", options.release());
+    }
+
+    @Test
     void rejectsMixedCompilationWithoutJavac() {
         JdkStatus runtimeOnly = new JdkStatus(
                 Optional.of(Path.of("/managed-jdk")),
@@ -371,10 +382,14 @@ final class KotlinMainCompilePolicyTest {
     }
 
     private static GeneratedSourceStep generatedStep(GeneratedSourceKind kind) {
+        return generatedStep(kind, "java");
+    }
+
+    private static GeneratedSourceStep generatedStep(GeneratedSourceKind kind, String language) {
         return new GeneratedSourceStep(
                 "generated",
                 kind,
-                "java",
+                language,
                 "generated/main",
                 List.of(),
                 true,

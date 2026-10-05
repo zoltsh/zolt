@@ -175,10 +175,12 @@ public final class SourceDiscoverer {
             case "java" -> javaRoots;
             case "kotlin" -> {
                 if (step.kind() != GeneratedSourceKind.DECLARED_ROOT
+                        && step.kind() != GeneratedSourceKind.OPENAPI
                         && step.kind() != GeneratedSourceKind.EXEC) {
                     throw new SourceDiscoveryException(
                             "Generated source language `kotlin` for " + subject
-                                    + " requires kind = \"declared-root\" or a source-producing exec step.");
+                                    + " requires kind = \"declared-root\", kind = \"openapi\", or a"
+                                    + " source-producing exec step.");
                 }
                 yield kotlinRoots;
             }
@@ -186,7 +188,7 @@ public final class SourceDiscoverer {
                     "Unsupported generated source language `" + step.language() + "` for "
                             + subject
                             + ". Supported generated source languages are java and kotlin; kotlin requires"
-                            + " kind = \"declared-root\" or a source-producing exec step.");
+                            + " kind = \"declared-root\", kind = \"openapi\", or a source-producing exec step.");
         };
     }
 

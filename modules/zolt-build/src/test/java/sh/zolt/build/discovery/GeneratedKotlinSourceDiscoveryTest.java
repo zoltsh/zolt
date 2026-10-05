@@ -73,13 +73,32 @@ final class GeneratedKotlinSourceDiscoveryTest {
     }
 
     @Test
+    void partitionsOpenApiGeneratedKotlinRootsByLanguageInBothScopes() throws IOException {
+        Path mainKotlin = source("target/generated/openapi/main/com/example/Client.kt");
+        Path testKotlin = source("target/generated/openapi/test/com/example/Fixture.kt");
+        source("schema/main.yaml");
+        source("schema/test.yaml");
+
+        SourceDiscoveryResult result = discoverer.discover(
+                projectDir,
+                BuildSettings.defaults().withGeneratedSources(
+                        List.of(openApi("main", "target/generated/openapi/main", "schema/main.yaml")),
+                        List.of(openApi("test", "target/generated/openapi/test", "schema/test.yaml"))));
+
+        assertEquals(List.of(mainKotlin), result.kotlinMainSources());
+        assertEquals(List.of(testKotlin), result.kotlinTestSources());
+        assertEquals(List.of(), result.mainSources());
+        assertEquals(List.of(), result.testSources());
+    }
+
+    @Test
     void rejectsKotlinForGeneratedKindsThatRemainJavaOnly() {
-        GeneratedSourceStep openApi = new GeneratedSourceStep(
-                "api",
-                GeneratedSourceKind.OPENAPI,
+        GeneratedSourceStep protobuf = new GeneratedSourceStep(
+                "protocol",
+                GeneratedSourceKind.PROTOBUF,
                 "kotlin",
-                "generated/api",
-                List.of("schema/api.yaml"),
+                "generated/protocol",
+                List.of("schema/protocol.proto"),
                 true,
                 false);
 
@@ -87,11 +106,11 @@ final class GeneratedKotlinSourceDiscoveryTest {
                 SourceDiscoveryException.class,
                 () -> discoverer.discover(
                         projectDir,
-                        BuildSettings.defaults().withGeneratedSources(List.of(openApi), List.of())));
+                        BuildSettings.defaults().withGeneratedSources(List.of(protobuf), List.of())));
 
-        assertTrue(failure.getMessage().contains("[generated.main.api]"), failure.getMessage());
+        assertTrue(failure.getMessage().contains("[generated.main.protocol]"), failure.getMessage());
         assertTrue(
-                failure.getMessage().contains("requires kind = \"declared-root\" or a source-producing exec step"),
+                failure.getMessage().contains("kind = \"openapi\""),
                 failure.getMessage());
     }
 
@@ -143,6 +162,17 @@ final class GeneratedKotlinSourceDiscoveryTest {
                         Optional.empty(),
                         Map.of(),
                         "content"));
+    }
+
+    private GeneratedSourceStep openApi(String id, String output, String input) {
+        return new GeneratedSourceStep(
+                id,
+                GeneratedSourceKind.OPENAPI,
+                "kotlin",
+                output,
+                List.of(input),
+                true,
+                true);
     }
 
     private Path source(String relativePath) throws IOException {
