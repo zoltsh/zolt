@@ -786,7 +786,8 @@ plus `-Xmulti-dollar-interpolation`, `-Xnon-local-break-continue`,
 `-Xjvm-expose-boxed`, `-Xconsistent-data-class-copy-visibility`, and
 `-Xemit-jvm-type-annotations`, plus `-Xno-new-java-annotation-targets`,
 `-Xno-source-debug-extension`, `-Xno-unified-null-checks`, `-Xno-optimize`,
-`-Xno-inline`, `-Xuse-inline-scopes-numbers`, `-Xsanitize-parentheses`,
+`-Xno-inline`, `-Xuse-inline-scopes-numbers`,
+`-Xuse-14-inline-classes-mangling-scheme`, `-Xsanitize-parentheses`,
 `-Xmultifile-parts-inherit`,
 `-Xvalidate-bytecode`,
 `-Xgenerate-strict-metadata-version`, and `-Xannotations-in-metadata`, plus
@@ -843,6 +844,7 @@ args = [
   "-Xno-optimize",
   "-Xno-inline",
   "-Xuse-inline-scopes-numbers",
+  "-Xuse-14-inline-classes-mangling-scheme",
   "-Xsanitize-parentheses",
   "-Xmultifile-parts-inherit",
   "-Xvalidate-bytecode",
@@ -919,9 +921,9 @@ nullness severity, package-specific Java nullability severity, source-debug
 annotation emission, legacy null-check exception compatibility, strict
 metadata-version semantics, annotated-lambda indy compatibility, backend
 optimization and method-inlining control, inline-scope debug numbering, JVM-name
-parentheses sanitization, multifile-part inheritance, complete warning
-reporting, generated-bytecode validation, annotations in metadata, and opt-ins
-go only to `kotlinc`.
+parentheses sanitization, legacy inline-class mangling, multifile-part
+inheritance, complete warning reporting, generated-bytecode validation,
+annotations in metadata, and opt-ins go only to `kotlinc`.
 `-Xmulti-dollar-interpolation` enables Kotlin 2.1's preview syntax when the
 source set pins `-language-version 2.1`. Kotlin 2.2 promotes the syntax to
 Stable and accepts it without the flag. Prefixing a regular or multiline string
@@ -1050,6 +1052,18 @@ change. Debuggers, profilers, coverage agents, and other bytecode tools can
 observe those names, and the selected compiler remains authoritative for the
 numbering format. Configure the flag independently for main and test source
 sets; changing it invalidates and cleanly recompiles the matching output.
+`-Xuse-14-inline-classes-mangling-scheme` restores the JVM symbol-mangling
+algorithm used by Kotlin 1.4.0 for declarations whose signatures contain inline
+or value classes. In the qualified Kotlin 2.2.0 case, a function with an
+ordinary `String` parameter and a value-class parameter receives a different
+`render-<hash>` JVM name under the legacy scheme, while the value-class wrapper
+stays byte-identical and Kotlin runtime behavior is unchanged. This deliberately
+changes binary linkage. Use it only when preserving compatibility with binaries
+that expect the pre-1.4.30 symbol scheme, and keep producer/consumer expectations
+aligned; reflection and non-Kotlin bytecode callers must use the selected name.
+The selected compiler remains authoritative for the exact hash. Configure the
+flag independently for main and test source sets; changing it invalidates and
+cleanly recompiles the matching output.
 `-Xsanitize-parentheses` replaces parentheses in generated JVM method names with
 the selected Kotlin compiler's safe character sequence. In the qualified Kotlin
 2.2.0 case, a backtick-declared source method named `call(me)` is emitted as
@@ -1191,16 +1205,17 @@ exposure, data-class copy visibility, source-debug annotation emission,
 JSpecify, JSR-305, or package-specific Java nullness severity, legacy null-check
 exceptions, strict metadata-version semantics, annotations in metadata, backend
 optimization, method inlining, inline-scope debug numbering, JVM-name
-parentheses sanitization, multifile-part inheritance, complete warning
-reporting, generated-bytecode validation, or opt-ins invalidates reuse for that
-source set.
+parentheses sanitization, legacy inline-class mangling, multifile-part
+inheritance, complete warning reporting, generated-bytecode validation, or
+opt-ins invalidates reuse for that source set.
 Zolt validates warning-level syntax and duplicate names; the selected Kotlin
 compiler still determines
 supported diagnostic names, warnings, extra and progressive checks, version
 values, language/API combinations, JVM-default and explicit-API modes,
 string-concatenation, lambda-generation, annotated-lambda indy compatibility,
-backend optimization, method inlining, inline-scope debug numbering, complete
-warning reporting, generated-bytecode validation,
+backend optimization, method inlining, inline-scope debug numbering, legacy
+inline-class mangling, complete warning reporting, generated-bytecode
+validation,
 JVM-name sanitization, multifile-part inheritance, and SAM-conversion modes,
 context-parameter, context-sensitive-resolution, when-guards,
 nested-type-aliases, multi-dollar-interpolation, non-local loop control,
