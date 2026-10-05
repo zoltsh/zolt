@@ -778,8 +778,8 @@ may restore the complete class and `META-INF/*.kotlin_module` inventory.
 disable the unchanged-input skip.
 
 For a Kotlin-bearing source set, compiler arguments may contain the standalone
-flags `-parameters`, `-Werror`, `-Wextra`, and `-progressive`, plus one each of
-the paired Kotlin arguments `-language-version <major.minor>` and
+flags `-parameters`, `-nowarn`, `-Werror`, `-Wextra`, and `-progressive`, plus
+one each of the paired Kotlin arguments `-language-version <major.minor>` and
 `-api-version <major.minor>`, and distinct, repeatable
 `-opt-in=<qualified.annotation.Name>` arguments. One
 `-jvm-default=<mode>` argument may also select `enable`, `no-compatibility`, or
@@ -816,6 +816,9 @@ compiler phase fail that source set. `-Wextra` enables the selected Kotlin
 compiler's additional declaration, expression, and type checks; it is not
 forwarded to javac. Combining it with `-Werror` makes those extra warnings fail
 Kotlin compilation while `-Werror` continues to apply to both compiler phases.
+`-nowarn` suppresses warnings in both the Kotlin and authored Java compiler
+phases. It cannot be combined with `-Werror` or `-Wextra`; choose either warning
+suppression or warning enforcement for a source set.
 `-progressive` asks the selected Kotlin compiler to apply its latest deprecation
 and unstable-code fixes without their usual migration period. Extra warnings,
 progressive mode, language/API version pairs, JVM-default modes, and opt-ins go
@@ -825,13 +828,13 @@ compatibility `DefaultImpls`, `no-compatibility` emits only interface default
 methods, and `disable` emits abstract interface methods plus `DefaultImpls`.
 Changing modes rebuilds the source set with cleaned output so obsolete
 compatibility classes do not survive. Main and test arguments are independent,
-and changing extra-warning checks, progressive mode, version pairs, JVM-default
-mode, or opt-ins invalidates reuse for that source set. The selected Kotlin
-compiler still decides which extra and progressive diagnostics, version values,
-language/API combinations, and JVM-default modes it supports and whether an
-opt-in annotation exists and applies. Other custom compiler arguments remain
-unsupported for Kotlin-bearing source sets because javac flags cannot in general
-be forwarded safely to kotlinc.
+and changing warning suppression or enforcement, progressive mode, version
+pairs, JVM-default mode, or opt-ins invalidates reuse for that source set. The
+selected Kotlin compiler still decides which warnings, extra and progressive
+diagnostics, version values, language/API combinations, and JVM-default modes
+it supports and whether an opt-in annotation exists and applies. Other custom
+compiler arguments remain unsupported for Kotlin-bearing source sets because
+javac flags cannot in general be forwarded safely to kotlinc.
 
 Kotlin compiler module identity is explicit when compatibility with another
 build must be preserved:
