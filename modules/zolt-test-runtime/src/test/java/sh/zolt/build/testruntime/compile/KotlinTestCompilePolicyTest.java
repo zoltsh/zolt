@@ -280,15 +280,17 @@ final class KotlinTestCompilePolicyTest {
     }
 
     @Test
-    void acceptsOwnedKotlinOpenApiGeneration() {
-        KotlinCompilerRunner.Options options = KotlinTestCompilePolicy.options(
-                configWithGeneratedTestStep(generatedStep(GeneratedSourceKind.OPENAPI, "kotlin")),
-                sources(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(KOTLIN_TEST)),
-                classpaths(List.of()),
-                jdkStatus(),
-                null);
+    void acceptsOwnedKotlinTypedGeneratorOutputs() {
+        for (GeneratedSourceKind kind : List.of(GeneratedSourceKind.OPENAPI, GeneratedSourceKind.PROTOBUF)) {
+            KotlinCompilerRunner.Options options = KotlinTestCompilePolicy.options(
+                    configWithGeneratedTestStep(generatedStep(kind, "kotlin")),
+                    sources(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(KOTLIN_TEST)),
+                    classpaths(List.of()),
+                    jdkStatus(),
+                    null);
 
-        assertEquals("21", options.release());
+            assertEquals("21", options.release());
+        }
     }
 
     @Test
