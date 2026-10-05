@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+TEST_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/zolt-run-built-test.XXXXXX")"
+
+cleanup() {
+  rm -rf "$TEST_ROOT"
+}
+trap cleanup EXIT
+
+runtime_dir="$TEST_ROOT/runtime-classes"
+app_jar="$TEST_ROOT/zolt.jar"
+external_jar="$TEST_ROOT/external.jar"
+junit_worker="$TEST_ROOT/junit-worker.jar"
+javac_worker="$TEST_ROOT/javac-worker.jar"
+runtime_file="$TEST_ROOT/zolt.runtime-classpath"
+fake_bin="$TEST_ROOT/bin"
+
+mkdir -p "$runtime_dir/sh/zolt/cancel" "$fake_bin"
+printf 'nested-class\n' > "$runtime_dir/sh/zolt/cancel/BuildCancellation\$CancellationAction.class"
+printf 'app\n' > "$app_jar"
+printf 'external\n' > "$external_jar"
+printf 'junit-worker\n' > "$junit_worker"
+printf 'javac-worker\n' > "$javac_worker"
+printf '%s\n%s\n' "$external_jar" "$runtime_dir" > "$runtime_file"
+
+cat > "$fake_bin/java" <<'JAVA'
+#!/usr/bin/env bash
+set -euo pipefail
+
+classpath=""
+junit_worker_snapshot=""
+javac_worker_snapshot=""
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    -cp)
+      classpath="$2"
+      shift 2
+      ;;
+    -Dzolt.junit.worker.classpath=*)
+      junit_worker_snapshot="${1#*=}"
+      shift
+      ;;
+    -Dzolt.javac.worker.classpath=*)
+      javac_worker_snapshot="${1#*=}"
+      shift
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+
+rm -rf "$ORIGINAL_RUNTIME_DIR"
+rm -f "$ORIGINAL_APP_JAR" "$ORIGINAL_JUNIT_WORKER" "$ORIGINAL_JAVAC_WORKER"
+
+[[ -n "$classpath" ]] || { printf 'missing launcher classpath\n' >&2; exit 1; }
+[[ "$classpath" != *"$ORIGINAL_RUNTIME_DIR"* ]] || {
+  printf 'launcher retained mutable runtime directory: %s\n' "$classpath" >&2
+  exit 1
+}
+
+IFS=: read -r -a entries <<< "$classpath"
+[[ -f "${entries[0]}" ]] || { printf 'snapshotted app jar is missing\n' >&2; exit 1; }
+if [[ "${EXPECT_RUNTIME_SNAPSHOT:-true}" == true ]]; then
+  found_runtime=false
+  for entry in "${entries[@]}"; do
+    if [[ -f "$entry/sh/zolt/cancel/BuildCancellation\$CancellationAction.class" ]]; then
+      found_runtime=true
+    fi
+  done
+  [[ "$found_runtime" == true ]] || { printf 'snapshotted runtime class is missing\n' >&2; exit 1; }
+  [[ "$junit_worker_snapshot" != "$ORIGINAL_JUNIT_WORKER" && -f "$junit_worker_snapshot" ]] || {
+    printf 'JUnit worker was not snapshotted\n' >&2
+    exit 1
+  }
+  [[ "$javac_worker_snapshot" != "$ORIGINAL_JAVAC_WORKER" && -f "$javac_worker_snapshot" ]] || {
+    printf 'javac worker was not snapshotted\n' >&2
+    exit 1
+  }
+fi
+
+printf 'run-zolt-built isolation test passed\n'
+JAVA
+chmod +x "$fake_bin/java"
+
+PATH="$fake_bin:$PATH" \
+ORIGINAL_RUNTIME_DIR="$runtime_dir" \
+ORIGINAL_APP_JAR="$app_jar" \
+ORIGINAL_JUNIT_WORKER="$junit_worker" \
+ORIGINAL_JAVAC_WORKER="$javac_worker" \
+ZOLT_JAR="$app_jar" \
+ZOLT_RUNTIME_CLASSPATH_FILE="$runtime_file" \
+ZOLT_JUNIT_WORKER_JAR="$junit_worker" \
+ZOLT_JAVAC_WORKER_JAR="$javac_worker" \
+  "$ROOT/scripts/run-zolt-built" version
+
+printf 'app\n' > "$app_jar"
+: > "$runtime_file"
+PATH="$fake_bin:$PATH" \
+EXPECT_RUNTIME_SNAPSHOT=false \
+ORIGINAL_RUNTIME_DIR="$runtime_dir" \
+ORIGINAL_APP_JAR="$app_jar" \
+ORIGINAL_JUNIT_WORKER="$junit_worker" \
+ORIGINAL_JAVAC_WORKER="$javac_worker" \
+ZOLT_JAR="$app_jar" \
+ZOLT_RUNTIME_CLASSPATH_FILE="$runtime_file" \
+  "$ROOT/scripts/run-zolt-built" version

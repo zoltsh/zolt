@@ -35,7 +35,7 @@ if [[ -z "$RUNTIME_CLASSPATH_FILE" ]]; then
   RUNTIME_CLASSPATH_FILE="${JAR_PATH%.jar}.runtime-classpath"
 fi
 
-runtime_cp=""
+runtime_entries=()
 if [[ ! -f "$RUNTIME_CLASSPATH_FILE" ]]; then
   printf 'error: runtime classpath sidecar does not exist at %s\n' "$RUNTIME_CLASSPATH_FILE" >&2
   printf 'hint: run zolt package or zolt self-check before scripts/run-zolt-built\n' >&2
@@ -46,11 +46,7 @@ while IFS= read -r entry || [[ -n "$entry" ]]; do
   if [[ -z "$entry" ]]; then
     continue
   fi
-  if [[ -z "$runtime_cp" ]]; then
-    runtime_cp="$entry"
-  else
-    runtime_cp="${runtime_cp}:${entry}"
-  fi
+  runtime_entries+=("$entry")
 done < "$RUNTIME_CLASSPATH_FILE"
 
 RUN_JAR_PATH="$JAR_PATH"
@@ -66,6 +62,30 @@ if [[ "${ZOLT_RUN_BUILT_IN_PLACE:-}" != "1" ]]; then
   TEMP_RUN_DIR="$(mktemp -d "${TMPDIR:-/tmp}/zolt-run-built.XXXXXX")"
   RUN_JAR_PATH="$TEMP_RUN_DIR/$(basename "$JAR_PATH")"
   cp "$JAR_PATH" "$RUN_JAR_PATH"
+  # A self-hosted command may clean and rebuild one of these workspace output directories.
+  # Snapshot directory entries so lazily loaded launcher classes cannot disappear mid-command.
+  if [[ "${#runtime_entries[@]}" -gt 0 ]]; then
+    for index in "${!runtime_entries[@]}"; do
+      entry="${runtime_entries[$index]}"
+      if [[ -d "$entry" ]]; then
+        snapshot="$TEMP_RUN_DIR/runtime/$index"
+        mkdir -p "$(dirname "$snapshot")"
+        cp -R "$entry" "$snapshot"
+        runtime_entries[index]="$snapshot"
+      fi
+    done
+  fi
+fi
+
+runtime_cp=""
+if [[ "${#runtime_entries[@]}" -gt 0 ]]; then
+  for entry in "${runtime_entries[@]}"; do
+    if [[ -z "$runtime_cp" ]]; then
+      runtime_cp="$entry"
+    else
+      runtime_cp="${runtime_cp}:${entry}"
+    fi
+  done
 fi
 
 if [[ -n "$runtime_cp" ]]; then
@@ -89,6 +109,12 @@ if [[ -n "$WORKER_JAR_PATH" ]]; then
     printf 'hint: run zolt package --workspace --member apps/zolt-junit-worker before scripts/run-zolt-built\n' >&2
     exit 1
   fi
+  if [[ -n "$TEMP_RUN_DIR" ]]; then
+    worker_snapshot="$TEMP_RUN_DIR/workers/junit/$(basename "$WORKER_JAR_PATH")"
+    mkdir -p "$(dirname "$worker_snapshot")"
+    cp "$WORKER_JAR_PATH" "$worker_snapshot"
+    WORKER_JAR_PATH="$worker_snapshot"
+  fi
   if [[ "${#java_opts[@]}" -gt 0 ]]; then
     java_opts=("-Dzolt.junit.worker.classpath=${WORKER_JAR_PATH}" "${java_opts[@]}")
   else
@@ -110,6 +136,12 @@ if [[ -n "$JAVAC_WORKER_JAR_PATH" ]]; then
     printf 'error: Zolt javac worker jar does not exist at %s\n' "$JAVAC_WORKER_JAR_PATH" >&2
     printf 'hint: run zolt package --workspace --member apps/zolt-javac-worker before scripts/run-zolt-built\n' >&2
     exit 1
+  fi
+  if [[ -n "$TEMP_RUN_DIR" ]]; then
+    worker_snapshot="$TEMP_RUN_DIR/workers/javac/$(basename "$JAVAC_WORKER_JAR_PATH")"
+    mkdir -p "$(dirname "$worker_snapshot")"
+    cp "$JAVAC_WORKER_JAR_PATH" "$worker_snapshot"
+    JAVAC_WORKER_JAR_PATH="$worker_snapshot"
   fi
   java_opts=("-Dzolt.javac.worker.classpath=${JAVAC_WORKER_JAR_PATH}" "${java_opts[@]}")
 fi
