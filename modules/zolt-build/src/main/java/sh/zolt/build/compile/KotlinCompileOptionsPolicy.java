@@ -79,6 +79,7 @@ public final class KotlinCompileOptionsPolicy {
                 mappedArguments.noOptimize(),
                 mappedArguments.noInline(),
                 mappedArguments.useInlineScopesNumbers(),
+                mappedArguments.use14InlineClassesManglingScheme(),
                 mappedArguments.sanitizeParentheses(),
                 mappedArguments.multifilePartsInherit(),
                 mappedArguments.validateBytecode(),

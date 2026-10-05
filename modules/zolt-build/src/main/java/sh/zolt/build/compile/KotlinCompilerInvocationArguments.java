@@ -95,6 +95,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.useInlineScopesNumbers()) {
             arguments.add("-Xuse-inline-scopes-numbers");
         }
+        if (options.use14InlineClassesManglingScheme()) {
+            arguments.add("-Xuse-14-inline-classes-mangling-scheme");
+        }
         if (options.sanitizeParentheses()) {
             arguments.add("-Xsanitize-parentheses");
         }

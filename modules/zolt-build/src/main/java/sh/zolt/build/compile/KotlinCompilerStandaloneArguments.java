@@ -27,6 +27,7 @@ final class KotlinCompilerStandaloneArguments {
             "-Xno-optimize",
             "-Xno-inline",
             "-Xuse-inline-scopes-numbers",
+            "-Xuse-14-inline-classes-mangling-scheme",
             "-Xsanitize-parentheses",
             "-Xmultifile-parts-inherit",
             "-Xvalidate-bytecode",
