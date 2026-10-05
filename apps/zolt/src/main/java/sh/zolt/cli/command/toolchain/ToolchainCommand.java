@@ -16,6 +16,7 @@ import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.toolchain.JavaToolchainStatus;
 import sh.zolt.toolchain.JavaToolchainStatusService;
+import sh.zolt.toolchain.TestRuntimeToolchain;
 import sh.zolt.toolchain.TestRuntimeToolchainResolver;
 import sh.zolt.toolchain.ToolchainConfigReader;
 import sh.zolt.toolchain.ToolchainSyncResult;
@@ -24,6 +25,7 @@ import sh.zolt.toolchain.platform.HostPlatform;
 import sh.zolt.toolchain.store.ToolchainStore;
 import sh.zolt.workspace.service.WorkspaceMutationLock;
 import java.nio.file.Path;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
@@ -114,11 +116,15 @@ public final class ToolchainCommand implements Runnable {
                 JavaToolchainStatus status = global
                         ? globalStatus()
                         : projectStatus(projectRoot);
-                print(status);
+                Optional<TestRuntimeToolchain> testRuntime = global
+                        ? Optional.empty()
+                        : testRuntimeStatus(projectRoot);
+                print(status, testRuntime);
                 if (!global && !jsonOutput()) {
-                    printTestRuntimeStatus(projectRoot);
+                    testRuntime.ifPresent(runtime ->
+                            ToolchainStatusOutput.printTestRuntime(spec, runtime));
                 }
-                if (!status.ok()) {
+                if (!status.ok() || testRuntime.stream().anyMatch(runtime -> !runtime.ready())) {
                     if (!jsonOutput()) {
                         CommandHumanOutput errors = CommandHumanOutput.errors(spec);
                         for (String problem : status.resolved().problems()) {
@@ -158,21 +164,19 @@ public final class ToolchainCommand implements Runnable {
          * Design §4.5: the request is authored in the project's own manifest; the locked toolchain
          * that satisfies it lives in the workspace root's lock when the project is a member.
          */
-        private void printTestRuntimeStatus(Path projectRoot) {
+        private Optional<TestRuntimeToolchain> testRuntimeStatus(Path projectRoot) {
             // A directory with no [toolchain.java.test] has nothing to report, and a virtual
             // workspace root has no project to compose, so neither loads a command context.
             if (toolchainConfigReader.readJavaTest(projectRoot.resolve("zolt.toml")).isEmpty()) {
-                return;
+                return Optional.empty();
             }
             ProjectCommandContext context = ProjectCommandContext.load(projectLoader, projectRoot);
-            new TestRuntimeToolchainResolver()
-                    .resolve(
-                            context.projectRoot(),
-                            context.lockRoot(),
-                            context.config(),
-                            HostPlatform.parse(target),
-                            new ToolchainStore(installRoot))
-                    .ifPresent(testRuntime -> ToolchainStatusOutput.printTestRuntime(spec, testRuntime));
+            return new TestRuntimeToolchainResolver().resolve(
+                    context.projectRoot(),
+                    context.lockRoot(),
+                    context.config(),
+                    HostPlatform.parse(target),
+                    new ToolchainStore(installRoot));
         }
 
         private JavaToolchainStatus globalStatus() {
@@ -186,9 +190,14 @@ public final class ToolchainCommand implements Runnable {
                     new ToolchainStore(installRoot));
         }
 
-        private void print(JavaToolchainStatus status) {
+        private void print(
+                JavaToolchainStatus status,
+                Optional<TestRuntimeToolchain> testRuntime) {
             if (jsonOutput()) {
-                CommandOutput.printAndFlush(spec, ToolchainStatusJsonFormatter.json(machineCommandId(), status));
+                CommandOutput.printAndFlush(
+                        spec,
+                        ToolchainStatusJsonFormatter.json(
+                                machineCommandId(), status, testRuntime));
             } else {
                 ToolchainStatusOutput.print(spec, status);
             }

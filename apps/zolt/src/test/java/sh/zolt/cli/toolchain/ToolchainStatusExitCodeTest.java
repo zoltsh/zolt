@@ -131,6 +131,61 @@ final class ToolchainStatusExitCodeTest {
     }
 
     @Test
+    void previewTestRuntimeFailureControlsHumanAndJsonStatus() throws IOException {
+        Path project = tempDir.resolve("preview-test-runtime-status");
+        Files.createDirectories(project);
+        int feature = Runtime.version().feature();
+        Files.writeString(project.resolve("zolt.toml"), """
+                [project]
+                name = "preview-test-runtime-status"
+                version = "0.1.0"
+                group = "com.example"
+                java = %d
+
+                [toolchain.java]
+                version = %d
+                features = []
+                policy = "allow-system"
+
+                [toolchain.java.test]
+                version = %d
+
+                [compiler]
+                args = ["-Xjvm-enable-preview"]
+                """.formatted(feature, feature, feature + 1));
+        Path installRoot = tempDir.resolve("missing-preview-toolchains");
+
+        var human = execute(
+                "toolchain",
+                "status",
+                "--directory",
+                project.toString(),
+                "--install-root",
+                installRoot.toString());
+        var json = execute(
+                "toolchain",
+                "status",
+                "--json",
+                "--directory",
+                project.toString(),
+                "--install-root",
+                installRoot.toString());
+
+        assertEquals(1, human.exitCode(), human.stdout() + human.stderr());
+        assertTrue(human.stdout().contains("test runtime ([toolchain.java.test])"));
+        assertTrue(human.stdout().contains("status: error"));
+        assertTrue(human.stdout().contains(
+                "JVM preview class files require the same Java feature release"));
+        assertEquals(1, json.exitCode(), json.stdout() + json.stderr());
+        assertEquals("", json.stderr());
+        assertTrue(json.stdout().contains("\"status\": \"failed\""));
+        assertTrue(json.stdout().contains("\"ok\": false"));
+        assertTrue(json.stdout().contains("\"testRuntime\": {"));
+        assertTrue(json.stdout().contains(
+                "JVM preview class files require the same Java feature release"));
+    }
+
+    @Test
     void legacyGlobalStatusUsesOneJsonCommandIdOnSuccessAndFailure() {
         Path missingConfig = tempDir.resolve("home/missing-config.toml");
 
