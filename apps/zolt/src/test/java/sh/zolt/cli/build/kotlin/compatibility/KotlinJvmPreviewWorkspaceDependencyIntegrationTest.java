@@ -85,6 +85,25 @@ final class KotlinJvmPreviewWorkspaceDependencyIntegrationTest {
                     workspace.resolve(
                             "apps/application/target/test-classes/com/example/application/ApplicationTest.class"),
                     0);
+
+            CommandResult integrationTest = execute(
+                    "integration-test",
+                    "--workspace",
+                    "--member", APPLICATION,
+                    "--no-build-cache",
+                    "--cwd", workspace.toString(),
+                    "--cache-root", cache.toString());
+            assertEquals(0, integrationTest.exitCode(), combined(integrationTest));
+            assertTrue(
+                    integrationTest.stdout().contains("Integration tests passed"),
+                    integrationTest.stdout());
+            assertTrue(
+                    integrationTest.stdout().matches("(?s).*\\b1 tests successful\\b.*"),
+                    integrationTest.stdout());
+            assertClassVersion(
+                    workspace.resolve(
+                            "apps/application/target/integration-test-classes/com/example/application/ApplicationIntegrationTest.class"),
+                    0);
             assertEquals(Map.of(), repository.authorizations());
         }
     }
@@ -189,8 +208,11 @@ final class KotlinJvmPreviewWorkspaceDependencyIntegrationTest {
                 "src/main/kotlin/com/example/application/Application.kt");
         Path test = application.resolve(
                 "src/test/kotlin/com/example/application/ApplicationTest.kt");
+        Path integrationTest = application.resolve(
+                "src/integration-test/kotlin/com/example/application/ApplicationIntegrationTest.kt");
         Files.createDirectories(source.getParent());
         Files.createDirectories(test.getParent());
+        Files.createDirectories(integrationTest.getParent());
         Files.writeString(application.resolve("zolt.toml"), """
                 [project]
                 name = "application"
@@ -204,6 +226,9 @@ final class KotlinJvmPreviewWorkspaceDependencyIntegrationTest {
 
                 [test.sources]
                 kotlin = ["src/test/kotlin"]
+
+                [test.integration]
+                sources = ["src/integration-test/kotlin"]
 
                 [toolchain.kotlin]
                 version = "%s"
@@ -246,6 +271,23 @@ final class KotlinJvmPreviewWorkspaceDependencyIntegrationTest {
                     @Test
                     fun loadsPreviewMarkedWorkspaceDependency() {
                         assertEquals("preview-library-test", PreviewLibrary.message("test"))
+                    }
+                }
+                """);
+        Files.writeString(integrationTest, """
+                package com.example.application
+
+                import com.example.library.PreviewLibrary
+                import org.junit.jupiter.api.Assertions.assertEquals
+                import org.junit.jupiter.api.Test
+
+                class ApplicationIntegrationTest {
+                    @Test
+                    fun loadsPreviewMarkedWorkspaceDependency() {
+                        assertEquals(
+                            "preview-library-integration",
+                            PreviewLibrary.message("integration")
+                        )
                     }
                 }
                 """);
