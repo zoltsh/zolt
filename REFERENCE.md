@@ -785,7 +785,8 @@ plus `-Xmulti-dollar-interpolation`, `-Xnon-local-break-continue`,
 `-Xjvm-expose-boxed`, `-Xconsistent-data-class-copy-visibility`, and
 `-Xemit-jvm-type-annotations`, plus `-Xno-new-java-annotation-targets`,
 `-Xno-source-debug-extension`, `-Xno-unified-null-checks`, `-Xno-optimize`,
-`-Xno-inline`, `-Xsanitize-parentheses`, `-Xvalidate-bytecode`,
+`-Xno-inline`, `-Xsanitize-parentheses`, `-Xmultifile-parts-inherit`,
+`-Xvalidate-bytecode`,
 `-Xgenerate-strict-metadata-version`, and `-Xannotations-in-metadata`, plus
 `-Xindy-allow-annotated-lambdas` when paired with `-Xlambdas=indy`. One each of
 the paired Kotlin arguments
@@ -839,6 +840,7 @@ args = [
   "-Xno-optimize",
   "-Xno-inline",
   "-Xsanitize-parentheses",
+  "-Xmultifile-parts-inherit",
   "-Xvalidate-bytecode",
   "-Xgenerate-strict-metadata-version",
   "-Xannotations-in-metadata",
@@ -1033,6 +1035,18 @@ it only as a workaround for platforms or bytecode tools that reject parentheses
 in identifiers. The selected compiler remains authoritative for the exact
 transformation. Configure the flag independently for main and test source sets;
 changing it invalidates and cleanly recompiles the matching output.
+`-Xmultifile-parts-inherit` changes the JVM layout of declarations annotated
+with `@JvmMultifileClass`. In the qualified Kotlin 2.2.0 case, the default
+layout emits a facade with declared forwarding methods and independent final
+part classes. With the flag, the facade extends the last part, each later part
+extends an earlier part, and the facade obtains the public static methods
+through that hierarchy. Kotlin calls preserve their behavior, but the option
+changes method declaration owners, class hierarchy, part finality, and generated
+constructors; Java reflection, bytecode tooling, and binary consumers can
+observe those differences. Use it only when a consumer requires the inherited
+layout. Configure it independently for main and test source sets; changing it
+invalidates and cleanly recompiles the matching output so obsolete facade and
+part classes cannot survive.
 `-Xvalidate-bytecode` asks the selected Kotlin compiler to validate generated
 JVM bytecode before and after backend optimizations. A validation failure aborts
 compilation; when validation succeeds, the option does not intentionally change
@@ -1153,14 +1167,15 @@ exposure, data-class copy visibility, source-debug annotation emission,
 JSpecify, JSR-305, or package-specific Java nullness severity, legacy null-check
 exceptions, strict metadata-version semantics, annotations in metadata, backend
 optimization, method inlining, JVM-name parentheses sanitization,
-generated-bytecode validation, or opt-ins invalidates reuse for that source set.
+multifile-part inheritance, generated-bytecode validation, or opt-ins invalidates
+reuse for that source set.
 Zolt validates warning-level syntax and duplicate names; the selected Kotlin
 compiler still determines
 supported diagnostic names, warnings, extra and progressive checks, version
 values, language/API combinations, JVM-default and explicit-API modes,
 string-concatenation, lambda-generation, annotated-lambda indy compatibility,
 backend optimization, method inlining, generated-bytecode validation,
-JVM-name sanitization, and SAM-conversion modes,
+JVM-name sanitization, multifile-part inheritance, and SAM-conversion modes,
 context-parameter, context-sensitive-resolution, when-guards,
 nested-type-aliases, multi-dollar-interpolation, non-local loop control,
 annotation-target, package-specific nullability, boxed value-class, and
