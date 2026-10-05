@@ -92,6 +92,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.noInline()) {
             arguments.add("-Xno-inline");
         }
+        if (options.useInlineScopesNumbers()) {
+            arguments.add("-Xuse-inline-scopes-numbers");
+        }
         if (options.sanitizeParentheses()) {
             arguments.add("-Xsanitize-parentheses");
         }

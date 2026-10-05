@@ -26,6 +26,7 @@ final class KotlinCompilerStandaloneArguments {
             "-Xno-unified-null-checks",
             "-Xno-optimize",
             "-Xno-inline",
+            "-Xuse-inline-scopes-numbers",
             "-Xsanitize-parentheses",
             "-Xmultifile-parts-inherit",
             "-Xvalidate-bytecode",
