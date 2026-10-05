@@ -124,7 +124,7 @@ public final class OpenApiGeneratedSourceService {
                             + ", fix the input or generator options, and retry `zolt build`.\n"
                             + result.output().stripTrailing());
         }
-        cache.writeFingerprint(cacheState);
+        cache.writeFingerprint(output, cacheState);
     }
 
     private static List<Path> toolClasspath(List<ResolvedClasspathPackage> packages) {

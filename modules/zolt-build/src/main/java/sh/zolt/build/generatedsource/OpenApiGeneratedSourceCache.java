@@ -1,20 +1,22 @@
 package sh.zolt.build.generatedsource;
 
+import static sh.zolt.build.generatedsource.GeneratedSourceHashes.directoryHash;
+import static sh.zolt.build.generatedsource.GeneratedSourceHashes.fileHash;
+import static sh.zolt.build.generatedsource.GeneratedSourceHashes.relative;
+import static sh.zolt.build.generatedsource.GeneratedSourceHashes.sha256;
+
 import sh.zolt.build.BuildException;
 import sh.zolt.project.GeneratedSourceStep;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.Comparator;
-import java.util.HexFormat;
 import java.util.List;
-import java.util.stream.Stream;
+import java.util.Set;
 
 final class OpenApiGeneratedSourceCache {
     private static final String FINGERPRINT_VERSION = "1";
+    private static final String STATE_VERSION = "1";
 
     GenerationCacheState state(
             Path projectRoot,
@@ -31,12 +33,12 @@ final class OpenApiGeneratedSourceCache {
     boolean isCurrent(Path output, GenerationCacheState state) {
         return Files.isDirectory(output)
                 && Files.isRegularFile(state.fingerprint())
-                && readFingerprint(state.fingerprint()).equals(state.fingerprintSha256());
+                && readFingerprint(state.fingerprint()).equals(stateContent(output, state));
     }
 
-    void writeFingerprint(GenerationCacheState state) {
+    void writeFingerprint(Path output, GenerationCacheState state) {
         try {
-            Files.writeString(state.fingerprint(), state.fingerprintSha256(), StandardCharsets.UTF_8);
+            Files.writeString(state.fingerprint(), stateContent(output, state), StandardCharsets.UTF_8);
         } catch (IOException exception) {
             throw new BuildException(
                     "Could not write OpenAPI generation fingerprint at "
@@ -108,61 +110,12 @@ final class OpenApiGeneratedSourceCache {
         }
     }
 
-    private static String fileHash(Path path) {
-        Path normalized = path.toAbsolutePath().normalize();
-        if (Files.isDirectory(normalized)) {
-            return directoryHash(normalized);
-        }
-        if (!Files.isRegularFile(normalized)) {
-            return "missing";
-        }
-        try {
-            return sha256(Files.readAllBytes(normalized));
-        } catch (IOException exception) {
-            throw new BuildException(
-                    "Could not fingerprint OpenAPI input "
-                            + normalized
-                            + ". Check that it is readable.",
-                    exception);
-        }
-    }
-
-    private static String directoryHash(Path directory) {
-        try (Stream<Path> paths = Files.walk(directory)) {
-            StringBuilder content = new StringBuilder();
-            paths.filter(Files::isRegularFile)
-                    .map(Path::normalize)
-                    .sorted()
-                    .forEach(path -> content
-                            .append(directory.relativize(path).toString().replace('\\', '/'))
-                            .append('|')
-                            .append(fileHash(path))
-                            .append('\n'));
-            return sha256(content.toString().getBytes(StandardCharsets.UTF_8));
-        } catch (IOException exception) {
-            throw new BuildException(
-                    "Could not fingerprint OpenAPI directory "
-                            + directory
-                            + ". Check that it is readable.",
-                    exception);
-        }
-    }
-
-    private static String relative(Path projectRoot, Path path) {
-        Path normalized = path.toAbsolutePath().normalize();
-        if (normalized.startsWith(projectRoot)) {
-            return projectRoot.relativize(normalized).toString().replace('\\', '/');
-        }
-        return normalized.toString().replace('\\', '/');
-    }
-
-    private static String sha256(byte[] bytes) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(bytes));
-        } catch (NoSuchAlgorithmException exception) {
-            throw new BuildException("Could not compute OpenAPI fingerprint because SHA-256 is unavailable.", exception);
-        }
+    private static String stateContent(Path output, GenerationCacheState state) {
+        String outputHash = directoryHash(output, Set.of(state.fingerprint(), state.log()));
+        return "version=" + STATE_VERSION
+                + "\nproducer=" + state.fingerprintSha256()
+                + "\noutput=" + outputHash
+                + "\n";
     }
 
     record GenerationCacheState(Path fingerprint, Path log, String fingerprintSha256) {

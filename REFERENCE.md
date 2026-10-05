@@ -2186,12 +2186,16 @@ those tools may read and produce:
   jar is in `zolt.lock` and the fingerprint. A `process` tool is probed-advisory: PATH
   bytes are unprovable, so its identity is the binary name plus the probed
   `versionCommand` stdout, and it requires `allowUnpinnedTool = true` to say so.
-- Skip is fingerprint-exact. A step re-runs only when its fingerprint changes —
+- Skip is fingerprint-exact. A step re-runs when its fingerprint changes —
   tool identity, argv, expanded input content, env names and literal values, a
   digest of each `inheritEnv` variable's actual runtime value, `cwd`, and
-  `produces`/`into` — and its output bytes are hashed
-  into the module build fingerprint, so a changed output invalidates exactly its
-  consumers while stable output lets them skip even after an always-run step.
+  `produces`/`into` — or when its recorded output tree has been edited or
+  deleted. OpenAPI and content-cached exec steps bind the producer fingerprint
+  to the output digest recorded after a successful run, so a matching input
+  fingerprint alone cannot accept damaged generated output. Output bytes are
+  hashed into the module build fingerprint, so a changed output invalidates
+  exactly its consumers while stable output lets them skip even after an
+  always-run step.
 - `cache = "none"` is honest non-determinism, not a cache miss. It always runs,
   is excluded from `--offline` as a hard error, fails `zolt check
   --require-offline-ready`, and stamps `hermetic = false` into package evidence.
