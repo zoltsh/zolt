@@ -785,9 +785,10 @@ plus `-Xmulti-dollar-interpolation`, `-Xnon-local-break-continue`,
 `-Xjvm-expose-boxed`, `-Xconsistent-data-class-copy-visibility`, and
 `-Xemit-jvm-type-annotations`, plus `-Xno-new-java-annotation-targets`,
 `-Xno-source-debug-extension`, `-Xno-unified-null-checks`, `-Xno-optimize`,
-`-Xno-inline`, `-Xvalidate-bytecode`, `-Xgenerate-strict-metadata-version`, and
-`-Xannotations-in-metadata`, plus `-Xindy-allow-annotated-lambdas` when paired
-with `-Xlambdas=indy`. One each of the paired Kotlin arguments
+`-Xno-inline`, `-Xsanitize-parentheses`, `-Xvalidate-bytecode`,
+`-Xgenerate-strict-metadata-version`, and `-Xannotations-in-metadata`, plus
+`-Xindy-allow-annotated-lambdas` when paired with `-Xlambdas=indy`. One each of
+the paired Kotlin arguments
 `-language-version <major.minor>` and
 `-api-version <major.minor>` is also accepted. Distinct, repeatable
 `-opt-in=<qualified.annotation.Name>` arguments are also accepted. One
@@ -837,6 +838,7 @@ args = [
   "-Xno-unified-null-checks",
   "-Xno-optimize",
   "-Xno-inline",
+  "-Xsanitize-parentheses",
   "-Xvalidate-bytecode",
   "-Xgenerate-strict-metadata-version",
   "-Xannotations-in-metadata",
@@ -901,8 +903,9 @@ Java annotation-target compatibility, assertion modes, JSpecify and JSR-305
 nullness severity, package-specific Java nullability severity, source-debug
 annotation emission, legacy null-check exception compatibility, strict
 metadata-version semantics, annotated-lambda indy compatibility, backend
-optimization and method-inlining control, generated-bytecode validation,
-annotations in metadata, and opt-ins go only to `kotlinc`.
+optimization and method-inlining control, JVM-name parentheses sanitization,
+generated-bytecode validation, annotations in metadata, and opt-ins go only to
+`kotlinc`.
 `-Xmulti-dollar-interpolation` enables Kotlin 2.1's preview syntax when the
 source set pins `-language-version 2.1`. Kotlin 2.2 promotes the syntax to
 Stable and accepts it without the flag. Prefixing a regular or multiline string
@@ -1021,6 +1024,15 @@ remains authoritative for constructs that require special inline handling. The
 flag does not change javac behavior for authored Java sources. Configure it
 independently for main and test; changing it invalidates and cleanly recompiles
 the matching output.
+`-Xsanitize-parentheses` replaces parentheses in generated JVM method names with
+the selected Kotlin compiler's safe character sequence. In the qualified Kotlin
+2.2.0 case, a backtick-declared source method named `call(me)` is emitted as
+`call$_me$_`; reflective and binary callers must use that transformed name.
+This deliberately changes binary linkage and can break existing callers, so use
+it only as a workaround for platforms or bytecode tools that reject parentheses
+in identifiers. The selected compiler remains authoritative for the exact
+transformation. Configure the flag independently for main and test source sets;
+changing it invalidates and cleanly recompiles the matching output.
 `-Xvalidate-bytecode` asks the selected Kotlin compiler to validate generated
 JVM bytecode before and after backend optimizations. A validation failure aborts
 compilation; when validation succeeds, the option does not intentionally change
@@ -1140,15 +1152,15 @@ annotated-lambda indy compatibility, SAM-conversion mode, boxed value-class
 exposure, data-class copy visibility, source-debug annotation emission,
 JSpecify, JSR-305, or package-specific Java nullness severity, legacy null-check
 exceptions, strict metadata-version semantics, annotations in metadata, backend
-optimization, method inlining, generated-bytecode validation, or opt-ins
-invalidates reuse for that source set.
+optimization, method inlining, JVM-name parentheses sanitization,
+generated-bytecode validation, or opt-ins invalidates reuse for that source set.
 Zolt validates warning-level syntax and duplicate names; the selected Kotlin
 compiler still determines
 supported diagnostic names, warnings, extra and progressive checks, version
 values, language/API combinations, JVM-default and explicit-API modes,
 string-concatenation, lambda-generation, annotated-lambda indy compatibility,
-backend optimization, method inlining, generated-bytecode validation, and
-SAM-conversion modes,
+backend optimization, method inlining, generated-bytecode validation,
+JVM-name sanitization, and SAM-conversion modes,
 context-parameter, context-sensitive-resolution, when-guards,
 nested-type-aliases, multi-dollar-interpolation, non-local loop control,
 annotation-target, package-specific nullability, boxed value-class, and
