@@ -2,6 +2,7 @@ package sh.zolt.build.generatedsource;
 
 import static sh.zolt.build.generatedsource.GeneratedSourceHashes.fileHash;
 import static sh.zolt.build.generatedsource.GeneratedSourceHashes.classpathHash;
+import static sh.zolt.build.generatedsource.GeneratedSourceHashes.directoryHash;
 import static sh.zolt.build.generatedsource.GeneratedSourceHashes.relative;
 import static sh.zolt.build.generatedsource.GeneratedSourceHashes.sha256;
 
@@ -28,6 +29,7 @@ import java.util.TreeMap;
  */
 final class ExecGeneratedSourceCache {
     private static final String FINGERPRINT_VERSION = "3";
+    private static final String STATE_VERSION = "1";
 
     private final Path metadataDirectory;
 
@@ -60,13 +62,16 @@ final class ExecGeneratedSourceCache {
     boolean isCurrent(Path output, GenerationCacheState state) {
         return Files.isDirectory(output)
                 && Files.isRegularFile(state.fingerprint())
-                && readFingerprint(state.fingerprint()).equals(state.fingerprintSha256());
+                && readFingerprint(state.fingerprint()).equals(stateContent(output, state));
     }
 
-    void writeFingerprint(GenerationCacheState state) {
+    void writeFingerprint(Path output, GenerationCacheState state) {
         try {
             Files.createDirectories(state.fingerprint().getParent());
-            Files.writeString(state.fingerprint(), state.fingerprintSha256(), StandardCharsets.UTF_8);
+            Files.writeString(
+                    state.fingerprint(),
+                    stateContent(output, state),
+                    StandardCharsets.UTF_8);
         } catch (IOException exception) {
             throw new BuildException(
                     "Could not write exec generation fingerprint at " + state.fingerprint()
@@ -153,6 +158,13 @@ final class ExecGeneratedSourceCache {
         } catch (IOException exception) {
             return "";
         }
+    }
+
+    private static String stateContent(Path output, GenerationCacheState state) {
+        return "version=" + STATE_VERSION
+                + "\nproducer=" + state.fingerprintSha256()
+                + "\noutput=" + directoryHash(output)
+                + "\n";
     }
 
     /** The non-classpath tool identity that also enters the fingerprint (process runner only). */

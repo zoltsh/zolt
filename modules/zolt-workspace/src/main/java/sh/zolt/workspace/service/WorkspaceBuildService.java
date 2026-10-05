@@ -224,7 +224,8 @@ public final class WorkspaceBuildService {
                 selection,
                 membersByPath,
                 inputs.classpaths(),
-                dirtyPlan);
+                dirtyPlan,
+                plan.offline());
         context.addMemberExecutionNanos(elapsedSince(memberExecutionStarted));
         context.addSchedulerMetrics(
                 execution.schedulerIdleNanos(),

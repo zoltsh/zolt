@@ -121,6 +121,7 @@ final class WorkspaceBuildPlanner {
                 selection,
                 resolveResult,
                 lockfile,
+                offline,
                 new WorkspaceExecutionContext(
                         workspace,
                         lockfile,

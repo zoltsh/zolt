@@ -169,13 +169,7 @@ public final class BuildService {
         BuildClasspathResolver.Result resolved = buildClasspathResolver.resolve(request);
         List<ResolvedClasspathPackage> classpathPackages = resolved.packages();
         ClasspathSet classpaths = classpathBuilder.build(classpathPackages);
-        openApiGeneratedSourceService.generateMain(request.projectDirectory(), request.config(), classpathPackages);
-        try {
-            protobufGeneratedSourceService.generateMain(request.projectDirectory(), request.config());
-        } catch (GeneratedSourceException exception) {
-            throw new BuildException(exception.getMessage(), exception);
-        }
-        execGeneratedSourceService.generateMain(
+        generateMainSources(
                 request.projectDirectory(), request.config(), classpathPackages, request.offline());
         return new BuildResultWithClasspaths(
                 build(request.context(), request.config(), classpaths, resolved.resolveResult(), classpathPackages,
@@ -205,14 +199,43 @@ public final class BuildService {
             ProjectConfig config,
             ClasspathSet classpaths,
             List<ResolvedClasspathPackage> classpathPackages) {
+        return build(context, config, classpaths, classpathPackages, false);
+    }
+
+    /** Builds a projected workspace member after running its pre-compile generated-source steps. */
+    public BuildResult build(
+            ProjectBuildContext context,
+            ProjectConfig config,
+            ClasspathSet classpaths,
+            List<ResolvedClasspathPackage> classpathPackages,
+            boolean offline) {
+        List<ResolvedClasspathPackage> packages =
+                classpathPackages == null ? List.of() : List.copyOf(classpathPackages);
+        CompileOutputLayoutValidator.validateMain(context.projectRoot(), config);
+        generateMainSources(context.projectRoot(), config, packages, offline);
         return build(
                 context,
                 config,
                 classpaths,
                 Optional.empty(),
-                classpathPackages == null ? List.of() : List.copyOf(classpathPackages),
-                false,
+                packages,
+                offline,
                 true);
+    }
+
+    private void generateMainSources(
+            Path projectDirectory,
+            ProjectConfig config,
+            List<ResolvedClasspathPackage> classpathPackages,
+            boolean offline) {
+        openApiGeneratedSourceService.generateMain(projectDirectory, config, classpathPackages);
+        try {
+            protobufGeneratedSourceService.generateMain(projectDirectory, config);
+        } catch (GeneratedSourceException exception) {
+            throw new BuildException(exception.getMessage(), exception);
+        }
+        execGeneratedSourceService.generateMain(
+                projectDirectory, config, classpathPackages, offline);
     }
 
     public int ensureCleanMemberOutputsCurrent(
