@@ -50,6 +50,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.contextParameters()) {
             arguments.add("-Xcontext-parameters");
         }
+        if (!options.stringConcatMode().isEmpty()) {
+            arguments.add("-Xstring-concat=" + options.stringConcatMode());
+        }
         addVersion(arguments, "-language-version", options.languageVersion());
         addVersion(arguments, "-api-version", options.apiVersion());
         if (!options.jvmDefaultMode().isEmpty()) {

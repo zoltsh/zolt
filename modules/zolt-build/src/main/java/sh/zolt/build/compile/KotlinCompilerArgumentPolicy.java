@@ -23,6 +23,7 @@ final class KotlinCompilerArgumentPolicy {
         boolean progressiveMode = false;
         boolean contextSensitiveResolution = false;
         boolean contextParameters = false;
+        String stringConcatMode = "";
         String languageVersion = "";
         String apiVersion = "";
         String jvmDefaultMode = "";
@@ -97,6 +98,11 @@ final class KotlinCompilerArgumentPolicy {
                             throw duplicateArgument(scope, argument);
                         }
                         explicitApiMode = explicitApiArgument(scope, argument);
+                    } else if (argument.startsWith("-Xstring-concat=")) {
+                        if (!stringConcatMode.isEmpty()) {
+                            throw duplicateArgument(scope, argument);
+                        }
+                        stringConcatMode = stringConcatArgument(scope, argument);
                     } else if (argument.startsWith("-Xwarning-level=")) {
                         String warningLevel = warningLevelArgument(scope, argument);
                         String diagnostic = warningDiagnostic(warningLevel);
@@ -132,6 +138,7 @@ final class KotlinCompilerArgumentPolicy {
                 progressiveMode,
                 contextSensitiveResolution,
                 contextParameters,
+                stringConcatMode,
                 languageVersion,
                 apiVersion,
                 jvmDefaultMode,
@@ -185,6 +192,21 @@ final class KotlinCompilerArgumentPolicy {
                             + " contains invalid Kotlin explicit-API argument `" + argument + "`",
                     "Use `-Xexplicit-api=strict`, `-Xexplicit-api=warning`, or"
                             + " `-Xexplicit-api=disable`, or remove the argument.");
+        }
+        return value;
+    }
+
+    private static String stringConcatArgument(
+            KotlinCompilationScope scope,
+            String argument) {
+        String value = argument.substring("-Xstring-concat=".length());
+        if (!List.of("indy-with-constants", "indy", "inline").contains(value)) {
+            throw unsupported(
+                    scope,
+                    argumentsPath(scope)
+                            + " contains invalid Kotlin string-concatenation argument `" + argument + "`",
+                    "Use `-Xstring-concat=indy-with-constants`, `-Xstring-concat=indy`, or"
+                            + " `-Xstring-concat=inline`, or remove the argument.");
         }
         return value;
     }
@@ -263,7 +285,8 @@ final class KotlinCompilerArgumentPolicy {
                         + " `-language-version <major.minor>`, `-api-version <major.minor>`, and one"
                         + " `-jvm-default=<mode>`, plus repeatable"
                         + " `-opt-in=<qualified.annotation.Name>` arguments and one"
-                        + " `-Xexplicit-api=<mode>`, plus distinct repeatable"
+                        + " `-Xexplicit-api=<mode>`, one `-Xstring-concat=<mode>`, and distinct"
+                        + " repeatable"
                         + " `-Xwarning-level=DIAGNOSTIC_NAME:<level>` arguments; otherwise keep this"
                         + " source set Java-only.");
     }
@@ -291,6 +314,7 @@ final class KotlinCompilerArgumentPolicy {
             boolean progressiveMode,
             boolean contextSensitiveResolution,
             boolean contextParameters,
+            String stringConcatMode,
             String languageVersion,
             String apiVersion,
             String jvmDefaultMode,
