@@ -1,8 +1,8 @@
 version = 7
-aliasFingerprint = "sha256:9b42a99cd9e344f23e86e9252ae39b08a5e6058489284ab61f70d8dafd672168"
-projectResolutionFingerprint = "sha256:47aad869e38b79b20a715d2b5e2f54c40d3d59c75aa4c362726779d6f36b84fa"
-projectResolutionInputFingerprints = ["dependencies.api.workspace=sha256:e278f2c880bafff02f44f9d403dd68e11930a5f8e5c1d8c49e6cb9ae74963d17", "dependencies.api=sha256:4ce39b687df3a02e2eb24d4b1b2d55903971a2cfeb8593fba3cb52c81fd3bd9c", "dependencies.compile.workspace=sha256:5fa3d40686774c104593200c7c73594199c08f78e75617df760f179128c91d86", "dependencies.compile=sha256:1fe5ba2691695db8da4e166c2015e5ba3a85d075109bcc23012709fcfcd89645", "dependencies.provided=sha256:ee9fd5151af21151e1229a58161679fb2d82e7365fd91fa9b04205c966c8416a", "dependencies.test=sha256:a6c6064397513dfcd01f48ebd6744b52378380fa766d51eb20360a55398c8f38", "dependencyMetadata=sha256:75058a66360fc49b953748a5ae287e222177678cf6fd824e7f45a9593e65c258", "framework.quarkus=sha256:1a03038e3b6c11a6598e959b5526786bc942bd2d0e7cb6aec2401dcd36bafc1b", "framework.springBoot.native=sha256:cf597ee2519b656c8bdeb8a1aaaf81b8c9da20d7b82a94cb0643edd20e98e19f", "java=sha256:c822ebc7e176990dd66771c2496f47b8ee0f6451df7ddfa87c44aebff0a6edf6", "package=sha256:ba2fd61e998d4fab4a9205d2785ca9a48464a401346bebf655e28156a0a304c1", "repositories=sha256:e50e1129945e4af12f6d6b822fe1b5548c9425f8a3f0cfeadfb1fb4a646902e1", "schema=sha256:a08549d13c2f16087cfcaf4458dbe9436970632fe503bb7217f88c16428d2ddd", "versions=sha256:ab5d166a1924008df1e4ad69eba9725a6abcdb24c4164e238cc5869089591651"]
-workspaceResolutionInputFingerprint = "sha256:e5a8d29e221b48a01c36d537d62e785c11c4fbdf3f1bb83d62233c4b84c70e08"
+aliasFingerprint = "sha256:f358836f8928152208e1e5481b2af580c5aa25f51e70d4fdc4edbf90f3921cf1"
+projectResolutionFingerprint = "sha256:70f99536ef0f26a2c6ecf5e50281db622839dece23ee95bdf244167ce6704092"
+projectResolutionInputFingerprints = ["dependencies.api.workspace=sha256:e278f2c880bafff02f44f9d403dd68e11930a5f8e5c1d8c49e6cb9ae74963d17", "dependencies.api=sha256:953c929a610b1b3747d293b055f7608bb3bc83f524013f9d7b60ffc79b3fff5f", "dependencies.compile.workspace=sha256:5fa3d40686774c104593200c7c73594199c08f78e75617df760f179128c91d86", "dependencies.compile=sha256:dfe177ef5d700fab93f00657eba9e3e319bafc35a4272c981f9d5b97c8822f99", "dependencies.provided=sha256:ee9fd5151af21151e1229a58161679fb2d82e7365fd91fa9b04205c966c8416a", "dependencies.test=sha256:a6c6064397513dfcd01f48ebd6744b52378380fa766d51eb20360a55398c8f38", "dependencyMetadata=sha256:bf26911445197f6d2d15edca3d15f3155867637395d5b28c2b7b576009e2c6ee", "framework.quarkus=sha256:1a03038e3b6c11a6598e959b5526786bc942bd2d0e7cb6aec2401dcd36bafc1b", "framework.springBoot.native=sha256:cf597ee2519b656c8bdeb8a1aaaf81b8c9da20d7b82a94cb0643edd20e98e19f", "java=sha256:c822ebc7e176990dd66771c2496f47b8ee0f6451df7ddfa87c44aebff0a6edf6", "package=sha256:ba2fd61e998d4fab4a9205d2785ca9a48464a401346bebf655e28156a0a304c1", "repositories=sha256:e50e1129945e4af12f6d6b822fe1b5548c9425f8a3f0cfeadfb1fb4a646902e1", "schema=sha256:a08549d13c2f16087cfcaf4458dbe9436970632fe503bb7217f88c16428d2ddd", "versions=sha256:1b437c8c25acec4ac225e0dfe25b92bae4a2d9993151cc407f854f41e4d43c79"]
+workspaceResolutionInputFingerprint = "sha256:5de53a5dd42fbd317c7835f01ead42cdd737eb27c7fc3a6152ba32e8faed45a6"
 
 [[dependencyRoot]]
 member = "apps/zolt"
@@ -287,7 +287,7 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-config"
 id = "org.tomlj:tomlj"
-version = "1.1.1"
+version = "1.3.1"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -308,7 +308,7 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-explain"
 id = "org.tomlj:tomlj"
-version = "1.1.1"
+version = "1.3.1"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -1008,7 +1008,7 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "modules/zolt-toml"
 id = "org.tomlj:tomlj"
-version = "1.1.1"
+version = "1.3.1"
 lane = "api"
 resolvedScope = "compile"
 
@@ -1787,27 +1787,27 @@ dependencies = []
 
 [[package]]
 id = "org.antlr:antlr4-runtime"
-version = "4.11.1"
+version = "4.13.2"
 source = "central"
 scope = "runtime"
 direct = false
-jar = "blobs/v2/sha256/e06c6553c1ccc14d36052ec4b0fc6f13b808cf957b5b1dc3f61bf401996ada59/antlr4-runtime-4.11.1.jar"
-pom = "blobs/v2/sha256/c456ec2959078c591fbd7ef69ad9400a727920068d746989c74ab804ed681b34/antlr4-runtime-4.11.1.pom"
-jarSha256 = "e06c6553c1ccc14d36052ec4b0fc6f13b808cf957b5b1dc3f61bf401996ada59"
-pomSha256 = "c456ec2959078c591fbd7ef69ad9400a727920068d746989c74ab804ed681b34"
+jar = "blobs/v2/sha256/dd3e8a13a2d669bf84fb8d834de35ce4875f27157698d206241ec8488aadcaf7/antlr4-runtime-4.13.2.jar"
+pom = "blobs/v2/sha256/03ce07a2796c511b0c94dc14fd86ccdd6e3828c57967ad2383de304e0d11ba79/antlr4-runtime-4.13.2.pom"
+jarSha256 = "dd3e8a13a2d669bf84fb8d834de35ce4875f27157698d206241ec8488aadcaf7"
+pomSha256 = "03ce07a2796c511b0c94dc14fd86ccdd6e3828c57967ad2383de304e0d11ba79"
 members = ["modules/zolt-config", "modules/zolt-explain", "modules/zolt-toml"]
 dependencies = []
 
 [[package]]
 id = "org.checkerframework:checker-qual"
-version = "3.21.2"
+version = "3.55.1"
 source = "central"
 scope = "runtime"
 direct = false
-jar = "blobs/v2/sha256/7e8554c902b9b839e61396cfe3a64c84ecabfb8eb652c410bfd8e4f5c1a8ece8/checker-qual-3.21.2.jar"
-pom = "blobs/v2/sha256/81c7d4709177f65a40bcd584d89a857f1ac389c545c5ae6940cb6f143723a395/checker-qual-3.21.2.pom"
-jarSha256 = "7e8554c902b9b839e61396cfe3a64c84ecabfb8eb652c410bfd8e4f5c1a8ece8"
-pomSha256 = "81c7d4709177f65a40bcd584d89a857f1ac389c545c5ae6940cb6f143723a395"
+jar = "blobs/v2/sha256/857658c8bdcbff794949a8d9922f88d63ee3751c203c7cd7d21ea97f9e745288/checker-qual-3.55.1.jar"
+pom = "blobs/v2/sha256/627d92aa92fd4d6bb8c2b56bcbb38543417f49d38b5a62fbdb4aeff551e7b760/checker-qual-3.55.1.pom"
+jarSha256 = "857658c8bdcbff794949a8d9922f88d63ee3751c203c7cd7d21ea97f9e745288"
+pomSha256 = "627d92aa92fd4d6bb8c2b56bcbb38543417f49d38b5a62fbdb4aeff551e7b760"
 members = ["modules/zolt-config", "modules/zolt-explain", "modules/zolt-toml"]
 dependencies = []
 
@@ -2048,18 +2048,18 @@ dependencies = []
 
 [[package]]
 id = "org.tomlj:tomlj"
-version = "1.1.1"
+version = "1.3.1"
 source = "central"
 scope = "compile"
 direct = true
-jar = "blobs/v2/sha256/383b7c66966c42ee4913ec977a7b6573631866bddc5318ec4a6215b688dd0d6c/tomlj-1.1.1.jar"
-pom = "blobs/v2/sha256/1393089af1f9260c004c22313197cae9db1385ccbb30499a82d5a931d1762f66/tomlj-1.1.1.pom"
-jarSha256 = "383b7c66966c42ee4913ec977a7b6573631866bddc5318ec4a6215b688dd0d6c"
-pomSha256 = "1393089af1f9260c004c22313197cae9db1385ccbb30499a82d5a931d1762f66"
+jar = "blobs/v2/sha256/c529b646b27b46d8040217320d86371b5c9c83420fcb35eae9c5f0e95f89e2d3/tomlj-1.3.1.jar"
+pom = "blobs/v2/sha256/90c237895c613ab5915466ba7ae7bce5ee5391bbbe2f2c44851826f8892aa5ff/tomlj-1.3.1.pom"
+jarSha256 = "c529b646b27b46d8040217320d86371b5c9c83420fcb35eae9c5f0e95f89e2d3"
+pomSha256 = "90c237895c613ab5915466ba7ae7bce5ee5391bbbe2f2c44851826f8892aa5ff"
 members = ["modules/zolt-config", "modules/zolt-explain", "modules/zolt-toml"]
 exportedBy = ["modules/zolt-toml"]
-policies = ["version-ref: org.tomlj:tomlj -> 1.1.1 from [versions].tomlj"]
-dependencies = ["org.antlr:antlr4-runtime:4.11.1:jar:runtime", "org.checkerframework:checker-qual:3.21.2:jar:runtime"]
+policies = ["version-ref: org.tomlj:tomlj -> 1.3.1 from [versions].tomlj"]
+dependencies = ["org.antlr:antlr4-runtime:4.13.2:jar:runtime", "org.checkerframework:checker-qual:3.55.1:jar:runtime"]
 
 [[package]]
 id = "org.wildfly.common:wildfly-common"
@@ -2107,7 +2107,7 @@ direct = true
 workspace = "modules/zolt-config"
 workspaceOutput = "target/classes"
 members = ["apps/zolt"]
-dependencies = ["org.tomlj:tomlj:1.1.1:jar:compile"]
+dependencies = ["org.tomlj:tomlj:1.3.1:jar:compile"]
 
 [[package]]
 id = "sh.zolt:zolt-explain"
@@ -2118,7 +2118,7 @@ direct = true
 workspace = "modules/zolt-explain"
 workspaceOutput = "target/classes"
 members = ["apps/zolt"]
-dependencies = ["org.tomlj:tomlj:1.1.1:jar:compile"]
+dependencies = ["org.tomlj:tomlj:1.3.1:jar:compile"]
 
 [[package]]
 id = "sh.zolt:zolt-framework-api"
@@ -2328,7 +2328,7 @@ direct = true
 workspace = "modules/zolt-toml"
 workspaceOutput = "target/classes"
 members = ["apps/zolt", "modules/zolt-build", "modules/zolt-ide", "modules/zolt-init", "modules/zolt-native-image", "modules/zolt-plan", "modules/zolt-policy", "modules/zolt-publish", "modules/zolt-quality", "modules/zolt-quarkus", "modules/zolt-resolve", "modules/zolt-sbom", "modules/zolt-selfhost", "modules/zolt-test-runtime", "modules/zolt-toolchain", "modules/zolt-update", "modules/zolt-workspace"]
-dependencies = ["org.tomlj:tomlj:1.1.1:jar:compile"]
+dependencies = ["org.tomlj:tomlj:1.3.1:jar:compile"]
 
 [[package]]
 id = "sh.zolt:zolt-toolchain"
