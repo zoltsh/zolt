@@ -1,8 +1,8 @@
 version = 7
 aliasFingerprint = "sha256:9b42a99cd9e344f23e86e9252ae39b08a5e6058489284ab61f70d8dafd672168"
-projectResolutionFingerprint = "sha256:47aad869e38b79b20a715d2b5e2f54c40d3d59c75aa4c362726779d6f36b84fa"
-projectResolutionInputFingerprints = ["dependencies.api.workspace=sha256:e278f2c880bafff02f44f9d403dd68e11930a5f8e5c1d8c49e6cb9ae74963d17", "dependencies.api=sha256:4ce39b687df3a02e2eb24d4b1b2d55903971a2cfeb8593fba3cb52c81fd3bd9c", "dependencies.compile.workspace=sha256:5fa3d40686774c104593200c7c73594199c08f78e75617df760f179128c91d86", "dependencies.compile=sha256:1fe5ba2691695db8da4e166c2015e5ba3a85d075109bcc23012709fcfcd89645", "dependencies.provided=sha256:ee9fd5151af21151e1229a58161679fb2d82e7365fd91fa9b04205c966c8416a", "dependencies.test=sha256:a6c6064397513dfcd01f48ebd6744b52378380fa766d51eb20360a55398c8f38", "dependencyMetadata=sha256:75058a66360fc49b953748a5ae287e222177678cf6fd824e7f45a9593e65c258", "framework.quarkus=sha256:1a03038e3b6c11a6598e959b5526786bc942bd2d0e7cb6aec2401dcd36bafc1b", "framework.springBoot.native=sha256:cf597ee2519b656c8bdeb8a1aaaf81b8c9da20d7b82a94cb0643edd20e98e19f", "java=sha256:c822ebc7e176990dd66771c2496f47b8ee0f6451df7ddfa87c44aebff0a6edf6", "package=sha256:ba2fd61e998d4fab4a9205d2785ca9a48464a401346bebf655e28156a0a304c1", "repositories=sha256:e50e1129945e4af12f6d6b822fe1b5548c9425f8a3f0cfeadfb1fb4a646902e1", "schema=sha256:a08549d13c2f16087cfcaf4458dbe9436970632fe503bb7217f88c16428d2ddd", "versions=sha256:ab5d166a1924008df1e4ad69eba9725a6abcdb24c4164e238cc5869089591651"]
-workspaceResolutionInputFingerprint = "sha256:e5a8d29e221b48a01c36d537d62e785c11c4fbdf3f1bb83d62233c4b84c70e08"
+projectResolutionFingerprint = "sha256:7b76956d8c832c803536b288868051411f6dc5b31b9141102f1a367623526eee"
+projectResolutionInputFingerprints = ["dependencies.api.workspace=sha256:e278f2c880bafff02f44f9d403dd68e11930a5f8e5c1d8c49e6cb9ae74963d17", "dependencies.api=sha256:4ce39b687df3a02e2eb24d4b1b2d55903971a2cfeb8593fba3cb52c81fd3bd9c", "dependencies.compile.workspace=sha256:5fa3d40686774c104593200c7c73594199c08f78e75617df760f179128c91d86", "dependencies.compile=sha256:1fe5ba2691695db8da4e166c2015e5ba3a85d075109bcc23012709fcfcd89645", "dependencies.provided=sha256:ee9fd5151af21151e1229a58161679fb2d82e7365fd91fa9b04205c966c8416a", "dependencies.test=sha256:f70281aea75bad1cf39f2cb183551b82f0517d5885dd1217bdf3a29b94191788", "dependencyMetadata=sha256:75058a66360fc49b953748a5ae287e222177678cf6fd824e7f45a9593e65c258", "framework.quarkus=sha256:1a03038e3b6c11a6598e959b5526786bc942bd2d0e7cb6aec2401dcd36bafc1b", "framework.springBoot.native=sha256:cf597ee2519b656c8bdeb8a1aaaf81b8c9da20d7b82a94cb0643edd20e98e19f", "java=sha256:c822ebc7e176990dd66771c2496f47b8ee0f6451df7ddfa87c44aebff0a6edf6", "package=sha256:ba2fd61e998d4fab4a9205d2785ca9a48464a401346bebf655e28156a0a304c1", "repositories=sha256:e50e1129945e4af12f6d6b822fe1b5548c9425f8a3f0cfeadfb1fb4a646902e1", "schema=sha256:a08549d13c2f16087cfcaf4458dbe9436970632fe503bb7217f88c16428d2ddd", "versions=sha256:ab5d166a1924008df1e4ad69eba9725a6abcdb24c4164e238cc5869089591651"]
+workspaceResolutionInputFingerprint = "sha256:e99c995b3cd2c96fb6af94cc80757d1ecb6606db01d4ddb4882739515f829cfd"
 
 [[dependencyRoot]]
 member = "apps/zolt"
@@ -861,7 +861,7 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "modules/zolt-sbom"
 id = "com.networknt:json-schema-validator"
-version = "2.0.7"
+version = "2.0.8"
 lane = "test"
 resolvedScope = "test"
 
@@ -1259,14 +1259,14 @@ dependencies = ["com.fasterxml.jackson.core:jackson-core:2.22.2:jar:test", "com.
 
 [[package]]
 id = "com.networknt:json-schema-validator"
-version = "2.0.7"
+version = "2.0.8"
 source = "central"
 scope = "test"
 direct = true
-jar = "blobs/v2/sha256/7d01cefd6f0d656666b94778c7a13ada2941aace48e76830809c0dbf61ad5be2/json-schema-validator-2.0.7.jar"
-pom = "blobs/v2/sha256/e0286a6ed4c21958edc64545666385e60501ad2c5aa75164211edb8e397f8bbd/json-schema-validator-2.0.7.pom"
-jarSha256 = "7d01cefd6f0d656666b94778c7a13ada2941aace48e76830809c0dbf61ad5be2"
-pomSha256 = "e0286a6ed4c21958edc64545666385e60501ad2c5aa75164211edb8e397f8bbd"
+jar = "blobs/v2/sha256/26602201cca8a0bc03cd893dad5a719d5218ab3c0b7cda5a68bfbbaa55b6711a/json-schema-validator-2.0.8.jar"
+pom = "blobs/v2/sha256/f279aa8a5f19e1ba211e24a552af3b39c5c6c36b146c44d8b29a182c4208e223/json-schema-validator-2.0.8.pom"
+jarSha256 = "26602201cca8a0bc03cd893dad5a719d5218ab3c0b7cda5a68bfbbaa55b6711a"
+pomSha256 = "f279aa8a5f19e1ba211e24a552af3b39c5c6c36b146c44d8b29a182c4208e223"
 members = ["modules/zolt-sbom"]
 dependencies = ["com.ethlo.time:itu:1.14.0:jar:test", "com.fasterxml.jackson.core:jackson-databind:2.22.1:jar:test", "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.22.1:jar:test", "org.slf4j:slf4j-api:2.0.18:jar:test"]
 
@@ -2735,7 +2735,7 @@ policy = "workspace-mediation: org.ow2.asm:asm requested 9.9 -> 9.10.1"
 kind = "workspace-mediation"
 id = "org.slf4j:slf4j-api"
 requested = "2.0.17"
-source = "com.networknt:json-schema-validator:2.0.7"
+source = "com.networknt:json-schema-validator:2.0.8"
 policy = "workspace-mediation: org.slf4j:slf4j-api requested 2.0.17 -> 2.0.18"
 
 [[policy]]
