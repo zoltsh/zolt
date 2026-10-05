@@ -1,7 +1,9 @@
 package sh.zolt.build.compile;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import sh.zolt.build.KotlinCompileException;
 import sh.zolt.project.CompilerSettings;
 
@@ -16,18 +18,7 @@ final class KotlinCompilerArgumentPolicy {
         List<String> arguments = scope == KotlinCompilationScope.MAIN
                 ? compiler.args()
                 : compiler.testArgs();
-        boolean javaParameters = false;
-        boolean warningsAsErrors = false;
-        boolean suppressWarnings = false;
-        boolean extraWarnings = false;
-        boolean progressiveMode = false;
-        boolean contextSensitiveResolution = false;
-        boolean contextParameters = false;
-        boolean whenGuards = false;
-        boolean nestedTypeAliases = false;
-        boolean annotationTargetAll = false;
-        boolean jvmExposeBoxed = false;
-        boolean consistentDataClassCopyVisibility = false;
+        Set<String> standaloneArguments = new HashSet<>();
         String annotationDefaultTargetMode = "";
         String stringConcatMode = "";
         String lambdaMode = "";
@@ -41,77 +32,21 @@ final class KotlinCompilerArgumentPolicy {
         for (int index = 0; index < arguments.size(); index++) {
             String argument = arguments.get(index);
             switch (argument) {
-                case "-parameters" -> {
-                    if (javaParameters) {
+                case "-parameters",
+                        "-Werror",
+                        "-nowarn",
+                        "-Wextra",
+                        "-progressive",
+                        "-Xcontext-sensitive-resolution",
+                        "-Xcontext-parameters",
+                        "-Xwhen-guards",
+                        "-Xnested-type-aliases",
+                        "-Xannotation-target-all",
+                        "-Xjvm-expose-boxed",
+                        "-Xconsistent-data-class-copy-visibility" -> {
+                    if (!standaloneArguments.add(argument)) {
                         throw duplicateArgument(scope, argument);
                     }
-                    javaParameters = true;
-                }
-                case "-Werror" -> {
-                    if (warningsAsErrors) {
-                        throw duplicateArgument(scope, argument);
-                    }
-                    warningsAsErrors = true;
-                }
-                case "-nowarn" -> {
-                    if (suppressWarnings) {
-                        throw duplicateArgument(scope, argument);
-                    }
-                    suppressWarnings = true;
-                }
-                case "-Wextra" -> {
-                    if (extraWarnings) {
-                        throw duplicateArgument(scope, argument);
-                    }
-                    extraWarnings = true;
-                }
-                case "-progressive" -> {
-                    if (progressiveMode) {
-                        throw duplicateArgument(scope, argument);
-                    }
-                    progressiveMode = true;
-                }
-                case "-Xcontext-sensitive-resolution" -> {
-                    if (contextSensitiveResolution) {
-                        throw duplicateArgument(scope, argument);
-                    }
-                    contextSensitiveResolution = true;
-                }
-                case "-Xcontext-parameters" -> {
-                    if (contextParameters) {
-                        throw duplicateArgument(scope, argument);
-                    }
-                    contextParameters = true;
-                }
-                case "-Xwhen-guards" -> {
-                    if (whenGuards) {
-                        throw duplicateArgument(scope, argument);
-                    }
-                    whenGuards = true;
-                }
-                case "-Xnested-type-aliases" -> {
-                    if (nestedTypeAliases) {
-                        throw duplicateArgument(scope, argument);
-                    }
-                    nestedTypeAliases = true;
-                }
-                case "-Xannotation-target-all" -> {
-                    if (annotationTargetAll) {
-                        throw duplicateArgument(scope, argument);
-                    }
-                    annotationTargetAll = true;
-                }
-                case "-Xjvm-expose-boxed" -> {
-                    if (jvmExposeBoxed) {
-                        throw duplicateArgument(scope, argument);
-                    }
-                    jvmExposeBoxed = true;
-                }
-                case "-Xconsistent-data-class-copy-visibility" -> {
-                    if (consistentDataClassCopyVisibility) {
-                        throw duplicateArgument(scope, argument);
-                    }
-                    consistentDataClassCopyVisibility = true;
                 }
                 case "-language-version" -> {
                     if (!languageVersion.isEmpty()) {
@@ -178,25 +113,25 @@ final class KotlinCompilerArgumentPolicy {
                 }
             }
         }
-        if (suppressWarnings && warningsAsErrors) {
+        if (standaloneArguments.contains("-nowarn") && standaloneArguments.contains("-Werror")) {
             throw incompatibleArguments(scope, "-nowarn", "-Werror");
         }
-        if (suppressWarnings && extraWarnings) {
+        if (standaloneArguments.contains("-nowarn") && standaloneArguments.contains("-Wextra")) {
             throw incompatibleArguments(scope, "-nowarn", "-Wextra");
         }
         return new MappedArguments(
-                javaParameters,
-                warningsAsErrors,
-                suppressWarnings,
-                extraWarnings,
-                progressiveMode,
-                contextSensitiveResolution,
-                contextParameters,
-                whenGuards,
-                nestedTypeAliases,
-                annotationTargetAll,
-                jvmExposeBoxed,
-                consistentDataClassCopyVisibility,
+                standaloneArguments.contains("-parameters"),
+                standaloneArguments.contains("-Werror"),
+                standaloneArguments.contains("-nowarn"),
+                standaloneArguments.contains("-Wextra"),
+                standaloneArguments.contains("-progressive"),
+                standaloneArguments.contains("-Xcontext-sensitive-resolution"),
+                standaloneArguments.contains("-Xcontext-parameters"),
+                standaloneArguments.contains("-Xwhen-guards"),
+                standaloneArguments.contains("-Xnested-type-aliases"),
+                standaloneArguments.contains("-Xannotation-target-all"),
+                standaloneArguments.contains("-Xjvm-expose-boxed"),
+                standaloneArguments.contains("-Xconsistent-data-class-copy-visibility"),
                 annotationDefaultTargetMode,
                 stringConcatMode,
                 lambdaMode,
