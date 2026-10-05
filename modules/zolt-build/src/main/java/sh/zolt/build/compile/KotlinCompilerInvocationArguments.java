@@ -47,6 +47,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.contextSensitiveResolution()) {
             arguments.add("-Xcontext-sensitive-resolution");
         }
+        if (options.contextParameters()) {
+            arguments.add("-Xcontext-parameters");
+        }
         addVersion(arguments, "-language-version", options.languageVersion());
         addVersion(arguments, "-api-version", options.apiVersion());
         if (!options.jvmDefaultMode().isEmpty()) {

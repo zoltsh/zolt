@@ -63,6 +63,7 @@ public final class KotlinCompileOptionsPolicy {
                 mappedArguments.extraWarnings(),
                 mappedArguments.progressiveMode(),
                 mappedArguments.contextSensitiveResolution(),
+                mappedArguments.contextParameters(),
                 mappedArguments.languageVersion(),
                 mappedArguments.apiVersion(),
                 mappedArguments.jvmDefaultMode(),

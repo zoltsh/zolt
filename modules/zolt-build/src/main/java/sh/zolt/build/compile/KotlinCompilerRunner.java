@@ -125,6 +125,7 @@ public final class KotlinCompilerRunner {
             boolean extraWarnings,
             boolean progressiveMode,
             boolean contextSensitiveResolution,
+            boolean contextParameters,
             String languageVersion,
             String apiVersion,
             String jvmDefaultMode,
@@ -133,7 +134,7 @@ public final class KotlinCompilerRunner {
             List<String> optIns,
             Path friendPath) {
         public Options(String release, String moduleName, boolean hostPlatformApi) {
-            this(release, moduleName, hostPlatformApi, !hostPlatformApi, false, false, false, false, false, false, "", "", "", "", List.of(), List.of(), null);
+            this(release, moduleName, hostPlatformApi, !hostPlatformApi, false, false, false, false, false, false, false, "", "", "", "", List.of(), List.of(), null);
         }
 
         public Options(
@@ -141,7 +142,7 @@ public final class KotlinCompilerRunner {
                 String moduleName,
                 boolean hostPlatformApi,
                 boolean useJdkRelease) {
-            this(release, moduleName, hostPlatformApi, useJdkRelease, false, false, false, false, false, false, "", "", "", "", List.of(), List.of(), null);
+            this(release, moduleName, hostPlatformApi, useJdkRelease, false, false, false, false, false, false, false, "", "", "", "", List.of(), List.of(), null);
         }
 
         public Options(
@@ -150,7 +151,7 @@ public final class KotlinCompilerRunner {
                 boolean hostPlatformApi,
                 boolean useJdkRelease,
                 boolean javaParameters) {
-            this(release, moduleName, hostPlatformApi, useJdkRelease, javaParameters, false, false, false, false, false, "", "", "", "", List.of(), List.of(), null);
+            this(release, moduleName, hostPlatformApi, useJdkRelease, javaParameters, false, false, false, false, false, false, "", "", "", "", List.of(), List.of(), null);
         }
 
         public Options(
@@ -171,6 +172,7 @@ public final class KotlinCompilerRunner {
                     false,
                     false,
                     false,
+                    false,
                     "",
                     "",
                     "",
@@ -186,7 +188,7 @@ public final class KotlinCompilerRunner {
                 boolean hostPlatformApi,
                 boolean useJdkRelease,
                 Path friendPath) {
-            this(release, moduleName, hostPlatformApi, useJdkRelease, false, false, false, false, false, false, "", "", "", "", List.of(), List.of(), friendPath);
+            this(release, moduleName, hostPlatformApi, useJdkRelease, false, false, false, false, false, false, false, "", "", "", "", List.of(), List.of(), friendPath);
         }
 
         /** Compatibility constructor for callers that predate mapped Kotlin warning policy. */
@@ -203,6 +205,7 @@ public final class KotlinCompilerRunner {
                     hostPlatformApi,
                     useJdkRelease,
                     javaParameters,
+                    false,
                     false,
                     false,
                     false,
@@ -233,6 +236,7 @@ public final class KotlinCompilerRunner {
                     useJdkRelease,
                     javaParameters,
                     warningsAsErrors,
+                    false,
                     false,
                     false,
                     false,
@@ -280,6 +284,7 @@ public final class KotlinCompilerRunner {
                     extraWarnings,
                     progressiveMode,
                     contextSensitiveResolution,
+                    contextParameters,
                     languageVersion,
                     apiVersion,
                     jvmDefaultMode,

@@ -22,6 +22,7 @@ final class KotlinCompilerArgumentPolicy {
         boolean extraWarnings = false;
         boolean progressiveMode = false;
         boolean contextSensitiveResolution = false;
+        boolean contextParameters = false;
         String languageVersion = "";
         String apiVersion = "";
         String jvmDefaultMode = "";
@@ -66,6 +67,12 @@ final class KotlinCompilerArgumentPolicy {
                         throw duplicateArgument(scope, argument);
                     }
                     contextSensitiveResolution = true;
+                }
+                case "-Xcontext-parameters" -> {
+                    if (contextParameters) {
+                        throw duplicateArgument(scope, argument);
+                    }
+                    contextParameters = true;
                 }
                 case "-language-version" -> {
                     if (!languageVersion.isEmpty()) {
@@ -124,6 +131,7 @@ final class KotlinCompilerArgumentPolicy {
                 extraWarnings,
                 progressiveMode,
                 contextSensitiveResolution,
+                contextParameters,
                 languageVersion,
                 apiVersion,
                 jvmDefaultMode,
@@ -251,6 +259,7 @@ final class KotlinCompilerArgumentPolicy {
                 argumentsPath(scope) + " contains unsupported compiler argument `" + argument + "`",
                 "Use only a compatible, duplicate-free subset of `-parameters`, `-nowarn`,"
                         + " `-Werror`, `-Wextra`, `-progressive`, `-Xcontext-sensitive-resolution`,"
+                        + " `-Xcontext-parameters`,"
                         + " `-language-version <major.minor>`, `-api-version <major.minor>`, and one"
                         + " `-jvm-default=<mode>`, plus repeatable"
                         + " `-opt-in=<qualified.annotation.Name>` arguments and one"
@@ -281,6 +290,7 @@ final class KotlinCompilerArgumentPolicy {
             boolean extraWarnings,
             boolean progressiveMode,
             boolean contextSensitiveResolution,
+            boolean contextParameters,
             String languageVersion,
             String apiVersion,
             String jvmDefaultMode,
