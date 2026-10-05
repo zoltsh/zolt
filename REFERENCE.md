@@ -792,7 +792,9 @@ of the paired Kotlin arguments `-language-version <major.minor>` and
 `inline`, `indy`, or `indy-with-constants`, and one `-Xlambdas=<mode>` argument
 may select `class` or `indy`. One `-Xsam-conversions=<mode>` argument may also
 select `class` or `indy`. One `-Xannotation-default-target=<mode>` argument may
-select `first-only`, `first-only-warn`, or `param-property`. Distinct, repeatable
+select `first-only`, `first-only-warn`, or `param-property`. One
+`-Xassertions=<mode>` argument may select `always-enable`, `always-disable`,
+`jvm`, or `legacy`. Distinct, repeatable
 `-Xwarning-level=DIAGNOSTIC_NAME:<level>` arguments may set an uppercase Kotlin
 diagnostic to `error`, `warning`, or `disabled`. The standalone and version
 options must be spelled as separate array entries and may appear at most once;
@@ -811,6 +813,7 @@ args = [
   "-Xnested-type-aliases",
   "-Xannotation-target-all",
   "-Xannotation-default-target=param-property",
+  "-Xassertions=jvm",
   "-Xjvm-expose-boxed",
   "-Xconsistent-data-class-copy-visibility",
   "-Xemit-jvm-type-annotations",
@@ -870,7 +873,8 @@ annotation defaulting and all-target annotations, language/API version pairs,
 boxed value-class exposure, JVM-default modes, explicit-API modes,
 data-class copy visibility, string-concatenation modes, lambda-generation modes,
 JVM type-annotation emission, SAM-conversion modes, diagnostic warning levels,
-Java annotation-target compatibility, and opt-ins go only to `kotlinc`.
+Java annotation-target compatibility, assertion modes, and opt-ins go only to
+`kotlinc`.
 `-Xnested-type-aliases` enables Kotlin 2.2's Beta support for aliases declared
 inside classes, interfaces, and objects. Such aliases cannot use type parameters
 from an enclosing declaration; they must declare independent type parameters
@@ -935,6 +939,18 @@ desugaring and platform qualification. It is separate from
 written to JVM type-annotation attributes. Configure the compatibility flag
 independently for main and test source sets; changing it also invalidates and
 cleanly recompiles the matching output.
+`-Xassertions=always-enable` evaluates and enforces Kotlin `assert` calls even
+when JVM assertions are disabled. `always-disable` omits both the check and its
+condition evaluation. `jvm` matches Java assertion behavior: the condition is
+evaluated only when assertions are enabled for the generated class. `legacy`
+always evaluates the condition but throws only when runtime assertions are
+enabled; it is the Kotlin 2.2.0 compiler's default when this option is omitted.
+Assertion conditions should not have side effects, but the mode still matters
+for existing code that does. The compiler option does not enable assertions in
+the target JVM. For tests, pass `--jvm-arg=-ea` or configure
+`[test.runtime].jvmArgs = ["-ea"]` when `jvm` or `legacy` should enforce them.
+Configure the mode independently for main and test source sets; changing it
+invalidates and cleanly recompiles the matching output.
 `-Xstring-concat=inline` emits concatenation through `StringBuilder`.
 `-Xstring-concat=indy` uses `StringConcatFactory.makeConcat`, while
 `indy-with-constants` uses `StringConcatFactory.makeConcatWithConstants`. The
@@ -2104,9 +2120,10 @@ inaccessible. Workspace-wide `integration-test --workspace --all` runs use the
 same bounded compiler path for every selected member, and unchanged main and
 integration-test outputs remain eligible for fingerprint reuse. The preview
 rejects Groovy test sources, `module-info.java`, test annotation processors,
-`[compiler.test].args` containing a flag other than `-parameters` or `-Werror`
-or repeating either flag, Java-source-producing generated-test steps, and
-Quarkus in the same member. The generated-test restriction applies to
+`[compiler.test].args` containing an argument outside the bounded set documented
+above, or a malformed or duplicate supported argument, Java-source-producing
+generated-test steps, and Quarkus in the same member. The generated-test
+restriction applies to
 Zolt-owned OpenAPI, Protobuf, and exec steps whose language remains Java;
 pre-generated Java or Kotlin `declared-root` steps, OpenAPI steps marked
 `language = "kotlin"`, Protobuf steps marked `language = "kotlin"`, and
