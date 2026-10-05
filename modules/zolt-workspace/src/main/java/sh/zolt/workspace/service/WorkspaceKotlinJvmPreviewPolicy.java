@@ -5,6 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import sh.zolt.build.BuildException;
 import sh.zolt.build.compile.kotlin.KotlinJvmPreviewPolicy;
 
 /** Propagates preview-class launch requirements through workspace runtime dependencies. */
@@ -35,15 +36,17 @@ public final class WorkspaceKotlinJvmPreviewPolicy {
             throw new IllegalArgumentException(
                     "Workspace member `" + selected + "` does not exist.");
         }
-        if (KotlinJvmPreviewPolicy.mainEnabled(member.config())) {
-            return true;
-        }
+        boolean enabled = KotlinJvmPreviewPolicy.mainEnabled(member.config());
         WorkspaceClasspathMemberGraph graph = new WorkspaceClasspathMemberGraph(current);
-        return graph.mainRuntime(selected).stream()
-                .map(members::get)
-                .filter(Objects::nonNull)
-                .anyMatch(dependency ->
-                        KotlinJvmPreviewPolicy.mainEnabled(dependency.config()));
+        for (String dependencyPath : graph.mainRuntime(selected)) {
+            WorkspaceMember dependency = members.get(dependencyPath);
+            if (dependency != null
+                    && KotlinJvmPreviewPolicy.mainEnabled(dependency.config())) {
+                requireSameFeature(member, dependency);
+                enabled = true;
+            }
+        }
+        return enabled;
     }
 
     public static List<String> testJvmArguments(
@@ -77,15 +80,34 @@ public final class WorkspaceKotlinJvmPreviewPolicy {
             throw new IllegalArgumentException(
                     "Workspace member `" + selected + "` does not exist.");
         }
-        if (KotlinJvmPreviewPolicy.testRuntimeEnabled(member.config())) {
-            return true;
-        }
+        boolean enabled = KotlinJvmPreviewPolicy.testRuntimeEnabled(member.config());
         WorkspaceClasspathMemberGraph graph = new WorkspaceClasspathMemberGraph(current);
-        return graph.test(selected).stream()
-                .map(members::get)
-                .filter(Objects::nonNull)
-                .anyMatch(dependency ->
-                        KotlinJvmPreviewPolicy.mainEnabled(dependency.config()));
+        for (String dependencyPath : graph.test(selected)) {
+            WorkspaceMember dependency = members.get(dependencyPath);
+            if (dependency != null
+                    && KotlinJvmPreviewPolicy.mainEnabled(dependency.config())) {
+                requireSameFeature(member, dependency);
+                enabled = true;
+            }
+        }
+        return enabled;
+    }
+
+    private static void requireSameFeature(
+            WorkspaceMember consumer,
+            WorkspaceMember previewDependency) {
+        String consumerFeature = consumer.config().project().java();
+        String dependencyFeature = previewDependency.config().project().java();
+        if (consumerFeature.equals(dependencyFeature)) {
+            return;
+        }
+        throw new BuildException(
+                "Workspace member `" + consumer.path() + "` targets Java " + consumerFeature
+                        + " but its preview-enabled runtime dependency `"
+                        + previewDependency.path() + "` targets Java " + dependencyFeature
+                        + ". JVM preview class files require the same Java feature release.\n\n"
+                        + "Next: Align [project].java for these workspace members, or remove "
+                        + "`-Xjvm-enable-preview` from the dependency.");
     }
 
     private static Map<String, WorkspaceMember> membersByPath(Workspace workspace) {

@@ -2,11 +2,13 @@ package sh.zolt.workspace.service.preview;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import sh.zolt.build.BuildException;
 import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceKotlinJvmPreviewPolicy;
@@ -118,6 +120,38 @@ final class WorkspaceKotlinJvmPreviewPolicyTest {
                 "apps/application"));
     }
 
+    @Test
+    void rejectsPreviewDependenciesFromAnotherJavaFeature() {
+        Workspace workspace = workspace(
+                List.of(
+                        member("apps/application", false, false, 22),
+                        member("modules/library", true, false, 21)),
+                List.of(
+                        edge("apps/application", "modules/library", false),
+                        new WorkspaceProjectEdge(
+                                "apps/application",
+                                "modules/library",
+                                "test",
+                                "com.example:library",
+                                false)));
+
+        BuildException main = assertThrows(
+                BuildException.class,
+                () -> WorkspaceKotlinJvmPreviewPolicy.mainRuntimeEnabled(
+                        workspace,
+                        "apps/application"));
+        assertTrue(main.getMessage().contains(
+                "preview-enabled runtime dependency `modules/library` targets Java 21"));
+        assertTrue(main.getMessage().contains("require the same Java feature release"));
+
+        BuildException test = assertThrows(
+                BuildException.class,
+                () -> WorkspaceKotlinJvmPreviewPolicy.testRuntimeEnabled(
+                        workspace,
+                        "apps/application"));
+        assertTrue(test.getMessage().contains("Workspace member `apps/application` targets Java 22"));
+    }
+
     private static Workspace workspace(
             List<WorkspaceMember> members,
             List<WorkspaceProjectEdge> edges) {
@@ -137,6 +171,14 @@ final class WorkspaceKotlinJvmPreviewPolicyTest {
             String path,
             boolean mainPreview,
             boolean testPreview) {
+        return member(path, mainPreview, testPreview, 21);
+    }
+
+    private static WorkspaceMember member(
+            String path,
+            boolean mainPreview,
+            boolean testPreview,
+            int javaFeature) {
         String compiler = mainPreview
                 ? """
 
@@ -159,11 +201,12 @@ final class WorkspaceKotlinJvmPreviewPolicyTest {
                         name = "%s"
                         version = "0.1.0"
                         group = "com.example"
-                        java = 21
+                        java = %s
                         %s
                         %s
                         """.formatted(
                         path.replace('/', '-'),
+                        javaFeature,
                         compiler,
                         testCompiler)));
     }
