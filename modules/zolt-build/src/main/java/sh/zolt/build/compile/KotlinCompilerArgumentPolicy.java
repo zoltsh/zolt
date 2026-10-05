@@ -54,6 +54,7 @@ final class KotlinCompilerArgumentPolicy {
                         "-Xno-new-java-annotation-targets",
                         "-Xno-source-debug-extension",
                         "-Xno-unified-null-checks",
+                        "-Xno-optimize",
                         "-Xindy-allow-annotated-lambdas",
                         "-Xgenerate-strict-metadata-version" -> {
                     if (!standaloneArguments.add(argument)) {
@@ -191,6 +192,7 @@ final class KotlinCompilerArgumentPolicy {
                 standaloneArguments.contains("-Xno-new-java-annotation-targets"),
                 standaloneArguments.contains("-Xno-source-debug-extension"),
                 standaloneArguments.contains("-Xno-unified-null-checks"),
+                standaloneArguments.contains("-Xno-optimize"),
                 standaloneArguments.contains("-Xindy-allow-annotated-lambdas"),
                 standaloneArguments.contains("-Xgenerate-strict-metadata-version"),
                 annotationDefaultTargetMode,
@@ -300,6 +302,7 @@ final class KotlinCompilerArgumentPolicy {
             boolean noNewJavaAnnotationTargets,
             boolean noSourceDebugExtension,
             boolean noUnifiedNullChecks,
+            boolean noOptimize,
             boolean indyAllowAnnotatedLambdas,
             boolean generateStrictMetadataVersion,
             String annotationDefaultTargetMode,
