@@ -86,6 +86,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.noOptimize()) {
             arguments.add("-Xno-optimize");
         }
+        if (options.validateBytecode()) {
+            arguments.add("-Xvalidate-bytecode");
+        }
         if (options.indyAllowAnnotatedLambdas()) {
             arguments.add("-Xindy-allow-annotated-lambdas");
         }

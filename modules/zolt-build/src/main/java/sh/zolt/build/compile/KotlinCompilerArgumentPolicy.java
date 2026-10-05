@@ -55,6 +55,7 @@ final class KotlinCompilerArgumentPolicy {
                         "-Xno-source-debug-extension",
                         "-Xno-unified-null-checks",
                         "-Xno-optimize",
+                        "-Xvalidate-bytecode",
                         "-Xindy-allow-annotated-lambdas",
                         "-Xgenerate-strict-metadata-version" -> {
                     if (!standaloneArguments.add(argument)) {
@@ -193,6 +194,7 @@ final class KotlinCompilerArgumentPolicy {
                 standaloneArguments.contains("-Xno-source-debug-extension"),
                 standaloneArguments.contains("-Xno-unified-null-checks"),
                 standaloneArguments.contains("-Xno-optimize"),
+                standaloneArguments.contains("-Xvalidate-bytecode"),
                 standaloneArguments.contains("-Xindy-allow-annotated-lambdas"),
                 standaloneArguments.contains("-Xgenerate-strict-metadata-version"),
                 annotationDefaultTargetMode,
@@ -303,6 +305,7 @@ final class KotlinCompilerArgumentPolicy {
             boolean noSourceDebugExtension,
             boolean noUnifiedNullChecks,
             boolean noOptimize,
+            boolean validateBytecode,
             boolean indyAllowAnnotatedLambdas,
             boolean generateStrictMetadataVersion,
             String annotationDefaultTargetMode,
