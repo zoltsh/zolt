@@ -12,7 +12,7 @@ import sh.zolt.build.compile.JavacRunner;
 import sh.zolt.classpath.Classpath;
 import sh.zolt.cli.CliTestRepository;
 
-/** Publishes a tiny OpenAPI-compatible tool that emits one Kotlin JUnit test. */
+/** Publishes a tiny OpenAPI-compatible tool that emits one configured Kotlin source. */
 final class OpenApiKotlinCliFixture {
     static final String VERSION = "7.11.0";
 
@@ -49,25 +49,14 @@ final class OpenApiKotlinCliFixture {
                 public final class OpenAPIGenerator {
                     public static void main(String[] args) throws Exception {
                         Path output = Path.of(option(args, "--output"));
-                        String revision = Files.readString(
-                                Path.of(option(args, "--input-spec"))).strip();
-                        Path target = output.resolve("com/example/GeneratedOpenApiTest.kt");
+                        String source = Files.readString(Path.of(option(args, "--input-spec")));
+                        String properties = option(args, "--additional-properties");
+                        Path target = output.resolve(property(properties, "relativePath"));
                         Files.createDirectories(target.getParent());
-                        Files.writeString(target,
-                                "package com.example\\n\\n"
-                                        + "import org.junit.jupiter.api.Assertions.assertEquals\\n"
-                                        + "import org.junit.jupiter.api.Test\\n\\n"
-                                        + "class GeneratedOpenApiTest {\\n"
-                                        + "    @Test\\n"
-                                        + "    fun runsGeneratedTest() {\\n"
-                                        + "        assertEquals(\\\"main-" + revision + "\\\", "
-                                        + "Main.message() + \\\"-\\\" + revision())\\n"
-                                        + "    }\\n\\n"
-                                        + "    private fun revision(): String = \\\"" + revision + "\\\"\\n"
-                                        + "}\\n");
+                        Files.writeString(target, source);
                         Files.writeString(
-                                Path.of("openapi-test-invocations.txt"),
-                                revision + "\\n",
+                                Path.of(property(properties, "logFile")),
+                                "run\\n",
                                 StandardOpenOption.CREATE,
                                 StandardOpenOption.APPEND);
                     }
@@ -81,6 +70,15 @@ final class OpenApiKotlinCliFixture {
                         throw new IllegalArgumentException("Missing option " + name);
                     }
 
+                    private static String property(String properties, String name) {
+                        for (String property : properties.split(",")) {
+                            String[] parts = property.split("=", 2);
+                            if (parts.length == 2 && name.equals(parts[0])) {
+                                return parts[1];
+                            }
+                        }
+                        throw new IllegalArgumentException("Missing property " + name);
+                    }
                 }
                 """);
         Path classes = workDirectory.resolve("classes");

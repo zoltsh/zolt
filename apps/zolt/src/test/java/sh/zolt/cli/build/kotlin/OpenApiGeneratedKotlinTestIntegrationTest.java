@@ -60,12 +60,12 @@ final class OpenApiGeneratedKotlinTestIntegrationTest {
             byte[] initialSource = Files.readAllBytes(generatedSource);
             byte[] initialClass = Files.readAllBytes(generatedClass);
             FileTime initialClassTime = Files.getLastModifiedTime(generatedClass);
-            assertEquals(List.of("v1"), invocations(project));
+            assertEquals(List.of("run"), invocations(project));
 
             CommandResult warm = test(project, offlineCache);
             assertSuccessful(warm);
             assertTiming(warm, "\"testCompilationMode\":\"skipped\"");
-            assertEquals(List.of("v1"), invocations(project));
+            assertEquals(List.of("run"), invocations(project));
             assertArrayEquals(initialClass, Files.readAllBytes(generatedClass));
             assertEquals(initialClassTime, Files.getLastModifiedTime(generatedClass));
 
@@ -75,15 +75,17 @@ final class OpenApiGeneratedKotlinTestIntegrationTest {
             assertTiming(repaired, "\"testCompilationMode\":\"skipped\"");
             assertArrayEquals(initialSource, Files.readAllBytes(generatedSource));
             assertArrayEquals(initialClass, Files.readAllBytes(generatedClass));
-            assertEquals(List.of("v1", "v1"), invocations(project));
+            assertEquals(List.of("run", "run"), invocations(project));
 
-            Files.writeString(project.resolve("src/test/openapi/client.yaml"), "v2\n");
+            Files.writeString(
+                    project.resolve("src/test/openapi/client.yaml"),
+                    generatedTestSource("v2"));
             CommandResult changed = test(project, offlineCache);
             assertSuccessful(changed);
             assertTiming(changed, "\"testCompilationMode\":\"full\"");
             assertFalse(Arrays.equals(initialSource, Files.readAllBytes(generatedSource)));
             assertFalse(Arrays.equals(initialClass, Files.readAllBytes(generatedClass)));
-            assertEquals(List.of("v1", "v1", "v2"), invocations(project));
+            assertEquals(List.of("run", "run", "run"), invocations(project));
             assertEquals(Map.of(), repository.authorizations());
         }
     }
@@ -129,8 +131,28 @@ final class OpenApiGeneratedKotlinTestIntegrationTest {
                     }
                 }
                 """);
-        Files.writeString(project.resolve("src/test/openapi/client.yaml"), "v1\n");
+        Files.writeString(
+                project.resolve("src/test/openapi/client.yaml"),
+                generatedTestSource("v1"));
         writeManifest(project, repository);
+    }
+
+    private static String generatedTestSource(String revision) {
+        return """
+                package com.example
+
+                import org.junit.jupiter.api.Assertions.assertEquals
+                import org.junit.jupiter.api.Test
+
+                class GeneratedOpenApiTest {
+                    @Test
+                    fun runsGeneratedTest() {
+                        assertEquals("main-%s", Main.message() + "-" + revision())
+                    }
+
+                    private fun revision(): String = "%s"
+                }
+                """.formatted(revision, revision);
     }
 
     private static void writeManifest(Path project, URI repository) throws IOException {
@@ -154,6 +176,7 @@ final class OpenApiGeneratedKotlinTestIntegrationTest {
                 input = "src/test/openapi/client.yaml"
                 output = "target/generated/test-sources/openapi/client"
                 generator = "kotlin"
+                additionalProperties = { relativePath = "com/example/GeneratedOpenApiTest.kt", logFile = "openapi-test-invocations.txt" }
 
                 [repositories]
                 central = false
