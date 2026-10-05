@@ -186,16 +186,14 @@ final class KotlinMainCompilePolicyTest {
     }
 
     @Test
-    void rejectsProcessors() {
-        KotlinCompileException processorFailure = assertThrows(
-                KotlinCompileException.class,
-                () -> KotlinMainCompilePolicy.options(
-                        config(CompilerSettings.defaults(), Map.of(), Map.of(), "demo"),
-                        sources(List.of(), List.of(), List.of(KOTLIN)),
-                        classpaths(List.of(Path.of("processor.jar"))),
-                        jdkStatus("21.0.11", "21")));
+    void acceptsProcessorsForVerifiedKaptExecution() {
+        KotlinCompilerOptions options = KotlinMainCompilePolicy.options(
+                config(CompilerSettings.defaults(), Map.of(), Map.of(), "demo"),
+                sources(List.of(), List.of(), List.of(KOTLIN)),
+                classpaths(List.of(Path.of("processor.jar"))),
+                jdkStatus("21.0.11", "21"));
 
-        assertTrue(processorFailure.getMessage().contains("[dependencies.processor]"));
+        assertEquals("21", options.release());
     }
 
     @Test
@@ -283,6 +281,27 @@ final class KotlinMainCompilePolicyTest {
                         runtimeOnly));
 
         assertTrue(failure.getMessage().contains("no javac executable"));
+    }
+
+    @Test
+    void rejectsKaptWithoutJavac() {
+        JdkStatus runtimeOnly = new JdkStatus(
+                Optional.of(Path.of("/managed-jdk")),
+                Optional.of(Path.of("/managed-jdk/bin/java")),
+                Optional.empty(),
+                Optional.of(Path.of("/managed-jdk/bin/jar")),
+                Optional.of("21.0.11"),
+                "21");
+
+        KotlinCompileException failure = assertThrows(
+                KotlinCompileException.class,
+                () -> KotlinMainCompilePolicy.options(
+                        config(CompilerSettings.defaults(), Map.of(), Map.of(), "demo"),
+                        sources(List.of(), List.of(), List.of(KOTLIN)),
+                        classpaths(List.of(Path.of("processor.jar"))),
+                        runtimeOnly));
+
+        assertTrue(failure.getMessage().contains("annotation processing needs javac"));
     }
 
     @Test

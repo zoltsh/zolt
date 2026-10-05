@@ -236,7 +236,115 @@ final class MainCompileSourceExecutorKotlinTest {
     }
 
     @Test
-    void rejectsProcessorsBeforeMutatingOutput() throws IOException {
+    void runsKaptThenKotlinThenJavacWithoutDoubleProcessing() throws IOException {
+        Path output = outputWithStaleClass();
+        Path generated = projectDir.resolve("target/generated/sources/annotations");
+        Path java = source("src/main/java/com/example/JavaApi.java", "class JavaApi {}");
+        Path kotlin = source("src/main/kotlin/com/example/Main.kt", "class Main");
+        Path processor = projectDir.resolve("cache/processor.jar").toAbsolutePath().normalize();
+        Path generatedJava = generated.resolve("com/example/GeneratedGreeting.java");
+        Path kotlinMarker = output.resolve("com/example/Main.class");
+        List<String> phases = new ArrayList<>();
+        List<Path> stubsDirectories = new ArrayList<>();
+        KotlinCompilerRunner kotlinRunner = new KotlinCompilerRunner(":", command -> {
+            String arguments = readString(argumentFile(command));
+            if (arguments.contains("org.jetbrains.kotlin.kapt3:aptMode=stubsAndApt")) {
+                phases.add("kapt");
+                assertTrue(arguments.contains("org.jetbrains.kotlin.kapt3:apclasspath=" + processor));
+                assertTrue(arguments.contains("org.jetbrains.kotlin.kapt3:includeCompileClasspath=false"));
+                assertFalse(Files.exists(output.resolve("com/example/StillHere.class")));
+                Path stubs = pluginPath(arguments, "stubs");
+                stubsDirectories.add(stubs);
+                try {
+                    Files.writeString(stubs.resolve("Main.java"), "class Main {}");
+                    Files.createDirectories(generatedJava.getParent());
+                    Files.writeString(generatedJava, "package com.example; class GeneratedGreeting {}");
+                } catch (IOException exception) {
+                    throw new UncheckedIOException(exception);
+                }
+                return new KotlinCompilerRunner.ProcessResult(0, "generated kapt\n");
+            }
+            phases.add("kotlin");
+            assertFalse(arguments.contains("org.jetbrains.kotlin.kapt3"));
+            assertTrue(arguments.contains(generatedJava.toString()), arguments);
+            try {
+                Files.createDirectories(kotlinMarker.getParent());
+                Files.write(kotlinMarker, new byte[] {1});
+            } catch (IOException exception) {
+                throw new UncheckedIOException(exception);
+            }
+            return new KotlinCompilerRunner.ProcessResult(0, "compiled kotlin\n");
+        });
+        JavacRunner javacRunner = new JavacRunner(":", command -> {
+            phases.add("javac");
+            assertTrue(Files.exists(kotlinMarker));
+            assertTrue(command.contains(java.toString()), command.toString());
+            assertTrue(command.contains(generatedJava.toString()), command.toString());
+            assertTrue(command.contains("-proc:none"), command.toString());
+            assertFalse(command.contains("-processorpath"), command.toString());
+            assertFalse(command.stream().anyMatch(argument -> argument.contains("processor.jar")));
+            return new JavacRunner.ProcessResult(0, "compiled java\n");
+        });
+
+        MainCompileSourceExecutor.Attempt result = executor(javacRunner, kotlinRunner).compile(
+                false,
+                "source-changed",
+                projectDir,
+                config(),
+                sources(List.of(java), List.of(kotlin)),
+                classpaths(List.of(), List.of(processor)),
+                output,
+                generated,
+                jdkStatus(),
+                selectionWithKapt());
+
+        assertEquals(List.of("kapt", "kotlin", "javac"), phases);
+        assertEquals(2, result.sourceCount());
+        assertEquals(2, result.diagnostics().sourcesRecompiled());
+        assertEquals("generated kapt\ncompiled kotlin\ncompiled java\n", result.output());
+        assertTrue(Files.isRegularFile(generatedJava));
+        assertEquals(1, stubsDirectories.size());
+        assertFalse(Files.exists(stubsDirectories.getFirst()));
+    }
+
+    @Test
+    void removesKaptStubsWhenAnnotationProcessingFails() throws IOException {
+        Path kotlin = source("src/main/kotlin/com/example/Main.kt", "class Main");
+        Path processor = projectDir.resolve("cache/processor.jar").toAbsolutePath().normalize();
+        List<Path> stubsDirectories = new ArrayList<>();
+        KotlinCompilerRunner failing = new KotlinCompilerRunner(":", command -> {
+            String arguments = readString(argumentFile(command));
+            Path stubs = pluginPath(arguments, "stubs");
+            stubsDirectories.add(stubs);
+            try {
+                Files.writeString(stubs.resolve("Main.java"), "class Main {}");
+            } catch (IOException exception) {
+                throw new UncheckedIOException(exception);
+            }
+            return new KotlinCompilerRunner.ProcessResult(1, "processor failed\n");
+        });
+
+        KotlinCompileException failure = assertThrows(
+                KotlinCompileException.class,
+                () -> executor(failing).compile(
+                        false,
+                        "source-changed",
+                        projectDir,
+                        config(),
+                        sources(List.of(), List.of(kotlin)),
+                        classpaths(List.of(), List.of(processor)),
+                        projectDir.resolve("target/classes"),
+                        projectDir.resolve("target/generated/sources/annotations"),
+                        jdkStatus(),
+                        selectionWithKapt()));
+
+        assertTrue(failure.getMessage().contains("processor failed"));
+        assertEquals(1, stubsDirectories.size());
+        assertFalse(Files.exists(stubsDirectories.getFirst()));
+    }
+
+    @Test
+    void rejectsProcessorsWithoutVerifiedKaptBeforeMutatingOutput() throws IOException {
         Path output = outputWithStaleClass();
         Path kotlin = source("src/main/java/com/example/Main.kt", "class Main");
 
@@ -254,7 +362,8 @@ final class MainCompileSourceExecutorKotlinTest {
                         jdkStatus(),
                         selection()));
 
-        assertTrue(exception.getMessage().contains("[dependencies.processor]"));
+        assertTrue(exception.getMessage().contains("kotlin-annotation-processing-embeddable"));
+        assertTrue(exception.getMessage().contains("zolt resolve"));
         assertTrue(Files.exists(output.resolve("com/example/StillHere.class")));
     }
 
@@ -315,6 +424,20 @@ final class MainCompileSourceExecutorKotlinTest {
                 "sha256:" + "b".repeat(64)));
     }
 
+    private MainCompilerToolchain selectionWithKapt() {
+        Path kapt = projectDir.resolve("verified/kotlin-annotation-processing-embeddable.jar")
+                .toAbsolutePath()
+                .normalize();
+        List<Path> launcher = new ArrayList<>(launcherEntries());
+        launcher.add(kapt);
+        return MainCompilerToolchain.kotlin(new KotlinCompilerToolchain(
+                "2.2.0",
+                "a".repeat(64),
+                launcher,
+                "sha256:" + "c".repeat(64),
+                kapt));
+    }
+
     private List<Path> launcherEntries() {
         return List.of(
                 projectDir.resolve("verified/kotlin-compiler-embeddable.jar").toAbsolutePath().normalize(),
@@ -351,6 +474,16 @@ final class MainCompileSourceExecutorKotlinTest {
         } catch (IOException exception) {
             throw new UncheckedIOException(exception);
         }
+    }
+
+    private static Path pluginPath(String arguments, String name) {
+        String prefix = "\"plugin:org.jetbrains.kotlin.kapt3:" + name + "=";
+        int start = arguments.indexOf(prefix);
+        assertTrue(start >= 0, arguments);
+        int valueStart = start + prefix.length();
+        int end = arguments.indexOf('"', valueStart);
+        assertTrue(end > valueStart, arguments);
+        return Path.of(arguments.substring(valueStart, end));
     }
 
     private static SourceDiscoveryResult sources(List<Path> java, List<Path> kotlin) {

@@ -39,14 +39,10 @@ final class KotlinMainCompilePolicy {
                             + " into a separate member, or keep this member Java-only until generator ownership"
                             + " is qualified for Kotlin/Java joint compilation.");
         }
-        if (!classpaths.processor().entries().isEmpty()) {
+        if ((!sources.mainSources().isEmpty() || !classpaths.processor().entries().isEmpty())
+                && jdkStatus.javac().isEmpty()) {
             throw unsupported(
-                    "annotation processors are configured",
-                    "Remove [dependencies.processor] or keep this member Java-only.");
-        }
-        if (!sources.mainSources().isEmpty() && jdkStatus.javac().isEmpty()) {
-            throw unsupported(
-                    "the selected JDK has no javac executable",
+                    "Java composition or annotation processing needs javac but the selected JDK has no javac executable",
                     "Install a complete JDK or repair the configured Java toolchain.");
         }
         return KotlinCompileOptionsPolicy.options(
