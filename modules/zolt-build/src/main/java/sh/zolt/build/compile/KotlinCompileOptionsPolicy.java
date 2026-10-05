@@ -79,6 +79,7 @@ public final class KotlinCompileOptionsPolicy {
                 mappedArguments.validateBytecode(),
                 mappedArguments.indyAllowAnnotatedLambdas(),
                 mappedArguments.generateStrictMetadataVersion(),
+                mappedArguments.annotationsInMetadata(),
                 mappedArguments.annotationDefaultTargetMode(),
                 mappedArguments.assertionMode(),
                 mappedArguments.jspecifyAnnotationsMode(),

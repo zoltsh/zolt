@@ -95,6 +95,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.generateStrictMetadataVersion()) {
             arguments.add("-Xgenerate-strict-metadata-version");
         }
+        if (options.annotationsInMetadata()) {
+            arguments.add("-Xannotations-in-metadata");
+        }
         if (!options.annotationDefaultTargetMode().isEmpty()) {
             arguments.add("-Xannotation-default-target=" + options.annotationDefaultTargetMode());
         }

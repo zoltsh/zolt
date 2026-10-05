@@ -57,7 +57,8 @@ final class KotlinCompilerArgumentPolicy {
                         "-Xno-optimize",
                         "-Xvalidate-bytecode",
                         "-Xindy-allow-annotated-lambdas",
-                        "-Xgenerate-strict-metadata-version" -> {
+                        "-Xgenerate-strict-metadata-version",
+                        "-Xannotations-in-metadata" -> {
                     if (!standaloneArguments.add(argument)) {
                         throw duplicateArgument(scope, argument);
                     }
@@ -197,6 +198,7 @@ final class KotlinCompilerArgumentPolicy {
                 standaloneArguments.contains("-Xvalidate-bytecode"),
                 standaloneArguments.contains("-Xindy-allow-annotated-lambdas"),
                 standaloneArguments.contains("-Xgenerate-strict-metadata-version"),
+                standaloneArguments.contains("-Xannotations-in-metadata"),
                 annotationDefaultTargetMode,
                 assertionMode,
                 jspecifyAnnotationsMode,
@@ -308,6 +310,7 @@ final class KotlinCompilerArgumentPolicy {
             boolean validateBytecode,
             boolean indyAllowAnnotatedLambdas,
             boolean generateStrictMetadataVersion,
+            boolean annotationsInMetadata,
             String annotationDefaultTargetMode,
             String assertionMode,
             String jspecifyAnnotationsMode,

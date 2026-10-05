@@ -16,7 +16,7 @@ final class KotlinCompilerArgumentGuidance {
                 + " `-Xno-new-java-annotation-targets`, `-Xno-source-debug-extension`,"
                 + " `-Xno-unified-null-checks`, `-Xno-optimize`, `-Xvalidate-bytecode`,"
                 + " `-Xindy-allow-annotated-lambdas` with `-Xlambdas=indy`,"
-                + " `-Xgenerate-strict-metadata-version`,"
+                + " `-Xgenerate-strict-metadata-version`, `-Xannotations-in-metadata`,"
                 + " `-language-version <major.minor>`, `-api-version <major.minor>`, and one"
                 + " `-jvm-default=<mode>`, plus repeatable"
                 + " `-opt-in=<qualified.annotation.Name>` arguments and one"
