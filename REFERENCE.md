@@ -734,8 +734,8 @@ output cleanup when any of these conditions applies:
 - the main source set contains `module-info.java` (JPMS joint compilation is not
   supported);
 - main annotation processors are configured (KAPT is not supported);
-- `[compiler].args` contains a flag other than `-parameters` or `-Werror`, or
-  repeats either supported flag; or
+- `[compiler].args` contains an argument outside the bounded set documented
+  below, or contains a malformed or duplicate supported argument; or
 - a Zolt-owned Java-source-producing OpenAPI, Protobuf, or exec main generation
   step is configured. A pre-generated Java or Kotlin `declared-root`, an
   OpenAPI step marked `language = "kotlin"`, a Protobuf step marked
@@ -779,15 +779,26 @@ disable the unchanged-input skip.
 
 For a Kotlin-bearing source set, compiler arguments may contain the standalone
 flags `-parameters` and `-Werror`, plus one each of the paired Kotlin arguments
-`-language-version <major.minor>` and `-api-version <major.minor>`. Every option
-must be spelled as a separate array entry and may appear at most once:
+`-language-version <major.minor>` and `-api-version <major.minor>`, and distinct,
+repeatable `-opt-in=<qualified.annotation.Name>` arguments. The standalone and
+version options must be spelled as separate array entries and may appear at most
+once; each opt-in is one array entry and the same annotation may not be repeated:
 
 ```toml
 [compiler]
-args = ["-parameters", "-language-version", "1.9", "-api-version", "1.9"]
+args = [
+  "-parameters",
+  "-language-version", "1.9",
+  "-api-version", "1.8",
+  "-opt-in=kotlin.ExperimentalStdlibApi",
+]
 
 [compiler.test]
-args = ["-language-version", "2.0", "-api-version", "2.0"]
+args = [
+  "-language-version", "2.0",
+  "-api-version", "2.0",
+  "-opt-in=com.example.ExperimentalTestApi",
+]
 ```
 
 `-parameters` enables Java reflection parameter metadata in both the Kotlin and
@@ -795,12 +806,13 @@ authored Java halves of mixed compilation. The contract covers source-declared
 constructor, function, and method parameters; Kotlin compiler-generated
 synthetic parameters are outside it. `-Werror` makes a warning from either
 compiler phase fail that source set. Language/API version pairs go only to
-`kotlinc`, while the matching javac phase receives neither. Main and test
-arguments are independent, and changing either version pair invalidates reuse
-for that source set. The selected Kotlin compiler still decides which version
-values and language/API combinations it supports. Other custom compiler
-arguments remain unsupported for Kotlin-bearing source sets because javac flags
-cannot in general be forwarded safely to kotlinc.
+`kotlinc`, as do opt-ins; the matching javac phase receives none of them. Main
+and test arguments are independent, and changing their version pairs or opt-ins
+invalidates reuse for that source set. The selected Kotlin compiler still
+decides which version values and language/API combinations it supports and
+whether an opt-in annotation exists and applies. Other custom compiler arguments
+remain unsupported for Kotlin-bearing source sets because javac flags cannot in
+general be forwarded safely to kotlinc.
 
 Kotlin compiler module identity is explicit when compatibility with another
 build must be preserved:
