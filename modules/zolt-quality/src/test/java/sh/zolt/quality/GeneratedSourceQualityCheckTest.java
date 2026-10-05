@@ -249,37 +249,40 @@ final class GeneratedSourceQualityCheckTest extends QualityCheckServiceTestSuppo
                 "[generated.main.scala-api]",
                 "Unsupported generated source language `scala`.",
                 "Use language = \"java\", or use language = \"kotlin\" with kind = \"openapi\","
-                        + " kind = \"declared-root\", or a source-producing exec step.");
+                        + " kind = \"protobuf\", kind = \"declared-root\", or a source-producing exec step.");
     }
 
     @Test
-    void passesForFreshKotlinOpenApiOutput() throws IOException {
-        Path projectDir = tempDir.resolve("fresh-kotlin-openapi");
-        Path input = projectDir.resolve("src/main/openapi/api.yaml");
-        Path output = projectDir.resolve("target/generated/sources/openapi/com/example/Client.kt");
-        Files.createDirectories(input.getParent());
-        Files.createDirectories(output.getParent());
-        Files.writeString(input, "openapi: 3.1.0\n");
-        Files.writeString(output, "package com.example\nclass Client\n");
-        Files.setLastModifiedTime(input, FileTime.fromMillis(1_000));
-        Files.setLastModifiedTime(output, FileTime.fromMillis(2_000));
-        ProjectConfig parsed = parseProject(projectDir, "");
-        ProjectConfig config = parsed.withBuildSettings(parsed.build().withGeneratedSources(
-                List.of(new GeneratedSourceStep(
-                        "openapi",
-                        GeneratedSourceKind.OPENAPI,
-                        "kotlin",
-                        "target/generated/sources/openapi",
-                        List.of("src/main/openapi/api.yaml"),
-                        true,
-                        false)),
-                List.of()));
+    void passesForFreshKotlinTypedGeneratorOutputs() throws IOException {
+        for (GeneratedSourceKind kind : List.of(GeneratedSourceKind.OPENAPI, GeneratedSourceKind.PROTOBUF)) {
+            String id = kind.configValue();
+            Path projectDir = tempDir.resolve("fresh-kotlin-" + id);
+            Path input = projectDir.resolve("schema/" + id);
+            Path output = projectDir.resolve("target/generated/sources/" + id + "/Generated.kt");
+            Files.createDirectories(input.getParent());
+            Files.createDirectories(output.getParent());
+            Files.writeString(input, "schema\n");
+            Files.writeString(output, "object Generated\n");
+            Files.setLastModifiedTime(input, FileTime.fromMillis(1_000));
+            Files.setLastModifiedTime(output, FileTime.fromMillis(2_000));
+            ProjectConfig parsed = parseProject(projectDir, "");
+            ProjectConfig config = parsed.withBuildSettings(parsed.build().withGeneratedSources(
+                    List.of(new GeneratedSourceStep(
+                            id,
+                            kind,
+                            "kotlin",
+                            "target/generated/sources/" + id,
+                            List.of("schema/" + id),
+                            true,
+                            false)),
+                    List.of()));
 
-        QualityCheckResult result = check.check(Optional.empty(), projectDir, config).getFirst();
+            QualityCheckResult result = check.check(Optional.empty(), projectDir, config).getFirst();
 
-        assertEquals(QualityCheckStatus.PASSED, result.status());
-        assertEquals("[generated.main.openapi]", result.subject());
-        assertTrue(result.message().contains("ownership `zolt-owned-openapi`"), result.message());
+            assertEquals(QualityCheckStatus.PASSED, result.status());
+            assertEquals("[generated.main." + id + "]", result.subject());
+            assertTrue(result.message().contains("ownership `zolt-owned-" + id + "`"), result.message());
+        }
     }
 
     @Test

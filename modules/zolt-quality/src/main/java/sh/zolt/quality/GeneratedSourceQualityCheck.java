@@ -191,7 +191,7 @@ final class GeneratedSourceQualityCheck {
                     subject,
                     "Unsupported generated source language `" + step.language() + "`.",
                     "Use language = \"java\", or use language = \"kotlin\" with kind = \"openapi\","
-                            + " kind = \"declared-root\", or a source-producing exec step."));
+                            + " kind = \"protobuf\", kind = \"declared-root\", or a source-producing exec step."));
         }
         Optional<QualityCheckResult> invalidOutput = invalidGeneratedPath(
                 member,
@@ -220,6 +220,7 @@ final class GeneratedSourceQualityCheck {
         return "java".equals(step.language())
                 || ("kotlin".equals(step.language())
                         && (step.kind() == GeneratedSourceKind.OPENAPI
+                                || step.kind() == GeneratedSourceKind.PROTOBUF
                                 || step.kind() == GeneratedSourceKind.DECLARED_ROOT
                                 || (step.kind() == GeneratedSourceKind.EXEC
                                         && (step.exec().produces() == ProducesLane.JAVA_SOURCES

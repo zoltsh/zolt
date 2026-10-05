@@ -153,6 +153,28 @@ final class BuildPlanGeneratedSourceNodePlannerTest {
     }
 
     @Test
+    void plansKotlinProtobufOutput() {
+        GeneratedSourceStep step = new GeneratedSourceStep(
+                "protocol",
+                GeneratedSourceKind.PROTOBUF,
+                "kotlin",
+                "target/generated/sources/protobuf",
+                List.of(),
+                true,
+                true);
+
+        PlanNode node = planner.nodes(
+                        tempDir,
+                        List.of(evidence("main", step, true, true, "fresh")),
+                        "main")
+                .getFirst();
+
+        assertEquals(PlanNodeStatus.READY, node.status());
+        assertTrue(node.details().contains("language: kotlin"));
+        assertTrue(node.blockers().isEmpty());
+    }
+
+    @Test
     void skipsOptionalDeclaredRootWhenOutputIsMissing() {
         GeneratedSourceStep step = new GeneratedSourceStep(
                 "optional",
