@@ -791,7 +791,8 @@ plus `-Xmulti-dollar-interpolation`, `-Xnon-local-break-continue`,
 `-Xuse-14-inline-classes-mangling-scheme`, `-Xsanitize-parentheses`,
 `-Xmultifile-parts-inherit`,
 `-Xvalidate-bytecode`,
-`-Xgenerate-strict-metadata-version`, `-Xannotations-in-metadata`, and
+`-Xgenerate-strict-metadata-version`, `-Xannotations-in-metadata`,
+`-Xuse-type-table`, and
 `-Xallow-unstable-dependencies`, plus
 `-Xindy-allow-annotated-lambdas` when paired with `-Xlambdas=indy`. One each of
 the paired Kotlin arguments
@@ -857,6 +858,7 @@ args = [
   "-Xvalidate-bytecode",
   "-Xgenerate-strict-metadata-version",
   "-Xannotations-in-metadata",
+  "-Xuse-type-table",
   "-Xabi-stability=stable",
   "-language-version", "1.9",
   "-api-version", "1.8",
@@ -933,8 +935,8 @@ indy compatibility, backend optimization and method-inlining control,
 inline-scope debug numbering, enhanced coroutine debugging, parentheses
 sanitization, legacy inline-class mangling, multifile-part inheritance,
 complete warning reporting, generated-bytecode validation, annotations in
-metadata, ABI-stability marking, unstable-dependency opt-in, and opt-ins go only
-to `kotlinc`.
+metadata, metadata type-table serialization, ABI-stability marking,
+unstable-dependency opt-in, and opt-ins go only to `kotlinc`.
 `-Xmulti-dollar-interpolation` enables Kotlin 2.1's preview syntax when the
 source set pins `-language-version 2.1`. Kotlin 2.2 promotes the syntax to
 Stable and accepts it without the flag. Prefixing a regular or multiline string
@@ -1141,6 +1143,17 @@ Kotlin test source set that consumes its own member's main output marked
 `unstable` needs this flag in `[compiler.test].args`. Changing either the
 producer's ABI-stability mode or the consumer override invalidates and cleanly
 recompiles the matching output.
+`-Xuse-type-table` asks the selected Kotlin compiler to serialize reusable type
+descriptions through a table in Kotlin metadata. In the qualified Kotlin 2.2.0
+generic-library case, both the generic class and its calling API received
+different class bytes while their JVM execution result stayed unchanged. This
+is a metadata-layout choice rather than a source-language or JVM-runtime mode,
+but Kotlin-aware compilers, metadata readers, bytecode tools, ABI hashes, and
+caches can observe it. The selected compiler remains authoritative for the
+table encoding and reader compatibility. Configure the flag independently for
+main and test source sets; changing it invalidates and cleanly recompiles the
+matching output, and removing it restores the compiler's default metadata
+layout.
 `-Xannotations-in-metadata` writes declaration annotations into Kotlin metadata
 in addition to their ordinary JVM class-file attributes, and lets the selected
 compiler read annotations already represented there. In the qualified Kotlin
