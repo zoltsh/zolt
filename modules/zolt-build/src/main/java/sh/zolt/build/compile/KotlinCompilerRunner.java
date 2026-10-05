@@ -1,31 +1,25 @@
 package sh.zolt.build.compile;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
-import java.util.StringJoiner;
 import sh.zolt.build.KotlinCompileException;
-import sh.zolt.cancel.BuildCancellation;
-import sh.zolt.cancel.ProcessCancellation;
 import sh.zolt.classpath.Classpath;
 
 /** Launches the isolated Kotlin/JVM compiler without exposing its tool closure to application code. */
 public final class KotlinCompilerRunner {
-    private static final String COMPILER_MAIN = "org.jetbrains.kotlin.cli.jvm.K2JVMCompiler";
-
     private final String pathSeparator;
-    private final ProcessRunner processRunner;
+    private final KotlinCompilerProcess compilerProcess;
 
     public KotlinCompilerRunner() {
-        this(java.io.File.pathSeparator, KotlinCompilerRunner::runProcess);
+        this(java.io.File.pathSeparator, KotlinCompilerProcess::runProcess);
     }
 
     KotlinCompilerRunner(String pathSeparator, ProcessRunner processRunner) {
         this.pathSeparator = pathSeparator;
-        this.processRunner = processRunner;
+        this.compilerProcess = new KotlinCompilerProcess(pathSeparator, processRunner);
     }
 
     public JavacResult compile(
@@ -88,10 +82,10 @@ public final class KotlinCompilerRunner {
                 pathSeparator);
         try (KotlinCompilerArgumentsFile argumentsFile =
                 KotlinCompilerArgumentsFile.create(compilerArguments)) {
-            ProcessResult result = processRunner.run(launcherCommand(
+            ProcessResult result = compilerProcess.run(
                     javaExecutable,
                     compilerLauncherClasspath,
-                    argumentsFile.commandArgument()));
+                    argumentsFile.commandArgument());
             if (result.exitCode() != 0) {
                 throw new KotlinCompileException(
                         "Kotlin " + compilationScope.label() + " compilation failed with exit code "
@@ -109,50 +103,6 @@ public final class KotlinCompilerRunner {
                             + " compiler argument file. Check that the system temporary directory is writable "
                             + "and try again.",
                     exception);
-        }
-    }
-
-    private List<String> launcherCommand(
-            Path javaExecutable,
-            Classpath compilerLauncherClasspath,
-            String argumentsFile) {
-        return List.of(
-                javaExecutable.toString(),
-                "-cp",
-                joinedPath(entries(compilerLauncherClasspath)),
-                COMPILER_MAIN,
-                argumentsFile);
-    }
-
-    private static List<Path> entries(Classpath classpath) {
-        return classpath == null
-                ? List.of()
-                : classpath.entries().stream().map(Path::normalize).toList();
-    }
-
-    private String joinedPath(List<Path> entries) {
-        StringJoiner joiner = new StringJoiner(pathSeparator);
-        entries.forEach(entry -> joiner.add(entry.toString()));
-        return joiner.toString();
-    }
-
-    private static ProcessResult runProcess(List<String> command) {
-        try {
-            Process process = new ProcessBuilder(command)
-                    .redirectErrorStream(true)
-                    .start();
-            try (BuildCancellation.Registration ignored = ProcessCancellation.register(process)) {
-                String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-                return new ProcessResult(process.waitFor(), output);
-            }
-        } catch (IOException exception) {
-            throw new KotlinCompileException(
-                    "Could not run the Kotlin compiler. Check that the configured JDK is installed and readable.",
-                    exception);
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw new KotlinCompileException(
-                    "Kotlin compilation was interrupted. Try the command again.", exception);
         }
     }
 
