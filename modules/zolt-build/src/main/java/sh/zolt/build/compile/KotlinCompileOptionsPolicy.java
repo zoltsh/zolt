@@ -44,6 +44,20 @@ public final class KotlinCompileOptionsPolicy {
                             + " is newer than the selected JDK feature version " + jdkFeature,
                     "Select a Java " + release + " or newer build JDK, or lower [project].java.");
         }
+        if (mappedArguments.jvmPreview() && release < 12) {
+            throw unsupported(
+                    compilationScope,
+                    "JVM preview compilation targets Java " + release,
+                    "Set [project].java to 12 or newer, or remove `-Xjvm-enable-preview`.");
+        }
+        if (mappedArguments.jvmPreview() && release != jdkFeature) {
+            throw unsupported(
+                    compilationScope,
+                    "JVM preview compilation targets Java " + release
+                            + " with a Java " + jdkFeature + " build JDK",
+                    "Use the same Java feature release for [project].java and the selected build JDK,"
+                            + " or remove `-Xjvm-enable-preview`.");
+        }
         if (jdkStatus.java().isEmpty() || jdkStatus.javaHome().isEmpty()) {
             throw unsupported(
                     compilationScope,
@@ -90,6 +104,7 @@ public final class KotlinCompileOptionsPolicy {
                 mappedArguments.generateStrictMetadataVersion(),
                 mappedArguments.annotationsInMetadata(),
                 mappedArguments.useTypeTable(),
+                mappedArguments.jvmPreview(),
                 mappedArguments.allowUnstableDependencies(),
                 mappedArguments.abiStabilityMode(),
                 mappedArguments.annotationDefaultTargetMode(),
@@ -124,6 +139,9 @@ public final class KotlinCompileOptionsPolicy {
         }
         if (options.warningsAsErrors()) {
             arguments.add("-Werror");
+        }
+        if (options.jvmPreview()) {
+            arguments.add("--enable-preview");
         }
         return new JavacOptions(
                 options.release(),

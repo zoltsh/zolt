@@ -207,6 +207,7 @@ final class KotlinCompilerArgumentPolicy {
                 standaloneArguments.contains("-Xgenerate-strict-metadata-version"),
                 standaloneArguments.contains("-Xannotations-in-metadata"),
                 standaloneArguments.contains("-Xuse-type-table"),
+                standaloneArguments.contains("-Xjvm-enable-preview"),
                 standaloneArguments.contains("-Xallow-unstable-dependencies"),
                 abiStabilityMode,
                 annotationDefaultTargetMode,

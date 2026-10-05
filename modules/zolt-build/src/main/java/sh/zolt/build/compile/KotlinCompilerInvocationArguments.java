@@ -125,6 +125,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.useTypeTable()) {
             arguments.add("-Xuse-type-table");
         }
+        if (options.jvmPreview()) {
+            arguments.add("-Xjvm-enable-preview");
+        }
         if (options.allowUnstableDependencies()) {
             arguments.add("-Xallow-unstable-dependencies");
         }

@@ -36,6 +36,7 @@ public record KotlinCompilerMappedArguments(
         boolean generateStrictMetadataVersion,
         boolean annotationsInMetadata,
         boolean useTypeTable,
+        boolean jvmPreview,
         boolean allowUnstableDependencies,
         String abiStabilityMode,
         String annotationDefaultTargetMode,

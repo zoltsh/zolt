@@ -16,14 +16,23 @@ public final class KotlinCompilerArgumentTestSupport {
             KotlinCompilationScope scope,
             List<String> mainArguments,
             List<String> testArguments) {
+        return options(scope, mainArguments, testArguments, "", "21");
+    }
+
+    public static KotlinCompilerOptions options(
+            KotlinCompilationScope scope,
+            List<String> mainArguments,
+            List<String> testArguments,
+            String release,
+            String jdkFeature) {
         ProjectConfig config = KotlinMainCompilePolicyTest.config(
-                new CompilerSettings(null, null, "", "", mainArguments, testArguments),
+                new CompilerSettings(null, null, release, "", mainArguments, testArguments),
                 Map.of(),
                 Map.of(),
                 "demo");
         return KotlinCompileOptionsPolicy.options(
                 config,
-                KotlinMainCompilePolicyTest.jdkStatus("21.0.11", "21"),
+                KotlinMainCompilePolicyTest.jdkStatus(jdkFeature + ".0.11", jdkFeature),
                 scope);
     }
 
