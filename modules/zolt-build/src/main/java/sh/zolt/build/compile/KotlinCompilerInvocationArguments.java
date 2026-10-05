@@ -92,6 +92,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.sanitizeParentheses()) {
             arguments.add("-Xsanitize-parentheses");
         }
+        if (options.multifilePartsInherit()) {
+            arguments.add("-Xmultifile-parts-inherit");
+        }
         if (options.validateBytecode()) {
             arguments.add("-Xvalidate-bytecode");
         }
