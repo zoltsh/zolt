@@ -21,6 +21,7 @@ final class KotlinCompilerArgumentPolicy {
         boolean suppressWarnings = false;
         boolean extraWarnings = false;
         boolean progressiveMode = false;
+        boolean contextSensitiveResolution = false;
         String languageVersion = "";
         String apiVersion = "";
         String jvmDefaultMode = "";
@@ -59,6 +60,12 @@ final class KotlinCompilerArgumentPolicy {
                         throw duplicateArgument(scope, argument);
                     }
                     progressiveMode = true;
+                }
+                case "-Xcontext-sensitive-resolution" -> {
+                    if (contextSensitiveResolution) {
+                        throw duplicateArgument(scope, argument);
+                    }
+                    contextSensitiveResolution = true;
                 }
                 case "-language-version" -> {
                     if (!languageVersion.isEmpty()) {
@@ -116,6 +123,7 @@ final class KotlinCompilerArgumentPolicy {
                 suppressWarnings,
                 extraWarnings,
                 progressiveMode,
+                contextSensitiveResolution,
                 languageVersion,
                 apiVersion,
                 jvmDefaultMode,
@@ -242,8 +250,9 @@ final class KotlinCompilerArgumentPolicy {
                 scope,
                 argumentsPath(scope) + " contains unsupported compiler argument `" + argument + "`",
                 "Use only a compatible, duplicate-free subset of `-parameters`, `-nowarn`,"
-                        + " `-Werror`, `-Wextra`, `-progressive`, `-language-version <major.minor>`,"
-                        + " `-api-version <major.minor>`, and one `-jvm-default=<mode>`, plus repeatable"
+                        + " `-Werror`, `-Wextra`, `-progressive`, `-Xcontext-sensitive-resolution`,"
+                        + " `-language-version <major.minor>`, `-api-version <major.minor>`, and one"
+                        + " `-jvm-default=<mode>`, plus repeatable"
                         + " `-opt-in=<qualified.annotation.Name>` arguments and one"
                         + " `-Xexplicit-api=<mode>`, plus distinct repeatable"
                         + " `-Xwarning-level=DIAGNOSTIC_NAME:<level>` arguments; otherwise keep this"
@@ -271,6 +280,7 @@ final class KotlinCompilerArgumentPolicy {
             boolean suppressWarnings,
             boolean extraWarnings,
             boolean progressiveMode,
+            boolean contextSensitiveResolution,
             String languageVersion,
             String apiVersion,
             String jvmDefaultMode,

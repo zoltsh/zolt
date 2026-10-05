@@ -44,6 +44,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.progressiveMode()) {
             arguments.add("-progressive");
         }
+        if (options.contextSensitiveResolution()) {
+            arguments.add("-Xcontext-sensitive-resolution");
+        }
         addVersion(arguments, "-language-version", options.languageVersion());
         addVersion(arguments, "-api-version", options.apiVersion());
         if (!options.jvmDefaultMode().isEmpty()) {
