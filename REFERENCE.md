@@ -780,8 +780,8 @@ disable the unchanged-input skip.
 For a Kotlin-bearing source set, compiler arguments may contain the standalone
 flags `-parameters`, `-nowarn`, `-Werror`, `-Wextra`, `-progressive`,
 `-Xcontext-parameters`, `-Xcontext-sensitive-resolution`, and `-Xwhen-guards`,
-plus `-Xmulti-dollar-interpolation`, `-Xnested-type-aliases`,
-`-Xannotation-target-all`,
+plus `-Xmulti-dollar-interpolation`, `-Xnon-local-break-continue`,
+`-Xnested-type-aliases`, `-Xannotation-target-all`,
 `-Xjvm-expose-boxed`, `-Xconsistent-data-class-copy-visibility`, and
 `-Xemit-jvm-type-annotations`, plus `-Xno-new-java-annotation-targets`. One each
 of the paired Kotlin arguments `-language-version <major.minor>` and
@@ -814,6 +814,7 @@ args = [
   "-Xcontext-sensitive-resolution",
   "-Xwhen-guards",
   "-Xmulti-dollar-interpolation",
+  "-Xnon-local-break-continue",
   "-Xnested-type-aliases",
   "-Xannotation-target-all",
   "-Xannotation-default-target=param-property",
@@ -875,7 +876,7 @@ also accepts the syntax without the flag. A language-version pin remains
 authoritative: Kotlin 2.2 does not backport guard syntax to language version 2.1
 merely because the flag is present. Extra warnings, progressive mode, context
 parameters, context-sensitive resolution, when guards, multi-dollar
-interpolation, nested type aliases,
+interpolation, non-local loop control, nested type aliases,
 annotation defaulting and all-target annotations, language/API version pairs,
 boxed value-class exposure, JVM-default modes, explicit-API modes,
 data-class copy visibility, string-concatenation modes, lambda-generation modes,
@@ -892,6 +893,14 @@ Ordinary single-dollar templates remain unchanged. The selected compiler and
 language-version pin remain authoritative. Configure the compatibility flag
 independently for main and test source sets; changing it invalidates and cleanly
 recompiles the matching output.
+`-Xnon-local-break-continue` enables Kotlin 2.1's preview support for `break`
+and `continue` inside lambdas passed to inline functions that are enclosed by
+the target loop. This lets an inline helper such as `run` continue or terminate
+the surrounding loop without labels or sentinel values. Kotlin 2.2 promotes
+that control flow to Stable and accepts it without the flag. The selected
+compiler still enforces the inline-lambda and loop-target boundaries. Configure
+the compatibility flag independently for main and test source sets; changing
+it invalidates and cleanly recompiles the matching output.
 `-Xnested-type-aliases` enables Kotlin 2.2's Beta support for aliases declared
 inside classes, interfaces, and objects. Such aliases cannot use type parameters
 from an enclosing declaration; they must declare independent type parameters
@@ -1021,7 +1030,8 @@ or enforcement, a diagnostic warning level, progressive mode, version pairs,
 context parameters, context-sensitive resolution, JVM-default mode,
 explicit-API mode, when-guards, nested-type-aliases configuration, annotation
 default-target mode, all-target annotation support, multi-dollar interpolation,
-string-concatenation mode, lambda-generation mode, SAM-conversion mode, boxed
+non-local loop control, string-concatenation mode, lambda-generation mode,
+SAM-conversion mode, boxed
 value-class exposure, data-class copy visibility, JSpecify or JSR-305 nullness
 severity, or opt-ins invalidates reuse for that source set.
 Zolt validates warning-level syntax and duplicate names; the selected Kotlin
@@ -1030,7 +1040,8 @@ supported diagnostic names, warnings, extra and progressive checks, version
 values, language/API combinations, JVM-default and explicit-API modes,
 string-concatenation, lambda-generation, and SAM-conversion modes,
 context-parameter, context-sensitive-resolution, when-guards,
-nested-type-aliases, multi-dollar-interpolation, annotation-target, boxed
+nested-type-aliases, multi-dollar-interpolation, non-local loop control,
+annotation-target, boxed
 value-class, and data-class copy visibility behavior. Main and test annotation,
 boxed-exposure, and copy-visibility settings are independent. Changing any of
 them performs a cleaned full compilation of that source set so obsolete
