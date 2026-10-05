@@ -781,8 +781,9 @@ For a Kotlin-bearing source set, compiler arguments may contain the standalone
 flags `-parameters`, `-nowarn`, `-Werror`, `-Wextra`, `-progressive`,
 `-Xcontext-parameters`, `-Xcontext-sensitive-resolution`, and `-Xwhen-guards`,
 plus `-Xnested-type-aliases`, `-Xannotation-target-all`,
-`-Xjvm-expose-boxed`, and `-Xconsistent-data-class-copy-visibility`. One each
-of the paired Kotlin arguments `-language-version <major.minor>` and
+`-Xjvm-expose-boxed`, `-Xconsistent-data-class-copy-visibility`, and
+`-Xemit-jvm-type-annotations`. One each of the paired Kotlin arguments
+`-language-version <major.minor>` and
 `-api-version <major.minor>` is also accepted. Distinct, repeatable
 `-opt-in=<qualified.annotation.Name>` arguments are also accepted. One
 `-jvm-default=<mode>` argument may also select `enable`, `no-compatibility`, or
@@ -812,6 +813,7 @@ args = [
   "-Xannotation-default-target=param-property",
   "-Xjvm-expose-boxed",
   "-Xconsistent-data-class-copy-visibility",
+  "-Xemit-jvm-type-annotations",
   "-language-version", "1.9",
   "-api-version", "1.8",
   "-jvm-default=no-compatibility",
@@ -866,8 +868,8 @@ parameters, context-sensitive resolution, when guards, nested type aliases,
 annotation defaulting and all-target annotations, language/API version pairs,
 boxed value-class exposure, JVM-default modes, explicit-API modes,
 data-class copy visibility, string-concatenation modes, lambda-generation modes,
-SAM-conversion modes, diagnostic warning levels, and opt-ins go only to
-`kotlinc`.
+JVM type-annotation emission, SAM-conversion modes, diagnostic warning levels,
+and opt-ins go only to `kotlinc`.
 `-Xnested-type-aliases` enables Kotlin 2.2's Beta support for aliases declared
 inside classes, interfaces, and objects. Such aliases cannot use type parameters
 from an enclosing declaration; they must declare independent type parameters
@@ -910,6 +912,16 @@ that warning. This can change the module's binary API. The selected compiler's
 migration phase remains authoritative: a future Kotlin release may make the
 consistent behavior the default and render this flag unnecessary. Use the
 declaration annotation when only selected data classes should migrate.
+`-Xemit-jvm-type-annotations` writes applicable Kotlin type-use annotations to
+JVM class-file type-annotation attributes. A runtime-retained annotation whose
+Kotlin target includes `TYPE` can then be observed from Java through APIs such
+as `Method.getAnnotatedReturnType()`. Omitting the flag leaves the selected
+compiler's default unchanged and does not emit those uses as JVM type
+annotations. Annotation retention still determines whether reflection can see
+an emitted annotation. JVM type annotations require a JVM target of 1.8 or
+newer, which is within Zolt's supported Kotlin/JVM target range. Configure the
+flag independently in `[compiler].args` and `[compiler.test].args`; changing it
+invalidates the matching source set and performs a cleaned full compilation.
 `-Xstring-concat=inline` emits concatenation through `StringBuilder`.
 `-Xstring-concat=indy` uses `StringConcatFactory.makeConcat`, while
 `indy-with-constants` uses `StringConcatFactory.makeConcatWithConstants`. The

@@ -52,7 +52,9 @@ zolt run
   independently for main and test sources. Value classes may expose public
   boxed constructors and function bridges to Java module-wide, independently
   per source set. Generated data-class `copy()` visibility may likewise be
-  aligned with primary-constructor visibility for main or test sources.
+  aligned with primary-constructor visibility for main or test sources. Kotlin
+  type-use annotations may also be emitted into JVM class-file attributes for
+  Java reflection, independently for main and test sources.
   Warnings may be expanded, enforced, suppressed, or adjusted by diagnostic per
   source set. Kotlin/JVM string concatenation may use inline `StringBuilder` or
   either invokedynamic scheme per source set; lambda generation may likewise
