@@ -89,6 +89,8 @@ final class KotlinCompilerInvocationArguments {
         if (!options.jsr305Mode().isEmpty()) {
             arguments.add("-Xjsr305=" + options.jsr305Mode());
         }
+        options.nullabilityAnnotations().forEach(value ->
+                arguments.add("-Xnullability-annotations=" + value));
         if (!options.stringConcatMode().isEmpty()) {
             arguments.add("-Xstring-concat=" + options.stringConcatMode());
         }

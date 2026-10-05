@@ -146,6 +146,7 @@ public final class KotlinCompilerRunner {
             String apiVersion,
             String jvmDefaultMode,
             String explicitApiMode,
+            List<String> nullabilityAnnotations,
             List<String> warningLevels,
             List<String> optIns,
             Path friendPath) {
@@ -250,6 +251,7 @@ public final class KotlinCompilerRunner {
                     "",
                     List.of(),
                     List.of(),
+                    List.of(),
                     friendPath);
         }
 
@@ -267,6 +269,9 @@ public final class KotlinCompilerRunner {
             apiVersion = optional(apiVersion);
             jvmDefaultMode = optional(jvmDefaultMode);
             explicitApiMode = optional(explicitApiMode);
+            nullabilityAnnotations = copyValues(
+                    nullabilityAnnotations,
+                    "compiler nullability-annotation rule");
             warningLevels = copyValues(warningLevels, "compiler warning level");
             optIns = copyOptIns(optIns);
             friendPath = friendPath == null ? null : friendPath.normalize();
@@ -315,6 +320,7 @@ public final class KotlinCompilerRunner {
                     apiVersion,
                     jvmDefaultMode,
                     explicitApiMode,
+                    nullabilityAnnotations,
                     warningLevels,
                     optIns,
                     Objects.requireNonNull(path, "Kotlin friend path is required."));

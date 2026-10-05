@@ -30,6 +30,7 @@ final class KotlinCompilerArgumentPolicy {
         String apiVersion = "";
         String jvmDefaultMode = "";
         String explicitApiMode = "";
+        List<String> nullabilityAnnotations = new ArrayList<>();
         List<String> warningLevels = new ArrayList<>();
         List<String> optIns = new ArrayList<>();
         for (int index = 0; index < arguments.size(); index++) {
@@ -115,6 +116,17 @@ final class KotlinCompilerArgumentPolicy {
                             throw duplicateArgument(scope, argument);
                         }
                         jsr305Mode = KotlinCompilerModeArguments.jsr305(scope, argument);
+                    } else if (argument.startsWith("-Xnullability-annotations=")) {
+                        String nullabilityAnnotation =
+                                nullabilityAnnotationArgument(scope, argument);
+                        String annotationPackage =
+                                nullabilityAnnotationPackage(nullabilityAnnotation);
+                        if (nullabilityAnnotations.stream()
+                                .map(KotlinCompilerArgumentPolicy::nullabilityAnnotationPackage)
+                                .anyMatch(annotationPackage::equals)) {
+                            throw duplicateArgument(scope, argument);
+                        }
+                        nullabilityAnnotations.add(nullabilityAnnotation);
                     } else if (argument.startsWith("-Xwarning-level=")) {
                         String warningLevel = warningLevelArgument(scope, argument);
                         String diagnostic = warningDiagnostic(warningLevel);
@@ -170,8 +182,30 @@ final class KotlinCompilerArgumentPolicy {
                 apiVersion,
                 jvmDefaultMode,
                 explicitApiMode,
+                List.copyOf(nullabilityAnnotations),
                 List.copyOf(warningLevels),
                 List.copyOf(optIns));
+    }
+
+    private static String nullabilityAnnotationArgument(
+            KotlinCompilationScope scope,
+            String argument) {
+        String value = argument.substring("-Xnullability-annotations=".length());
+        if (!value.matches(
+                "@[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*:(ignore|warn|strict)")) {
+            throw unsupported(
+                    scope,
+                    argumentsPath(scope)
+                            + " contains invalid Kotlin nullability-annotation argument `"
+                            + argument + "`",
+                    "Use `-Xnullability-annotations=@package.name:ignore`, `:warn`, or"
+                            + " `:strict`, or remove the argument.");
+        }
+        return value;
+    }
+
+    private static String nullabilityAnnotationPackage(String value) {
+        return value.substring(1, value.indexOf(':'));
     }
 
     private static String warningLevelArgument(
@@ -307,6 +341,7 @@ final class KotlinCompilerArgumentPolicy {
             String apiVersion,
             String jvmDefaultMode,
             String explicitApiMode,
+            List<String> nullabilityAnnotations,
             List<String> warningLevels,
             List<String> optIns) {
     }
