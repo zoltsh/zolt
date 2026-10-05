@@ -77,6 +77,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.noNewJavaAnnotationTargets()) {
             arguments.add("-Xno-new-java-annotation-targets");
         }
+        if (options.noSourceDebugExtension()) {
+            arguments.add("-Xno-source-debug-extension");
+        }
         if (!options.annotationDefaultTargetMode().isEmpty()) {
             arguments.add("-Xannotation-default-target=" + options.annotationDefaultTargetMode());
         }

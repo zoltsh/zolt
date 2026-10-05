@@ -51,7 +51,8 @@ final class KotlinCompilerArgumentPolicy {
                         "-Xjvm-expose-boxed",
                         "-Xconsistent-data-class-copy-visibility",
                         "-Xemit-jvm-type-annotations",
-                        "-Xno-new-java-annotation-targets" -> {
+                        "-Xno-new-java-annotation-targets",
+                        "-Xno-source-debug-extension" -> {
                     if (!standaloneArguments.add(argument)) {
                         throw duplicateArgument(scope, argument);
                     }
@@ -118,26 +119,32 @@ final class KotlinCompilerArgumentPolicy {
                         jsr305Mode = KotlinCompilerModeArguments.jsr305(scope, argument);
                     } else if (argument.startsWith("-Xnullability-annotations=")) {
                         String nullabilityAnnotation =
-                                nullabilityAnnotationArgument(scope, argument);
+                                KotlinCompilerRepeatableArgumentPolicy.nullabilityAnnotation(
+                                        scope,
+                                        argument);
                         String annotationPackage =
-                                nullabilityAnnotationPackage(nullabilityAnnotation);
+                                KotlinCompilerRepeatableArgumentPolicy.nullabilityAnnotationPackage(
+                                        nullabilityAnnotation);
                         if (nullabilityAnnotations.stream()
-                                .map(KotlinCompilerArgumentPolicy::nullabilityAnnotationPackage)
+                                .map(value -> KotlinCompilerRepeatableArgumentPolicy
+                                        .nullabilityAnnotationPackage(value))
                                 .anyMatch(annotationPackage::equals)) {
                             throw duplicateArgument(scope, argument);
                         }
                         nullabilityAnnotations.add(nullabilityAnnotation);
                     } else if (argument.startsWith("-Xwarning-level=")) {
-                        String warningLevel = warningLevelArgument(scope, argument);
-                        String diagnostic = warningDiagnostic(warningLevel);
+                        String warningLevel =
+                                KotlinCompilerRepeatableArgumentPolicy.warningLevel(scope, argument);
+                        String diagnostic = KotlinCompilerRepeatableArgumentPolicy.warningDiagnostic(
+                                warningLevel);
                         if (warningLevels.stream()
-                                .map(KotlinCompilerArgumentPolicy::warningDiagnostic)
+                                .map(KotlinCompilerRepeatableArgumentPolicy::warningDiagnostic)
                                 .anyMatch(diagnostic::equals)) {
                             throw duplicateArgument(scope, argument);
                         }
                         warningLevels.add(warningLevel);
                     } else if (argument.startsWith("-opt-in=")) {
-                        String optIn = optInArgument(scope, argument);
+                        String optIn = KotlinCompilerRepeatableArgumentPolicy.optIn(scope, argument);
                         if (optIns.contains(optIn)) {
                             throw duplicateArgument(scope, argument);
                         }
@@ -171,6 +178,7 @@ final class KotlinCompilerArgumentPolicy {
                 standaloneArguments.contains("-Xconsistent-data-class-copy-visibility"),
                 standaloneArguments.contains("-Xemit-jvm-type-annotations"),
                 standaloneArguments.contains("-Xno-new-java-annotation-targets"),
+                standaloneArguments.contains("-Xno-source-debug-extension"),
                 annotationDefaultTargetMode,
                 assertionMode,
                 jspecifyAnnotationsMode,
@@ -185,60 +193,6 @@ final class KotlinCompilerArgumentPolicy {
                 List.copyOf(nullabilityAnnotations),
                 List.copyOf(warningLevels),
                 List.copyOf(optIns));
-    }
-
-    private static String nullabilityAnnotationArgument(
-            KotlinCompilationScope scope,
-            String argument) {
-        String value = argument.substring("-Xnullability-annotations=".length());
-        if (!value.matches(
-                "@[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*:(ignore|warn|strict)")) {
-            throw unsupported(
-                    scope,
-                    argumentsPath(scope)
-                            + " contains invalid Kotlin nullability-annotation argument `"
-                            + argument + "`",
-                    "Use `-Xnullability-annotations=@package.name:ignore`, `:warn`, or"
-                            + " `:strict`, or remove the argument.");
-        }
-        return value;
-    }
-
-    private static String nullabilityAnnotationPackage(String value) {
-        return value.substring(1, value.indexOf(':'));
-    }
-
-    private static String warningLevelArgument(
-            KotlinCompilationScope scope,
-            String argument) {
-        String value = argument.substring("-Xwarning-level=".length());
-        if (!value.matches("[A-Z][A-Z0-9_]*:(error|warning|disabled)")) {
-            throw unsupported(
-                    scope,
-                    argumentsPath(scope)
-                            + " contains invalid Kotlin warning-level argument `" + argument + "`",
-                    "Use `-Xwarning-level=DIAGNOSTIC_NAME:error`, `:warning`, or `:disabled`"
-                            + " with an uppercase Kotlin diagnostic name, or remove the argument.");
-        }
-        return value;
-    }
-
-    private static String warningDiagnostic(String warningLevel) {
-        return warningLevel.substring(0, warningLevel.indexOf(':'));
-    }
-
-    private static String optInArgument(
-            KotlinCompilationScope scope,
-            String argument) {
-        String value = argument.substring("-opt-in=".length());
-        if (!value.matches("[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*")) {
-            throw unsupported(
-                    scope,
-                    argumentsPath(scope)
-                            + " contains invalid Kotlin opt-in argument `" + argument + "`",
-                    "Use `-opt-in=<qualified.annotation.Name>` or remove the argument.");
-        }
-        return value;
     }
 
     private static String versionArgument(
@@ -330,6 +284,7 @@ final class KotlinCompilerArgumentPolicy {
             boolean consistentDataClassCopyVisibility,
             boolean emitJvmTypeAnnotations,
             boolean noNewJavaAnnotationTargets,
+            boolean noSourceDebugExtension,
             String annotationDefaultTargetMode,
             String assertionMode,
             String jspecifyAnnotationsMode,

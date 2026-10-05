@@ -73,6 +73,7 @@ public final class KotlinCompileOptionsPolicy {
                 mappedArguments.consistentDataClassCopyVisibility(),
                 mappedArguments.emitJvmTypeAnnotations(),
                 mappedArguments.noNewJavaAnnotationTargets(),
+                mappedArguments.noSourceDebugExtension(),
                 mappedArguments.annotationDefaultTargetMode(),
                 mappedArguments.assertionMode(),
                 mappedArguments.jspecifyAnnotationsMode(),
