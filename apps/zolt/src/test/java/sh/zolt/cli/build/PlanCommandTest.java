@@ -131,6 +131,45 @@ final class PlanCommandTest {
     }
 
     @Test
+    void planBlocksMismatchedPreviewTestRuntime() throws IOException {
+        Path projectDir = tempDir.resolve("plan-preview-test-runtime");
+        Files.createDirectories(projectDir);
+        int feature = Runtime.version().feature();
+        Files.writeString(projectDir.resolve("zolt.toml"), """
+                [project]
+                name = "plan-preview-test-runtime"
+                version = "0.1.0"
+                group = "com.example"
+                java = %d
+
+                [toolchain.java]
+                version = %d
+                features = []
+                policy = "allow-system"
+
+                [toolchain.java.test]
+                version = %d
+
+                [compiler.test]
+                args = ["-Xjvm-enable-preview"]
+                """.formatted(feature, feature, feature + 1));
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
+
+        CommandResult result = execute(
+                "plan",
+                "--target", "test",
+                "--cwd", projectDir.toString());
+
+        assertEquals(1, result.exitCode(), result.stdout() + result.stderr());
+        assertTrue(result.stdout().contains("- run-tests [test] blocked"));
+        assertTrue(result.stdout().contains("blocker test-runtime-toolchain"));
+        assertTrue(result.stdout().contains(
+                "JVM preview class files require the same Java feature release"));
+        assertTrue(result.stdout().contains(
+                "Set [toolchain.java.test].version to " + feature));
+    }
+
+    @Test
     void planRejectsUnsafeReportsDirectory() throws IOException {
         Path projectDir = tempDir.resolve("plan-unsafe-reports");
         Files.createDirectories(projectDir);
