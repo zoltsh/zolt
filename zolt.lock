@@ -1,8 +1,8 @@
 version = 7
-aliasFingerprint = "sha256:c297da0e4da7896243b2458cb8cff04cc88b7e50a728f3b8e2fdb279edf0fc8a"
-projectResolutionFingerprint = "sha256:9a8ad10f7cf2804f4a0f068e60a041b2118d6478418536707cd5cdb1ddac2206"
-projectResolutionInputFingerprints = ["dependencies.api.workspace=sha256:e278f2c880bafff02f44f9d403dd68e11930a5f8e5c1d8c49e6cb9ae74963d17", "dependencies.api=sha256:4ce39b687df3a02e2eb24d4b1b2d55903971a2cfeb8593fba3cb52c81fd3bd9c", "dependencies.compile.workspace=sha256:5fa3d40686774c104593200c7c73594199c08f78e75617df760f179128c91d86", "dependencies.compile=sha256:1fe5ba2691695db8da4e166c2015e5ba3a85d075109bcc23012709fcfcd89645", "dependencies.provided=sha256:3e56d1aef5434bb324225e09bf749539f67520c3b6045643046d071e5bfac668", "dependencies.test=sha256:6594513f99c367b916d2779e14b6277868475d5d3c24e1102701bda9c5520dee", "dependencyMetadata=sha256:5fa78b8f06f973b86ad7cf94a04e76d3e377368fa7c249a887092e003852d23f", "framework.quarkus=sha256:1a03038e3b6c11a6598e959b5526786bc942bd2d0e7cb6aec2401dcd36bafc1b", "framework.springBoot.native=sha256:cf597ee2519b656c8bdeb8a1aaaf81b8c9da20d7b82a94cb0643edd20e98e19f", "java=sha256:c822ebc7e176990dd66771c2496f47b8ee0f6451df7ddfa87c44aebff0a6edf6", "package=sha256:ba2fd61e998d4fab4a9205d2785ca9a48464a401346bebf655e28156a0a304c1", "repositories=sha256:e50e1129945e4af12f6d6b822fe1b5548c9425f8a3f0cfeadfb1fb4a646902e1", "schema=sha256:a08549d13c2f16087cfcaf4458dbe9436970632fe503bb7217f88c16428d2ddd", "versions=sha256:6b0dd8fd67f1170f7101bc0f800678048dc3e45275fc8d159edf94263bddd630"]
-workspaceResolutionInputFingerprint = "sha256:b6511cb351d890b11f029d4e9892e9d82b9208bf7f1a7ae0d206db143ec199a4"
+aliasFingerprint = "sha256:13eadfd2c49ad5fd5eac356e81bd82f216136eb2a004835cb8f97ab2b8529434"
+projectResolutionFingerprint = "sha256:434c1043d1a374bb653f05acef16d924f7bf6bb28a81a083a9c3af06c2abf1d3"
+projectResolutionInputFingerprints = ["dependencies.api.workspace=sha256:e278f2c880bafff02f44f9d403dd68e11930a5f8e5c1d8c49e6cb9ae74963d17", "dependencies.api=sha256:4ce39b687df3a02e2eb24d4b1b2d55903971a2cfeb8593fba3cb52c81fd3bd9c", "dependencies.compile.workspace=sha256:5fa3d40686774c104593200c7c73594199c08f78e75617df760f179128c91d86", "dependencies.compile=sha256:1fe5ba2691695db8da4e166c2015e5ba3a85d075109bcc23012709fcfcd89645", "dependencies.provided=sha256:34c4320e7437c542c9c43d606196e3759c059ee20abf75c0332f40bc802a5bc6", "dependencies.test=sha256:d363e18d94e29f2646f3744902a73333a97f1b8d67a209825ed95c0e1d37ac77", "dependencyMetadata=sha256:8f9a696c5a2ef938bc507181b07177ba12987f26483c7bc7bbfd445b7d7717f3", "framework.quarkus=sha256:1a03038e3b6c11a6598e959b5526786bc942bd2d0e7cb6aec2401dcd36bafc1b", "framework.springBoot.native=sha256:cf597ee2519b656c8bdeb8a1aaaf81b8c9da20d7b82a94cb0643edd20e98e19f", "java=sha256:c822ebc7e176990dd66771c2496f47b8ee0f6451df7ddfa87c44aebff0a6edf6", "package=sha256:ba2fd61e998d4fab4a9205d2785ca9a48464a401346bebf655e28156a0a304c1", "repositories=sha256:e50e1129945e4af12f6d6b822fe1b5548c9425f8a3f0cfeadfb1fb4a646902e1", "schema=sha256:a08549d13c2f16087cfcaf4458dbe9436970632fe503bb7217f88c16428d2ddd", "versions=sha256:e31fb29b55cc39c07ba5141f37d6d5f85db7dacf62c4468268bad19149bfd1e6"]
+workspaceResolutionInputFingerprint = "sha256:203306644a0c4371f7c63e741d11ca32b6fca73a1fad7ee5d63d1a2814eb320e"
 
 [[dependencyRoot]]
 member = "apps/zolt"
@@ -693,21 +693,21 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "modules/zolt-quarkus"
 id = "io.quarkus:quarkus-builder"
-version = "3.40.0"
+version = "3.40.1"
 lane = "provided"
 resolvedScope = "provided"
 
 [[dependencyRoot]]
 member = "modules/zolt-quarkus"
 id = "io.quarkus:quarkus-core-deployment"
-version = "3.40.0"
+version = "3.40.1"
 lane = "provided"
 resolvedScope = "provided"
 
 [[dependencyRoot]]
 member = "modules/zolt-quarkus"
 id = "io.quarkus:quarkus-junit"
-version = "3.40.0"
+version = "3.40.1"
 lane = "provided"
 resolvedScope = "provided"
 
@@ -721,28 +721,28 @@ resolvedScope = "provided"
 [[dependencyRoot]]
 member = "modules/zolt-quarkus"
 id = "io.quarkus:quarkus-arc-deployment"
-version = "3.40.0"
+version = "3.40.1"
 lane = "test"
 resolvedScope = "test"
 
 [[dependencyRoot]]
 member = "modules/zolt-quarkus"
 id = "io.quarkus:quarkus-bootstrap-app-model"
-version = "3.40.0"
+version = "3.40.1"
 lane = "test"
 resolvedScope = "test"
 
 [[dependencyRoot]]
 member = "modules/zolt-quarkus"
 id = "io.quarkus:quarkus-bootstrap-core"
-version = "3.40.0"
+version = "3.40.1"
 lane = "test"
 resolvedScope = "test"
 
 [[dependencyRoot]]
 member = "modules/zolt-quarkus"
 id = "io.quarkus:quarkus-core"
-version = "3.40.0"
+version = "3.40.1"
 lane = "test"
 resolvedScope = "test"
 
@@ -756,7 +756,7 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-quarkus"
 id = "io.quarkus:quarkus-test-common"
-version = "3.40.0"
+version = "3.40.1"
 lane = "test"
 resolvedScope = "test"
 
@@ -1285,137 +1285,137 @@ dependencies = []
 
 [[package]]
 id = "io.quarkus:quarkus-arc-deployment"
-version = "3.40.0"
+version = "3.40.1"
 source = "central"
 scope = "test"
 direct = true
-jar = "blobs/v2/sha256/e9711b4dc5178025df3934ad7d94b602a675ac4c0fee337f3379fa78a311b6e6/quarkus-arc-deployment-3.40.0.jar"
-pom = "blobs/v2/sha256/6284fa8c43fff2b28d0b96aeb417cca185baa730a62cf5d8d027be3e565670e1/quarkus-arc-deployment-3.40.0.pom"
-jarSha256 = "e9711b4dc5178025df3934ad7d94b602a675ac4c0fee337f3379fa78a311b6e6"
-pomSha256 = "6284fa8c43fff2b28d0b96aeb417cca185baa730a62cf5d8d027be3e565670e1"
+jar = "blobs/v2/sha256/b2745da257ab5b21bcf98afdc6efb1f25a0b46b4f807927703261716af74d09a/quarkus-arc-deployment-3.40.1.jar"
+pom = "blobs/v2/sha256/5ae9baff62c646444c9c67ff06848e0c5d645f4827bbc49d37f42c5a86ca8f29/quarkus-arc-deployment-3.40.1.pom"
+jarSha256 = "b2745da257ab5b21bcf98afdc6efb1f25a0b46b4f807927703261716af74d09a"
+pomSha256 = "5ae9baff62c646444c9c67ff06848e0c5d645f4827bbc49d37f42c5a86ca8f29"
 members = ["modules/zolt-quarkus"]
-policies = ["version-ref: io.quarkus:quarkus-arc-deployment -> 3.40.0 from [versions].quarkus"]
+policies = ["version-ref: io.quarkus:quarkus-arc-deployment -> 3.40.1 from [versions].quarkus"]
 dependencies = []
 
 [[package]]
 id = "io.quarkus:quarkus-bootstrap-app-model"
-version = "3.40.0"
+version = "3.40.1"
 source = "central"
 scope = "test"
 direct = true
-jar = "blobs/v2/sha256/1e61dba95d6f7cab81d57c6f47f9ea4ca235e4193220c2e84cfa0a05a4c4b55f/quarkus-bootstrap-app-model-3.40.0.jar"
-pom = "blobs/v2/sha256/259832ed96c0966f883a6670a5bfe05378d1fadc31c6966de2a80dab9c5663f9/quarkus-bootstrap-app-model-3.40.0.pom"
-jarSha256 = "1e61dba95d6f7cab81d57c6f47f9ea4ca235e4193220c2e84cfa0a05a4c4b55f"
-pomSha256 = "259832ed96c0966f883a6670a5bfe05378d1fadc31c6966de2a80dab9c5663f9"
+jar = "blobs/v2/sha256/9c9ea7177d008b115ca49d45ff7a58a0fd03af916c955ed88835bfa599932f2d/quarkus-bootstrap-app-model-3.40.1.jar"
+pom = "blobs/v2/sha256/307212c0e2338242de673b9aeb0331c832c60b72261a09caac9cb7e696e62fe1/quarkus-bootstrap-app-model-3.40.1.pom"
+jarSha256 = "9c9ea7177d008b115ca49d45ff7a58a0fd03af916c955ed88835bfa599932f2d"
+pomSha256 = "307212c0e2338242de673b9aeb0331c832c60b72261a09caac9cb7e696e62fe1"
 members = ["modules/zolt-quarkus"]
-policies = ["version-ref: io.quarkus:quarkus-bootstrap-app-model -> 3.40.0 from [versions].quarkus"]
+policies = ["version-ref: io.quarkus:quarkus-bootstrap-app-model -> 3.40.1 from [versions].quarkus"]
 dependencies = ["io.quarkus:quarkus-fs-util:1.4.2:jar:test", "io.smallrye.classfile:jdk-classfile-backport:26:jar:test", "org.jboss.logging:commons-logging-jboss-logging:2.0.0.Final:jar:test", "org.jboss.logging:jboss-logging:3.6.3.Final:jar:test"]
 
 [[package]]
 id = "io.quarkus:quarkus-bootstrap-core"
-version = "3.40.0"
+version = "3.40.1"
 source = "central"
 scope = "test"
 direct = true
-jar = "blobs/v2/sha256/48031c523cd27dcb86c121e9899c9df769c699116bdfb8f5fa3e2d595868d5db/quarkus-bootstrap-core-3.40.0.jar"
-pom = "blobs/v2/sha256/065991e72042576e398df3f6dac477dc20cb49b2e90dc2c334f40d76df8da13c/quarkus-bootstrap-core-3.40.0.pom"
-jarSha256 = "48031c523cd27dcb86c121e9899c9df769c699116bdfb8f5fa3e2d595868d5db"
-pomSha256 = "065991e72042576e398df3f6dac477dc20cb49b2e90dc2c334f40d76df8da13c"
+jar = "blobs/v2/sha256/9990129ed5b9cd266fea77f582049f7280e4a4ca4e0d8d0197edfd7e229edb3e/quarkus-bootstrap-core-3.40.1.jar"
+pom = "blobs/v2/sha256/82cb79a827d4f6112054900d71bbb115a219ec93cebb28db43e572154c7499ab/quarkus-bootstrap-core-3.40.1.pom"
+jarSha256 = "9990129ed5b9cd266fea77f582049f7280e4a4ca4e0d8d0197edfd7e229edb3e"
+pomSha256 = "82cb79a827d4f6112054900d71bbb115a219ec93cebb28db43e572154c7499ab"
 members = ["modules/zolt-quarkus"]
-policies = ["version-ref: io.quarkus:quarkus-bootstrap-core -> 3.40.0 from [versions].quarkus"]
-dependencies = ["io.quarkus:quarkus-bootstrap-app-model:3.40.0:jar:test", "io.quarkus:quarkus-bootstrap-json:3.40.0:jar:test", "io.quarkus:quarkus-classloader-commons:3.40.0:jar:test", "io.quarkus:quarkus-value-registry:3.40.0:jar:test", "io.smallrye.common:smallrye-common-io:2.19.0:jar:test"]
+policies = ["version-ref: io.quarkus:quarkus-bootstrap-core -> 3.40.1 from [versions].quarkus"]
+dependencies = ["io.quarkus:quarkus-bootstrap-app-model:3.40.1:jar:test", "io.quarkus:quarkus-bootstrap-json:3.40.1:jar:test", "io.quarkus:quarkus-classloader-commons:3.40.1:jar:test", "io.quarkus:quarkus-value-registry:3.40.1:jar:test", "io.smallrye.common:smallrye-common-io:2.19.0:jar:test"]
 
 [[package]]
 id = "io.quarkus:quarkus-bootstrap-json"
-version = "3.40.0"
+version = "3.40.1"
 source = "central"
 scope = "test"
 direct = false
-jar = "blobs/v2/sha256/592ff9eaf3b1a35d318be4bb959cd22a4b8cbeb937cf3d4d0ca47f756765482e/quarkus-bootstrap-json-3.40.0.jar"
-pom = "blobs/v2/sha256/41fd16706cd91ad6241f2ac1fc6c672c9e9dae8e3c283f8be09b1b224d6b4fd1/quarkus-bootstrap-json-3.40.0.pom"
-jarSha256 = "592ff9eaf3b1a35d318be4bb959cd22a4b8cbeb937cf3d4d0ca47f756765482e"
-pomSha256 = "41fd16706cd91ad6241f2ac1fc6c672c9e9dae8e3c283f8be09b1b224d6b4fd1"
+jar = "blobs/v2/sha256/b3f8d69b8c02033e31406be5a05696b94f418022c40d42cf9139d88385a73e68/quarkus-bootstrap-json-3.40.1.jar"
+pom = "blobs/v2/sha256/3503359dcdb14ce4a887666fb7a098efa025eeef2629038001467301d3b85673/quarkus-bootstrap-json-3.40.1.pom"
+jarSha256 = "b3f8d69b8c02033e31406be5a05696b94f418022c40d42cf9139d88385a73e68"
+pomSha256 = "3503359dcdb14ce4a887666fb7a098efa025eeef2629038001467301d3b85673"
 members = ["modules/zolt-quarkus"]
 dependencies = []
 
 [[package]]
 id = "io.quarkus:quarkus-bootstrap-runner"
-version = "3.40.0"
+version = "3.40.1"
 source = "central"
 scope = "test"
 direct = false
-jar = "blobs/v2/sha256/6fdf2df7c1cb13023292848c56a758de3c6417fd6eea5fbf83bdb02c938ba95f/quarkus-bootstrap-runner-3.40.0.jar"
-pom = "blobs/v2/sha256/a7952e90ebd4f95afeb90098f6ea7bed0b29155db85fe88ac631e7b5c93f8e67/quarkus-bootstrap-runner-3.40.0.pom"
-jarSha256 = "6fdf2df7c1cb13023292848c56a758de3c6417fd6eea5fbf83bdb02c938ba95f"
-pomSha256 = "a7952e90ebd4f95afeb90098f6ea7bed0b29155db85fe88ac631e7b5c93f8e67"
+jar = "blobs/v2/sha256/19eb62fe3c60ad3f5c6b5aad4b6b879d79daf95ad2078b14683aba95c3a5be33/quarkus-bootstrap-runner-3.40.1.jar"
+pom = "blobs/v2/sha256/5d6dd2e398dba8db9c80d3ee282eb8af8330f616f85c2b1ccedef8f97b015f8c/quarkus-bootstrap-runner-3.40.1.pom"
+jarSha256 = "19eb62fe3c60ad3f5c6b5aad4b6b879d79daf95ad2078b14683aba95c3a5be33"
+pomSha256 = "5d6dd2e398dba8db9c80d3ee282eb8af8330f616f85c2b1ccedef8f97b015f8c"
 members = ["modules/zolt-quarkus"]
-dependencies = ["io.quarkus:quarkus-classloader-commons:3.40.0:jar:test", "io.smallrye.common:smallrye-common-io:2.19.0:jar:test", "org.crac:crac:1.5.0:jar:test", "org.jboss.logging:jboss-logging:3.6.3.Final:jar:test", "org.jboss.logmanager:jboss-logmanager:3.2.2.Final:jar:test"]
+dependencies = ["io.quarkus:quarkus-classloader-commons:3.40.1:jar:test", "io.smallrye.common:smallrye-common-io:2.19.0:jar:test", "org.crac:crac:1.5.0:jar:test", "org.jboss.logging:jboss-logging:3.6.3.Final:jar:test", "org.jboss.logmanager:jboss-logmanager:3.2.2.Final:jar:test"]
 
 [[package]]
 id = "io.quarkus:quarkus-builder"
-version = "3.40.0"
+version = "3.40.1"
 source = "central"
 scope = "provided"
 direct = true
-jar = "blobs/v2/sha256/9004d524d04c42bb9291c6e1a234abbf0a8d2853f56885831f46c68611fcc806/quarkus-builder-3.40.0.jar"
-pom = "blobs/v2/sha256/463fdc6dbffe27e0c8336ed777713ab21778b22e2921614db910a684104182b3/quarkus-builder-3.40.0.pom"
-jarSha256 = "9004d524d04c42bb9291c6e1a234abbf0a8d2853f56885831f46c68611fcc806"
-pomSha256 = "463fdc6dbffe27e0c8336ed777713ab21778b22e2921614db910a684104182b3"
+jar = "blobs/v2/sha256/03c4c53134209c8df16e7d05ffac2ecec3d8b958dceead0e06740b3ae385fbbf/quarkus-builder-3.40.1.jar"
+pom = "blobs/v2/sha256/dc63c5c5b7aa9c9615c769fea9bab01c9e66bbab2b66dbeba3167aadc5e343a6/quarkus-builder-3.40.1.pom"
+jarSha256 = "03c4c53134209c8df16e7d05ffac2ecec3d8b958dceead0e06740b3ae385fbbf"
+pomSha256 = "dc63c5c5b7aa9c9615c769fea9bab01c9e66bbab2b66dbeba3167aadc5e343a6"
 members = ["modules/zolt-quarkus"]
-policies = ["version-ref: io.quarkus:quarkus-builder -> 3.40.0 from [versions].quarkus"]
+policies = ["version-ref: io.quarkus:quarkus-builder -> 3.40.1 from [versions].quarkus"]
 dependencies = []
 
 [[package]]
 id = "io.quarkus:quarkus-classloader-commons"
-version = "3.40.0"
+version = "3.40.1"
 source = "central"
 scope = "test"
 direct = false
-jar = "blobs/v2/sha256/f2f797097594316a2373acbeeef7d81bdf40ccf5561e59ea7362e483cb715c76/quarkus-classloader-commons-3.40.0.jar"
-pom = "blobs/v2/sha256/750e35cbbeb7e65207dbd3134ea5b217801d59267a0f3939a3c52db4a1096aad/quarkus-classloader-commons-3.40.0.pom"
-jarSha256 = "f2f797097594316a2373acbeeef7d81bdf40ccf5561e59ea7362e483cb715c76"
-pomSha256 = "750e35cbbeb7e65207dbd3134ea5b217801d59267a0f3939a3c52db4a1096aad"
+jar = "blobs/v2/sha256/406f021aedcd1ddb4521fe9fa947d00bfe8e55f6f1d87e6904618eb1f83aa78b/quarkus-classloader-commons-3.40.1.jar"
+pom = "blobs/v2/sha256/751682435e3121305a82c6ce47478153901b01cdd4c03a39dfcf09599ff18cd1/quarkus-classloader-commons-3.40.1.pom"
+jarSha256 = "406f021aedcd1ddb4521fe9fa947d00bfe8e55f6f1d87e6904618eb1f83aa78b"
+pomSha256 = "751682435e3121305a82c6ce47478153901b01cdd4c03a39dfcf09599ff18cd1"
 members = ["modules/zolt-quarkus"]
 dependencies = []
 
 [[package]]
 id = "io.quarkus:quarkus-core-deployment"
-version = "3.40.0"
+version = "3.40.1"
 source = "central"
 scope = "provided"
 direct = true
-jar = "blobs/v2/sha256/1640943cda9d7ef65ee34334a5fb7b5962993fd0ed36368b565ec87d82ea547f/quarkus-core-deployment-3.40.0.jar"
-pom = "blobs/v2/sha256/5107e77d2fa37f7e6d92e55c93b7a0b0cfc76e10d19bf43f5ed200daab8deeda/quarkus-core-deployment-3.40.0.pom"
-jarSha256 = "1640943cda9d7ef65ee34334a5fb7b5962993fd0ed36368b565ec87d82ea547f"
-pomSha256 = "5107e77d2fa37f7e6d92e55c93b7a0b0cfc76e10d19bf43f5ed200daab8deeda"
+jar = "blobs/v2/sha256/3a843dd7e1e521ee096a53a1f540a5756f441137d9704df1a3d4018fbe315154/quarkus-core-deployment-3.40.1.jar"
+pom = "blobs/v2/sha256/ba349d692b7283d8b71b1f56e7d39335072f64d0ff14bfc72f190ede9e2f847a/quarkus-core-deployment-3.40.1.pom"
+jarSha256 = "3a843dd7e1e521ee096a53a1f540a5756f441137d9704df1a3d4018fbe315154"
+pomSha256 = "ba349d692b7283d8b71b1f56e7d39335072f64d0ff14bfc72f190ede9e2f847a"
 members = ["modules/zolt-quarkus"]
-policies = ["version-ref: io.quarkus:quarkus-core-deployment -> 3.40.0 from [versions].quarkus"]
+policies = ["version-ref: io.quarkus:quarkus-core-deployment -> 3.40.1 from [versions].quarkus"]
 dependencies = []
 
 [[package]]
 id = "io.quarkus:quarkus-core"
-version = "3.40.0"
+version = "3.40.1"
 source = "central"
 scope = "test"
 direct = true
-jar = "blobs/v2/sha256/26310ed02ffcbd68e9fc4f47c53c00bc0758ec75e17320f3dd67da51a2ffedf1/quarkus-core-3.40.0.jar"
-pom = "blobs/v2/sha256/d47a0e1200f9ba32ae3da408743d03739ffac96394ef112dd471eb113468b7a5/quarkus-core-3.40.0.pom"
-jarSha256 = "26310ed02ffcbd68e9fc4f47c53c00bc0758ec75e17320f3dd67da51a2ffedf1"
-pomSha256 = "d47a0e1200f9ba32ae3da408743d03739ffac96394ef112dd471eb113468b7a5"
+jar = "blobs/v2/sha256/3f75b567f56ed89f80451176656a78fdcced7571330f7e7c7527f1f3ea987d97/quarkus-core-3.40.1.jar"
+pom = "blobs/v2/sha256/feb6df7d63d3dff94f90fbab7f500774074e998a5de0ed0a25c902e2c36af564/quarkus-core-3.40.1.pom"
+jarSha256 = "3f75b567f56ed89f80451176656a78fdcced7571330f7e7c7527f1f3ea987d97"
+pomSha256 = "feb6df7d63d3dff94f90fbab7f500774074e998a5de0ed0a25c902e2c36af564"
 members = ["modules/zolt-quarkus"]
-policies = ["version-ref: io.quarkus:quarkus-core -> 3.40.0 from [versions].quarkus"]
-dependencies = ["io.quarkus:quarkus-bootstrap-runner:3.40.0:jar:test", "io.quarkus:quarkus-development-mode-spi:3.40.0:jar:test", "io.quarkus:quarkus-fs-util:1.4.2:jar:test", "io.quarkus:quarkus-ide-launcher:3.40.0:jar:test", "io.quarkus:quarkus-value-registry:3.40.0:jar:test", "io.smallrye.common:smallrye-common-os:2.19.0:jar:test", "io.smallrye.config:smallrye-config:3.17.2:jar:test", "jakarta.annotation:jakarta.annotation-api:3.0.0:jar:test", "jakarta.enterprise:jakarta.enterprise.cdi-api:4.1.0:jar:test", "jakarta.inject:jakarta.inject-api:2.0.1:jar:test", "org.jboss.logging:jboss-logging:3.6.3.Final:jar:test", "org.jboss.logmanager:jboss-logmanager:3.2.2.Final:jar:test", "org.jboss.slf4j:slf4j-jboss-logmanager:2.0.2.Final:jar:test", "org.jboss.threads:jboss-threads:3.9.2:jar:test", "org.slf4j:slf4j-api:2.0.18:jar:test", "org.wildfly.common:wildfly-common:2.0.1:jar:test"]
+policies = ["version-ref: io.quarkus:quarkus-core -> 3.40.1 from [versions].quarkus"]
+dependencies = ["io.quarkus:quarkus-bootstrap-runner:3.40.1:jar:test", "io.quarkus:quarkus-development-mode-spi:3.40.1:jar:test", "io.quarkus:quarkus-fs-util:1.4.2:jar:test", "io.quarkus:quarkus-ide-launcher:3.40.1:jar:test", "io.quarkus:quarkus-value-registry:3.40.1:jar:test", "io.smallrye.common:smallrye-common-os:2.19.0:jar:test", "io.smallrye.config:smallrye-config:3.17.2:jar:test", "jakarta.annotation:jakarta.annotation-api:3.0.0:jar:test", "jakarta.enterprise:jakarta.enterprise.cdi-api:4.1.0:jar:test", "jakarta.inject:jakarta.inject-api:2.0.1:jar:test", "org.jboss.logging:jboss-logging:3.6.3.Final:jar:test", "org.jboss.logmanager:jboss-logmanager:3.2.2.Final:jar:test", "org.jboss.slf4j:slf4j-jboss-logmanager:2.0.2.Final:jar:test", "org.jboss.threads:jboss-threads:3.9.2:jar:test", "org.slf4j:slf4j-api:2.0.18:jar:test", "org.wildfly.common:wildfly-common:2.0.1:jar:test"]
 
 [[package]]
 id = "io.quarkus:quarkus-development-mode-spi"
-version = "3.40.0"
+version = "3.40.1"
 source = "central"
 scope = "test"
 direct = false
-jar = "blobs/v2/sha256/16422233ec8b1ac874b4aff666a0558e0f3183f7f6fcb143d7bc8766bce6035e/quarkus-development-mode-spi-3.40.0.jar"
-pom = "blobs/v2/sha256/1e34588fb0c3ec23c949d62d87b1bdba13fe502fa1d6005fdf712932398b83ba/quarkus-development-mode-spi-3.40.0.pom"
-jarSha256 = "16422233ec8b1ac874b4aff666a0558e0f3183f7f6fcb143d7bc8766bce6035e"
-pomSha256 = "1e34588fb0c3ec23c949d62d87b1bdba13fe502fa1d6005fdf712932398b83ba"
+jar = "blobs/v2/sha256/33638b290e946702730acf6e57aec4e3dd339815c3fa0f0ce5019288dc3367b9/quarkus-development-mode-spi-3.40.1.jar"
+pom = "blobs/v2/sha256/36ea0928c44d0a07c3552235e135f422972d00a71365dc400089659f271d70b8/quarkus-development-mode-spi-3.40.1.pom"
+jarSha256 = "33638b290e946702730acf6e57aec4e3dd339815c3fa0f0ce5019288dc3367b9"
+pomSha256 = "36ea0928c44d0a07c3552235e135f422972d00a71365dc400089659f271d70b8"
 members = ["modules/zolt-quarkus"]
 dependencies = ["io.smallrye.common:smallrye-common-os:2.19.0:jar:test", "org.jboss.logging:jboss-logging:3.6.3.Final:jar:test"]
 
@@ -1434,55 +1434,55 @@ dependencies = []
 
 [[package]]
 id = "io.quarkus:quarkus-ide-launcher"
-version = "3.40.0"
+version = "3.40.1"
 source = "central"
 scope = "test"
 direct = false
-jar = "blobs/v2/sha256/90b7e72b1f808aa83ad60c8b7359bc458f31a90d213c9f88e19e0ff2e66df96f/quarkus-ide-launcher-3.40.0.jar"
-pom = "blobs/v2/sha256/55efdfa2a6f8a22e6d12ed6d6fd0df01f97b091a4c292c88b64426a21909b6eb/quarkus-ide-launcher-3.40.0.pom"
-jarSha256 = "90b7e72b1f808aa83ad60c8b7359bc458f31a90d213c9f88e19e0ff2e66df96f"
-pomSha256 = "55efdfa2a6f8a22e6d12ed6d6fd0df01f97b091a4c292c88b64426a21909b6eb"
+jar = "blobs/v2/sha256/d956344c362f825780d8f54cf098f1cc40eda82ee8ca424a1d36abc729196f6b/quarkus-ide-launcher-3.40.1.jar"
+pom = "blobs/v2/sha256/82f2b33a84b05ff268dae76b75619011097c045b47d20d1e20251f2df8ddcb08/quarkus-ide-launcher-3.40.1.pom"
+jarSha256 = "d956344c362f825780d8f54cf098f1cc40eda82ee8ca424a1d36abc729196f6b"
+pomSha256 = "82f2b33a84b05ff268dae76b75619011097c045b47d20d1e20251f2df8ddcb08"
 members = ["modules/zolt-quarkus"]
 dependencies = []
 
 [[package]]
 id = "io.quarkus:quarkus-junit"
-version = "3.40.0"
+version = "3.40.1"
 source = "central"
 scope = "provided"
 direct = true
-jar = "blobs/v2/sha256/f35d4af9b8fda8aa5462947270b93ee9700259cde39527443481280fb5da1249/quarkus-junit-3.40.0.jar"
-pom = "blobs/v2/sha256/89c120c7a348f9b3fa14b098651332110a322d12702ece167a69a38a3086eb07/quarkus-junit-3.40.0.pom"
-jarSha256 = "f35d4af9b8fda8aa5462947270b93ee9700259cde39527443481280fb5da1249"
-pomSha256 = "89c120c7a348f9b3fa14b098651332110a322d12702ece167a69a38a3086eb07"
+jar = "blobs/v2/sha256/f79b727c405c8adcc7dcd51d2e4a46e0fe75484f9d0a9bbf0e5c980f3de9d16d/quarkus-junit-3.40.1.jar"
+pom = "blobs/v2/sha256/bf3dbadc424b0fc26131bb98960ef7dafd5fbfae046e4e90b3ac2ca679556dd3/quarkus-junit-3.40.1.pom"
+jarSha256 = "f79b727c405c8adcc7dcd51d2e4a46e0fe75484f9d0a9bbf0e5c980f3de9d16d"
+pomSha256 = "bf3dbadc424b0fc26131bb98960ef7dafd5fbfae046e4e90b3ac2ca679556dd3"
 members = ["modules/zolt-quarkus"]
-policies = ["version-ref: io.quarkus:quarkus-junit -> 3.40.0 from [versions].quarkus"]
+policies = ["version-ref: io.quarkus:quarkus-junit -> 3.40.1 from [versions].quarkus"]
 dependencies = []
 
 [[package]]
 id = "io.quarkus:quarkus-test-common"
-version = "3.40.0"
+version = "3.40.1"
 source = "central"
 scope = "test"
 direct = true
-jar = "blobs/v2/sha256/6e4293dd916dda6c172af871dc3b949e38f02d8013fc85fa616180e36d63dd9e/quarkus-test-common-3.40.0.jar"
-pom = "blobs/v2/sha256/3bb6b515f3eeaa2bc470ff2a5002b18908abf8d75427a4af3ecfefe32464b6d0/quarkus-test-common-3.40.0.pom"
-jarSha256 = "6e4293dd916dda6c172af871dc3b949e38f02d8013fc85fa616180e36d63dd9e"
-pomSha256 = "3bb6b515f3eeaa2bc470ff2a5002b18908abf8d75427a4af3ecfefe32464b6d0"
+jar = "blobs/v2/sha256/d9187f005131414ac3e1019eab0c2dbd2ee33a5647404548439bc36ff91d8d2b/quarkus-test-common-3.40.1.jar"
+pom = "blobs/v2/sha256/f54d71dd959d4261678cd8d480667501194857863b9c6bda38a62aef64d75c55/quarkus-test-common-3.40.1.pom"
+jarSha256 = "d9187f005131414ac3e1019eab0c2dbd2ee33a5647404548439bc36ff91d8d2b"
+pomSha256 = "f54d71dd959d4261678cd8d480667501194857863b9c6bda38a62aef64d75c55"
 members = ["modules/zolt-quarkus"]
-policies = ["version-ref: io.quarkus:quarkus-test-common -> 3.40.0 from [versions].quarkus"]
+policies = ["version-ref: io.quarkus:quarkus-test-common -> 3.40.1 from [versions].quarkus"]
 dependencies = []
 
 [[package]]
 id = "io.quarkus:quarkus-value-registry"
-version = "3.40.0"
+version = "3.40.1"
 source = "central"
 scope = "test"
 direct = false
-jar = "blobs/v2/sha256/c138dd4a881843e79bf38d7523391cdd296f6e71b2ca10dd53a3fc006aaee66c/quarkus-value-registry-3.40.0.jar"
-pom = "blobs/v2/sha256/20f8ea5b7c3299274cd0ea6bd4fe306a0877e3c4e1e85d1704152eb2656f0b85/quarkus-value-registry-3.40.0.pom"
-jarSha256 = "c138dd4a881843e79bf38d7523391cdd296f6e71b2ca10dd53a3fc006aaee66c"
-pomSha256 = "20f8ea5b7c3299274cd0ea6bd4fe306a0877e3c4e1e85d1704152eb2656f0b85"
+jar = "blobs/v2/sha256/f0ea7643b20999443d2e53dcc490ad308e38ca9473b83abcaa9bb09bbf1b0f14/quarkus-value-registry-3.40.1.jar"
+pom = "blobs/v2/sha256/2815c45fd73786d853586267beb0c8be08337d2be7f9260da001af104ee7e5d0/quarkus-value-registry-3.40.1.pom"
+jarSha256 = "f0ea7643b20999443d2e53dcc490ad308e38ca9473b83abcaa9bb09bbf1b0f14"
+pomSha256 = "2815c45fd73786d853586267beb0c8be08337d2be7f9260da001af104ee7e5d0"
 members = ["modules/zolt-quarkus"]
 dependencies = []
 
@@ -2378,92 +2378,92 @@ dependencies = []
 kind = "edge-exclusion"
 id = "commons-io:commons-io"
 requested = "2.22.0"
-source = "io.quarkus:quarkus-test-common:3.40.0"
-policy = "dependency edge exclusion from io.quarkus:quarkus-test-common:3.40.0 to commons-io:commons-io"
+source = "io.quarkus:quarkus-test-common:3.40.1"
+policy = "dependency edge exclusion from io.quarkus:quarkus-test-common:3.40.1 to commons-io:commons-io"
 
 [[policy]]
 kind = "edge-exclusion"
 id = "io.quarkus.arc:arc-processor"
-requested = "3.40.0"
-source = "io.quarkus:quarkus-arc-deployment:3.40.0"
-policy = "dependency edge exclusion from io.quarkus:quarkus-arc-deployment:3.40.0 to io.quarkus.arc:arc-processor"
+requested = "3.40.1"
+source = "io.quarkus:quarkus-arc-deployment:3.40.1"
+policy = "dependency edge exclusion from io.quarkus:quarkus-arc-deployment:3.40.1 to io.quarkus.arc:arc-processor"
 
 [[policy]]
 kind = "edge-exclusion"
 id = "io.quarkus:quarkus-arc-dev"
-requested = "3.40.0"
-source = "io.quarkus:quarkus-arc-deployment:3.40.0"
-policy = "dependency edge exclusion from io.quarkus:quarkus-arc-deployment:3.40.0 to io.quarkus:quarkus-arc-dev"
+requested = "3.40.1"
+source = "io.quarkus:quarkus-arc-deployment:3.40.1"
+policy = "dependency edge exclusion from io.quarkus:quarkus-arc-deployment:3.40.1 to io.quarkus:quarkus-arc-dev"
 
 [[policy]]
 kind = "edge-exclusion"
 id = "io.quarkus:quarkus-arc-test-supplement-decorator"
-requested = "3.40.0"
-source = "io.quarkus:quarkus-arc-deployment:3.40.0"
-policy = "dependency edge exclusion from io.quarkus:quarkus-arc-deployment:3.40.0 to io.quarkus:quarkus-arc-test-supplement-decorator"
+requested = "3.40.1"
+source = "io.quarkus:quarkus-arc-deployment:3.40.1"
+policy = "dependency edge exclusion from io.quarkus:quarkus-arc-deployment:3.40.1 to io.quarkus:quarkus-arc-test-supplement-decorator"
 
 [[policy]]
 kind = "edge-exclusion"
 id = "io.quarkus:quarkus-arc-test-supplement"
-requested = "3.40.0"
-source = "io.quarkus:quarkus-arc-deployment:3.40.0"
-policy = "dependency edge exclusion from io.quarkus:quarkus-arc-deployment:3.40.0 to io.quarkus:quarkus-arc-test-supplement"
+requested = "3.40.1"
+source = "io.quarkus:quarkus-arc-deployment:3.40.1"
+policy = "dependency edge exclusion from io.quarkus:quarkus-arc-deployment:3.40.1 to io.quarkus:quarkus-arc-test-supplement"
 
 [[policy]]
 kind = "edge-exclusion"
 id = "io.quarkus:quarkus-arc"
-requested = "3.40.0"
-source = "io.quarkus:quarkus-arc-deployment:3.40.0"
-policy = "dependency edge exclusion from io.quarkus:quarkus-arc-deployment:3.40.0 to io.quarkus:quarkus-arc"
+requested = "3.40.1"
+source = "io.quarkus:quarkus-arc-deployment:3.40.1"
+policy = "dependency edge exclusion from io.quarkus:quarkus-arc-deployment:3.40.1 to io.quarkus:quarkus-arc"
 
 [[policy]]
 kind = "edge-exclusion"
 id = "io.quarkus:quarkus-bootstrap-gradle-resolver"
-requested = "3.40.0"
-source = "io.quarkus:quarkus-test-common:3.40.0"
-policy = "dependency edge exclusion from io.quarkus:quarkus-test-common:3.40.0 to io.quarkus:quarkus-bootstrap-gradle-resolver"
+requested = "3.40.1"
+source = "io.quarkus:quarkus-test-common:3.40.1"
+policy = "dependency edge exclusion from io.quarkus:quarkus-test-common:3.40.1 to io.quarkus:quarkus-bootstrap-gradle-resolver"
 
 [[policy]]
 kind = "edge-exclusion"
 id = "io.quarkus:quarkus-bootstrap-maven-resolver"
-requested = "3.40.0"
-source = "io.quarkus:quarkus-test-common:3.40.0"
-policy = "dependency edge exclusion from io.quarkus:quarkus-test-common:3.40.0 to io.quarkus:quarkus-bootstrap-maven-resolver"
+requested = "3.40.1"
+source = "io.quarkus:quarkus-test-common:3.40.1"
+policy = "dependency edge exclusion from io.quarkus:quarkus-test-common:3.40.1 to io.quarkus:quarkus-bootstrap-maven-resolver"
 
 [[policy]]
 kind = "edge-exclusion"
 id = "io.quarkus:quarkus-core-deployment"
-requested = "3.40.0"
-source = "io.quarkus:quarkus-arc-deployment:3.40.0"
-policy = "dependency edge exclusion from io.quarkus:quarkus-arc-deployment:3.40.0 to io.quarkus:quarkus-core-deployment"
+requested = "3.40.1"
+source = "io.quarkus:quarkus-arc-deployment:3.40.1"
+policy = "dependency edge exclusion from io.quarkus:quarkus-arc-deployment:3.40.1 to io.quarkus:quarkus-core-deployment"
 
 [[policy]]
 kind = "edge-exclusion"
 id = "io.quarkus:quarkus-core-deployment"
-requested = "3.40.0"
-source = "io.quarkus:quarkus-test-common:3.40.0"
-policy = "dependency edge exclusion from io.quarkus:quarkus-test-common:3.40.0 to io.quarkus:quarkus-core-deployment"
+requested = "3.40.1"
+source = "io.quarkus:quarkus-test-common:3.40.1"
+policy = "dependency edge exclusion from io.quarkus:quarkus-test-common:3.40.1 to io.quarkus:quarkus-core-deployment"
 
 [[policy]]
 kind = "edge-exclusion"
 id = "io.quarkus:quarkus-devui-deployment-spi"
-requested = "3.40.0"
-source = "io.quarkus:quarkus-arc-deployment:3.40.0"
-policy = "dependency edge exclusion from io.quarkus:quarkus-arc-deployment:3.40.0 to io.quarkus:quarkus-devui-deployment-spi"
+requested = "3.40.1"
+source = "io.quarkus:quarkus-arc-deployment:3.40.1"
+policy = "dependency edge exclusion from io.quarkus:quarkus-arc-deployment:3.40.1 to io.quarkus:quarkus-devui-deployment-spi"
 
 [[policy]]
 kind = "edge-exclusion"
 id = "io.quarkus:quarkus-smallrye-context-propagation-spi"
-requested = "3.40.0"
-source = "io.quarkus:quarkus-arc-deployment:3.40.0"
-policy = "dependency edge exclusion from io.quarkus:quarkus-arc-deployment:3.40.0 to io.quarkus:quarkus-smallrye-context-propagation-spi"
+requested = "3.40.1"
+source = "io.quarkus:quarkus-arc-deployment:3.40.1"
+policy = "dependency edge exclusion from io.quarkus:quarkus-arc-deployment:3.40.1 to io.quarkus:quarkus-smallrye-context-propagation-spi"
 
 [[policy]]
 kind = "edge-exclusion"
 id = "io.smallrye:jandex"
 requested = "3.6.0"
-source = "io.quarkus:quarkus-test-common:3.40.0"
-policy = "dependency edge exclusion from io.quarkus:quarkus-test-common:3.40.0 to io.smallrye:jandex"
+source = "io.quarkus:quarkus-test-common:3.40.1"
+policy = "dependency edge exclusion from io.quarkus:quarkus-test-common:3.40.1 to io.smallrye:jandex"
 
 [[policy]]
 kind = "edge-exclusion"
@@ -2476,8 +2476,8 @@ policy = "dependency edge exclusion from jakarta.interceptor:jakarta.interceptor
 kind = "edge-exclusion"
 id = "org.jboss.logging:commons-logging-jboss-logging"
 requested = "2.0.0.Final"
-source = "io.quarkus:quarkus-test-common:3.40.0"
-policy = "dependency edge exclusion from io.quarkus:quarkus-test-common:3.40.0 to org.jboss.logging:commons-logging-jboss-logging"
+source = "io.quarkus:quarkus-test-common:3.40.1"
+policy = "dependency edge exclusion from io.quarkus:quarkus-test-common:3.40.1 to org.jboss.logging:commons-logging-jboss-logging"
 
 [[policy]]
 kind = "edge-exclusion"
