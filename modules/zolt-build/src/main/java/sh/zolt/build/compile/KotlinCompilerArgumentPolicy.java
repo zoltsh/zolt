@@ -21,6 +21,7 @@ final class KotlinCompilerArgumentPolicy {
         Set<String> standaloneArguments = new HashSet<>();
         String annotationDefaultTargetMode = "";
         String assertionMode = "";
+        String jspecifyAnnotationsMode = "";
         String stringConcatMode = "";
         String lambdaMode = "";
         String samConversionMode = "";
@@ -100,6 +101,12 @@ final class KotlinCompilerArgumentPolicy {
                             throw duplicateArgument(scope, argument);
                         }
                         assertionMode = KotlinCompilerModeArguments.assertions(scope, argument);
+                    } else if (argument.startsWith("-Xjspecify-annotations=")) {
+                        if (!jspecifyAnnotationsMode.isEmpty()) {
+                            throw duplicateArgument(scope, argument);
+                        }
+                        jspecifyAnnotationsMode =
+                                KotlinCompilerModeArguments.jspecifyAnnotations(scope, argument);
                     } else if (argument.startsWith("-Xwarning-level=")) {
                         String warningLevel = warningLevelArgument(scope, argument);
                         String diagnostic = warningDiagnostic(warningLevel);
@@ -144,6 +151,7 @@ final class KotlinCompilerArgumentPolicy {
                 standaloneArguments.contains("-Xno-new-java-annotation-targets"),
                 annotationDefaultTargetMode,
                 assertionMode,
+                jspecifyAnnotationsMode,
                 stringConcatMode,
                 lambdaMode,
                 samConversionMode,
@@ -277,6 +285,7 @@ final class KotlinCompilerArgumentPolicy {
             boolean noNewJavaAnnotationTargets,
             String annotationDefaultTargetMode,
             String assertionMode,
+            String jspecifyAnnotationsMode,
             String stringConcatMode,
             String lambdaMode,
             String samConversionMode,

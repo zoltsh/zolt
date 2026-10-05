@@ -84,6 +84,17 @@ final class KotlinCompilerModeArguments {
                         + " `-Xassertions=jvm`, or `-Xassertions=legacy`, or remove the argument.");
     }
 
+    static String jspecifyAnnotations(KotlinCompilationScope scope, String argument) {
+        return require(
+                scope,
+                argument,
+                "-Xjspecify-annotations=",
+                "JSpecify-annotation",
+                List.of("ignore", "warn", "strict"),
+                "Use `-Xjspecify-annotations=ignore`, `-Xjspecify-annotations=warn`, or"
+                        + " `-Xjspecify-annotations=strict`, or remove the argument.");
+    }
+
     private static String require(
             KotlinCompilationScope scope,
             String argument,

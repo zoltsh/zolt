@@ -73,6 +73,7 @@ public final class KotlinCompileOptionsPolicy {
                 mappedArguments.noNewJavaAnnotationTargets(),
                 mappedArguments.annotationDefaultTargetMode(),
                 mappedArguments.assertionMode(),
+                mappedArguments.jspecifyAnnotationsMode(),
                 mappedArguments.stringConcatMode(),
                 mappedArguments.lambdaMode(),
                 mappedArguments.samConversionMode(),

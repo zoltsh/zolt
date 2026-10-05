@@ -17,7 +17,8 @@ final class KotlinCompilerArgumentGuidance {
                 + " `-opt-in=<qualified.annotation.Name>` arguments and one"
                 + " `-Xexplicit-api=<mode>`, one `-Xstring-concat=<mode>`, one"
                 + " `-Xlambdas=<mode>`, one `-Xsam-conversions=<mode>`, one"
-                + " `-Xannotation-default-target=<mode>`, one `-Xassertions=<mode>`, and distinct"
+                + " `-Xannotation-default-target=<mode>`, one `-Xassertions=<mode>`, one"
+                + " `-Xjspecify-annotations=<mode>`, and distinct"
                 + " repeatable"
                 + " `-Xwarning-level=DIAGNOSTIC_NAME:<level>` arguments; otherwise keep this"
                 + " source set Java-only.";
