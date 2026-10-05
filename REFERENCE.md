@@ -780,7 +780,7 @@ disable the unchanged-input skip.
 For a Kotlin-bearing source set, compiler arguments may contain the standalone
 flags `-parameters`, `-nowarn`, `-Werror`, `-Wextra`, `-progressive`,
 `-Xcontext-parameters`, `-Xcontext-sensitive-resolution`, and `-Xwhen-guards`,
-plus one each of the paired Kotlin arguments
+plus `-Xnested-type-aliases`, and one each of the paired Kotlin arguments
 `-language-version <major.minor>` and `-api-version <major.minor>`. Distinct,
 repeatable
 `-opt-in=<qualified.annotation.Name>` arguments are also accepted. One
@@ -805,6 +805,7 @@ args = [
   "-Xcontext-parameters",
   "-Xcontext-sensitive-resolution",
   "-Xwhen-guards",
+  "-Xnested-type-aliases",
   "-language-version", "1.9",
   "-api-version", "1.8",
   "-jvm-default=no-compatibility",
@@ -855,10 +856,16 @@ Kotlin 2.1. Kotlin 2.2 promotes guard conditions to stable, so that compiler
 also accepts the syntax without the flag. A language-version pin remains
 authoritative: Kotlin 2.2 does not backport guard syntax to language version 2.1
 merely because the flag is present. Extra warnings, progressive mode, context
-parameters, context-sensitive resolution, when guards, language/API version
-pairs, JVM-default modes, explicit-API modes, string-concatenation modes,
-lambda-generation modes, SAM-conversion modes, diagnostic warning levels, and
-opt-ins go only to `kotlinc`.
+parameters, context-sensitive resolution, when guards, nested type aliases,
+language/API version pairs, JVM-default modes, explicit-API modes,
+string-concatenation modes, lambda-generation modes, SAM-conversion modes,
+diagnostic warning levels, and opt-ins go only to `kotlinc`.
+`-Xnested-type-aliases` enables Kotlin 2.2's Beta support for aliases declared
+inside classes, interfaces, and objects. Such aliases cannot use type parameters
+from an enclosing declaration; they must declare independent type parameters
+when needed, and aliases remain unavailable in local function or lambda scopes.
+The selected compiler determines whether the feature is available and enforces
+its remaining declaration, visibility, and multiplatform restrictions.
 `-Xstring-concat=inline` emits concatenation through `StringBuilder`.
 `-Xstring-concat=indy` uses `StringConcatFactory.makeConcat`, while
 `indy-with-constants` uses `StringConcatFactory.makeConcatWithConstants`. The
@@ -888,17 +895,18 @@ visibility and return types on public API declarations compilation errors;
 off. Main and test arguments are independent, and changing warning suppression
 or enforcement, a diagnostic warning level, progressive mode, version pairs,
 context parameters, context-sensitive resolution, JVM-default mode,
-explicit-API mode, when-guards configuration, string-concatenation mode,
-lambda-generation mode, SAM-conversion mode, or opt-ins invalidates reuse for
-that source set. Zolt validates warning-level syntax and duplicate names; the
-selected Kotlin compiler still determines supported diagnostic names, warnings,
-extra and progressive checks, version values, language/API combinations,
-JVM-default and explicit-API modes, string-concatenation, lambda-generation, and
-SAM-conversion modes, context-parameter, context-sensitive-resolution, and
-when-guards behavior. It also decides whether an opt-in annotation exists and
-applies. Other custom compiler arguments remain unsupported for Kotlin-bearing
-source sets because javac flags cannot in general be forwarded safely to
-`kotlinc`.
+explicit-API mode, when-guards or nested-type-aliases configuration,
+string-concatenation mode, lambda-generation mode, SAM-conversion mode, or
+opt-ins invalidates reuse for that source set. Zolt validates warning-level
+syntax and duplicate names; the selected Kotlin compiler still determines
+supported diagnostic names, warnings, extra and progressive checks, version
+values, language/API combinations, JVM-default and explicit-API modes,
+string-concatenation, lambda-generation, and SAM-conversion modes,
+context-parameter, context-sensitive-resolution, when-guards, and
+nested-type-aliases behavior. It also decides whether an opt-in annotation
+exists and applies. Other custom compiler arguments remain unsupported for
+Kotlin-bearing source sets because javac flags cannot in general be forwarded
+safely to `kotlinc`.
 
 Kotlin compiler module identity is explicit when compatibility with another
 build must be preserved:
