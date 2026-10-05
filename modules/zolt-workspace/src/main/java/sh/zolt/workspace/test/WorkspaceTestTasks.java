@@ -13,6 +13,7 @@ import sh.zolt.test.shard.TestShardSpec;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceMember;
+import sh.zolt.workspace.service.WorkspaceKotlinJvmPreviewPolicy;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -55,7 +56,7 @@ final class WorkspaceTestTasks {
                                                 member.config(),
                                                 testInputs(memberBuild)),
                                         testSelection,
-                                        jvmArguments,
+                                        jvmArguments(workspace, member, jvmArguments),
                                         reportSettings.forWorkspaceMember(
                                                 member.path()),
                                         cliEvents,
@@ -105,7 +106,7 @@ final class WorkspaceTestTasks {
                                         integrationConfig,
                                         testInputs(memberBuild),
                                         testSelection,
-                                        jvmArguments,
+                                        jvmArguments(workspace, member, jvmArguments),
                                         reportSettings.forWorkspaceMember(
                                                 member.path()),
                                         cliEvents,
@@ -145,5 +146,16 @@ final class WorkspaceTestTasks {
                 memberBuild.result(),
                 memberBuild.classpaths(),
                 memberBuild.verifiedCompilerPackages());
+    }
+
+    private static TestJvmArguments jvmArguments(
+            Workspace workspace,
+            WorkspaceMember member,
+            TestJvmArguments configured) {
+        return new TestJvmArguments(
+                WorkspaceKotlinJvmPreviewPolicy.testJvmArguments(
+                        workspace,
+                        member.path(),
+                        configured.values()));
     }
 }

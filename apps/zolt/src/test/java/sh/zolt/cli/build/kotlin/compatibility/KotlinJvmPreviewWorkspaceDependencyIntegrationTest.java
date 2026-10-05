@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import sh.zolt.cli.CliTestRepository;
 import sh.zolt.cli.CliTestSupport.CommandResult;
+import sh.zolt.cli.build.JUnitConsoleCliFixture;
 import sh.zolt.cli.build.KotlinCompilerCliFixture;
 
 /** A workspace launcher inherits JVM-preview requirements from runtime dependency members. */
@@ -28,6 +29,7 @@ final class KotlinJvmPreviewWorkspaceDependencyIntegrationTest {
         Path cache = tempDir.resolve("cache");
         try (CliTestRepository repository = CliTestRepository.start()) {
             KotlinCompilerCliFixture.publish(repository);
+            JUnitConsoleCliFixture.publish(repository);
             writeWorkspace(workspace, repository);
 
             CommandResult resolve = execute(
@@ -68,6 +70,21 @@ final class KotlinJvmPreviewWorkspaceDependencyIntegrationTest {
                     runPackage,
                     "preview-library-three",
                     "Ran packaged " + MAIN_CLASS + " in " + APPLICATION);
+
+            CommandResult test = execute(
+                    "test",
+                    "--workspace",
+                    "--member", APPLICATION,
+                    "--no-build-cache",
+                    "--cwd", workspace.toString(),
+                    "--cache-root", cache.toString());
+            assertEquals(0, test.exitCode(), combined(test));
+            assertTrue(test.stdout().contains("Tests passed"), test.stdout());
+            assertTrue(test.stdout().matches("(?s).*\\b1 tests successful\\b.*"), test.stdout());
+            assertClassVersion(
+                    workspace.resolve(
+                            "apps/application/target/test-classes/com/example/application/ApplicationTest.class"),
+                    0);
             assertEquals(Map.of(), repository.authorizations());
         }
     }
@@ -170,7 +187,10 @@ final class KotlinJvmPreviewWorkspaceDependencyIntegrationTest {
     private static void writeApplication(Path application) throws IOException {
         Path source = application.resolve(
                 "src/main/kotlin/com/example/application/Application.kt");
+        Path test = application.resolve(
+                "src/test/kotlin/com/example/application/ApplicationTest.kt");
         Files.createDirectories(source.getParent());
+        Files.createDirectories(test.getParent());
         Files.writeString(application.resolve("zolt.toml"), """
                 [project]
                 name = "application"
@@ -182,20 +202,30 @@ final class KotlinJvmPreviewWorkspaceDependencyIntegrationTest {
                 [build]
                 sources = ["src/main/kotlin"]
 
+                [test.sources]
+                kotlin = ["src/test/kotlin"]
+
                 [toolchain.kotlin]
                 version = "%s"
 
                 [compiler]
                 args = ["-parameters"]
 
+                [compiler.test]
+                args = ["-parameters"]
+
                 [dependencies]
                 "org.jetbrains.kotlin:kotlin-stdlib" = "%s"
                 "com.example:library" = { workspace = true }
+
+                [dependencies.test]
+                "org.junit.platform:junit-platform-console-standalone" = "%s"
                 """.formatted(
                 Runtime.version().feature(),
                 MAIN_CLASS,
                 KotlinCompilerCliFixture.KOTLIN_VERSION,
-                KotlinCompilerCliFixture.KOTLIN_VERSION));
+                KotlinCompilerCliFixture.KOTLIN_VERSION,
+                JUnitConsoleCliFixture.VERSION));
         Files.writeString(source, """
                 package com.example.application
 
@@ -203,6 +233,20 @@ final class KotlinJvmPreviewWorkspaceDependencyIntegrationTest {
 
                 fun main(args: Array<String>) {
                     println(PreviewLibrary.message(args.single()))
+                }
+                """);
+        Files.writeString(test, """
+                package com.example.application
+
+                import com.example.library.PreviewLibrary
+                import org.junit.jupiter.api.Assertions.assertEquals
+                import org.junit.jupiter.api.Test
+
+                class ApplicationTest {
+                    @Test
+                    fun loadsPreviewMarkedWorkspaceDependency() {
+                        assertEquals("preview-library-test", PreviewLibrary.message("test"))
+                    }
                 }
                 """);
     }

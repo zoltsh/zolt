@@ -74,6 +74,50 @@ final class WorkspaceKotlinJvmPreviewPolicyTest {
                 "apps/application"));
     }
 
+    @Test
+    void includesTestVisibleDependencyRequirementsAndPreservesConfiguredArguments() {
+        Workspace workspace = workspace(
+                List.of(
+                        member("apps/application", false),
+                        member("modules/test-support", true)),
+                List.of(new WorkspaceProjectEdge(
+                        "apps/application",
+                        "modules/test-support",
+                        "test",
+                        "com.example:test-support",
+                        false)));
+
+        assertTrue(WorkspaceKotlinJvmPreviewPolicy.testRuntimeEnabled(
+                workspace,
+                "apps/application"));
+        assertEquals(
+                List.of("-Dprobe=true", "--enable-preview"),
+                WorkspaceKotlinJvmPreviewPolicy.testJvmArguments(
+                        workspace,
+                        "apps/application",
+                        List.of("-Dprobe=true")));
+        assertEquals(
+                List.of("--enable-preview", "-Dprobe=true"),
+                WorkspaceKotlinJvmPreviewPolicy.testJvmArguments(
+                        workspace,
+                        "apps/application",
+                        List.of("--enable-preview", "-Dprobe=true")));
+    }
+
+    @Test
+    void includesTheSelectedMembersTestOnlyRequirement() {
+        Workspace workspace = workspace(
+                List.of(member("apps/application", false, true)),
+                List.of());
+
+        assertTrue(WorkspaceKotlinJvmPreviewPolicy.testRuntimeEnabled(
+                workspace,
+                "apps/application"));
+        assertFalse(WorkspaceKotlinJvmPreviewPolicy.mainRuntimeEnabled(
+                workspace,
+                "apps/application"));
+    }
+
     private static Workspace workspace(
             List<WorkspaceMember> members,
             List<WorkspaceProjectEdge> edges) {
@@ -86,10 +130,24 @@ final class WorkspaceKotlinJvmPreviewPolicyTest {
     }
 
     private static WorkspaceMember member(String path, boolean preview) {
-        String compiler = preview
+        return member(path, preview, false);
+    }
+
+    private static WorkspaceMember member(
+            String path,
+            boolean mainPreview,
+            boolean testPreview) {
+        String compiler = mainPreview
                 ? """
 
                   [compiler]
+                  args = ["-Xjvm-enable-preview"]
+                  """
+                : "";
+        String testCompiler = testPreview
+                ? """
+
+                  [compiler.test]
                   args = ["-Xjvm-enable-preview"]
                   """
                 : "";
@@ -103,7 +161,11 @@ final class WorkspaceKotlinJvmPreviewPolicyTest {
                         group = "com.example"
                         java = 21
                         %s
-                        """.formatted(path.replace('/', '-'), compiler)));
+                        %s
+                        """.formatted(
+                        path.replace('/', '-'),
+                        compiler,
+                        testCompiler)));
     }
 
     private static WorkspaceProjectEdge edge(
