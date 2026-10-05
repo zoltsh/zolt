@@ -1,7 +1,6 @@
 package sh.zolt.workspace.run;
 
 import sh.zolt.build.RunException;
-import sh.zolt.build.compile.kotlin.KotlinJvmPreviewPolicy;
 import sh.zolt.build.run.JavaRunResult;
 import sh.zolt.build.run.JavaRunner;
 import sh.zolt.build.run.RunResult;
@@ -17,6 +16,7 @@ import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceBuildRequirements;
 import sh.zolt.workspace.service.WorkspaceBuildService;
 import sh.zolt.workspace.service.WorkspaceJdkCheckerResolver;
+import sh.zolt.workspace.service.WorkspaceKotlinJvmPreviewPolicy;
 import sh.zolt.workspace.service.WorkspaceMember;
 import sh.zolt.workspace.service.WorkspaceMutationLock;
 import sh.zolt.workspace.service.WorkspaceRunFiles;
@@ -165,7 +165,9 @@ public final class WorkspaceRunService {
                         jdkStatus.java().orElseThrow(),
                         new Classpath(runtimeEntries),
                         mainClass,
-                        KotlinJvmPreviewPolicy.mainJvmArguments(member.config())));
+                        WorkspaceKotlinJvmPreviewPolicy.mainJvmArguments(
+                                workspace,
+                                member.path())));
             }
             return new WorkspaceRunSnapshot(buildResult, files, launches);
         } catch (RuntimeException exception) {

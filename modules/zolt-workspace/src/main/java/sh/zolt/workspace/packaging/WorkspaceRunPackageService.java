@@ -1,7 +1,6 @@
 package sh.zolt.workspace.packaging;
 
 import sh.zolt.build.RunPackageException;
-import sh.zolt.build.compile.kotlin.KotlinJvmPreviewPolicy;
 import sh.zolt.build.packageplan.PackagePlanService;
 import sh.zolt.build.run.PackageApplicationLauncher;
 import sh.zolt.build.run.PackageLaunchPolicy;
@@ -20,6 +19,7 @@ import sh.zolt.workspace.service.WorkspacePlanTarget;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceMember;
+import sh.zolt.workspace.service.WorkspaceKotlinJvmPreviewPolicy;
 import sh.zolt.workspace.service.WorkspaceMutationLock;
 import sh.zolt.workspace.service.WorkspaceRunFiles;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
@@ -241,7 +241,9 @@ public final class WorkspaceRunPackageService {
                         runtimeEntries,
                         jdkStatus.java().orElseThrow(),
                         mainClass,
-                        KotlinJvmPreviewPolicy.mainJvmArguments(member.config())));
+                        WorkspaceKotlinJvmPreviewPolicy.mainJvmArguments(
+                                workspace,
+                                member.path())));
             }
             return new WorkspaceRunPackageSnapshot(
                     packageResult,
