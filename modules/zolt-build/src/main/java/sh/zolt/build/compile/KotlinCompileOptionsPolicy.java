@@ -65,6 +65,7 @@ public final class KotlinCompileOptionsPolicy {
                 mappedArguments.contextSensitiveResolution(),
                 mappedArguments.contextParameters(),
                 mappedArguments.whenGuards(),
+                mappedArguments.multiDollarInterpolation(),
                 mappedArguments.nestedTypeAliases(),
                 mappedArguments.annotationTargetAll(),
                 mappedArguments.jvmExposeBoxed(),

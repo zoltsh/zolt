@@ -8,7 +8,8 @@ final class KotlinCompilerArgumentGuidance {
     static String supportedArguments() {
         return "Use only a compatible, duplicate-free subset of `-parameters`, `-nowarn`,"
                 + " `-Werror`, `-Wextra`, `-progressive`, `-Xcontext-sensitive-resolution`,"
-                + " `-Xcontext-parameters`, `-Xwhen-guards`, `-Xnested-type-aliases`,"
+                + " `-Xcontext-parameters`, `-Xwhen-guards`, `-Xmulti-dollar-interpolation`,"
+                + " `-Xnested-type-aliases`,"
                 + " `-Xannotation-target-all`, `-Xjvm-expose-boxed`,"
                 + " `-Xconsistent-data-class-copy-visibility`, `-Xemit-jvm-type-annotations`,"
                 + " `-Xno-new-java-annotation-targets`,"

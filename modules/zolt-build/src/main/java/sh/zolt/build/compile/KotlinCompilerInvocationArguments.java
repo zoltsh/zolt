@@ -53,6 +53,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.whenGuards()) {
             arguments.add("-Xwhen-guards");
         }
+        if (options.multiDollarInterpolation()) {
+            arguments.add("-Xmulti-dollar-interpolation");
+        }
         if (options.nestedTypeAliases()) {
             arguments.add("-Xnested-type-aliases");
         }
