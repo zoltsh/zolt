@@ -52,6 +52,7 @@ final class KotlinCompilerInvocationArguments {
         if (!options.explicitApiMode().isEmpty()) {
             arguments.add("-Xexplicit-api=" + options.explicitApiMode());
         }
+        options.warningLevels().forEach(level -> arguments.add("-Xwarning-level=" + level));
         options.optIns().forEach(optIn -> arguments.add("-opt-in=" + optIn));
         List<Path> compilationEntries = entries(compilationClasspath);
         if (!compilationEntries.isEmpty()) {

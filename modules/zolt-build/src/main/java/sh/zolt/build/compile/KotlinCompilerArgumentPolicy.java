@@ -25,6 +25,7 @@ final class KotlinCompilerArgumentPolicy {
         String apiVersion = "";
         String jvmDefaultMode = "";
         String explicitApiMode = "";
+        List<String> warningLevels = new ArrayList<>();
         List<String> optIns = new ArrayList<>();
         for (int index = 0; index < arguments.size(); index++) {
             String argument = arguments.get(index);
@@ -82,6 +83,15 @@ final class KotlinCompilerArgumentPolicy {
                             throw duplicateArgument(scope, argument);
                         }
                         explicitApiMode = explicitApiArgument(scope, argument);
+                    } else if (argument.startsWith("-Xwarning-level=")) {
+                        String warningLevel = warningLevelArgument(scope, argument);
+                        String diagnostic = warningDiagnostic(warningLevel);
+                        if (warningLevels.stream()
+                                .map(KotlinCompilerArgumentPolicy::warningDiagnostic)
+                                .anyMatch(diagnostic::equals)) {
+                            throw duplicateArgument(scope, argument);
+                        }
+                        warningLevels.add(warningLevel);
                     } else if (argument.startsWith("-opt-in=")) {
                         String optIn = optInArgument(scope, argument);
                         if (optIns.contains(optIn)) {
@@ -110,6 +120,7 @@ final class KotlinCompilerArgumentPolicy {
                 apiVersion,
                 jvmDefaultMode,
                 explicitApiMode,
+                List.copyOf(warningLevels),
                 List.copyOf(optIns));
     }
 
@@ -126,6 +137,25 @@ final class KotlinCompilerArgumentPolicy {
                             + " `-jvm-default=disable`, or remove the argument.");
         }
         return value;
+    }
+
+    private static String warningLevelArgument(
+            KotlinCompilationScope scope,
+            String argument) {
+        String value = argument.substring("-Xwarning-level=".length());
+        if (!value.matches("[A-Z][A-Z0-9_]*:(error|warning|disabled)")) {
+            throw unsupported(
+                    scope,
+                    argumentsPath(scope)
+                            + " contains invalid Kotlin warning-level argument `" + argument + "`",
+                    "Use `-Xwarning-level=DIAGNOSTIC_NAME:error`, `:warning`, or `:disabled`"
+                            + " with an uppercase Kotlin diagnostic name, or remove the argument.");
+        }
+        return value;
+    }
+
+    private static String warningDiagnostic(String warningLevel) {
+        return warningLevel.substring(0, warningLevel.indexOf(':'));
     }
 
     private static String explicitApiArgument(
@@ -190,7 +220,8 @@ final class KotlinCompilerArgumentPolicy {
         return unsupported(
                 scope,
                 argumentsPath(scope) + " contains duplicate compiler argument `" + argument + "`",
-                "Use each exact compiler argument at most once, or keep this source set Java-only.");
+                "Configure each compiler option, opt-in, or diagnostic at most once, or keep this"
+                        + " source set Java-only.");
     }
 
     private static KotlinCompileException incompatibleArguments(
@@ -214,7 +245,9 @@ final class KotlinCompilerArgumentPolicy {
                         + " `-Werror`, `-Wextra`, `-progressive`, `-language-version <major.minor>`,"
                         + " `-api-version <major.minor>`, and one `-jvm-default=<mode>`, plus repeatable"
                         + " `-opt-in=<qualified.annotation.Name>` arguments and one"
-                        + " `-Xexplicit-api=<mode>`; otherwise keep this source set Java-only.");
+                        + " `-Xexplicit-api=<mode>`, plus distinct repeatable"
+                        + " `-Xwarning-level=DIAGNOSTIC_NAME:<level>` arguments; otherwise keep this"
+                        + " source set Java-only.");
     }
 
     private static String argumentsPath(KotlinCompilationScope scope) {
@@ -242,6 +275,7 @@ final class KotlinCompilerArgumentPolicy {
             String apiVersion,
             String jvmDefaultMode,
             String explicitApiMode,
+            List<String> warningLevels,
             List<String> optIns) {
     }
 }
