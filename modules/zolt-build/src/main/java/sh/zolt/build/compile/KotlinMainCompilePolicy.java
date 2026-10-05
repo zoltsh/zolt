@@ -34,7 +34,7 @@ final class KotlinMainCompilePolicy {
                 .anyMatch(KotlinMainCompilePolicy::producesOwnedJavaSources)) {
             throw unsupported(
                     "owned Java main-source generation is configured",
-                    "Use language = \"kotlin\" for an OpenAPI or exec step that emits Kotlin, use kind ="
+                    "Use language = \"kotlin\" for an OpenAPI, Protobuf, or exec step that emits Kotlin, use kind ="
                             + " \"declared-root\" for a pre-generated Java or Kotlin root, move generated Java"
                             + " into a separate member, or keep this member Java-only until generator ownership"
                             + " is qualified for Kotlin/Java joint compilation.");
@@ -59,7 +59,7 @@ final class KotlinMainCompilePolicy {
         return switch (step.kind()) {
             case DECLARED_ROOT -> false;
             case OPENAPI -> !"kotlin".equals(step.language());
-            case PROTOBUF -> true;
+            case PROTOBUF -> !"kotlin".equals(step.language());
             case EXEC -> "java".equals(step.language())
                     && (step.exec().produces() == ProducesLane.JAVA_SOURCES
                             || step.exec().produces() == ProducesLane.TEST_SOURCES);

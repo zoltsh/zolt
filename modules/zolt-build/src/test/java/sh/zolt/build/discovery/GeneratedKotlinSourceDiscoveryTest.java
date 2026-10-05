@@ -92,26 +92,38 @@ final class GeneratedKotlinSourceDiscoveryTest {
     }
 
     @Test
-    void rejectsKotlinForGeneratedKindsThatRemainJavaOnly() {
+    void partitionsProtobufGeneratedKotlinRootsByLanguageInBothScopes() throws IOException {
+        Path mainKotlin = source("target/generated/protobuf/main/com/example/Message.kt");
+        Path testKotlin = source("target/generated/protobuf/test/com/example/Fixture.kt");
+        source("schema/main.proto");
+        source("schema/test.proto");
         GeneratedSourceStep protobuf = new GeneratedSourceStep(
                 "protocol",
                 GeneratedSourceKind.PROTOBUF,
                 "kotlin",
-                "generated/protocol",
-                List.of("schema/protocol.proto"),
+                "target/generated/protobuf/main",
+                List.of("schema/main.proto"),
                 true,
-                false);
+                true);
+        GeneratedSourceStep testProtobuf = new GeneratedSourceStep(
+                "test-protocol",
+                GeneratedSourceKind.PROTOBUF,
+                "kotlin",
+                "target/generated/protobuf/test",
+                List.of("schema/test.proto"),
+                true,
+                true);
 
-        SourceDiscoveryException failure = assertThrows(
-                SourceDiscoveryException.class,
-                () -> discoverer.discover(
-                        projectDir,
-                        BuildSettings.defaults().withGeneratedSources(List.of(protobuf), List.of())));
+        SourceDiscoveryResult result = discoverer.discover(
+                projectDir,
+                BuildSettings.defaults().withGeneratedSources(
+                        List.of(protobuf),
+                        List.of(testProtobuf)));
 
-        assertTrue(failure.getMessage().contains("[generated.main.protocol]"), failure.getMessage());
-        assertTrue(
-                failure.getMessage().contains("kind = \"openapi\""),
-                failure.getMessage());
+        assertEquals(List.of(mainKotlin), result.kotlinMainSources());
+        assertEquals(List.of(testKotlin), result.kotlinTestSources());
+        assertEquals(List.of(), result.mainSources());
+        assertEquals(List.of(), result.testSources());
     }
 
     @Test
