@@ -273,7 +273,7 @@ public final class KotlinCompilerRunner {
                     nullabilityAnnotations,
                     "compiler nullability-annotation rule");
             warningLevels = copyValues(warningLevels, "compiler warning level");
-            optIns = copyOptIns(optIns);
+            optIns = copyValues(optIns, "compiler opt-in annotation");
             friendPath = friendPath == null ? null : friendPath.normalize();
             if (friendPath != null && friendPath.toString().contains(",")) {
                 throw new KotlinCompileException(
@@ -335,10 +335,6 @@ public final class KotlinCompilerRunner {
 
         private static String optional(String value) {
             return value == null || value.isBlank() ? "" : value.strip();
-        }
-
-        private static List<String> copyOptIns(List<String> values) {
-            return copyValues(values, "compiler opt-in annotation");
         }
 
         private static List<String> copyValues(List<String> values, String label) {
