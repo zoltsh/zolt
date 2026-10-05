@@ -25,6 +25,7 @@ final class KotlinCompilerArgumentPolicy {
         boolean contextParameters = false;
         String stringConcatMode = "";
         String lambdaMode = "";
+        String samConversionMode = "";
         String languageVersion = "";
         String apiVersion = "";
         String jvmDefaultMode = "";
@@ -109,6 +110,11 @@ final class KotlinCompilerArgumentPolicy {
                             throw duplicateArgument(scope, argument);
                         }
                         lambdaMode = KotlinCompilerModeArguments.lambda(scope, argument);
+                    } else if (argument.startsWith("-Xsam-conversions=")) {
+                        if (!samConversionMode.isEmpty()) {
+                            throw duplicateArgument(scope, argument);
+                        }
+                        samConversionMode = KotlinCompilerModeArguments.samConversion(scope, argument);
                     } else if (argument.startsWith("-Xwarning-level=")) {
                         String warningLevel = warningLevelArgument(scope, argument);
                         String diagnostic = warningDiagnostic(warningLevel);
@@ -146,6 +152,7 @@ final class KotlinCompilerArgumentPolicy {
                 contextParameters,
                 stringConcatMode,
                 lambdaMode,
+                samConversionMode,
                 languageVersion,
                 apiVersion,
                 jvmDefaultMode,
@@ -248,7 +255,7 @@ final class KotlinCompilerArgumentPolicy {
                         + " `-jvm-default=<mode>`, plus repeatable"
                         + " `-opt-in=<qualified.annotation.Name>` arguments and one"
                         + " `-Xexplicit-api=<mode>`, one `-Xstring-concat=<mode>`, one"
-                        + " `-Xlambdas=<mode>`, and distinct repeatable"
+                        + " `-Xlambdas=<mode>`, one `-Xsam-conversions=<mode>`, and distinct repeatable"
                         + " `-Xwarning-level=DIAGNOSTIC_NAME:<level>` arguments; otherwise keep this"
                         + " source set Java-only.");
     }
@@ -278,6 +285,7 @@ final class KotlinCompilerArgumentPolicy {
             boolean contextParameters,
             String stringConcatMode,
             String lambdaMode,
+            String samConversionMode,
             String languageVersion,
             String apiVersion,
             String jvmDefaultMode,

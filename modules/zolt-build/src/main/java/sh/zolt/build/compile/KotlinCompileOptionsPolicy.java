@@ -66,6 +66,7 @@ public final class KotlinCompileOptionsPolicy {
                 mappedArguments.contextParameters(),
                 mappedArguments.stringConcatMode(),
                 mappedArguments.lambdaMode(),
+                mappedArguments.samConversionMode(),
                 mappedArguments.languageVersion(),
                 mappedArguments.apiVersion(),
                 mappedArguments.jvmDefaultMode(),

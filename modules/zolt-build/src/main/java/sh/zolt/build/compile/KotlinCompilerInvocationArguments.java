@@ -56,6 +56,9 @@ final class KotlinCompilerInvocationArguments {
         if (!options.lambdaMode().isEmpty()) {
             arguments.add("-Xlambdas=" + options.lambdaMode());
         }
+        if (!options.samConversionMode().isEmpty()) {
+            arguments.add("-Xsam-conversions=" + options.samConversionMode());
+        }
         addVersion(arguments, "-language-version", options.languageVersion());
         addVersion(arguments, "-api-version", options.apiVersion());
         if (!options.jvmDefaultMode().isEmpty()) {

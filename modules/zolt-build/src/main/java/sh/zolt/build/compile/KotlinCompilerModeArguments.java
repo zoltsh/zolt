@@ -51,6 +51,16 @@ final class KotlinCompilerModeArguments {
                 "Use `-Xlambdas=class` or `-Xlambdas=indy`, or remove the argument.");
     }
 
+    static String samConversion(KotlinCompilationScope scope, String argument) {
+        return require(
+                scope,
+                argument,
+                "-Xsam-conversions=",
+                "SAM-conversion",
+                List.of("class", "indy"),
+                "Use `-Xsam-conversions=class` or `-Xsam-conversions=indy`, or remove the argument.");
+    }
+
     private static String require(
             KotlinCompilationScope scope,
             String argument,
