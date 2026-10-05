@@ -119,6 +119,12 @@ final class KotlinCompilerInvocationArguments {
         if (options.annotationsInMetadata()) {
             arguments.add("-Xannotations-in-metadata");
         }
+        if (options.allowUnstableDependencies()) {
+            arguments.add("-Xallow-unstable-dependencies");
+        }
+        if (!options.abiStabilityMode().isEmpty()) {
+            arguments.add("-Xabi-stability=" + options.abiStabilityMode());
+        }
         if (!options.annotationDefaultTargetMode().isEmpty()) {
             arguments.add("-Xannotation-default-target=" + options.annotationDefaultTargetMode());
         }

@@ -41,6 +41,8 @@ public record KotlinCompilerOptions(
         boolean indyAllowAnnotatedLambdas,
         boolean generateStrictMetadataVersion,
         boolean annotationsInMetadata,
+        boolean allowUnstableDependencies,
+        String abiStabilityMode,
         String annotationDefaultTargetMode,
         String assertionMode,
         String jspecifyAnnotationsMode,
@@ -159,6 +161,8 @@ public record KotlinCompilerOptions(
                 false,
                 false,
                 false,
+                false,
+                "",
                 "",
                 "",
                 "",
@@ -180,6 +184,7 @@ public record KotlinCompilerOptions(
     public KotlinCompilerOptions {
         release = KotlinCompilerOptionValues.require(release, "effective Java release");
         moduleName = KotlinCompilerOptionValues.require(moduleName, "module name");
+        abiStabilityMode = KotlinCompilerOptionValues.optional(abiStabilityMode);
         annotationDefaultTargetMode = KotlinCompilerOptionValues.optional(
                 annotationDefaultTargetMode);
         assertionMode = KotlinCompilerOptionValues.optional(assertionMode);
@@ -251,6 +256,8 @@ public record KotlinCompilerOptions(
                 indyAllowAnnotatedLambdas,
                 generateStrictMetadataVersion,
                 annotationsInMetadata,
+                allowUnstableDependencies,
+                abiStabilityMode,
                 annotationDefaultTargetMode,
                 assertionMode,
                 jspecifyAnnotationsMode,

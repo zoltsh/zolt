@@ -34,7 +34,8 @@ final class KotlinCompilerStandaloneArguments {
             "-Xvalidate-bytecode",
             "-Xindy-allow-annotated-lambdas",
             "-Xgenerate-strict-metadata-version",
-            "-Xannotations-in-metadata");
+            "-Xannotations-in-metadata",
+            "-Xallow-unstable-dependencies");
 
     private KotlinCompilerStandaloneArguments() {
     }

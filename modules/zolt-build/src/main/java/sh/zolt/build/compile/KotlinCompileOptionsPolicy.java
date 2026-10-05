@@ -87,6 +87,8 @@ public final class KotlinCompileOptionsPolicy {
                 mappedArguments.indyAllowAnnotatedLambdas(),
                 mappedArguments.generateStrictMetadataVersion(),
                 mappedArguments.annotationsInMetadata(),
+                mappedArguments.allowUnstableDependencies(),
+                mappedArguments.abiStabilityMode(),
                 mappedArguments.annotationDefaultTargetMode(),
                 mappedArguments.assertionMode(),
                 mappedArguments.jspecifyAnnotationsMode(),

@@ -23,6 +23,7 @@ final class KotlinCompilerArgumentGuidance {
                 + " `-Xvalidate-bytecode`,"
                 + " `-Xindy-allow-annotated-lambdas` with `-Xlambdas=indy`,"
                 + " `-Xgenerate-strict-metadata-version`, `-Xannotations-in-metadata`,"
+                + " `-Xallow-unstable-dependencies`,"
                 + " `-language-version <major.minor>`, `-api-version <major.minor>`, and one"
                 + " `-jvm-default=<mode>`, plus repeatable"
                 + " `-opt-in=<qualified.annotation.Name>` arguments and one"
@@ -30,7 +31,8 @@ final class KotlinCompilerArgumentGuidance {
                 + " `-Xlambdas=<mode>`, one `-Xsam-conversions=<mode>`, one"
                 + " `-Xannotation-default-target=<mode>`, one `-Xassertions=<mode>`, one"
                 + " `-Xjspecify-annotations=<mode>`, one `-Xjsr305=<mode>`, one"
-                + " `-Xsupport-compatqual-checker-framework-annotations=<mode>`, and distinct"
+                + " `-Xsupport-compatqual-checker-framework-annotations=<mode>`, and one"
+                + " `-Xabi-stability=<mode>`, plus distinct"
                 + " repeatable `-Xnullability-annotations=@package.name:<mode>` and"
                 + " `-Xwarning-level=DIAGNOSTIC_NAME:<level>` arguments; otherwise keep this"
                 + " source set Java-only.";

@@ -24,6 +24,7 @@ final class KotlinCompilerArgumentPolicy {
         String jspecifyAnnotationsMode = "";
         String jsr305Mode = "";
         String compatqualAnnotationsMode = "";
+        String abiStabilityMode = "";
         String stringConcatMode = "";
         String lambdaMode = "";
         String samConversionMode = "";
@@ -110,6 +111,12 @@ final class KotlinCompilerArgumentPolicy {
                         }
                         compatqualAnnotationsMode =
                                 KotlinCompilerModeArguments.compatqualAnnotations(scope, argument);
+                    } else if (argument.startsWith("-Xabi-stability=")) {
+                        if (!abiStabilityMode.isEmpty()) {
+                            throw duplicateArgument(scope, argument);
+                        }
+                        abiStabilityMode =
+                                KotlinCompilerModeArguments.abiStability(scope, argument);
                     } else if (argument.startsWith("-Xnullability-annotations=")) {
                         String nullabilityAnnotation =
                                 KotlinCompilerRepeatableArgumentPolicy.nullabilityAnnotation(
@@ -197,6 +204,8 @@ final class KotlinCompilerArgumentPolicy {
                 standaloneArguments.contains("-Xindy-allow-annotated-lambdas"),
                 standaloneArguments.contains("-Xgenerate-strict-metadata-version"),
                 standaloneArguments.contains("-Xannotations-in-metadata"),
+                standaloneArguments.contains("-Xallow-unstable-dependencies"),
+                abiStabilityMode,
                 annotationDefaultTargetMode,
                 assertionMode,
                 jspecifyAnnotationsMode,
@@ -317,6 +326,8 @@ final class KotlinCompilerArgumentPolicy {
             boolean indyAllowAnnotatedLambdas,
             boolean generateStrictMetadataVersion,
             boolean annotationsInMetadata,
+            boolean allowUnstableDependencies,
+            String abiStabilityMode,
             String annotationDefaultTargetMode,
             String assertionMode,
             String jspecifyAnnotationsMode,

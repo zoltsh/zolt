@@ -118,6 +118,17 @@ final class KotlinCompilerModeArguments {
                         + " remove the argument.");
     }
 
+    static String abiStability(KotlinCompilationScope scope, String argument) {
+        return require(
+                scope,
+                argument,
+                "-Xabi-stability=",
+                "ABI-stability",
+                List.of("stable", "unstable"),
+                "Use `-Xabi-stability=stable` or `-Xabi-stability=unstable`, or remove"
+                        + " the argument.");
+    }
+
     private static String require(
             KotlinCompilationScope scope,
             String argument,
