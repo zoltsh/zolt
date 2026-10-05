@@ -65,6 +65,7 @@ public final class KotlinCompileOptionsPolicy {
                 mappedArguments.languageVersion(),
                 mappedArguments.apiVersion(),
                 mappedArguments.jvmDefaultMode(),
+                mappedArguments.explicitApiMode(),
                 mappedArguments.optIns(),
                 null);
     }

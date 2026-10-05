@@ -49,6 +49,9 @@ final class KotlinCompilerInvocationArguments {
         if (!options.jvmDefaultMode().isEmpty()) {
             arguments.add("-jvm-default=" + options.jvmDefaultMode());
         }
+        if (!options.explicitApiMode().isEmpty()) {
+            arguments.add("-Xexplicit-api=" + options.explicitApiMode());
+        }
         options.optIns().forEach(optIn -> arguments.add("-opt-in=" + optIn));
         List<Path> compilationEntries = entries(compilationClasspath);
         if (!compilationEntries.isEmpty()) {

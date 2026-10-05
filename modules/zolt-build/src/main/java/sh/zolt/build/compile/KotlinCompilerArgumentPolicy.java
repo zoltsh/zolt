@@ -24,6 +24,7 @@ final class KotlinCompilerArgumentPolicy {
         String languageVersion = "";
         String apiVersion = "";
         String jvmDefaultMode = "";
+        String explicitApiMode = "";
         List<String> optIns = new ArrayList<>();
         for (int index = 0; index < arguments.size(); index++) {
             String argument = arguments.get(index);
@@ -76,6 +77,11 @@ final class KotlinCompilerArgumentPolicy {
                             throw duplicateArgument(scope, argument);
                         }
                         jvmDefaultMode = jvmDefaultArgument(scope, argument);
+                    } else if (argument.startsWith("-Xexplicit-api=")) {
+                        if (!explicitApiMode.isEmpty()) {
+                            throw duplicateArgument(scope, argument);
+                        }
+                        explicitApiMode = explicitApiArgument(scope, argument);
                     } else if (argument.startsWith("-opt-in=")) {
                         String optIn = optInArgument(scope, argument);
                         if (optIns.contains(optIn)) {
@@ -103,6 +109,7 @@ final class KotlinCompilerArgumentPolicy {
                 languageVersion,
                 apiVersion,
                 jvmDefaultMode,
+                explicitApiMode,
                 List.copyOf(optIns));
     }
 
@@ -117,6 +124,21 @@ final class KotlinCompilerArgumentPolicy {
                             + " contains invalid Kotlin JVM-default argument `" + argument + "`",
                     "Use `-jvm-default=enable`, `-jvm-default=no-compatibility`, or"
                             + " `-jvm-default=disable`, or remove the argument.");
+        }
+        return value;
+    }
+
+    private static String explicitApiArgument(
+            KotlinCompilationScope scope,
+            String argument) {
+        String value = argument.substring("-Xexplicit-api=".length());
+        if (!List.of("strict", "warning", "disable").contains(value)) {
+            throw unsupported(
+                    scope,
+                    argumentsPath(scope)
+                            + " contains invalid Kotlin explicit-API argument `" + argument + "`",
+                    "Use `-Xexplicit-api=strict`, `-Xexplicit-api=warning`, or"
+                            + " `-Xexplicit-api=disable`, or remove the argument.");
         }
         return value;
     }
@@ -191,8 +213,8 @@ final class KotlinCompilerArgumentPolicy {
                 "Use only a compatible, duplicate-free subset of `-parameters`, `-nowarn`,"
                         + " `-Werror`, `-Wextra`, `-progressive`, `-language-version <major.minor>`,"
                         + " `-api-version <major.minor>`, and one `-jvm-default=<mode>`, plus repeatable"
-                        + " `-opt-in=<qualified.annotation.Name>` arguments; otherwise keep this source"
-                        + " set Java-only.");
+                        + " `-opt-in=<qualified.annotation.Name>` arguments and one"
+                        + " `-Xexplicit-api=<mode>`; otherwise keep this source set Java-only.");
     }
 
     private static String argumentsPath(KotlinCompilationScope scope) {
@@ -219,6 +241,7 @@ final class KotlinCompilerArgumentPolicy {
             String languageVersion,
             String apiVersion,
             String jvmDefaultMode,
+            String explicitApiMode,
             List<String> optIns) {
     }
 }

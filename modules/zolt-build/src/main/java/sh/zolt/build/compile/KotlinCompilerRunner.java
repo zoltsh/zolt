@@ -127,10 +127,11 @@ public final class KotlinCompilerRunner {
             String languageVersion,
             String apiVersion,
             String jvmDefaultMode,
+            String explicitApiMode,
             List<String> optIns,
             Path friendPath) {
         public Options(String release, String moduleName, boolean hostPlatformApi) {
-            this(release, moduleName, hostPlatformApi, !hostPlatformApi, false, false, false, false, false, "", "", "", List.of(), null);
+            this(release, moduleName, hostPlatformApi, !hostPlatformApi, false, false, false, false, false, "", "", "", "", List.of(), null);
         }
 
         public Options(
@@ -138,7 +139,7 @@ public final class KotlinCompilerRunner {
                 String moduleName,
                 boolean hostPlatformApi,
                 boolean useJdkRelease) {
-            this(release, moduleName, hostPlatformApi, useJdkRelease, false, false, false, false, false, "", "", "", List.of(), null);
+            this(release, moduleName, hostPlatformApi, useJdkRelease, false, false, false, false, false, "", "", "", "", List.of(), null);
         }
 
         public Options(
@@ -147,7 +148,7 @@ public final class KotlinCompilerRunner {
                 boolean hostPlatformApi,
                 boolean useJdkRelease,
                 boolean javaParameters) {
-            this(release, moduleName, hostPlatformApi, useJdkRelease, javaParameters, false, false, false, false, "", "", "", List.of(), null);
+            this(release, moduleName, hostPlatformApi, useJdkRelease, javaParameters, false, false, false, false, "", "", "", "", List.of(), null);
         }
 
         public Options(
@@ -170,6 +171,7 @@ public final class KotlinCompilerRunner {
                     "",
                     "",
                     "",
+                    "",
                     List.of(),
                     null);
         }
@@ -180,7 +182,7 @@ public final class KotlinCompilerRunner {
                 boolean hostPlatformApi,
                 boolean useJdkRelease,
                 Path friendPath) {
-            this(release, moduleName, hostPlatformApi, useJdkRelease, false, false, false, false, false, "", "", "", List.of(), friendPath);
+            this(release, moduleName, hostPlatformApi, useJdkRelease, false, false, false, false, false, "", "", "", "", List.of(), friendPath);
         }
 
         /** Compatibility constructor for callers that predate mapped Kotlin warning policy. */
@@ -201,6 +203,7 @@ public final class KotlinCompilerRunner {
                     false,
                     false,
                     false,
+                    "",
                     "",
                     "",
                     "",
@@ -230,6 +233,7 @@ public final class KotlinCompilerRunner {
                     "",
                     "",
                     "",
+                    "",
                     List.of(),
                     friendPath);
         }
@@ -240,6 +244,7 @@ public final class KotlinCompilerRunner {
             languageVersion = optional(languageVersion);
             apiVersion = optional(apiVersion);
             jvmDefaultMode = optional(jvmDefaultMode);
+            explicitApiMode = optional(explicitApiMode);
             optIns = copyOptIns(optIns);
             friendPath = friendPath == null ? null : friendPath.normalize();
             if (friendPath != null && friendPath.toString().contains(",")) {
@@ -268,6 +273,7 @@ public final class KotlinCompilerRunner {
                     languageVersion,
                     apiVersion,
                     jvmDefaultMode,
+                    explicitApiMode,
                     optIns,
                     Objects.requireNonNull(path, "Kotlin friend path is required."));
         }
