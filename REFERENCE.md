@@ -780,10 +780,10 @@ disable the unchanged-input skip.
 For a Kotlin-bearing source set, compiler arguments may contain the standalone
 flags `-parameters`, `-nowarn`, `-Werror`, `-Wextra`, `-progressive`,
 `-Xcontext-parameters`, `-Xcontext-sensitive-resolution`, and `-Xwhen-guards`,
-plus `-Xnested-type-aliases`, `-Xannotation-target-all`, and
-`-Xjvm-expose-boxed`, and one each of the paired Kotlin arguments
-`-language-version <major.minor>` and `-api-version <major.minor>`. Distinct,
-repeatable
+plus `-Xnested-type-aliases`, `-Xannotation-target-all`,
+`-Xjvm-expose-boxed`, and `-Xconsistent-data-class-copy-visibility`. One each
+of the paired Kotlin arguments `-language-version <major.minor>` and
+`-api-version <major.minor>` is also accepted. Distinct, repeatable
 `-opt-in=<qualified.annotation.Name>` arguments are also accepted. One
 `-jvm-default=<mode>` argument may also select `enable`, `no-compatibility`, or
 `disable`, and one `-Xexplicit-api=<mode>` argument may select `strict`,
@@ -811,6 +811,7 @@ args = [
   "-Xannotation-target-all",
   "-Xannotation-default-target=param-property",
   "-Xjvm-expose-boxed",
+  "-Xconsistent-data-class-copy-visibility",
   "-language-version", "1.9",
   "-api-version", "1.8",
   "-jvm-default=no-compatibility",
@@ -864,8 +865,9 @@ merely because the flag is present. Extra warnings, progressive mode, context
 parameters, context-sensitive resolution, when guards, nested type aliases,
 annotation defaulting and all-target annotations, language/API version pairs,
 boxed value-class exposure, JVM-default modes, explicit-API modes,
-string-concatenation modes, lambda-generation modes, SAM-conversion modes,
-diagnostic warning levels, and opt-ins go only to `kotlinc`.
+data-class copy visibility, string-concatenation modes, lambda-generation modes,
+SAM-conversion modes, diagnostic warning levels, and opt-ins go only to
+`kotlinc`.
 `-Xnested-type-aliases` enables Kotlin 2.2's Beta support for aliases declared
 inside classes, interfaces, and objects. Such aliases cannot use type parameters
 from an enclosing declaration; they must declare independent type parameters
@@ -899,6 +901,15 @@ representation and existing mangled declarations, so Kotlin call sites and
 runtime representation remain unchanged. Use declaration-level
 `@JvmExposeBoxed` when only selected APIs should be exposed; use the compiler
 flag when the whole source set needs the Java-facing surface.
+`-Xconsistent-data-class-copy-visibility` applies
+`@ConsistentCopyVisibility` to every data class in the source-set module. With
+Kotlin 2.2.0, a data class whose primary constructor is non-public otherwise
+emits a migration warning while retaining a public generated `copy()` method;
+the flag makes `copy()` match the constructor's Kotlin visibility and removes
+that warning. This can change the module's binary API. The selected compiler's
+migration phase remains authoritative: a future Kotlin release may make the
+consistent behavior the default and render this flag unnecessary. Use the
+declaration annotation when only selected data classes should migrate.
 `-Xstring-concat=inline` emits concatenation through `StringBuilder`.
 `-Xstring-concat=indy` uses `StringConcatFactory.makeConcat`, while
 `indy-with-constants` uses `StringConcatFactory.makeConcatWithConstants`. The
@@ -930,18 +941,20 @@ or enforcement, a diagnostic warning level, progressive mode, version pairs,
 context parameters, context-sensitive resolution, JVM-default mode,
 explicit-API mode, when-guards, nested-type-aliases configuration, annotation
 default-target mode, all-target annotation support, string-concatenation mode,
-lambda-generation mode, SAM-conversion mode, boxed value-class exposure, or
-opt-ins invalidates reuse for that source set. Zolt validates warning-level
-syntax and duplicate names; the selected Kotlin compiler still determines
+lambda-generation mode, SAM-conversion mode, boxed value-class exposure,
+data-class copy visibility, or opt-ins invalidates reuse for that source set.
+Zolt validates warning-level syntax and duplicate names; the selected Kotlin
+compiler still determines
 supported diagnostic names, warnings, extra and progressive checks, version
 values, language/API combinations, JVM-default and explicit-API modes,
 string-concatenation, lambda-generation, and SAM-conversion modes,
 context-parameter, context-sensitive-resolution, when-guards,
-nested-type-aliases, annotation-target, and boxed value-class behavior. Main
-and test annotation and boxed-exposure settings are independent, and changing
-any of them performs a cleaned full compilation of that source set so obsolete
-placement, constructors, or bridges cannot survive. The compiler also decides
-whether an opt-in annotation exists and applies. Other custom compiler
+nested-type-aliases, annotation-target, boxed value-class, and data-class copy
+visibility behavior. Main and test annotation, boxed-exposure, and
+copy-visibility settings are independent. Changing any of them performs a
+cleaned full compilation of that source set so obsolete placement,
+constructors, bridges, or method visibility cannot survive. The compiler also
+decides whether an opt-in annotation exists and applies. Other custom compiler
 arguments remain unsupported for Kotlin-bearing source sets because javac flags
 cannot in general be forwarded safely to `kotlinc`.
 
