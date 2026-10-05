@@ -5,14 +5,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static sh.zolt.cli.CliTestSupport.execute;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
 import java.util.Map;
-import java.util.jar.JarOutputStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import sh.zolt.cli.CliTestRepository;
@@ -22,7 +20,6 @@ import sh.zolt.cli.build.KotlinCompilerCliFixture;
 
 /** Canonical CLI/worker proof for Protobuf-owned Kotlin test sources. */
 final class ProtobufGeneratedKotlinTestIntegrationTest {
-    private static final String PROTOC_VERSION = "1.0.0";
     private static final String GENERATED_ROOT =
             "target/generated/test-sources/protobuf/com/example_$/protocol";
 
@@ -37,7 +34,7 @@ final class ProtobufGeneratedKotlinTestIntegrationTest {
         try (CliTestRepository repository = CliTestRepository.start()) {
             KotlinCompilerCliFixture.publish(repository);
             JUnitConsoleCliFixture.publish(repository);
-            publishProtoc(repository);
+            ProtobufKotlinCliFixture.publish(repository);
             writeProject(project, repository.baseUri());
 
             CommandResult resolve = execute(
@@ -141,7 +138,7 @@ final class ProtobufGeneratedKotlinTestIntegrationTest {
                 version = "%s"
 
                 [generated.tools.protobuf]
-                protocCoordinate = "com.example:protoc-stub"
+                protocCoordinate = "%s"
                 protocVersion = "%s"
 
                 [generated.test.protocol]
@@ -164,7 +161,8 @@ final class ProtobufGeneratedKotlinTestIntegrationTest {
                 """.formatted(
                 Runtime.version().feature(),
                 KotlinCompilerCliFixture.KOTLIN_VERSION,
-                PROTOC_VERSION,
+                ProtobufKotlinCliFixture.COORDINATE,
+                ProtobufKotlinCliFixture.VERSION,
                 repository,
                 KotlinCompilerCliFixture.KOTLIN_VERSION,
                 JUnitConsoleCliFixture.VERSION));
@@ -182,27 +180,4 @@ final class ProtobufGeneratedKotlinTestIntegrationTest {
                 """.formatted(addedReply ? "message AddedReply {}" : ""));
     }
 
-    private static void publishProtoc(CliTestRepository repository) throws IOException {
-        repository.addArtifact(
-                "com.example",
-                "protoc-stub",
-                PROTOC_VERSION,
-                """
-                <project>
-                  <modelVersion>4.0.0</modelVersion>
-                  <groupId>com.example</groupId>
-                  <artifactId>protoc-stub</artifactId>
-                  <version>%s</version>
-                </project>
-                """.formatted(PROTOC_VERSION),
-                emptyJar());
-    }
-
-    private static byte[] emptyJar() throws IOException {
-        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        try (JarOutputStream ignored = new JarOutputStream(bytes)) {
-            // A valid empty archive is sufficient because the typed generator is in-process.
-        }
-        return bytes.toByteArray();
-    }
 }
