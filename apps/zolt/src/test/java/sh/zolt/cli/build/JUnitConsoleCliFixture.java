@@ -8,14 +8,14 @@ import org.junit.platform.console.ConsoleLauncher;
 import sh.zolt.cli.CliTestRepository;
 
 /** Publishes the real JUnit console used by CLI integration tests. */
-final class JUnitConsoleCliFixture {
-    static final String VERSION = "1.14.4";
+public final class JUnitConsoleCliFixture {
+    public static final String VERSION = "1.14.4";
     static final String JUPITER_VERSION = "5.14.4";
 
     private JUnitConsoleCliFixture() {
     }
 
-    static void publish(CliTestRepository repository) throws IOException {
+    public static void publish(CliTestRepository repository) throws IOException {
         repository.addArtifact(
                 "org.junit.platform",
                 "junit-platform-console-standalone",
