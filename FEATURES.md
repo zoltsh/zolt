@@ -46,7 +46,8 @@ zolt run
   context-parameter and context-sensitive-resolution previews; warnings may
   likewise be expanded, enforced, suppressed, or adjusted by diagnostic per
   source set. Kotlin/JVM string concatenation may use inline `StringBuilder` or
-  either invokedynamic scheme per source set. Unsupported language and compiler
+  either invokedynamic scheme per source set; lambda generation may likewise
+  select anonymous classes or invokedynamic. Unsupported language and compiler
   combinations fail closed.
 - **Dependencies.** Use API, implementation, runtime, provided, development,
   test, and annotation-processor lanes under one `[dependencies]` namespace.

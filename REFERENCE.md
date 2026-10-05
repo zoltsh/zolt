@@ -786,7 +786,8 @@ the paired Kotlin arguments `-language-version <major.minor>` and
 `-jvm-default=<mode>` argument may also select `enable`, `no-compatibility`, or
 `disable`, and one `-Xexplicit-api=<mode>` argument may select `strict`,
 `warning`, or `disable`. One `-Xstring-concat=<mode>` argument may select
-`inline`, `indy`, or `indy-with-constants`. Distinct, repeatable
+`inline`, `indy`, or `indy-with-constants`, and one `-Xlambdas=<mode>` argument
+may select `class` or `indy`. Distinct, repeatable
 `-Xwarning-level=DIAGNOSTIC_NAME:<level>` arguments may set an uppercase Kotlin
 diagnostic to `error`, `warning`, or `disabled`. The standalone and version
 options must be spelled as separate array entries and may appear at most once;
@@ -806,6 +807,7 @@ args = [
   "-jvm-default=no-compatibility",
   "-Xexplicit-api=strict",
   "-Xstring-concat=indy-with-constants",
+  "-Xlambdas=indy",
   "-Xwarning-level=REDUNDANT_VISIBILITY_MODIFIER:disabled",
   "-opt-in=kotlin.ExperimentalStdlibApi",
 ]
@@ -846,12 +848,19 @@ for resolving unqualified enum entries and sealed-class members when the
 surrounding context establishes the expected type. Extra warnings, progressive
 mode, context parameters, context-sensitive resolution, language/API version
 pairs, JVM-default modes, explicit-API modes, string-concatenation modes,
-diagnostic warning levels, and opt-ins go only to `kotlinc`.
+lambda-generation modes, diagnostic warning levels, and opt-ins go only to
+`kotlinc`.
 `-Xstring-concat=inline` emits concatenation through `StringBuilder`.
 `-Xstring-concat=indy` uses `StringConcatFactory.makeConcat`, while
 `indy-with-constants` uses `StringConcatFactory.makeConcatWithConstants`. The
 invokedynamic modes require an effective JVM target of 9 or newer; the selected
 Kotlin compiler enforces that target boundary.
+`-Xlambdas=class` emits ordinary synthetic classes for Kotlin lambdas, while
+`-Xlambdas=indy` uses `LambdaMetafactory` and avoids those class files. The indy
+form produces lighter output but its lambdas are not serializable unless marked
+`@JvmSerializableLambda`, do not work with Kotlin's experimental `reflect()`
+API, and have a less descriptive `toString()`. Changing modes performs a
+cleaned full compilation so obsolete synthetic lambda classes do not survive.
 `-jvm-default=enable` emits interface default methods plus
 compatibility `DefaultImpls`, `no-compatibility` emits only interface default
 methods, and `disable` emits abstract interface methods plus `DefaultImpls`.
@@ -862,15 +871,16 @@ visibility and return types on public API declarations compilation errors;
 off. Main and test arguments are independent, and changing warning suppression
 or enforcement, a diagnostic warning level, progressive mode, version pairs,
 context parameters, context-sensitive resolution, JVM-default mode,
-explicit-API mode, string-concatenation mode, or opt-ins invalidates reuse for
-that source set. Zolt validates warning-level syntax and duplicate names; the
-selected Kotlin compiler still determines supported diagnostic names, warnings,
-extra and progressive checks, version values, language/API combinations,
-JVM-default and explicit-API modes, string-concatenation modes,
-context-parameter behavior, and context-sensitive-resolution behavior. It also
-decides whether an opt-in annotation exists and applies. Other custom compiler
-arguments remain unsupported for Kotlin-bearing source sets because javac flags
-cannot in general be forwarded safely to `kotlinc`.
+explicit-API mode, string-concatenation mode, lambda-generation mode, or opt-ins
+invalidates reuse for that source set. Zolt validates warning-level syntax and
+duplicate names; the selected Kotlin compiler still determines supported
+diagnostic names, warnings, extra and progressive checks, version values,
+language/API combinations, JVM-default and explicit-API modes,
+string-concatenation and lambda-generation modes, context-parameter behavior,
+and context-sensitive-resolution behavior. It also decides whether an opt-in
+annotation exists and applies. Other custom compiler arguments remain
+unsupported for Kotlin-bearing source sets because javac flags cannot in
+general be forwarded safely to `kotlinc`.
 
 Kotlin compiler module identity is explicit when compatibility with another
 build must be preserved:
