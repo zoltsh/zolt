@@ -98,6 +98,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.use14InlineClassesManglingScheme()) {
             arguments.add("-Xuse-14-inline-classes-mangling-scheme");
         }
+        if (options.enhancedCoroutinesDebugging()) {
+            arguments.add("-Xenhanced-coroutines-debugging");
+        }
         if (options.sanitizeParentheses()) {
             arguments.add("-Xsanitize-parentheses");
         }

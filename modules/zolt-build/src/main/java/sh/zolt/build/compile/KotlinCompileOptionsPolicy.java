@@ -80,6 +80,7 @@ public final class KotlinCompileOptionsPolicy {
                 mappedArguments.noInline(),
                 mappedArguments.useInlineScopesNumbers(),
                 mappedArguments.use14InlineClassesManglingScheme(),
+                mappedArguments.enhancedCoroutinesDebugging(),
                 mappedArguments.sanitizeParentheses(),
                 mappedArguments.multifilePartsInherit(),
                 mappedArguments.validateBytecode(),
