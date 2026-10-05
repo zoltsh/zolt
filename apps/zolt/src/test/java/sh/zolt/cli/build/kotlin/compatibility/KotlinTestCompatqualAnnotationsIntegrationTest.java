@@ -1,4 +1,4 @@
-package sh.zolt.cli.build.kotlin;
+package sh.zolt.cli.build.kotlin.compatibility;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
