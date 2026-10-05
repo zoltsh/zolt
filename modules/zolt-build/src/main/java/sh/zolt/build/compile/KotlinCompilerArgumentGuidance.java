@@ -15,6 +15,7 @@ final class KotlinCompilerArgumentGuidance {
                 + " `-Xconsistent-data-class-copy-visibility`, `-Xemit-jvm-type-annotations`,"
                 + " `-Xno-new-java-annotation-targets`, `-Xno-source-debug-extension`,"
                 + " `-Xno-unified-null-checks`,"
+                + " `-Xindy-allow-annotated-lambdas` with `-Xlambdas=indy`,"
                 + " `-Xgenerate-strict-metadata-version`,"
                 + " `-language-version <major.minor>`, `-api-version <major.minor>`, and one"
                 + " `-jvm-default=<mode>`, plus repeatable"

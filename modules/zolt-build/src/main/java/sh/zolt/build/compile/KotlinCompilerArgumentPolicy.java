@@ -54,6 +54,7 @@ final class KotlinCompilerArgumentPolicy {
                         "-Xno-new-java-annotation-targets",
                         "-Xno-source-debug-extension",
                         "-Xno-unified-null-checks",
+                        "-Xindy-allow-annotated-lambdas",
                         "-Xgenerate-strict-metadata-version" -> {
                     if (!standaloneArguments.add(argument)) {
                         throw duplicateArgument(scope, argument);
@@ -163,6 +164,14 @@ final class KotlinCompilerArgumentPolicy {
         if (standaloneArguments.contains("-nowarn") && standaloneArguments.contains("-Wextra")) {
             throw incompatibleArguments(scope, "-nowarn", "-Wextra");
         }
+        if (standaloneArguments.contains("-Xindy-allow-annotated-lambdas")
+                && !"indy".equals(lambdaMode)) {
+            throw unsupported(
+                    scope,
+                    argumentsPath(scope)
+                            + " uses `-Xindy-allow-annotated-lambdas` without `-Xlambdas=indy`",
+                    "Add `-Xlambdas=indy`, or remove the annotated-lambda compatibility flag.");
+        }
         return new MappedArguments(
                 standaloneArguments.contains("-parameters"),
                 standaloneArguments.contains("-Werror"),
@@ -182,6 +191,7 @@ final class KotlinCompilerArgumentPolicy {
                 standaloneArguments.contains("-Xno-new-java-annotation-targets"),
                 standaloneArguments.contains("-Xno-source-debug-extension"),
                 standaloneArguments.contains("-Xno-unified-null-checks"),
+                standaloneArguments.contains("-Xindy-allow-annotated-lambdas"),
                 standaloneArguments.contains("-Xgenerate-strict-metadata-version"),
                 annotationDefaultTargetMode,
                 assertionMode,
@@ -290,6 +300,7 @@ final class KotlinCompilerArgumentPolicy {
             boolean noNewJavaAnnotationTargets,
             boolean noSourceDebugExtension,
             boolean noUnifiedNullChecks,
+            boolean indyAllowAnnotatedLambdas,
             boolean generateStrictMetadataVersion,
             String annotationDefaultTargetMode,
             String assertionMode,
