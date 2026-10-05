@@ -80,6 +80,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.noSourceDebugExtension()) {
             arguments.add("-Xno-source-debug-extension");
         }
+        if (options.noUnifiedNullChecks()) {
+            arguments.add("-Xno-unified-null-checks");
+        }
         if (options.generateStrictMetadataVersion()) {
             arguments.add("-Xgenerate-strict-metadata-version");
         }
