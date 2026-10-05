@@ -796,7 +796,8 @@ select `class` or `indy`. One `-Xannotation-default-target=<mode>` argument may
 select `first-only`, `first-only-warn`, or `param-property`. One
 `-Xassertions=<mode>` argument may select `always-enable`, `always-disable`,
 `jvm`, or `legacy`. One `-Xjspecify-annotations=<mode>` argument may select
-`ignore`, `warn`, or `strict`. Distinct, repeatable
+`ignore`, `warn`, or `strict`, and one global `-Xjsr305=<mode>` argument may
+select `ignore`, `warn`, or `strict`. Distinct, repeatable
 `-Xwarning-level=DIAGNOSTIC_NAME:<level>` arguments may set an uppercase Kotlin
 diagnostic to `error`, `warning`, or `disabled`. The standalone and version
 options must be spelled as separate array entries and may appear at most once;
@@ -818,6 +819,7 @@ args = [
   "-Xannotation-default-target=param-property",
   "-Xassertions=jvm",
   "-Xjspecify-annotations=strict",
+  "-Xjsr305=strict",
   "-Xjvm-expose-boxed",
   "-Xconsistent-data-class-copy-visibility",
   "-Xemit-jvm-type-annotations",
@@ -878,8 +880,8 @@ annotation defaulting and all-target annotations, language/API version pairs,
 boxed value-class exposure, JVM-default modes, explicit-API modes,
 data-class copy visibility, string-concatenation modes, lambda-generation modes,
 JVM type-annotation emission, SAM-conversion modes, diagnostic warning levels,
-Java annotation-target compatibility, assertion modes, JSpecify nullness
-severity, and opt-ins go only to `kotlinc`.
+Java annotation-target compatibility, assertion modes, JSpecify and JSR-305
+nullness severity, and opt-ins go only to `kotlinc`.
 `-Xmulti-dollar-interpolation` enables Kotlin 2.1's preview syntax when the
 source set pins `-language-version 2.1`. Kotlin 2.2 promotes the syntax to
 Stable and accepts it without the flag. Prefixing a regular or multiline string
@@ -976,6 +978,18 @@ annotations artifact, so the annotation declarations must come from the source
 set or its declared dependencies. Configure the mode independently in
 `[compiler].args` and `[compiler.test].args`; changing it invalidates and
 cleanly recompiles the matching output.
+`-Xjsr305=strict` enables full type enhancement and reports errors for
+inappropriate uses of non-`@UnderMigration` custom JSR-305 qualifier nicknames
+and defaults. `warn` reports those mismatches as warnings without making the
+enhanced types authoritative, while `ignore` ignores those custom qualifiers;
+the selected Kotlin 2.2.0 compiler defaults to `warn`. Kotlin's built-in
+`javax.annotation.Nonnull`, `javax.annotation.Nullable`, and
+`javax.annotation.CheckForNull` handling remains enabled in every mode and is
+not weakened by this option. Zolt's bounded form
+does not admit the compiler's `under-migration:` or per-annotation `@name:`
+overrides, and Zolt does not inject a JSR-305 annotations artifact. Configure
+the global mode independently in `[compiler].args` and `[compiler.test].args`;
+changing it invalidates and cleanly recompiles the matching output.
 `-Xstring-concat=inline` emits concatenation through `StringBuilder`.
 `-Xstring-concat=indy` uses `StringConcatFactory.makeConcat`, while
 `indy-with-constants` uses `StringConcatFactory.makeConcatWithConstants`. The
@@ -1007,10 +1021,9 @@ or enforcement, a diagnostic warning level, progressive mode, version pairs,
 context parameters, context-sensitive resolution, JVM-default mode,
 explicit-API mode, when-guards, nested-type-aliases configuration, annotation
 default-target mode, all-target annotation support, multi-dollar interpolation,
-string-concatenation mode,
-lambda-generation mode, SAM-conversion mode, boxed value-class exposure,
-data-class copy visibility, JSpecify nullness severity, or opt-ins invalidates
-reuse for that source set.
+string-concatenation mode, lambda-generation mode, SAM-conversion mode, boxed
+value-class exposure, data-class copy visibility, JSpecify or JSR-305 nullness
+severity, or opt-ins invalidates reuse for that source set.
 Zolt validates warning-level syntax and duplicate names; the selected Kotlin
 compiler still determines
 supported diagnostic names, warnings, extra and progressive checks, version
