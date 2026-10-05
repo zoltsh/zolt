@@ -59,6 +59,7 @@ public final class KotlinCompileOptionsPolicy {
                 !hostPlatformApi && jdkFeature >= 9,
                 mappedArguments.javaParameters(),
                 mappedArguments.warningsAsErrors(),
+                mappedArguments.extraWarnings(),
                 mappedArguments.progressiveMode(),
                 mappedArguments.languageVersion(),
                 mappedArguments.apiVersion(),

@@ -35,6 +35,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.warningsAsErrors()) {
             arguments.add("-Werror");
         }
+        if (options.extraWarnings()) {
+            arguments.add("-Wextra");
+        }
         if (options.progressiveMode()) {
             arguments.add("-progressive");
         }

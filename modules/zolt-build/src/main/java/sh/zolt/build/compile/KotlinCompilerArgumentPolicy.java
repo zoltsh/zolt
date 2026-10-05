@@ -18,6 +18,7 @@ final class KotlinCompilerArgumentPolicy {
                 : compiler.testArgs();
         boolean javaParameters = false;
         boolean warningsAsErrors = false;
+        boolean extraWarnings = false;
         boolean progressiveMode = false;
         String languageVersion = "";
         String apiVersion = "";
@@ -37,6 +38,12 @@ final class KotlinCompilerArgumentPolicy {
                         throw duplicateArgument(scope, argument);
                     }
                     warningsAsErrors = true;
+                }
+                case "-Wextra" -> {
+                    if (extraWarnings) {
+                        throw duplicateArgument(scope, argument);
+                    }
+                    extraWarnings = true;
                 }
                 case "-progressive" -> {
                     if (progressiveMode) {
@@ -77,6 +84,7 @@ final class KotlinCompilerArgumentPolicy {
         return new MappedArguments(
                 javaParameters,
                 warningsAsErrors,
+                extraWarnings,
                 progressiveMode,
                 languageVersion,
                 apiVersion,
@@ -155,7 +163,7 @@ final class KotlinCompilerArgumentPolicy {
         return unsupported(
                 scope,
                 argumentsPath(scope) + " contains unsupported compiler argument `" + argument + "`",
-                "Use only a duplicate-free subset of `-parameters`, `-Werror`,"
+                "Use only a duplicate-free subset of `-parameters`, `-Werror`, `-Wextra`,"
                         + " `-progressive`, `-language-version <major.minor>`,"
                         + " `-api-version <major.minor>`, and one `-jvm-default=<mode>`, plus repeatable"
                         + " `-opt-in=<qualified.annotation.Name>` arguments; otherwise keep this source"
@@ -180,6 +188,7 @@ final class KotlinCompilerArgumentPolicy {
     record MappedArguments(
             boolean javaParameters,
             boolean warningsAsErrors,
+            boolean extraWarnings,
             boolean progressiveMode,
             String languageVersion,
             String apiVersion,
