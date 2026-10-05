@@ -779,7 +779,7 @@ disable the unchanged-input skip.
 
 For a Kotlin-bearing source set, compiler arguments may contain the standalone
 flags `-parameters`, `-nowarn`, `-Werror`, `-Wextra`,
-`-Xreport-all-warnings`, `-progressive`,
+`-Xreport-all-warnings`, `-Xrender-internal-diagnostic-names`, `-progressive`,
 `-Xcontext-parameters`, `-Xcontext-sensitive-resolution`, and `-Xwhen-guards`,
 plus `-Xmulti-dollar-interpolation`, `-Xnon-local-break-continue`,
 `-Xnested-type-aliases`, `-Xannotation-target-all`,
@@ -828,6 +828,7 @@ args = [
   "-parameters",
   "-Wextra",
   "-Xreport-all-warnings",
+  "-Xrender-internal-diagnostic-names",
   "-progressive",
   "-Xcontext-parameters",
   "-Xcontext-sensitive-resolution",
@@ -901,6 +902,18 @@ deprecation warning from another declaration. It does not promote warnings to
 errors or intentionally change successful class output. Configure it
 independently for main and test source sets; changing it invalidates the matching
 source set so the selected diagnostics policy applies on the next compilation.
+`-Xrender-internal-diagnostic-names` asks `kotlinc` to prefix diagnostics with
+their bracketed internal identifiers. In the qualified Kotlin 2.2.0 case, those
+identifiers include `[DEPRECATION]` and `[RETURN_TYPE_MISMATCH]`. This is a
+diagnostic-presentation option: successful class output is byte-identical with
+and without it. It is especially useful for discovering the uppercase names
+accepted by `-Xwarning-level=DIAGNOSTIC_NAME:<level>`; combine it with
+`-Xreport-all-warnings` when warning names must remain visible alongside
+compilation errors. The selected compiler remains authoritative for identifiers,
+which may evolve between compiler versions. The flag affects `kotlinc`, not
+authored Java diagnostics from `javac`. Configure it independently for main and
+test source sets; changing it invalidates the matching source set so the selected
+presentation policy applies on the next compilation.
 Diagnostic-specific
 `-Xwarning-level` rules go only to `kotlinc` and may be combined with those
 module-wide policies: `error` promotes one warning, `warning` preserves or
@@ -934,8 +947,9 @@ exception compatibility, strict metadata-version semantics, annotated-lambda
 indy compatibility, backend optimization and method-inlining control,
 inline-scope debug numbering, enhanced coroutine debugging, parentheses
 sanitization, legacy inline-class mangling, multifile-part inheritance,
-complete warning reporting, generated-bytecode validation, annotations in
-metadata, metadata type-table serialization, ABI-stability marking,
+complete warning reporting, internal diagnostic-name rendering,
+generated-bytecode validation, annotations in metadata, metadata type-table
+serialization, ABI-stability marking,
 unstable-dependency opt-in, and opt-ins go only to `kotlinc`.
 `-Xmulti-dollar-interpolation` enables Kotlin 2.1's preview syntax when the
 source set pins `-language-version 2.1`. Kotlin 2.2 promotes the syntax to
@@ -1271,8 +1285,9 @@ JSpecify, JSR-305, or package-specific Java nullness severity, legacy null-check
 exceptions, strict metadata-version semantics, annotations in metadata, backend
 optimization, method inlining, inline-scope debug numbering, JVM-name
 parentheses sanitization, legacy inline-class mangling, multifile-part
-inheritance, complete warning reporting, generated-bytecode validation, or
-opt-ins invalidates reuse for that source set.
+inheritance, complete warning reporting, internal diagnostic-name rendering,
+generated-bytecode validation, or opt-ins invalidates reuse for that source
+set.
 Zolt validates warning-level syntax and duplicate names; the selected Kotlin
 compiler still determines
 supported diagnostic names, warnings, extra and progressive checks, version
@@ -1280,7 +1295,7 @@ values, language/API combinations, JVM-default and explicit-API modes,
 string-concatenation, lambda-generation, annotated-lambda indy compatibility,
 backend optimization, method inlining, inline-scope debug numbering, legacy
 inline-class mangling, complete warning reporting, generated-bytecode
-validation,
+validation, internal diagnostic-name rendering,
 JVM-name sanitization, multifile-part inheritance, and SAM-conversion modes,
 context-parameter, context-sensitive-resolution, when-guards,
 nested-type-aliases, multi-dollar-interpolation, non-local loop control,
