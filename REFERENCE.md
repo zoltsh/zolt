@@ -787,6 +787,7 @@ plus `-Xmulti-dollar-interpolation`, `-Xnon-local-break-continue`,
 `-Xemit-jvm-type-annotations`, plus `-Xno-new-java-annotation-targets`,
 `-Xno-source-debug-extension`, `-Xno-unified-null-checks`, `-Xno-optimize`,
 `-Xno-inline`, `-Xuse-inline-scopes-numbers`,
+`-Xenhanced-coroutines-debugging`,
 `-Xuse-14-inline-classes-mangling-scheme`, `-Xsanitize-parentheses`,
 `-Xmultifile-parts-inherit`,
 `-Xvalidate-bytecode`,
@@ -844,6 +845,7 @@ args = [
   "-Xno-optimize",
   "-Xno-inline",
   "-Xuse-inline-scopes-numbers",
+  "-Xenhanced-coroutines-debugging",
   "-Xuse-14-inline-classes-mangling-scheme",
   "-Xsanitize-parentheses",
   "-Xmultifile-parts-inherit",
@@ -921,9 +923,10 @@ nullness severity, package-specific Java nullability severity, source-debug
 annotation emission, legacy null-check exception compatibility, strict
 metadata-version semantics, annotated-lambda indy compatibility, backend
 optimization and method-inlining control, inline-scope debug numbering, JVM-name
-parentheses sanitization, legacy inline-class mangling, multifile-part
-inheritance, complete warning reporting, generated-bytecode validation,
-annotations in metadata, and opt-ins go only to `kotlinc`.
+enhanced coroutine debugging, parentheses sanitization, legacy inline-class
+mangling, multifile-part inheritance, complete warning reporting,
+generated-bytecode validation, annotations in metadata, and opt-ins go only to
+`kotlinc`.
 `-Xmulti-dollar-interpolation` enables Kotlin 2.1's preview syntax when the
 source set pins `-language-version 2.1`. Kotlin 2.2 promotes the syntax to
 Stable and accepts it without the flag. Prefixing a regular or multiline string
@@ -1052,6 +1055,17 @@ change. Debuggers, profilers, coverage agents, and other bytecode tools can
 observe those names, and the selected compiler remains authoritative for the
 numbering format. Configure the flag independently for main and test source
 sets; changing it invalidates and cleanly recompiles the matching output.
+`-Xenhanced-coroutines-debugging` asks the selected Kotlin compiler to add
+synthetic local-variable markers for generated coroutine control flow. In the
+qualified Kotlin 2.2.0 case, the containing file class gains `$ecd$...` markers
+for continuation checks, the state-machine dispatch, result checks, suspension,
+and unreachable regions, plus a `GeneratedCodeMarkers.kt` source-debug mapping.
+The generated continuation class stayed byte-identical and the executed result
+was unchanged in that case, but debuggers, profilers, coverage agents, and other
+bytecode tools can observe the added metadata. The selected compiler remains
+authoritative for marker names, placement, and line mappings. Configure the flag
+independently for main and test source sets; changing it invalidates and cleanly
+recompiles the matching output.
 `-Xuse-14-inline-classes-mangling-scheme` restores the JVM symbol-mangling
 algorithm used by Kotlin 1.4.0 for declarations whose signatures contain inline
 or value classes. In the qualified Kotlin 2.2.0 case, a function with an
