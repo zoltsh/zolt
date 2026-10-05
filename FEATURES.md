@@ -79,7 +79,7 @@ zolt coverage
 - **Micronaut.** Documented HTTP application and annotation-processor examples.
 - **Vert.x.** Documented HTTP and PostgreSQL application examples.
 - **OpenAPI.** Locked tooling and generated Java or Kotlin sources.
-- **Protobuf.** Protobuf and gRPC generated Java sources.
+- **Protobuf.** Protobuf and gRPC generated Java or Kotlin sources.
 - **Exec.** Declared process or JVM generation steps with typed inputs, outputs,
   ordering, and cache policy.
 
