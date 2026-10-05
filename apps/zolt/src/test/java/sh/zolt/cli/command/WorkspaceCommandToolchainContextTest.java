@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.build.testruntime.TestRunService;
 import sh.zolt.doctor.JdkChecker;
+import sh.zolt.error.ActionableException;
 import sh.zolt.framework.FrameworkTestRunner;
 import sh.zolt.resolve.ResolveService;
 import sh.zolt.workspace.WorkspaceConfigException;
@@ -231,6 +232,69 @@ final class WorkspaceCommandToolchainContextTest {
         assertEquals(
                 lower.getMessage().replace(lowerFirst.toString(), "<root>"),
                 higher.getMessage().replace(higherFirst.toString(), "<root>"));
+    }
+
+    @Test
+    void previewDependencyRequiresMatchingWorkspaceTestRuntime()
+            throws IOException {
+        Path root = tempDir.resolve("preview-runtime-workspace");
+        Files.createDirectories(root);
+        int feature = Integer.parseInt(currentJavaVersion());
+        Files.writeString(root.resolve("zolt.toml"), """
+                [workspace]
+                name = "preview-runtime-workspace"
+
+                [workspace.members]
+                include = ["modules/library", "apps/application"]
+
+                [toolchain.java]
+                version = %d
+                features = []
+                policy = "allow-system"
+
+                [toolchain.java.test]
+                version = %d
+                """.formatted(feature, feature + 1));
+        writeMember(
+                root.resolve("modules/library"),
+                "library",
+                """
+
+                [compiler]
+                args = ["-Xjvm-enable-preview"]
+                """);
+        writeMember(
+                root.resolve("apps/application"),
+                "application",
+                """
+
+                [dependencies]
+                "com.example:library" = { workspace = true }
+                """);
+        Files.writeString(root.resolve("zolt.lock"), "version = 7\n");
+        Workspace workspace = capturedWorkspace(root);
+        List<JdkChecker> runtimeCheckers = new ArrayList<>();
+        CommandToolchainOptions.WorkspaceCommandToolchains toolchains =
+                options().workspaceTestToolchains(
+                        (compileChecker, runtimeChecker) -> {
+                            runtimeCheckers.add(runtimeChecker);
+                            return testRunService(compileChecker, runtimeChecker);
+                        },
+                        "test");
+        var application = workspace.members().stream()
+                .filter(member -> member.path().equals("apps/application"))
+                .findFirst()
+                .orElseThrow();
+        toolchains.testRunServices().forMember(workspace, application);
+
+        ActionableException exception = assertThrows(
+                ActionableException.class,
+                () -> runtimeCheckers.getFirst().detect(currentJavaVersion()));
+
+        assertTrue(exception.getMessage().contains(
+                "JVM preview class files require the same Java feature release"));
+        assertTrue(exception.getMessage().contains(
+                "Set [toolchain.java.test].version to " + feature));
     }
 
     /** A workspace whose shared test runtime cannot execute one of its two member releases. */

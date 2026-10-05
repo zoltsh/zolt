@@ -16,6 +16,7 @@ import sh.zolt.toolchain.lock.WorkspaceToolchainLockIndex;
 import sh.zolt.toolchain.platform.HostPlatform;
 import sh.zolt.toolchain.store.ToolchainStore;
 import sh.zolt.workspace.service.Workspace;
+import sh.zolt.workspace.service.WorkspaceKotlinJvmPreviewPolicy;
 import sh.zolt.workspace.service.WorkspaceMember;
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -113,8 +114,12 @@ final class WorkspaceCommandToolchainState {
                     store);
             testToolchains.put(key, resolved);
         }
-        TestRuntimeToolchain memberToolchain = TestRuntimeToolchain.forProject(
-                resolved.request(), resolved.status(), member.config());
+        TestRuntimeToolchain memberToolchain = new TestRuntimeToolchain(
+                resolved.request(),
+                resolved.status(),
+                member.config().project().java(),
+                WorkspaceKotlinJvmPreviewPolicy.testRuntimeEnabled(
+                        workspace, member.path()));
         return TestRuntimeJdkChecker.of(memberToolchain);
     }
 
