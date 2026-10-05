@@ -68,6 +68,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.emitJvmTypeAnnotations()) {
             arguments.add("-Xemit-jvm-type-annotations");
         }
+        if (options.noNewJavaAnnotationTargets()) {
+            arguments.add("-Xno-new-java-annotation-targets");
+        }
         if (!options.annotationDefaultTargetMode().isEmpty()) {
             arguments.add("-Xannotation-default-target=" + options.annotationDefaultTargetMode());
         }

@@ -11,6 +11,7 @@ final class KotlinCompilerArgumentGuidance {
                 + " `-Xcontext-parameters`, `-Xwhen-guards`, `-Xnested-type-aliases`,"
                 + " `-Xannotation-target-all`, `-Xjvm-expose-boxed`,"
                 + " `-Xconsistent-data-class-copy-visibility`, `-Xemit-jvm-type-annotations`,"
+                + " `-Xno-new-java-annotation-targets`,"
                 + " `-language-version <major.minor>`, `-api-version <major.minor>`, and one"
                 + " `-jvm-default=<mode>`, plus repeatable"
                 + " `-opt-in=<qualified.annotation.Name>` arguments and one"
