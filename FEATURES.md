@@ -43,7 +43,7 @@ zolt run
   and JVM-default compatibility modes. Public Kotlin APIs may be checked in
   warning or strict explicit-API mode. Progressive compilation may be enabled
   independently for main and test sources; warnings may likewise be expanded,
-  enforced, or suppressed per source set.
+  enforced, suppressed, or adjusted by diagnostic per source set.
   Unsupported language and compiler combinations fail closed.
 - **Dependencies.** Use API, implementation, runtime, provided, development,
   test, and annotation-processor lanes under one `[dependencies]` namespace.

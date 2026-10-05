@@ -784,9 +784,12 @@ one each of the paired Kotlin arguments `-language-version <major.minor>` and
 `-opt-in=<qualified.annotation.Name>` arguments. One
 `-jvm-default=<mode>` argument may also select `enable`, `no-compatibility`, or
 `disable`, and one `-Xexplicit-api=<mode>` argument may select `strict`,
-`warning`, or `disable`. The standalone and version options must be spelled as
-separate array entries and may appear at most once; each opt-in is one array
-entry and the same annotation may not be repeated:
+`warning`, or `disable`. Distinct, repeatable
+`-Xwarning-level=DIAGNOSTIC_NAME:<level>` arguments may set an uppercase Kotlin
+diagnostic to `error`, `warning`, or `disabled`. The standalone and version
+options must be spelled as separate array entries and may appear at most once;
+each opt-in and warning-level rule is one array entry, and the same annotation
+or diagnostic may not be repeated:
 
 ```toml
 [compiler]
@@ -798,6 +801,7 @@ args = [
   "-api-version", "1.8",
   "-jvm-default=no-compatibility",
   "-Xexplicit-api=strict",
+  "-Xwarning-level=REDUNDANT_VISIBILITY_MODIFIER:disabled",
   "-opt-in=kotlin.ExperimentalStdlibApi",
 ]
 
@@ -820,11 +824,16 @@ forwarded to javac. Combining it with `-Werror` makes those extra warnings fail
 Kotlin compilation while `-Werror` continues to apply to both compiler phases.
 `-nowarn` suppresses warnings in both the Kotlin and authored Java compiler
 phases. It cannot be combined with `-Werror` or `-Wextra`; choose either warning
-suppression or warning enforcement for a source set.
+suppression or warning enforcement for a source set. Diagnostic-specific
+`-Xwarning-level` rules go only to `kotlinc` and may be combined with those
+module-wide policies: `error` promotes one warning, `warning` preserves or
+restores it as a warning, and `disabled` suppresses it. A diagnostic rule
+therefore overrides `-nowarn`, `-Werror`, or `-Wextra` for that Kotlin
+diagnostic without changing authored Java warning policy.
 `-progressive` asks the selected Kotlin compiler to apply its latest deprecation
 and unstable-code fixes without their usual migration period. Extra warnings,
 progressive mode, language/API version pairs, JVM-default modes, explicit-API
-modes, and opt-ins go only to `kotlinc`.
+modes, diagnostic warning levels, and opt-ins go only to `kotlinc`.
 `-jvm-default=enable` emits interface default methods plus
 compatibility `DefaultImpls`, `no-compatibility` emits only interface default
 methods, and `disable` emits abstract interface methods plus `DefaultImpls`.
@@ -833,13 +842,15 @@ compatibility classes do not survive. `-Xexplicit-api=strict` makes missing
 visibility and return types on public API declarations compilation errors;
 `warning` reports the same issues as warnings, while `disable` turns the check
 off. Main and test arguments are independent, and changing warning suppression
-or enforcement, progressive mode, version pairs, JVM-default mode, explicit-API
-mode, or opt-ins invalidates reuse for that source set. The selected Kotlin
-compiler still decides which warnings, extra and progressive diagnostics,
-version values, language/API combinations, JVM-default and explicit-API modes
-it supports and whether an opt-in annotation exists and applies. Other custom
-compiler arguments remain unsupported for Kotlin-bearing source sets because
-javac flags cannot in general be forwarded safely to kotlinc.
+or enforcement, a diagnostic warning level, progressive mode, version pairs,
+JVM-default mode, explicit-API mode, or opt-ins invalidates reuse for that source
+set. Zolt validates warning-level syntax and duplicate names; the selected
+Kotlin compiler still decides which diagnostic names, warnings, extra and
+progressive checks, version values, language/API combinations, JVM-default and
+explicit-API modes it supports and whether an opt-in annotation exists and
+applies. Other custom compiler arguments remain unsupported for Kotlin-bearing
+source sets because javac flags cannot in general be forwarded safely to
+kotlinc.
 
 Kotlin compiler module identity is explicit when compatibility with another
 build must be preserved:
