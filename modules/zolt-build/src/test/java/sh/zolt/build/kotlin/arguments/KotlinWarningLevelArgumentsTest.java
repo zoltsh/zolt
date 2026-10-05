@@ -1,17 +1,18 @@
-package sh.zolt.build.compile;
+package sh.zolt.build.kotlin.arguments;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static sh.zolt.build.compile.KotlinCompilerArgumentTestSupport.invocationArguments;
+import static sh.zolt.build.compile.KotlinCompilerArgumentTestSupport.options;
 
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 import org.junit.jupiter.api.Test;
 import sh.zolt.build.KotlinCompileException;
-import sh.zolt.classpath.Classpath;
-import sh.zolt.project.CompilerSettings;
-import sh.zolt.project.ProjectConfig;
+import sh.zolt.build.compile.KotlinCompilationScope;
+import sh.zolt.build.compile.KotlinCompileOptionsPolicy;
+import sh.zolt.build.compile.KotlinCompilerRunner;
 
 /** Qualifies repeatable, kotlinc-only diagnostic warning levels. */
 final class KotlinWarningLevelArgumentsTest {
@@ -28,13 +29,7 @@ final class KotlinWarningLevelArgumentsTest {
                 List.of("DEPRECATION:disabled", "UNUSED_VARIABLE:error"),
                 options.warningLevels());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
-        List<String> arguments = KotlinCompilerInvocationArguments.build(
-                Path.of("/jdk"),
-                List.of(Path.of("src/Test.kt")),
-                new Classpath(List.of(Path.of("stdlib.jar"))),
-                Path.of("target/test-classes"),
-                options,
-                ":");
+        List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains("-Xwarning-level=DEPRECATION:disabled"), arguments.toString());
         assertTrue(arguments.contains("-Xwarning-level=UNUSED_VARIABLE:error"), arguments.toString());
         assertTrue(arguments.contains("-Xfriend-paths=target/classes"), arguments.toString());
@@ -101,18 +96,5 @@ final class KotlinWarningLevelArgumentsTest {
         assertTrue(failure.getMessage().contains("[compiler.test].args"));
         assertTrue(failure.getMessage().contains("duplicate compiler argument"));
         assertTrue(failure.getMessage().contains("DEPRECATION:disabled"));
-    }
-
-    private static KotlinCompilerRunner.Options options(
-            KotlinCompilationScope scope,
-            List<String> mainArguments,
-            List<String> testArguments) {
-        ProjectConfig config = KotlinMainCompilePolicyTest.config(
-                new CompilerSettings(null, null, "", "", mainArguments, testArguments),
-                Map.of(), Map.of(), "demo");
-        return KotlinCompileOptionsPolicy.options(
-                config,
-                KotlinMainCompilePolicyTest.jdkStatus("21.0.11", "21"),
-                scope);
     }
 }
