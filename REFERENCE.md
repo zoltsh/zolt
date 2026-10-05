@@ -778,7 +778,8 @@ may restore the complete class and `META-INF/*.kotlin_module` inventory.
 disable the unchanged-input skip.
 
 For a Kotlin-bearing source set, compiler arguments may contain the standalone
-flags `-parameters`, `-nowarn`, `-Werror`, `-Wextra`, `-progressive`,
+flags `-parameters`, `-nowarn`, `-Werror`, `-Wextra`,
+`-Xreport-all-warnings`, `-progressive`,
 `-Xcontext-parameters`, `-Xcontext-sensitive-resolution`, and `-Xwhen-guards`,
 plus `-Xmulti-dollar-interpolation`, `-Xnon-local-break-continue`,
 `-Xnested-type-aliases`, `-Xannotation-target-all`,
@@ -818,6 +819,7 @@ repeated:
 args = [
   "-parameters",
   "-Wextra",
+  "-Xreport-all-warnings",
   "-progressive",
   "-Xcontext-parameters",
   "-Xcontext-sensitive-resolution",
@@ -875,7 +877,16 @@ forwarded to javac. Combining it with `-Werror` makes those extra warnings fail
 Kotlin compilation while `-Werror` continues to apply to both compiler phases.
 `-nowarn` suppresses warnings in both the Kotlin and authored Java compiler
 phases. It cannot be combined with `-Werror` or `-Wextra`; choose either warning
-suppression or warning enforcement for a source set. Diagnostic-specific
+suppression or warning enforcement for a source set. It also cannot be combined
+with `-Xreport-all-warnings`, whose purpose requires warnings to remain enabled.
+`-Xreport-all-warnings` asks `kotlinc` to retain warnings when the same
+compilation also has errors. In the qualified Kotlin 2.2.0 case, an ordinary
+failed compile reports a return-type error alone, while the flag also reports a
+deprecation warning from another declaration. It does not promote warnings to
+errors or intentionally change successful class output. Configure it
+independently for main and test source sets; changing it invalidates the matching
+source set so the selected diagnostics policy applies on the next compilation.
+Diagnostic-specific
 `-Xwarning-level` rules go only to `kotlinc` and may be combined with those
 module-wide policies: `error` promotes one warning, `warning` preserves or
 restores it as a warning, and `disabled` suppresses it. A diagnostic rule
@@ -906,8 +917,8 @@ nullness severity, package-specific Java nullability severity, source-debug
 annotation emission, legacy null-check exception compatibility, strict
 metadata-version semantics, annotated-lambda indy compatibility, backend
 optimization and method-inlining control, JVM-name parentheses sanitization,
-generated-bytecode validation, annotations in metadata, and opt-ins go only to
-`kotlinc`.
+multifile-part inheritance, complete warning reporting, generated-bytecode
+validation, annotations in metadata, and opt-ins go only to `kotlinc`.
 `-Xmulti-dollar-interpolation` enables Kotlin 2.1's preview syntax when the
 source set pins `-language-version 2.1`. Kotlin 2.2 promotes the syntax to
 Stable and accepts it without the flag. Prefixing a regular or multiline string
@@ -1167,14 +1178,15 @@ exposure, data-class copy visibility, source-debug annotation emission,
 JSpecify, JSR-305, or package-specific Java nullness severity, legacy null-check
 exceptions, strict metadata-version semantics, annotations in metadata, backend
 optimization, method inlining, JVM-name parentheses sanitization,
-multifile-part inheritance, generated-bytecode validation, or opt-ins invalidates
-reuse for that source set.
+multifile-part inheritance, complete warning reporting, generated-bytecode
+validation, or opt-ins invalidates reuse for that source set.
 Zolt validates warning-level syntax and duplicate names; the selected Kotlin
 compiler still determines
 supported diagnostic names, warnings, extra and progressive checks, version
 values, language/API combinations, JVM-default and explicit-API modes,
 string-concatenation, lambda-generation, annotated-lambda indy compatibility,
-backend optimization, method inlining, generated-bytecode validation,
+backend optimization, method inlining, complete warning reporting,
+generated-bytecode validation,
 JVM-name sanitization, multifile-part inheritance, and SAM-conversion modes,
 context-parameter, context-sensitive-resolution, when-guards,
 nested-type-aliases, multi-dollar-interpolation, non-local loop control,
