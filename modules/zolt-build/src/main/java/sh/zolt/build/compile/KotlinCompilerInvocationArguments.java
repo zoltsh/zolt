@@ -62,6 +62,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.jvmExposeBoxed()) {
             arguments.add("-Xjvm-expose-boxed");
         }
+        if (options.consistentDataClassCopyVisibility()) {
+            arguments.add("-Xconsistent-data-class-copy-visibility");
+        }
         if (!options.annotationDefaultTargetMode().isEmpty()) {
             arguments.add("-Xannotation-default-target=" + options.annotationDefaultTargetMode());
         }

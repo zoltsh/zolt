@@ -27,6 +27,7 @@ final class KotlinCompilerArgumentPolicy {
         boolean nestedTypeAliases = false;
         boolean annotationTargetAll = false;
         boolean jvmExposeBoxed = false;
+        boolean consistentDataClassCopyVisibility = false;
         String annotationDefaultTargetMode = "";
         String stringConcatMode = "";
         String lambdaMode = "";
@@ -105,6 +106,12 @@ final class KotlinCompilerArgumentPolicy {
                         throw duplicateArgument(scope, argument);
                     }
                     jvmExposeBoxed = true;
+                }
+                case "-Xconsistent-data-class-copy-visibility" -> {
+                    if (consistentDataClassCopyVisibility) {
+                        throw duplicateArgument(scope, argument);
+                    }
+                    consistentDataClassCopyVisibility = true;
                 }
                 case "-language-version" -> {
                     if (!languageVersion.isEmpty()) {
@@ -189,6 +196,7 @@ final class KotlinCompilerArgumentPolicy {
                 nestedTypeAliases,
                 annotationTargetAll,
                 jvmExposeBoxed,
+                consistentDataClassCopyVisibility,
                 annotationDefaultTargetMode,
                 stringConcatMode,
                 lambdaMode,
@@ -288,18 +296,7 @@ final class KotlinCompilerArgumentPolicy {
         return unsupported(
                 scope,
                 argumentsPath(scope) + " contains unsupported compiler argument `" + argument + "`",
-                "Use only a compatible, duplicate-free subset of `-parameters`, `-nowarn`,"
-                        + " `-Werror`, `-Wextra`, `-progressive`, `-Xcontext-sensitive-resolution`,"
-                        + " `-Xcontext-parameters`, `-Xwhen-guards`, `-Xnested-type-aliases`,"
-                        + " `-Xannotation-target-all`, `-Xjvm-expose-boxed`,"
-                        + " `-language-version <major.minor>`, `-api-version <major.minor>`, and one"
-                        + " `-jvm-default=<mode>`, plus repeatable"
-                        + " `-opt-in=<qualified.annotation.Name>` arguments and one"
-                        + " `-Xexplicit-api=<mode>`, one `-Xstring-concat=<mode>`, one"
-                        + " `-Xlambdas=<mode>`, one `-Xsam-conversions=<mode>`, one"
-                        + " `-Xannotation-default-target=<mode>`, and distinct repeatable"
-                        + " `-Xwarning-level=DIAGNOSTIC_NAME:<level>` arguments; otherwise keep this"
-                        + " source set Java-only.");
+                KotlinCompilerArgumentGuidance.supportedArguments());
     }
 
     private static String argumentsPath(KotlinCompilationScope scope) {
@@ -329,6 +326,7 @@ final class KotlinCompilerArgumentPolicy {
             boolean nestedTypeAliases,
             boolean annotationTargetAll,
             boolean jvmExposeBoxed,
+            boolean consistentDataClassCopyVisibility,
             String annotationDefaultTargetMode,
             String stringConcatMode,
             String lambdaMode,
