@@ -86,6 +86,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.noOptimize()) {
             arguments.add("-Xno-optimize");
         }
+        if (options.noInline()) {
+            arguments.add("-Xno-inline");
+        }
         if (options.validateBytecode()) {
             arguments.add("-Xvalidate-bytecode");
         }
