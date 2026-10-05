@@ -791,7 +791,8 @@ plus `-Xmulti-dollar-interpolation`, `-Xnon-local-break-continue`,
 `-Xuse-14-inline-classes-mangling-scheme`, `-Xsanitize-parentheses`,
 `-Xmultifile-parts-inherit`,
 `-Xvalidate-bytecode`,
-`-Xgenerate-strict-metadata-version`, and `-Xannotations-in-metadata`, plus
+`-Xgenerate-strict-metadata-version`, `-Xannotations-in-metadata`, and
+`-Xallow-unstable-dependencies`, plus
 `-Xindy-allow-annotated-lambdas` when paired with `-Xlambdas=indy`. One each of
 the paired Kotlin arguments
 `-language-version <major.minor>` and
@@ -814,6 +815,7 @@ select `ignore`, `warn`, or `strict`. One
 `warn`, or `strict` for compiler-recognized Java annotation packages. Distinct,
 repeatable `-Xwarning-level=DIAGNOSTIC_NAME:<level>` arguments may set an
 uppercase Kotlin diagnostic to `error`, `warning`, or `disabled`. The
+single `-Xabi-stability=<mode>` argument may select `stable` or `unstable`. The
 standalone and version options must be spelled as separate array entries and
 may appear at most once; each package rule, opt-in, and warning-level rule is
 one array entry, and the same package, annotation, or diagnostic may not be
@@ -855,6 +857,7 @@ args = [
   "-Xvalidate-bytecode",
   "-Xgenerate-strict-metadata-version",
   "-Xannotations-in-metadata",
+  "-Xabi-stability=stable",
   "-language-version", "1.9",
   "-api-version", "1.8",
   "-jvm-default=no-compatibility",
@@ -872,6 +875,7 @@ args = [
   "-language-version", "2.0",
   "-api-version", "2.0",
   "-jvm-default=disable",
+  "-Xallow-unstable-dependencies",
   "-opt-in=com.example.ExperimentalTestApi",
 ]
 ```
@@ -929,7 +933,8 @@ indy compatibility, backend optimization and method-inlining control,
 inline-scope debug numbering, enhanced coroutine debugging, parentheses
 sanitization, legacy inline-class mangling, multifile-part inheritance,
 complete warning reporting, generated-bytecode validation, annotations in
-metadata, and opt-ins go only to `kotlinc`.
+metadata, ABI-stability marking, unstable-dependency opt-in, and opt-ins go only
+to `kotlinc`.
 `-Xmulti-dollar-interpolation` enables Kotlin 2.1's preview syntax when the
 source set pins `-language-version 2.1`. Kotlin 2.2 promotes the syntax to
 Stable and accepts it without the flag. Prefixing a regular or multiline string
@@ -1118,6 +1123,24 @@ compatibility contract for Kotlin-aware consumers, so enable it only when
 downstream compilers and metadata readers support the selected compiler's
 metadata version. Configure it independently for main and test source sets;
 changing it invalidates and cleanly recompiles the matching output.
+`-Xabi-stability=stable` marks generated Kotlin metadata as suitable for stable
+compiler consumers; it is also Kotlin 2.2.0's qualified default. `unstable`
+marks the output as compiler-unstable. In the qualified case, the class's
+`kotlin.Metadata.xi` value changed from `48` to `16` while JVM behavior stayed
+the same. An ordinary Kotlin 2.2.0 consumer then rejected that class before
+code generation. Use `unstable` when publishing output from compiler behavior
+that consumers must explicitly acknowledge; do not use `stable` to disguise an
+ABI whose actual compiler contract is unstable. The selected compiler remains
+authoritative for the metadata bits and compatibility check.
+
+`-Xallow-unstable-dependencies` lets that source set consume classes marked with
+unstable Kotlin ABI. It suppresses the compiler's protective diagnostic; it
+does not make the dependency stable or guarantee binary, metadata, or runtime
+compatibility. Main and test source sets opt in independently. In particular, a
+Kotlin test source set that consumes its own member's main output marked
+`unstable` needs this flag in `[compiler.test].args`. Changing either the
+producer's ABI-stability mode or the consumer override invalidates and cleanly
+recompiles the matching output.
 `-Xannotations-in-metadata` writes declaration annotations into Kotlin metadata
 in addition to their ordinary JVM class-file attributes, and lets the selected
 compiler read annotations already represented there. In the qualified Kotlin
