@@ -807,7 +807,9 @@ select `first-only`, `first-only-warn`, or `param-property`. One
 `-Xassertions=<mode>` argument may select `always-enable`, `always-disable`,
 `jvm`, or `legacy`. One `-Xjspecify-annotations=<mode>` argument may select
 `ignore`, `warn`, or `strict`, and one global `-Xjsr305=<mode>` argument may
-select `ignore`, `warn`, or `strict`. Distinct, repeatable
+select `ignore`, `warn`, or `strict`. One
+`-Xsupport-compatqual-checker-framework-annotations=<mode>` argument may select
+`enable` or `disable`. Distinct, repeatable
 `-Xnullability-annotations=@package.name:<mode>` arguments may select `ignore`,
 `warn`, or `strict` for compiler-recognized Java annotation packages. Distinct,
 repeatable `-Xwarning-level=DIAGNOSTIC_NAME:<level>` arguments may set an
@@ -835,6 +837,7 @@ args = [
   "-Xassertions=jvm",
   "-Xjspecify-annotations=strict",
   "-Xjsr305=strict",
+  "-Xsupport-compatqual-checker-framework-annotations=enable",
   "-Xnullability-annotations=@org.jetbrains.annotations:strict",
   "-Xjvm-expose-boxed",
   "-Xconsistent-data-class-copy-visibility",
@@ -919,14 +922,14 @@ boxed value-class exposure, JVM-default modes, explicit-API modes,
 data-class copy visibility, string-concatenation modes, lambda-generation modes,
 JVM type-annotation emission, SAM-conversion modes, diagnostic warning levels,
 Java annotation-target compatibility, assertion modes, JSpecify and JSR-305
-nullness severity, package-specific Java nullability severity, source-debug
-annotation emission, legacy null-check exception compatibility, strict
-metadata-version semantics, annotated-lambda indy compatibility, backend
-optimization and method-inlining control, inline-scope debug numbering, JVM-name
-enhanced coroutine debugging, parentheses sanitization, legacy inline-class
-mangling, multifile-part inheritance, complete warning reporting,
-generated-bytecode validation, annotations in metadata, and opt-ins go only to
-`kotlinc`.
+nullness severity, Checker Framework compatqual recognition, package-specific
+Java nullability severity, source-debug annotation emission, legacy null-check
+exception compatibility, strict metadata-version semantics, annotated-lambda
+indy compatibility, backend optimization and method-inlining control,
+inline-scope debug numbering, enhanced coroutine debugging, parentheses
+sanitization, legacy inline-class mangling, multifile-part inheritance,
+complete warning reporting, generated-bytecode validation, annotations in
+metadata, and opt-ins go only to `kotlinc`.
 `-Xmulti-dollar-interpolation` enables Kotlin 2.1's preview syntax when the
 source set pins `-language-version 2.1`. Kotlin 2.2 promotes the syntax to
 Stable and accepts it without the flag. Prefixing a regular or multiline string
@@ -1159,6 +1162,18 @@ does not admit the compiler's `under-migration:` or per-annotation `@name:`
 overrides, and Zolt does not inject a JSR-305 annotations artifact. Configure
 the global mode independently in `[compiler].args` and `[compiler.test].args`;
 changing it invalidates and cleanly recompiles the matching output.
+`-Xsupport-compatqual-checker-framework-annotations=enable` recognizes Checker
+Framework's legacy `NullableDecl` and `NonNullDecl` compatqual annotations when
+the selected compiler reads Java declarations; Kotlin 2.2.0 enables that
+behavior by default. `disable` ignores those two annotations and leaves their
+Java types as platform types. In the qualified mixed-source case, an unsafe
+dereference of a `@NullableDecl` return fails in the default and explicit
+`enable` modes but compiles under `disable`. That escape hatch can therefore
+move a null failure from compilation to runtime; use it only while migrating a
+legacy API whose compatqual declarations cannot yet be corrected. Zolt does not
+inject Checker Framework annotations. Configure the mode independently in
+`[compiler].args` and `[compiler.test].args`; changing it invalidates and
+cleanly recompiles the matching output.
 `-Xnullability-annotations=@package.name:strict` makes mismatches from
 nullability annotations in that compiler-recognized Java annotation package
 errors. `warn` reports those mismatches as warnings, so `-Werror` promotes them
