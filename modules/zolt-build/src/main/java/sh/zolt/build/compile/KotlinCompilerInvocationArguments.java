@@ -59,6 +59,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.annotationTargetAll()) {
             arguments.add("-Xannotation-target-all");
         }
+        if (options.jvmExposeBoxed()) {
+            arguments.add("-Xjvm-expose-boxed");
+        }
         if (!options.annotationDefaultTargetMode().isEmpty()) {
             arguments.add("-Xannotation-default-target=" + options.annotationDefaultTargetMode());
         }

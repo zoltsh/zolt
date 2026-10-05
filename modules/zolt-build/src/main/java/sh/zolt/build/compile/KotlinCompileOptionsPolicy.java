@@ -67,6 +67,7 @@ public final class KotlinCompileOptionsPolicy {
                 mappedArguments.whenGuards(),
                 mappedArguments.nestedTypeAliases(),
                 mappedArguments.annotationTargetAll(),
+                mappedArguments.jvmExposeBoxed(),
                 mappedArguments.annotationDefaultTargetMode(),
                 mappedArguments.stringConcatMode(),
                 mappedArguments.lambdaMode(),

@@ -26,6 +26,7 @@ final class KotlinCompilerArgumentPolicy {
         boolean whenGuards = false;
         boolean nestedTypeAliases = false;
         boolean annotationTargetAll = false;
+        boolean jvmExposeBoxed = false;
         String annotationDefaultTargetMode = "";
         String stringConcatMode = "";
         String lambdaMode = "";
@@ -98,6 +99,12 @@ final class KotlinCompilerArgumentPolicy {
                         throw duplicateArgument(scope, argument);
                     }
                     annotationTargetAll = true;
+                }
+                case "-Xjvm-expose-boxed" -> {
+                    if (jvmExposeBoxed) {
+                        throw duplicateArgument(scope, argument);
+                    }
+                    jvmExposeBoxed = true;
                 }
                 case "-language-version" -> {
                     if (!languageVersion.isEmpty()) {
@@ -181,6 +188,7 @@ final class KotlinCompilerArgumentPolicy {
                 whenGuards,
                 nestedTypeAliases,
                 annotationTargetAll,
+                jvmExposeBoxed,
                 annotationDefaultTargetMode,
                 stringConcatMode,
                 lambdaMode,
@@ -283,7 +291,7 @@ final class KotlinCompilerArgumentPolicy {
                 "Use only a compatible, duplicate-free subset of `-parameters`, `-nowarn`,"
                         + " `-Werror`, `-Wextra`, `-progressive`, `-Xcontext-sensitive-resolution`,"
                         + " `-Xcontext-parameters`, `-Xwhen-guards`, `-Xnested-type-aliases`,"
-                        + " `-Xannotation-target-all`,"
+                        + " `-Xannotation-target-all`, `-Xjvm-expose-boxed`,"
                         + " `-language-version <major.minor>`, `-api-version <major.minor>`, and one"
                         + " `-jvm-default=<mode>`, plus repeatable"
                         + " `-opt-in=<qualified.annotation.Name>` arguments and one"
@@ -320,6 +328,7 @@ final class KotlinCompilerArgumentPolicy {
             boolean whenGuards,
             boolean nestedTypeAliases,
             boolean annotationTargetAll,
+            boolean jvmExposeBoxed,
             String annotationDefaultTargetMode,
             String stringConcatMode,
             String lambdaMode,
