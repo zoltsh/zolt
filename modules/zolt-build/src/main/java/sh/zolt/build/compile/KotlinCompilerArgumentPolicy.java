@@ -40,6 +40,7 @@ final class KotlinCompilerArgumentPolicy {
                         "-Werror",
                         "-nowarn",
                         "-Wextra",
+                        "-Xreport-all-warnings",
                         "-progressive",
                         "-Xcontext-sensitive-resolution",
                         "-Xcontext-parameters",
@@ -170,6 +171,10 @@ final class KotlinCompilerArgumentPolicy {
         if (standaloneArguments.contains("-nowarn") && standaloneArguments.contains("-Wextra")) {
             throw incompatibleArguments(scope, "-nowarn", "-Wextra");
         }
+        if (standaloneArguments.contains("-nowarn")
+                && standaloneArguments.contains("-Xreport-all-warnings")) {
+            throw incompatibleArguments(scope, "-nowarn", "-Xreport-all-warnings");
+        }
         if (standaloneArguments.contains("-Xindy-allow-annotated-lambdas")
                 && !"indy".equals(lambdaMode)) {
             throw unsupported(
@@ -183,6 +188,7 @@ final class KotlinCompilerArgumentPolicy {
                 standaloneArguments.contains("-Werror"),
                 standaloneArguments.contains("-nowarn"),
                 standaloneArguments.contains("-Wextra"),
+                standaloneArguments.contains("-Xreport-all-warnings"),
                 standaloneArguments.contains("-progressive"),
                 standaloneArguments.contains("-Xcontext-sensitive-resolution"),
                 standaloneArguments.contains("-Xcontext-parameters"),
@@ -298,6 +304,7 @@ final class KotlinCompilerArgumentPolicy {
             boolean warningsAsErrors,
             boolean suppressWarnings,
             boolean extraWarnings,
+            boolean reportAllWarnings,
             boolean progressiveMode,
             boolean contextSensitiveResolution,
             boolean contextParameters,
