@@ -46,10 +46,13 @@ zolt run
   context-parameter and context-sensitive-resolution previews. Guarded `when`
   branches may be explicitly enabled per source set for toolchains that still
   expose them as a preview, and nested non-capturing type aliases may be enabled
-  per source set; warnings may likewise be expanded, enforced, suppressed, or
-  adjusted by diagnostic per source set. Kotlin/JVM string concatenation may
-  use inline `StringBuilder` or
-  either invokedynamic scheme per source set; lambda generation may likewise
+  per source set. Annotation defaulting may retain first-target placement, add
+  migration warnings, or propagate to both a constructor parameter and its
+  property or field; Kotlin's preview `@all:` target may likewise be enabled
+  independently for main and test sources. Warnings may be expanded, enforced,
+  suppressed, or adjusted by diagnostic per source set. Kotlin/JVM string
+  concatenation may use inline `StringBuilder` or either invokedynamic scheme
+  per source set; lambda generation may likewise
   select anonymous classes or invokedynamic, as may conversion to
   single-abstract-method interfaces. Unsupported language and compiler
   combinations fail closed.

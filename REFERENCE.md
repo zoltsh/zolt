@@ -780,16 +780,17 @@ disable the unchanged-input skip.
 For a Kotlin-bearing source set, compiler arguments may contain the standalone
 flags `-parameters`, `-nowarn`, `-Werror`, `-Wextra`, `-progressive`,
 `-Xcontext-parameters`, `-Xcontext-sensitive-resolution`, and `-Xwhen-guards`,
-plus `-Xnested-type-aliases`, and one each of the paired Kotlin arguments
-`-language-version <major.minor>` and `-api-version <major.minor>`. Distinct,
-repeatable
+plus `-Xnested-type-aliases` and `-Xannotation-target-all`, and one each of the
+paired Kotlin arguments `-language-version <major.minor>` and
+`-api-version <major.minor>`. Distinct, repeatable
 `-opt-in=<qualified.annotation.Name>` arguments are also accepted. One
 `-jvm-default=<mode>` argument may also select `enable`, `no-compatibility`, or
 `disable`, and one `-Xexplicit-api=<mode>` argument may select `strict`,
 `warning`, or `disable`. One `-Xstring-concat=<mode>` argument may select
 `inline`, `indy`, or `indy-with-constants`, and one `-Xlambdas=<mode>` argument
 may select `class` or `indy`. One `-Xsam-conversions=<mode>` argument may also
-select `class` or `indy`. Distinct, repeatable
+select `class` or `indy`. One `-Xannotation-default-target=<mode>` argument may
+select `first-only`, `first-only-warn`, or `param-property`. Distinct, repeatable
 `-Xwarning-level=DIAGNOSTIC_NAME:<level>` arguments may set an uppercase Kotlin
 diagnostic to `error`, `warning`, or `disabled`. The standalone and version
 options must be spelled as separate array entries and may appear at most once;
@@ -806,6 +807,8 @@ args = [
   "-Xcontext-sensitive-resolution",
   "-Xwhen-guards",
   "-Xnested-type-aliases",
+  "-Xannotation-target-all",
+  "-Xannotation-default-target=param-property",
   "-language-version", "1.9",
   "-api-version", "1.8",
   "-jvm-default=no-compatibility",
@@ -857,15 +860,35 @@ also accepts the syntax without the flag. A language-version pin remains
 authoritative: Kotlin 2.2 does not backport guard syntax to language version 2.1
 merely because the flag is present. Extra warnings, progressive mode, context
 parameters, context-sensitive resolution, when guards, nested type aliases,
-language/API version pairs, JVM-default modes, explicit-API modes,
-string-concatenation modes, lambda-generation modes, SAM-conversion modes,
-diagnostic warning levels, and opt-ins go only to `kotlinc`.
+annotation defaulting and all-target annotations, language/API version pairs,
+JVM-default modes, explicit-API modes, string-concatenation modes,
+lambda-generation modes, SAM-conversion modes, diagnostic warning levels, and
+opt-ins go only to `kotlinc`.
 `-Xnested-type-aliases` enables Kotlin 2.2's Beta support for aliases declared
 inside classes, interfaces, and objects. Such aliases cannot use type parameters
 from an enclosing declaration; they must declare independent type parameters
 when needed, and aliases remain unavailable in local function or lambda scopes.
 The selected compiler determines whether the feature is available and enforces
 its remaining declaration, visibility, and multiplatform restrictions.
+`-Xannotation-default-target=first-only` retains the legacy rule for an
+unqualified annotation on a constructor property: use the first applicable
+target among `param`, `property`, and `field`. `first-only-warn` keeps that
+placement but asks the selected compiler to warn when `param` and either
+`property` or `field` are both applicable. `param-property` uses `param` when
+available and also uses the first applicable target among `property` and
+`field`. These defaulting rules are a Kotlin 2.2 preview. Omitting the argument
+leaves the selected compiler's own default unchanged.
+
+`-Xannotation-target-all` enables the selected compiler's preview `@all:`
+use-site target. For a property, `@all:Marker` propagates `Marker` to each
+applicable constructor parameter, Kotlin property, backing field, getter, and
+mutable-property setter parameter. For an `@JvmRecord`, it also reaches the
+Java record component when the annotation supports `RECORD_COMPONENT`.
+Kotlin-property annotations are not visible through Java reflection. `@all:`
+does not propagate to types, extension receivers, context receivers, or context
+parameters; it cannot annotate delegated properties; and grouped syntax such as
+`@all:[A B]` is invalid, so each annotation needs its own `@all:` use. This flag
+is independent of annotation defaulting for unqualified annotations.
 `-Xstring-concat=inline` emits concatenation through `StringBuilder`.
 `-Xstring-concat=indy` uses `StringConcatFactory.makeConcat`, while
 `indy-with-constants` uses `StringConcatFactory.makeConcatWithConstants`. The
@@ -895,18 +918,21 @@ visibility and return types on public API declarations compilation errors;
 off. Main and test arguments are independent, and changing warning suppression
 or enforcement, a diagnostic warning level, progressive mode, version pairs,
 context parameters, context-sensitive resolution, JVM-default mode,
-explicit-API mode, when-guards or nested-type-aliases configuration,
-string-concatenation mode, lambda-generation mode, SAM-conversion mode, or
-opt-ins invalidates reuse for that source set. Zolt validates warning-level
+explicit-API mode, when-guards, nested-type-aliases configuration, annotation
+default-target mode, all-target annotation support, string-concatenation mode,
+lambda-generation mode, SAM-conversion mode, or opt-ins invalidates reuse for
+that source set. Zolt validates warning-level
 syntax and duplicate names; the selected Kotlin compiler still determines
 supported diagnostic names, warnings, extra and progressive checks, version
 values, language/API combinations, JVM-default and explicit-API modes,
 string-concatenation, lambda-generation, and SAM-conversion modes,
 context-parameter, context-sensitive-resolution, when-guards, and
-nested-type-aliases behavior. It also decides whether an opt-in annotation
-exists and applies. Other custom compiler arguments remain unsupported for
-Kotlin-bearing source sets because javac flags cannot in general be forwarded
-safely to `kotlinc`.
+nested-type-aliases, and annotation-target behavior. Main and test annotation
+settings are independent, and changing either setting performs a cleaned full
+compilation of that source set so obsolete placement cannot survive. The
+compiler also decides whether an opt-in annotation exists and applies. Other
+custom compiler arguments remain unsupported for Kotlin-bearing source sets
+because javac flags cannot in general be forwarded safely to `kotlinc`.
 
 Kotlin compiler module identity is explicit when compatibility with another
 build must be preserved:
