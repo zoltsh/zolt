@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import sh.zolt.build.KotlinCompileException;
+import sh.zolt.build.compile.kotlin.KotlinCompilerMappedArguments;
 import sh.zolt.doctor.JdkStatus;
 import sh.zolt.project.CompilerSettings;
 import sh.zolt.project.ProjectConfig;
@@ -26,7 +27,7 @@ public final class KotlinCompileOptionsPolicy {
                 scope,
                 "Kotlin compilation scope is required.");
         CompilerSettings compiler = config.compilerSettings();
-        KotlinCompilerArgumentPolicy.MappedArguments mappedArguments =
+        KotlinCompilerMappedArguments mappedArguments =
                 KotlinCompilerArgumentPolicy.map(compiler, compilationScope);
         requireUtf8(compiler.encoding(), compilationScope);
         int release = featureVersion(

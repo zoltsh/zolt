@@ -5,6 +5,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import sh.zolt.build.KotlinCompileException;
+import sh.zolt.build.compile.kotlin.KotlinCompilerMappedArguments;
 import sh.zolt.project.CompilerSettings;
 
 /** Parses the bounded manifest compiler-argument grammar for one Kotlin source set. */
@@ -12,7 +13,7 @@ final class KotlinCompilerArgumentPolicy {
     private KotlinCompilerArgumentPolicy() {
     }
 
-    static MappedArguments map(
+    static KotlinCompilerMappedArguments map(
             CompilerSettings compiler,
             KotlinCompilationScope scope) {
         List<String> arguments = scope == KotlinCompilationScope.MAIN
@@ -173,7 +174,7 @@ final class KotlinCompilerArgumentPolicy {
                             + " uses `-Xindy-allow-annotated-lambdas` without `-Xlambdas=indy`",
                     "Add `-Xlambdas=indy`, or remove the annotated-lambda compatibility flag.");
         }
-        return new MappedArguments(
+        return new KotlinCompilerMappedArguments(
                 standaloneArguments.contains("-parameters"),
                 standaloneArguments.contains("-Werror"),
                 standaloneArguments.contains("-nowarn"),
@@ -297,55 +298,4 @@ final class KotlinCompilerArgumentPolicy {
                         + remediation);
     }
 
-    record MappedArguments(
-            boolean javaParameters,
-            boolean warningsAsErrors,
-            boolean suppressWarnings,
-            boolean extraWarnings,
-            boolean reportAllWarnings,
-            boolean renderInternalDiagnosticNames,
-            boolean progressiveMode,
-            boolean contextSensitiveResolution,
-            boolean contextParameters,
-            boolean whenGuards,
-            boolean multiDollarInterpolation,
-            boolean nonLocalBreakContinue,
-            boolean nestedTypeAliases,
-            boolean annotationTargetAll,
-            boolean jvmExposeBoxed,
-            boolean consistentDataClassCopyVisibility,
-            boolean emitJvmTypeAnnotations,
-            boolean noNewJavaAnnotationTargets,
-            boolean noSourceDebugExtension,
-            boolean noUnifiedNullChecks,
-            boolean noOptimize,
-            boolean noInline,
-            boolean useInlineScopesNumbers,
-            boolean use14InlineClassesManglingScheme,
-            boolean enhancedCoroutinesDebugging,
-            boolean sanitizeParentheses,
-            boolean multifilePartsInherit,
-            boolean validateBytecode,
-            boolean indyAllowAnnotatedLambdas,
-            boolean generateStrictMetadataVersion,
-            boolean annotationsInMetadata,
-            boolean useTypeTable,
-            boolean allowUnstableDependencies,
-            String abiStabilityMode,
-            String annotationDefaultTargetMode,
-            String assertionMode,
-            String jspecifyAnnotationsMode,
-            String jsr305Mode,
-            String compatqualAnnotationsMode,
-            String stringConcatMode,
-            String lambdaMode,
-            String samConversionMode,
-            String languageVersion,
-            String apiVersion,
-            String jvmDefaultMode,
-            String explicitApiMode,
-            List<String> nullabilityAnnotations,
-            List<String> warningLevels,
-            List<String> optIns) {
-    }
 }
