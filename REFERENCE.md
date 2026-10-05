@@ -778,10 +778,10 @@ may restore the complete class and `META-INF/*.kotlin_module` inventory.
 disable the unchanged-input skip.
 
 For a Kotlin-bearing source set, compiler arguments may contain the standalone
-flags `-parameters`, `-nowarn`, `-Werror`, `-Wextra`, and `-progressive`, plus
-one each of the paired Kotlin arguments `-language-version <major.minor>` and
-`-api-version <major.minor>`, and distinct, repeatable
-`-opt-in=<qualified.annotation.Name>` arguments. One
+flags `-parameters`, `-nowarn`, `-Werror`, `-Wextra`, `-progressive`, and
+`-Xcontext-sensitive-resolution`, plus one each of the paired Kotlin arguments
+`-language-version <major.minor>` and `-api-version <major.minor>`. Distinct,
+repeatable `-opt-in=<qualified.annotation.Name>` arguments are also accepted. One
 `-jvm-default=<mode>` argument may also select `enable`, `no-compatibility`, or
 `disable`, and one `-Xexplicit-api=<mode>` argument may select `strict`,
 `warning`, or `disable`. Distinct, repeatable
@@ -797,6 +797,7 @@ args = [
   "-parameters",
   "-Wextra",
   "-progressive",
+  "-Xcontext-sensitive-resolution",
   "-language-version", "1.9",
   "-api-version", "1.8",
   "-jvm-default=no-compatibility",
@@ -831,9 +832,13 @@ restores it as a warning, and `disabled` suppresses it. A diagnostic rule
 therefore overrides `-nowarn`, `-Werror`, or `-Wextra` for that Kotlin
 diagnostic without changing authored Java warning policy.
 `-progressive` asks the selected Kotlin compiler to apply its latest deprecation
-and unstable-code fixes without their usual migration period. Extra warnings,
-progressive mode, language/API version pairs, JVM-default modes, explicit-API
-modes, diagnostic warning levels, and opt-ins go only to `kotlinc`.
+and unstable-code fixes without their usual migration period.
+`-Xcontext-sensitive-resolution` enables the selected Kotlin compiler's preview
+for resolving unqualified enum entries and sealed-class members when the
+surrounding context establishes the expected type. Extra warnings, progressive
+mode, context-sensitive resolution, language/API version pairs, JVM-default
+modes, explicit-API modes, diagnostic warning levels, and opt-ins go only to
+`kotlinc`.
 `-jvm-default=enable` emits interface default methods plus
 compatibility `DefaultImpls`, `no-compatibility` emits only interface default
 methods, and `disable` emits abstract interface methods plus `DefaultImpls`.
@@ -843,14 +848,15 @@ visibility and return types on public API declarations compilation errors;
 `warning` reports the same issues as warnings, while `disable` turns the check
 off. Main and test arguments are independent, and changing warning suppression
 or enforcement, a diagnostic warning level, progressive mode, version pairs,
-JVM-default mode, explicit-API mode, or opt-ins invalidates reuse for that source
-set. Zolt validates warning-level syntax and duplicate names; the selected
-Kotlin compiler still decides which diagnostic names, warnings, extra and
-progressive checks, version values, language/API combinations, JVM-default and
-explicit-API modes it supports and whether an opt-in annotation exists and
-applies. Other custom compiler arguments remain unsupported for Kotlin-bearing
-source sets because javac flags cannot in general be forwarded safely to
-kotlinc.
+context-sensitive resolution, JVM-default mode, explicit-API mode, or opt-ins
+invalidates reuse for that source set. Zolt validates warning-level syntax and
+duplicate names; the selected Kotlin compiler still determines supported
+diagnostic names, warnings, extra and progressive checks, version values,
+language/API combinations, JVM-default and explicit-API modes, and
+context-sensitive-resolution behavior. It also decides whether an opt-in
+annotation exists and applies. Other custom compiler arguments remain
+unsupported for Kotlin-bearing source sets because javac flags cannot in
+general be forwarded safely to `kotlinc`.
 
 Kotlin compiler module identity is explicit when compatibility with another
 build must be preserved:
