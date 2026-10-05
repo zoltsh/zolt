@@ -785,7 +785,8 @@ plus `-Xmulti-dollar-interpolation`, `-Xnon-local-break-continue`,
 `-Xjvm-expose-boxed`, `-Xconsistent-data-class-copy-visibility`, and
 `-Xemit-jvm-type-annotations`, plus `-Xno-new-java-annotation-targets`,
 `-Xno-source-debug-extension`, `-Xno-unified-null-checks`, and
-`-Xgenerate-strict-metadata-version`. One each of the paired Kotlin arguments
+`-Xgenerate-strict-metadata-version`, plus `-Xindy-allow-annotated-lambdas` when
+paired with `-Xlambdas=indy`. One each of the paired Kotlin arguments
 `-language-version <major.minor>` and
 `-api-version <major.minor>` is also accepted. Distinct, repeatable
 `-opt-in=<qualified.annotation.Name>` arguments are also accepted. One
@@ -840,6 +841,7 @@ args = [
   "-Xexplicit-api=strict",
   "-Xstring-concat=indy-with-constants",
   "-Xlambdas=indy",
+  "-Xindy-allow-annotated-lambdas",
   "-Xsam-conversions=indy",
   "-Xwarning-level=REDUNDANT_VISIBILITY_MODIFIER:disabled",
   "-opt-in=kotlin.ExperimentalStdlibApi",
@@ -893,7 +895,8 @@ JVM type-annotation emission, SAM-conversion modes, diagnostic warning levels,
 Java annotation-target compatibility, assertion modes, JSpecify and JSR-305
 nullness severity, package-specific Java nullability severity, source-debug
 annotation emission, legacy null-check exception compatibility, strict
-metadata-version semantics, and opt-ins go only to `kotlinc`.
+metadata-version semantics, annotated-lambda indy compatibility, and opt-ins go
+only to `kotlinc`.
 `-Xmulti-dollar-interpolation` enables Kotlin 2.1's preview syntax when the
 source set pins `-language-version 2.1`. Kotlin 2.2 promotes the syntax to
 Stable and accepts it without the flag. Prefixing a regular or multiline string
@@ -1058,6 +1061,17 @@ form produces lighter output but its lambdas are not serializable unless marked
 `@JvmSerializableLambda`, do not work with Kotlin's experimental `reflect()`
 API, and have a less descriptive `toString()`. Changing modes performs a
 cleaned full compilation so obsolete synthetic lambda classes do not survive.
+`-Xindy-allow-annotated-lambdas` permits `-Xlambdas=indy` to apply to lambda
+expressions with annotations. Without this compatibility flag, the selected
+Kotlin compiler falls back to a generated lambda class so its annotated
+`invoke` method exists. With the flag, Zolt's qualified Kotlin 2.2.0 case emits
+`invokedynamic`, removes that lambda class, and retains the annotation on the
+enclosing class's synthetic implementation method. Runtime invocation behavior
+is unchanged, but reflection or bytecode tooling that expects the annotation on
+a lambda object's `invoke` method is not compatible with this layout. Zolt
+therefore requires an explicit `-Xlambdas=indy` in the same source-set argument
+list. Configure the pair independently for main and test; changing it performs
+a cleaned full compilation so fallback lambda classes cannot survive.
 `-Xsam-conversions=class` emits explicit synthetic implementation classes when
 Kotlin converts a function expression to a Kotlin or Java
 single-abstract-method interface, while `-Xsam-conversions=indy` uses
@@ -1079,16 +1093,17 @@ context parameters, context-sensitive resolution, JVM-default mode,
 explicit-API mode, when-guards, nested-type-aliases configuration, annotation
 default-target mode, all-target annotation support, multi-dollar interpolation,
 non-local loop control, string-concatenation mode, lambda-generation mode,
-SAM-conversion mode, boxed value-class exposure, data-class copy visibility,
-source-debug annotation emission, JSpecify, JSR-305, or package-specific Java
-nullness severity, legacy null-check exceptions, strict metadata-version
-semantics, or opt-ins
+annotated-lambda indy compatibility, SAM-conversion mode, boxed value-class
+exposure, data-class copy visibility, source-debug annotation emission,
+JSpecify, JSR-305, or package-specific Java nullness severity, legacy null-check
+exceptions, strict metadata-version semantics, or opt-ins
 invalidates reuse for that source set.
 Zolt validates warning-level syntax and duplicate names; the selected Kotlin
 compiler still determines
 supported diagnostic names, warnings, extra and progressive checks, version
 values, language/API combinations, JVM-default and explicit-API modes,
-string-concatenation, lambda-generation, and SAM-conversion modes,
+string-concatenation, lambda-generation, annotated-lambda indy compatibility,
+and SAM-conversion modes,
 context-parameter, context-sensitive-resolution, when-guards,
 nested-type-aliases, multi-dollar-interpolation, non-local loop control,
 annotation-target, package-specific nullability, boxed value-class, and
