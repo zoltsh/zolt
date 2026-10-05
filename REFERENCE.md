@@ -1184,14 +1184,19 @@ output. Workspace `run`, `run-package`, unit-test, and integration-test launches
 also inherit the requirement from preview-enabled members in the selected
 member's applicable runtime or test dependency closure; the consuming member
 does not need to mark its own ordinary classes as preview classes. An explicitly
-configured `[test.runtime].jvmArgs` entry is not duplicated. Zolt cannot infer
-this requirement from an arbitrary third-party JAR's Maven metadata. External
-launchers and consumers remain responsible for using the same Java feature
-release and passing `java --enable-preview`; packaging does not make preview
-bytecode ordinary or cross-release compatible. Configure the flag independently
-for main and test source sets. Test execution enables the runtime when either
-source set requires it, and changing either setting invalidates and cleanly
-recompiles the matching output.
+configured `[test.runtime].jvmArgs` entry is not duplicated. When
+`[toolchain.java.test]` is present, its feature release must equal
+`[project].java` if the member's tests can load preview-marked output from that
+member or a workspace dependency; a newer JVM cannot execute preview class
+files from an older feature release. Zolt rejects that mismatch before worker
+launch and directs you to align the test runtime or remove the preview compiler
+flag. Zolt cannot infer this requirement from an arbitrary third-party JAR's
+Maven metadata. External launchers and consumers remain responsible for using
+the same Java feature release and passing `java --enable-preview`; packaging
+does not make preview bytecode ordinary or cross-release compatible. Configure
+the flag independently for main and test source sets. Test execution enables
+the runtime when either source set requires it, and changing either setting
+invalidates and cleanly recompiles the matching output.
 `-Xannotations-in-metadata` writes declaration annotations into Kotlin metadata
 in addition to their ordinary JVM class-file attributes, and lets the selected
 compiler read annotations already represented there. In the qualified Kotlin
@@ -1688,8 +1693,11 @@ attaches on that JRE too). Without the section, tests run on the build toolchain
 nothing changes. Zolt rejects a test-runtime version older than `[project].java`
 (it would fail with `UnsupportedClassVersionError`) and, when the toolchain is not
 installed, points you at `zolt toolchain sync` — both surfaced by `zolt plan
---target test` and `zolt doctor`. Integration tests are the strongest use case:
-exercise your build on the JDK your users actually run.
+--target test` and `zolt doctor`. A newer test runtime is ordinarily valid, but
+Kotlin JVM preview-marked classes require an exact feature match; this includes
+preview-enabled workspace dependencies visible to the selected member's tests.
+Integration tests are the strongest use case: exercise your build on the JDK
+your users actually run.
 
 Build, run, test, package, and native commands use the resolved toolchain
 automatically. `zolt exec -- ...` runs an arbitrary command with `JAVA_HOME` and
