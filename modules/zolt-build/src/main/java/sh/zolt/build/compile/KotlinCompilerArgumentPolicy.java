@@ -24,6 +24,7 @@ final class KotlinCompilerArgumentPolicy {
         boolean contextSensitiveResolution = false;
         boolean contextParameters = false;
         String stringConcatMode = "";
+        String lambdaMode = "";
         String languageVersion = "";
         String apiVersion = "";
         String jvmDefaultMode = "";
@@ -103,6 +104,11 @@ final class KotlinCompilerArgumentPolicy {
                             throw duplicateArgument(scope, argument);
                         }
                         stringConcatMode = stringConcatArgument(scope, argument);
+                    } else if (argument.startsWith("-Xlambdas=")) {
+                        if (!lambdaMode.isEmpty()) {
+                            throw duplicateArgument(scope, argument);
+                        }
+                        lambdaMode = lambdaArgument(scope, argument);
                     } else if (argument.startsWith("-Xwarning-level=")) {
                         String warningLevel = warningLevelArgument(scope, argument);
                         String diagnostic = warningDiagnostic(warningLevel);
@@ -139,6 +145,7 @@ final class KotlinCompilerArgumentPolicy {
                 contextSensitiveResolution,
                 contextParameters,
                 stringConcatMode,
+                lambdaMode,
                 languageVersion,
                 apiVersion,
                 jvmDefaultMode,
@@ -207,6 +214,20 @@ final class KotlinCompilerArgumentPolicy {
                             + " contains invalid Kotlin string-concatenation argument `" + argument + "`",
                     "Use `-Xstring-concat=indy-with-constants`, `-Xstring-concat=indy`, or"
                             + " `-Xstring-concat=inline`, or remove the argument.");
+        }
+        return value;
+    }
+
+    private static String lambdaArgument(
+            KotlinCompilationScope scope,
+            String argument) {
+        String value = argument.substring("-Xlambdas=".length());
+        if (!List.of("class", "indy").contains(value)) {
+            throw unsupported(
+                    scope,
+                    argumentsPath(scope)
+                            + " contains invalid Kotlin lambda-generation argument `" + argument + "`",
+                    "Use `-Xlambdas=class` or `-Xlambdas=indy`, or remove the argument.");
         }
         return value;
     }
@@ -285,8 +306,8 @@ final class KotlinCompilerArgumentPolicy {
                         + " `-language-version <major.minor>`, `-api-version <major.minor>`, and one"
                         + " `-jvm-default=<mode>`, plus repeatable"
                         + " `-opt-in=<qualified.annotation.Name>` arguments and one"
-                        + " `-Xexplicit-api=<mode>`, one `-Xstring-concat=<mode>`, and distinct"
-                        + " repeatable"
+                        + " `-Xexplicit-api=<mode>`, one `-Xstring-concat=<mode>`, one"
+                        + " `-Xlambdas=<mode>`, and distinct repeatable"
                         + " `-Xwarning-level=DIAGNOSTIC_NAME:<level>` arguments; otherwise keep this"
                         + " source set Java-only.");
     }
@@ -315,6 +336,7 @@ final class KotlinCompilerArgumentPolicy {
             boolean contextSensitiveResolution,
             boolean contextParameters,
             String stringConcatMode,
+            String lambdaMode,
             String languageVersion,
             String apiVersion,
             String jvmDefaultMode,

@@ -127,6 +127,7 @@ public final class KotlinCompilerRunner {
             boolean contextSensitiveResolution,
             boolean contextParameters,
             String stringConcatMode,
+            String lambdaMode,
             String languageVersion,
             String apiVersion,
             String jvmDefaultMode,
@@ -135,7 +136,7 @@ public final class KotlinCompilerRunner {
             List<String> optIns,
             Path friendPath) {
         public Options(String release, String moduleName, boolean hostPlatformApi) {
-            this(release, moduleName, hostPlatformApi, !hostPlatformApi, false, false, false, false, false, false, false, "", "", "", "", "", List.of(), List.of(), null);
+            this(release, moduleName, hostPlatformApi, !hostPlatformApi, false, false, false, false, false, false, false, "", "", "", "", "", "", List.of(), List.of(), null);
         }
 
         public Options(
@@ -143,7 +144,7 @@ public final class KotlinCompilerRunner {
                 String moduleName,
                 boolean hostPlatformApi,
                 boolean useJdkRelease) {
-            this(release, moduleName, hostPlatformApi, useJdkRelease, false, false, false, false, false, false, false, "", "", "", "", "", List.of(), List.of(), null);
+            this(release, moduleName, hostPlatformApi, useJdkRelease, false, false, false, false, false, false, false, "", "", "", "", "", "", List.of(), List.of(), null);
         }
 
         public Options(
@@ -152,7 +153,7 @@ public final class KotlinCompilerRunner {
                 boolean hostPlatformApi,
                 boolean useJdkRelease,
                 boolean javaParameters) {
-            this(release, moduleName, hostPlatformApi, useJdkRelease, javaParameters, false, false, false, false, false, false, "", "", "", "", "", List.of(), List.of(), null);
+            this(release, moduleName, hostPlatformApi, useJdkRelease, javaParameters, false, false, false, false, false, false, "", "", "", "", "", "", List.of(), List.of(), null);
         }
 
         public Options(
@@ -179,6 +180,7 @@ public final class KotlinCompilerRunner {
                     "",
                     "",
                     "",
+                    "",
                     List.of(),
                     List.of(),
                     null);
@@ -190,7 +192,7 @@ public final class KotlinCompilerRunner {
                 boolean hostPlatformApi,
                 boolean useJdkRelease,
                 Path friendPath) {
-            this(release, moduleName, hostPlatformApi, useJdkRelease, false, false, false, false, false, false, false, "", "", "", "", "", List.of(), List.of(), friendPath);
+            this(release, moduleName, hostPlatformApi, useJdkRelease, false, false, false, false, false, false, false, "", "", "", "", "", "", List.of(), List.of(), friendPath);
         }
 
         /** Compatibility constructor for callers that predate mapped Kotlin warning policy. */
@@ -213,6 +215,7 @@ public final class KotlinCompilerRunner {
                     false,
                     false,
                     false,
+                    "",
                     "",
                     "",
                     "",
@@ -249,6 +252,7 @@ public final class KotlinCompilerRunner {
                     "",
                     "",
                     "",
+                    "",
                     List.of(),
                     List.of(),
                     friendPath);
@@ -258,6 +262,7 @@ public final class KotlinCompilerRunner {
             release = require(release, "effective Java release");
             moduleName = require(moduleName, "module name");
             stringConcatMode = optional(stringConcatMode);
+            lambdaMode = optional(lambdaMode);
             languageVersion = optional(languageVersion);
             apiVersion = optional(apiVersion);
             jvmDefaultMode = optional(jvmDefaultMode);
@@ -291,6 +296,7 @@ public final class KotlinCompilerRunner {
                     contextSensitiveResolution,
                     contextParameters,
                     stringConcatMode,
+                    lambdaMode,
                     languageVersion,
                     apiVersion,
                     jvmDefaultMode,
