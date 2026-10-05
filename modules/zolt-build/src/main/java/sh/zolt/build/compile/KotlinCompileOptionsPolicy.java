@@ -64,6 +64,7 @@ public final class KotlinCompileOptionsPolicy {
                 mappedArguments.progressiveMode(),
                 mappedArguments.contextSensitiveResolution(),
                 mappedArguments.contextParameters(),
+                mappedArguments.whenGuards(),
                 mappedArguments.stringConcatMode(),
                 mappedArguments.lambdaMode(),
                 mappedArguments.samConversionMode(),

@@ -50,6 +50,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.contextParameters()) {
             arguments.add("-Xcontext-parameters");
         }
+        if (options.whenGuards()) {
+            arguments.add("-Xwhen-guards");
+        }
         if (!options.stringConcatMode().isEmpty()) {
             arguments.add("-Xstring-concat=" + options.stringConcatMode());
         }
