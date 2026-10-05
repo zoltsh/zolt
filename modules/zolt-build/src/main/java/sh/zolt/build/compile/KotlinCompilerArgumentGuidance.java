@@ -9,6 +9,7 @@ final class KotlinCompilerArgumentGuidance {
         return "Use only a compatible, duplicate-free subset of `-parameters`, `-nowarn`,"
                 + " `-Werror`, `-Wextra`, `-progressive`, `-Xcontext-sensitive-resolution`,"
                 + " `-Xcontext-parameters`, `-Xwhen-guards`, `-Xmulti-dollar-interpolation`,"
+                + " `-Xnon-local-break-continue`,"
                 + " `-Xnested-type-aliases`,"
                 + " `-Xannotation-target-all`, `-Xjvm-expose-boxed`,"
                 + " `-Xconsistent-data-class-copy-visibility`, `-Xemit-jvm-type-annotations`,"

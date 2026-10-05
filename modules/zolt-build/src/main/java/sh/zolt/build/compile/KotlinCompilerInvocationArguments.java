@@ -56,6 +56,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.multiDollarInterpolation()) {
             arguments.add("-Xmulti-dollar-interpolation");
         }
+        if (options.nonLocalBreakContinue()) {
+            arguments.add("-Xnon-local-break-continue");
+        }
         if (options.nestedTypeAliases()) {
             arguments.add("-Xnested-type-aliases");
         }

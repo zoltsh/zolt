@@ -66,6 +66,7 @@ public final class KotlinCompileOptionsPolicy {
                 mappedArguments.contextParameters(),
                 mappedArguments.whenGuards(),
                 mappedArguments.multiDollarInterpolation(),
+                mappedArguments.nonLocalBreakContinue(),
                 mappedArguments.nestedTypeAliases(),
                 mappedArguments.annotationTargetAll(),
                 mappedArguments.jvmExposeBoxed(),
