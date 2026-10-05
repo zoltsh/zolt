@@ -16,7 +16,7 @@ final class KotlinCompilerInvocationArguments {
             List<Path> sources,
             Classpath compilationClasspath,
             Path outputDirectory,
-            KotlinCompilerRunner.Options options,
+            KotlinCompilerOptions options,
             String pathSeparator) {
         List<String> arguments = new ArrayList<>();
         arguments.add("-no-stdlib");

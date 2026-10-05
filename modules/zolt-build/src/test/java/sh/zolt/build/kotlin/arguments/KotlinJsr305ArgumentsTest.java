@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.compile.KotlinCompilationScope;
 import sh.zolt.build.compile.KotlinCompileOptionsPolicy;
-import sh.zolt.build.compile.KotlinCompilerRunner;
+import sh.zolt.build.compile.KotlinCompilerOptions;
 
 /** Qualifies the bounded global Kotlin/JVM JSR-305 severity modes. */
 final class KotlinJsr305ArgumentsTest {
@@ -20,7 +20,7 @@ final class KotlinJsr305ArgumentsTest {
 
     @Test
     void mapsModeOnlyToKotlincAndPreservesItWithFriendOutput() {
-        KotlinCompilerRunner.Options options = options(
+        KotlinCompilerOptions options = options(
                         KotlinCompilationScope.TEST,
                         List.of(),
                         List.of(OPTION + "strict"))
@@ -35,11 +35,11 @@ final class KotlinJsr305ArgumentsTest {
 
     @Test
     void scopesModesToTheirCompilerLanes() {
-        KotlinCompilerRunner.Options main = options(
+        KotlinCompilerOptions main = options(
                 KotlinCompilationScope.MAIN,
                 List.of(OPTION + "ignore"),
                 List.of(OPTION + "warn"));
-        KotlinCompilerRunner.Options test = options(
+        KotlinCompilerOptions test = options(
                 KotlinCompilationScope.TEST,
                 List.of(OPTION + "ignore"),
                 List.of(OPTION + "warn"));
@@ -51,7 +51,7 @@ final class KotlinJsr305ArgumentsTest {
     @Test
     void acceptsEveryGlobalMode() {
         for (String mode : List.of("ignore", "warn", "strict")) {
-            KotlinCompilerRunner.Options options = options(
+            KotlinCompilerOptions options = options(
                     KotlinCompilationScope.MAIN,
                     List.of(OPTION + mode),
                     List.of());

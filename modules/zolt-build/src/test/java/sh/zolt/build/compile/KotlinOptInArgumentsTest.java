@@ -22,7 +22,7 @@ final class KotlinOptInArgumentsTest {
 
     @Test
     void mapsDistinctOptInsOnlyToKotlincAndPreservesThemWithFriendOutput() {
-        KotlinCompilerRunner.Options options = options(
+        KotlinCompilerOptions options = options(
                         KotlinCompilationScope.TEST,
                         List.of(),
                         List.of(
@@ -59,11 +59,11 @@ final class KotlinOptInArgumentsTest {
 
     @Test
     void scopesOptInsToTheActiveCompilerLane() {
-        KotlinCompilerRunner.Options main = options(
+        KotlinCompilerOptions main = options(
                 KotlinCompilationScope.MAIN,
                 List.of("-opt-in=com.example.MainExperimental"),
                 List.of("-opt-in=com.example.TestExperimental"));
-        KotlinCompilerRunner.Options test = options(
+        KotlinCompilerOptions test = options(
                 KotlinCompilationScope.TEST,
                 List.of("-opt-in=com.example.MainExperimental"),
                 List.of("-opt-in=com.example.TestExperimental"));
@@ -100,7 +100,7 @@ final class KotlinOptInArgumentsTest {
         assertTrue(failure.getMessage().contains(duplicate));
     }
 
-    private static KotlinCompilerRunner.Options options(
+    private static KotlinCompilerOptions options(
             KotlinCompilationScope scope,
             List<String> mainArguments,
             List<String> testArguments) {

@@ -16,7 +16,7 @@ import sh.zolt.build.CompileDiagnostics;
 import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.compile.JavacResult;
 import sh.zolt.build.compile.KotlinCompilationScope;
-import sh.zolt.build.compile.KotlinCompilerRunner;
+import sh.zolt.build.compile.KotlinCompilerOptions;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.classpath.Classpath;
 import sh.zolt.doctor.JdkStatus;
@@ -32,7 +32,7 @@ final class KotlinTestCompileExecutorTest {
         Classpath compileClasspath = new Classpath(List.of(
                 Path.of("target/classes"), Path.of("lib/test.jar")));
         Classpath launcherClasspath = new Classpath(List.of(Path.of("lib/kotlin-compiler.jar")));
-        KotlinCompilerRunner.Options options = new KotlinCompilerRunner.Options(
+        KotlinCompilerOptions options = new KotlinCompilerOptions(
                 "8", "demo_test", false, false, true, true, Path.of("target/classes"));
         CompileDiagnostics diagnostics = new CompileDiagnostics(1, 2, 3, 4, 5, 6, 7, 8);
         KotlinTestCompileExecutor executor = new KotlinTestCompileExecutor(
@@ -103,7 +103,7 @@ final class KotlinTestCompileExecutorTest {
                         sources(List.of(JAVA_TEST), List.of(KOTLIN_TEST)),
                         new Classpath(List.of()),
                         new Classpath(List.of()),
-                        new KotlinCompilerRunner.Options("21", "demo_test", false),
+                        new KotlinCompilerOptions("21", "demo_test", false),
                         OUTPUT,
                         "",
                         CompileDiagnostics.empty()));
@@ -128,7 +128,7 @@ final class KotlinTestCompileExecutorTest {
                 sources(List.of(), List.of(KOTLIN_TEST)),
                 new Classpath(List.of()),
                 new Classpath(List.of()),
-                new KotlinCompilerRunner.Options("21", "demo_test", false),
+                new KotlinCompilerOptions("21", "demo_test", false),
                 OUTPUT,
                 "",
                 CompileDiagnostics.empty());

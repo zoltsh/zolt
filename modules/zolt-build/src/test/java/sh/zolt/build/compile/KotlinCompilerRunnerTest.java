@@ -45,7 +45,7 @@ final class KotlinCompilerRunnerTest {
                 new Classpath(List.of(Path.of("cache/compiler.jar"), Path.of("cache/coroutines.jar"))),
                 new Classpath(List.of(Path.of("cache/kotlin-stdlib.jar"), Path.of("cache/dependency.jar"))),
                 output,
-                new KotlinCompilerRunner.Options("21", "demo_main", false));
+                new KotlinCompilerOptions("21", "demo_main", false));
 
         assertEquals(2, result.sourceCount());
         assertEquals("compiled kotlin\n", result.output());
@@ -91,7 +91,7 @@ final class KotlinCompilerRunnerTest {
                 new Classpath(List.of(Path.of("compiler.jar"))),
                 new Classpath(List.of(Path.of("stdlib.jar"))),
                 tempDir.resolve("host-classes"),
-                new KotlinCompilerRunner.Options("8", "host_main", true));
+                new KotlinCompilerOptions("8", "host_main", true));
 
         String arguments = argumentContents.getFirst();
         assertTrue(arguments.contains("\"-jvm-target\"\n\"1.8\"\n"));
@@ -113,7 +113,7 @@ final class KotlinCompilerRunnerTest {
                 new Classpath(List.of(Path.of("compiler.jar"))),
                 new Classpath(List.of(Path.of("stdlib.jar"))),
                 tempDir.resolve("jdk8-classes"),
-                new KotlinCompilerRunner.Options("8", "jdk8_main", false, false));
+                new KotlinCompilerOptions("8", "jdk8_main", false, false));
 
         String arguments = argumentContents.getFirst();
         assertTrue(arguments.contains("\"-jdk-home\"\n\"/jdk8\"\n"));
@@ -136,7 +136,7 @@ final class KotlinCompilerRunnerTest {
                 new Classpath(List.of(Path.of("compiler.jar"))),
                 new Classpath(List.of(Path.of("stdlib.jar"))),
                 tempDir.resolve("parameters-classes"),
-                new KotlinCompilerRunner.Options(
+                new KotlinCompilerOptions(
                         "21", "parameters_main", false, true, true));
 
         List<String> arguments = argumentContents.getFirst().lines().toList();
@@ -161,7 +161,7 @@ final class KotlinCompilerRunnerTest {
                 new Classpath(List.of(Path.of("compiler.jar"))),
                 new Classpath(List.of(Path.of("main.jar"))),
                 tempDir.resolve("test-classes"),
-                new KotlinCompilerRunner.Options("21", "demo_test", false)
+                new KotlinCompilerOptions("21", "demo_test", false)
                         .withFriendPath(Path.of("friends/main/../main")),
                 KotlinCompilationScope.TEST);
 
@@ -186,7 +186,7 @@ final class KotlinCompilerRunnerTest {
                 new Classpath(List.of()),
                 new Classpath(List.of()),
                 output,
-                new KotlinCompilerRunner.Options("21", "empty_main", false));
+                new KotlinCompilerOptions("21", "empty_main", false));
 
         assertEquals(0, result.sourceCount());
         assertTrue(java.nio.file.Files.isDirectory(output));
@@ -209,7 +209,7 @@ final class KotlinCompilerRunnerTest {
                         new Classpath(List.of(Path.of("compiler.jar"))),
                         new Classpath(List.of(Path.of("stdlib.jar"))),
                         tempDir.resolve("failed"),
-                        new KotlinCompilerRunner.Options("21", "failed_main", false)));
+                        new KotlinCompilerOptions("21", "failed_main", false)));
 
         assertTrue(failure.getMessage().contains("exit code 2"));
         assertTrue(failure.getMessage().contains("internal compiler failure"));
@@ -236,7 +236,7 @@ final class KotlinCompilerRunnerTest {
                         new Classpath(List.of(Path.of("compiler.jar"))),
                         new Classpath(List.of(Path.of("stdlib.jar"))),
                         tempDir.resolve("runner-failed"),
-                        new KotlinCompilerRunner.Options("21", "runner_failed_main", false)));
+                        new KotlinCompilerOptions("21", "runner_failed_main", false)));
 
         assertSame(processFailure, failure);
         assertFalse(Files.exists(argumentFiles.getFirst()));
@@ -262,7 +262,7 @@ final class KotlinCompilerRunnerTest {
                             new Classpath(List.of(Path.of("compiler.jar"))),
                             new Classpath(List.of(Path.of("stdlib.jar"))),
                             tempDir.resolve("cleanup-failed"),
-                            new KotlinCompilerRunner.Options("21", "cleanup_failed_main", false)));
+                            new KotlinCompilerOptions("21", "cleanup_failed_main", false)));
 
             assertTrue(failure.getMessage().contains("temporary Kotlin main compiler argument file"));
             assertInstanceOf(IOException.class, failure.getCause());
@@ -292,7 +292,7 @@ final class KotlinCompilerRunnerTest {
                             new Classpath(List.of(Path.of("compiler.jar"))),
                             new Classpath(List.of(Path.of("stdlib.jar"))),
                             tempDir.resolve("process-and-cleanup-failed"),
-                            new KotlinCompilerRunner.Options("21", "process_and_cleanup_failed_main", false)));
+                            new KotlinCompilerOptions("21", "process_and_cleanup_failed_main", false)));
 
             assertSame(processFailure, failure);
             assertEquals(1, failure.getSuppressed().length);
@@ -330,7 +330,7 @@ final class KotlinCompilerRunnerTest {
                 new Classpath(List.of(Path.of("compiler.jar"))),
                 new Classpath(compilationEntries),
                 tempDir.resolve("huge-classes"),
-                new KotlinCompilerRunner.Options("21", "huge_main", false));
+                new KotlinCompilerOptions("21", "huge_main", false));
 
         assertEquals(sources.size(), result.sourceCount());
         assertTrue(argumentFileSize.get() > 1_000_000, "expected a response file larger than one megabyte");
@@ -351,7 +351,7 @@ final class KotlinCompilerRunnerTest {
                         new Classpath(List.of(Path.of("compiler.jar"))),
                         new Classpath(List.of(Path.of("stdlib.jar"))),
                         tempDir.resolve("failed-test"),
-                        new KotlinCompilerRunner.Options("21", "failed_test", false),
+                        new KotlinCompilerOptions("21", "failed_test", false),
                         KotlinCompilationScope.TEST));
 
         assertTrue(failure.getMessage().contains("Kotlin test compilation failed"));
@@ -361,20 +361,20 @@ final class KotlinCompilerRunnerTest {
 
     @Test
     void optionsRejectBlankReleaseAndModuleName() {
-        assertFalse(new KotlinCompilerRunner.Options("21", "main", false).javaParameters());
+        assertFalse(new KotlinCompilerOptions("21", "main", false).javaParameters());
         assertThrows(
                 KotlinCompileException.class,
-                () -> new KotlinCompilerRunner.Options(" ", "main", false));
+                () -> new KotlinCompilerOptions(" ", "main", false));
         assertThrows(
                 KotlinCompileException.class,
-                () -> new KotlinCompilerRunner.Options("21", " ", false));
+                () -> new KotlinCompilerOptions("21", " ", false));
     }
 
     @Test
     void optionsRejectCommaDelimitedFriendPath() {
         KotlinCompileException failure = assertThrows(
                 KotlinCompileException.class,
-                () -> new KotlinCompilerRunner.Options("21", "demo_test", false)
+                () -> new KotlinCompilerOptions("21", "demo_test", false)
                         .withFriendPath(Path.of("workspace,copy/target/classes")));
 
         assertTrue(failure.getMessage().contains("containing a comma"));

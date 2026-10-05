@@ -12,13 +12,13 @@ import org.junit.jupiter.api.Test;
 import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.compile.KotlinCompilationScope;
 import sh.zolt.build.compile.KotlinCompileOptionsPolicy;
-import sh.zolt.build.compile.KotlinCompilerRunner;
+import sh.zolt.build.compile.KotlinCompilerOptions;
 
 /** Qualifies repeatable, kotlinc-only diagnostic warning levels. */
 final class KotlinWarningLevelArgumentsTest {
     @Test
     void mapsWarningLevelsOnlyToKotlincAndPreservesThemWithFriendOutput() {
-        KotlinCompilerRunner.Options options = options(
+        KotlinCompilerOptions options = options(
                         KotlinCompilationScope.TEST,
                         List.of(),
                         List.of(
@@ -38,13 +38,13 @@ final class KotlinWarningLevelArgumentsTest {
     @Test
     void acceptsEverySeverityAndScopesItToTheActiveCompilerLane() {
         for (String severity : List.of("error", "warning", "disabled")) {
-            KotlinCompilerRunner.Options main = options(
+            KotlinCompilerOptions main = options(
                     KotlinCompilationScope.MAIN,
                     List.of("-Xwarning-level=DEPRECATION:" + severity),
                     List.of("-Xwarning-level=UNUSED_VARIABLE:disabled"));
             assertEquals(List.of("DEPRECATION:" + severity), main.warningLevels());
         }
-        KotlinCompilerRunner.Options test = options(
+        KotlinCompilerOptions test = options(
                 KotlinCompilationScope.TEST,
                 List.of("-Xwarning-level=DEPRECATION:error"),
                 List.of("-Xwarning-level=UNUSED_VARIABLE:warning"));
@@ -53,17 +53,17 @@ final class KotlinWarningLevelArgumentsTest {
 
     @Test
     void composesWithModuleWideWarningPolicies() {
-        KotlinCompilerRunner.Options suppressed = options(
+        KotlinCompilerOptions suppressed = options(
                 KotlinCompilationScope.MAIN,
                 List.of("-nowarn", "-Xwarning-level=DEPRECATION:warning"),
                 List.of());
         assertEquals(List.of("-nowarn"), KotlinCompileOptionsPolicy.javacOptions(suppressed).arguments());
-        KotlinCompilerRunner.Options enforced = options(
+        KotlinCompilerOptions enforced = options(
                 KotlinCompilationScope.MAIN,
                 List.of("-Werror", "-Xwarning-level=DEPRECATION:warning"),
                 List.of());
         assertEquals(List.of("-Werror"), KotlinCompileOptionsPolicy.javacOptions(enforced).arguments());
-        KotlinCompilerRunner.Options expanded = options(
+        KotlinCompilerOptions expanded = options(
                 KotlinCompilationScope.MAIN,
                 List.of("-Wextra", "-Xwarning-level=REDUNDANT_VISIBILITY_MODIFIER:disabled"),
                 List.of());

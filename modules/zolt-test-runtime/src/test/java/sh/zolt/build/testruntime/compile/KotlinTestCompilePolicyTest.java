@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.compile.JavacOptions;
 import sh.zolt.build.compile.KotlinCompileOptionsPolicy;
-import sh.zolt.build.compile.KotlinCompilerRunner;
+import sh.zolt.build.compile.KotlinCompilerOptions;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.classpath.Classpath;
 import sh.zolt.classpath.ClasspathSet;
@@ -42,7 +42,7 @@ final class KotlinTestCompilePolicyTest {
 
     @Test
     void acceptsKotlinOnlyTestsWithKotlinMainAndBuildsTestModuleName() {
-        KotlinCompilerRunner.Options options = KotlinTestCompilePolicy.options(
+        KotlinCompilerOptions options = KotlinTestCompilePolicy.options(
                 config(CompilerSettings.defaults(), Map.of(), Map.of(), Map.of()),
                 sources(List.of(), List.of(), List.of(Path.of("src/main/kotlin/com/example/Demo.kt")),
                         List.of(), List.of(), List.of(KOTLIN_TEST)),
@@ -75,7 +75,7 @@ final class KotlinTestCompilePolicyTest {
                 "maven-artifact",
                 "maven-artifact-test");
 
-        KotlinCompilerRunner.Options options = KotlinTestCompilePolicy.options(
+        KotlinCompilerOptions options = KotlinTestCompilePolicy.options(
                 config(compiler, Map.of(), Map.of(), Map.of()),
                 sources(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(KOTLIN_TEST)),
                 classpaths(List.of()),
@@ -87,7 +87,7 @@ final class KotlinTestCompilePolicyTest {
 
     @Test
     void acceptsWorkspaceApiImplementationAndTestDependencies() {
-        KotlinCompilerRunner.Options options = KotlinTestCompilePolicy.options(
+        KotlinCompilerOptions options = KotlinTestCompilePolicy.options(
                 config(
                         CompilerSettings.defaults(),
                         Map.of("api", "../api"),
@@ -111,7 +111,7 @@ final class KotlinTestCompilePolicyTest {
                 "",
                 List.of(),
                 List.of());
-        KotlinCompilerRunner.Options options = KotlinTestCompilePolicy.options(
+        KotlinCompilerOptions options = KotlinTestCompilePolicy.options(
                 config(compiler, Map.of(), Map.of(), Map.of()),
                 sources(
                         List.of(),
@@ -146,7 +146,7 @@ final class KotlinTestCompilePolicyTest {
                 CompilerSettings.PLATFORM_API_HOST,
                 "",
                 "");
-        KotlinCompilerRunner.Options options = KotlinTestCompilePolicy.options(
+        KotlinCompilerOptions options = KotlinTestCompilePolicy.options(
                 config(compiler, Map.of(), Map.of(), Map.of()),
                 sources(
                         List.of(),
@@ -212,7 +212,7 @@ final class KotlinTestCompilePolicyTest {
 
     @Test
     void acceptsDeclaredJavaRootsButRejectsOwnedJavaGeneration() {
-        KotlinCompilerRunner.Options declaredRoot = KotlinTestCompilePolicy.options(
+        KotlinCompilerOptions declaredRoot = KotlinTestCompilePolicy.options(
                 configWithGeneratedTestStep(generatedStep(GeneratedSourceKind.DECLARED_ROOT)),
                 sources(
                         List.of(),
@@ -255,7 +255,7 @@ final class KotlinTestCompilePolicyTest {
         }
 
         for (ProducesLane lane : List.of(ProducesLane.TEST_RESOURCES, ProducesLane.INTERMEDIATE)) {
-            KotlinCompilerRunner.Options options = KotlinTestCompilePolicy.options(
+            KotlinCompilerOptions options = KotlinTestCompilePolicy.options(
                     configWithGeneratedTestStep(execStep(lane)),
                     sources(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(KOTLIN_TEST)),
                     classpaths(List.of()),
@@ -269,7 +269,7 @@ final class KotlinTestCompilePolicyTest {
 
     @Test
     void acceptsOwnedKotlinExecGeneration() {
-        KotlinCompilerRunner.Options options = KotlinTestCompilePolicy.options(
+        KotlinCompilerOptions options = KotlinTestCompilePolicy.options(
                 configWithGeneratedTestStep(execStep("kotlin", ProducesLane.TEST_SOURCES)),
                 sources(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(KOTLIN_TEST)),
                 classpaths(List.of()),
@@ -282,7 +282,7 @@ final class KotlinTestCompilePolicyTest {
     @Test
     void acceptsOwnedKotlinTypedGeneratorOutputs() {
         for (GeneratedSourceKind kind : List.of(GeneratedSourceKind.OPENAPI, GeneratedSourceKind.PROTOBUF)) {
-            KotlinCompilerRunner.Options options = KotlinTestCompilePolicy.options(
+            KotlinCompilerOptions options = KotlinTestCompilePolicy.options(
                     configWithGeneratedTestStep(generatedStep(kind, "kotlin")),
                     sources(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(KOTLIN_TEST)),
                     classpaths(List.of()),

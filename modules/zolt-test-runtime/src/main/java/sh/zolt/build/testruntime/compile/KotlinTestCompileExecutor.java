@@ -9,6 +9,7 @@ import sh.zolt.build.compile.JavacResult;
 import sh.zolt.build.compile.JavacRunner;
 import sh.zolt.build.compile.KotlinCompilationScope;
 import sh.zolt.build.compile.KotlinCompileOptionsPolicy;
+import sh.zolt.build.compile.KotlinCompilerOptions;
 import sh.zolt.build.compile.KotlinCompilerRunner;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.classpath.Classpath;
@@ -35,7 +36,7 @@ final class KotlinTestCompileExecutor {
             SourceDiscoveryResult sources,
             Classpath testCompileClasspath,
             Classpath kotlinCompilerLauncherClasspath,
-            KotlinCompilerRunner.Options kotlinOptions,
+            KotlinCompilerOptions kotlinOptions,
             Path outputDirectory,
             String fallbackReason,
             CompileDiagnostics diagnostics) {
@@ -104,7 +105,7 @@ final class KotlinTestCompileExecutor {
                 Classpath compilerLauncherClasspath,
                 Classpath compilationClasspath,
                 Path outputDirectory,
-                KotlinCompilerRunner.Options options,
+                KotlinCompilerOptions options,
                 KotlinCompilationScope scope);
     }
 }

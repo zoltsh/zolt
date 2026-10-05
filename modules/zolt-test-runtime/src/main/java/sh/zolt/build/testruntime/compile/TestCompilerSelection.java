@@ -6,7 +6,7 @@ import sh.zolt.build.compile.EffectiveCompilerIdentity;
 import sh.zolt.build.compile.GroovyCompilerToolchain;
 import sh.zolt.build.compile.GroovyCompilerToolchainResolver;
 import sh.zolt.build.compile.KotlinCompilationScope;
-import sh.zolt.build.compile.KotlinCompilerRunner;
+import sh.zolt.build.compile.KotlinCompilerOptions;
 import sh.zolt.build.compile.KotlinCompilerToolchain;
 import sh.zolt.build.compile.KotlinCompilerToolchainResolver;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
@@ -21,7 +21,7 @@ record TestCompilerSelection(
         String identity,
         Classpath groovyLauncherClasspath,
         Classpath kotlinLauncherClasspath,
-        KotlinCompilerRunner.Options kotlinOptions) {
+        KotlinCompilerOptions kotlinOptions) {
     static TestCompilerSelection select(
             ProjectConfig config,
             SourceDiscoveryResult sources,
@@ -29,7 +29,7 @@ record TestCompilerSelection(
             List<ResolvedClasspathPackage> classpathPackages,
             JdkStatus jdkStatus,
             Path mainOutputDirectory) {
-        KotlinCompilerRunner.Options kotlinOptions = sources.kotlinTestSources().isEmpty()
+        KotlinCompilerOptions kotlinOptions = sources.kotlinTestSources().isEmpty()
                 ? null
                 : KotlinTestCompilePolicy.options(
                         config,

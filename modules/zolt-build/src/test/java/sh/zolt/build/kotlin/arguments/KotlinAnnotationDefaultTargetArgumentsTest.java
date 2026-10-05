@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.compile.KotlinCompilationScope;
 import sh.zolt.build.compile.KotlinCompileOptionsPolicy;
-import sh.zolt.build.compile.KotlinCompilerRunner;
+import sh.zolt.build.compile.KotlinCompilerOptions;
 
 /** Qualifies the bounded Kotlin annotation default-target modes. */
 final class KotlinAnnotationDefaultTargetArgumentsTest {
@@ -20,7 +20,7 @@ final class KotlinAnnotationDefaultTargetArgumentsTest {
 
     @Test
     void mapsModeOnlyToKotlincAndPreservesItWithFriendOutput() {
-        KotlinCompilerRunner.Options options = options(
+        KotlinCompilerOptions options = options(
                         KotlinCompilationScope.TEST,
                         List.of(),
                         List.of(OPTION + "param-property"))
@@ -35,11 +35,11 @@ final class KotlinAnnotationDefaultTargetArgumentsTest {
 
     @Test
     void scopesModesToTheirCompilerLanes() {
-        KotlinCompilerRunner.Options main = options(
+        KotlinCompilerOptions main = options(
                 KotlinCompilationScope.MAIN,
                 List.of(OPTION + "first-only"),
                 List.of(OPTION + "param-property"));
-        KotlinCompilerRunner.Options test = options(
+        KotlinCompilerOptions test = options(
                 KotlinCompilationScope.TEST,
                 List.of(OPTION + "first-only"),
                 List.of(OPTION + "param-property"));
@@ -51,7 +51,7 @@ final class KotlinAnnotationDefaultTargetArgumentsTest {
     @Test
     void acceptsEveryCompilerMode() {
         for (String mode : List.of("first-only", "first-only-warn", "param-property")) {
-            KotlinCompilerRunner.Options options = options(
+            KotlinCompilerOptions options = options(
                     KotlinCompilationScope.MAIN,
                     List.of(OPTION + mode),
                     List.of());

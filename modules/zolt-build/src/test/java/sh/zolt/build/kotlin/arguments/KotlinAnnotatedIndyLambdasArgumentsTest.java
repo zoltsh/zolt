@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.compile.KotlinCompilationScope;
 import sh.zolt.build.compile.KotlinCompileOptionsPolicy;
-import sh.zolt.build.compile.KotlinCompilerRunner;
+import sh.zolt.build.compile.KotlinCompilerOptions;
 
 /** Qualifies bounded invokedynamic generation for annotated Kotlin lambdas. */
 final class KotlinAnnotatedIndyLambdasArgumentsTest {
@@ -21,7 +21,7 @@ final class KotlinAnnotatedIndyLambdasArgumentsTest {
 
     @Test
     void mapsAnnotatedIndyLambdasOnlyToKotlincAndPreservesThemWithFriendOutput() {
-        KotlinCompilerRunner.Options options = options(
+        KotlinCompilerOptions options = options(
                         KotlinCompilationScope.TEST,
                         List.of(),
                         List.of(INDY, FLAG))
@@ -37,11 +37,11 @@ final class KotlinAnnotatedIndyLambdasArgumentsTest {
 
     @Test
     void scopesAnnotatedIndyLambdasToTheActiveCompilerLane() {
-        KotlinCompilerRunner.Options main = options(
+        KotlinCompilerOptions main = options(
                 KotlinCompilationScope.MAIN,
                 List.of(INDY, FLAG),
                 List.of());
-        KotlinCompilerRunner.Options test = options(
+        KotlinCompilerOptions test = options(
                 KotlinCompilationScope.TEST,
                 List.of(INDY, FLAG),
                 List.of());

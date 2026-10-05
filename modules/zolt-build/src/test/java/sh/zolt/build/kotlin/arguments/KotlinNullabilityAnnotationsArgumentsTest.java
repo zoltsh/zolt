@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.compile.KotlinCompilationScope;
 import sh.zolt.build.compile.KotlinCompileOptionsPolicy;
-import sh.zolt.build.compile.KotlinCompilerRunner;
+import sh.zolt.build.compile.KotlinCompilerOptions;
 
 /** Qualifies bounded package-specific Java nullability-annotation rules. */
 final class KotlinNullabilityAnnotationsArgumentsTest {
@@ -23,7 +23,7 @@ final class KotlinNullabilityAnnotationsArgumentsTest {
 
     @Test
     void mapsDistinctRulesOnlyToKotlincInDeclarationOrderAndPreservesFriendOutput() {
-        KotlinCompilerRunner.Options options = options(
+        KotlinCompilerOptions options = options(
                         KotlinCompilationScope.TEST,
                         List.of(),
                         List.of(JETBRAINS, ANDROID))
@@ -44,11 +44,11 @@ final class KotlinNullabilityAnnotationsArgumentsTest {
 
     @Test
     void scopesRulesToTheActiveCompilerLane() {
-        KotlinCompilerRunner.Options main = options(
+        KotlinCompilerOptions main = options(
                 KotlinCompilationScope.MAIN,
                 List.of(JETBRAINS),
                 List.of(ANDROID));
-        KotlinCompilerRunner.Options test = options(
+        KotlinCompilerOptions test = options(
                 KotlinCompilationScope.TEST,
                 List.of(JETBRAINS),
                 List.of(ANDROID));

@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.compile.KotlinCompilationScope;
 import sh.zolt.build.compile.KotlinCompileOptionsPolicy;
-import sh.zolt.build.compile.KotlinCompilerRunner;
+import sh.zolt.build.compile.KotlinCompilerOptions;
 
 /** Qualifies the bounded Kotlin/JVM string-concatenation code-generation modes. */
 final class KotlinStringConcatArgumentsTest {
@@ -20,7 +20,7 @@ final class KotlinStringConcatArgumentsTest {
 
     @Test
     void mapsModeOnlyToKotlincAndPreservesItWithFriendOutput() {
-        KotlinCompilerRunner.Options options = options(
+        KotlinCompilerOptions options = options(
                         KotlinCompilationScope.TEST,
                         List.of(),
                         List.of(OPTION + "inline"))
@@ -35,11 +35,11 @@ final class KotlinStringConcatArgumentsTest {
 
     @Test
     void scopesModesToTheirCompilerLanes() {
-        KotlinCompilerRunner.Options main = options(
+        KotlinCompilerOptions main = options(
                 KotlinCompilationScope.MAIN,
                 List.of(OPTION + "indy"),
                 List.of(OPTION + "inline"));
-        KotlinCompilerRunner.Options test = options(
+        KotlinCompilerOptions test = options(
                 KotlinCompilationScope.TEST,
                 List.of(OPTION + "indy"),
                 List.of(OPTION + "inline"));
@@ -51,7 +51,7 @@ final class KotlinStringConcatArgumentsTest {
     @Test
     void acceptsEveryCompilerMode() {
         for (String mode : List.of("indy-with-constants", "indy", "inline")) {
-            KotlinCompilerRunner.Options options = options(
+            KotlinCompilerOptions options = options(
                     KotlinCompilationScope.MAIN,
                     List.of(OPTION + mode),
                     List.of());

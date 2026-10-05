@@ -22,7 +22,7 @@ final class KotlinExplicitApiArgumentsTest {
 
     @Test
     void mapsExplicitApiOnlyToKotlincAndPreservesItWithFriendOutput() {
-        KotlinCompilerRunner.Options options = options(
+        KotlinCompilerOptions options = options(
                         KotlinCompilationScope.TEST,
                         List.of(),
                         List.of("-Xexplicit-api=warning"))
@@ -55,14 +55,14 @@ final class KotlinExplicitApiArgumentsTest {
     @Test
     void acceptsEveryModeAndScopesItToTheActiveCompilerLane() {
         for (String mode : List.of("strict", "warning", "disable")) {
-            KotlinCompilerRunner.Options main = options(
+            KotlinCompilerOptions main = options(
                     KotlinCompilationScope.MAIN,
                     List.of("-Xexplicit-api=" + mode),
                     List.of("-Xexplicit-api=disable"));
             assertEquals(mode, main.explicitApiMode());
         }
 
-        KotlinCompilerRunner.Options test = options(
+        KotlinCompilerOptions test = options(
                 KotlinCompilationScope.TEST,
                 List.of("-Xexplicit-api=strict"),
                 List.of("-Xexplicit-api=warning"));
@@ -95,7 +95,7 @@ final class KotlinExplicitApiArgumentsTest {
         assertTrue(failure.getMessage().contains("-Xexplicit-api=strict"));
     }
 
-    private static KotlinCompilerRunner.Options options(
+    private static KotlinCompilerOptions options(
             KotlinCompilationScope scope,
             List<String> mainArguments,
             List<String> testArguments) {

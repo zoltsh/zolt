@@ -14,7 +14,7 @@ final class KotlinMainCompilePolicy {
     private KotlinMainCompilePolicy() {
     }
 
-    static KotlinCompilerRunner.Options options(
+    static KotlinCompilerOptions options(
             ProjectConfig config,
             SourceDiscoveryResult sources,
             ClasspathSet classpaths,

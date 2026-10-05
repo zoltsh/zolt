@@ -51,7 +51,7 @@ final class MainLanguageCompileExecutor {
             JdkStatus jdkStatus,
             MainCompilerToolchain toolchain) {
         if (!sources.kotlinMainSources().isEmpty()) {
-            KotlinCompilerRunner.Options options = KotlinMainCompilePolicy.options(
+            KotlinCompilerOptions options = KotlinMainCompilePolicy.options(
                     config, sources, classpaths, jdkStatus);
             return Plan.kotlin(options, requireKotlinToolchain(toolchain));
         }
@@ -185,7 +185,7 @@ final class MainLanguageCompileExecutor {
     record Plan(
             GroovyCompilerRunner.JointOptions groovyOptions,
             GroovyCompilerToolchain groovyToolchain,
-            KotlinCompilerRunner.Options kotlinOptions,
+            KotlinCompilerOptions kotlinOptions,
             KotlinCompilerToolchain kotlinToolchain) {
         static Plan javaOnly() {
             return new Plan(null, null, null, null);
@@ -198,7 +198,7 @@ final class MainLanguageCompileExecutor {
         }
 
         static Plan kotlin(
-                KotlinCompilerRunner.Options options,
+                KotlinCompilerOptions options,
                 KotlinCompilerToolchain toolchain) {
             return new Plan(null, null, options, toolchain);
         }

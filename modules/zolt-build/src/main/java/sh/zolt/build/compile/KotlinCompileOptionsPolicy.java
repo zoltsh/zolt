@@ -16,7 +16,7 @@ public final class KotlinCompileOptionsPolicy {
     private KotlinCompileOptionsPolicy() {
     }
 
-    public static KotlinCompilerRunner.Options options(
+    public static KotlinCompilerOptions options(
             ProjectConfig config,
             JdkStatus jdkStatus,
             KotlinCompilationScope scope) {
@@ -52,7 +52,7 @@ public final class KotlinCompileOptionsPolicy {
         boolean hostPlatformApi = compilationScope == KotlinCompilationScope.MAIN
                 ? compiler.mainHostPlatformApi()
                 : compiler.testHostPlatformApi();
-        return new KotlinCompilerRunner.Options(
+        return new KotlinCompilerOptions(
                 Integer.toString(release),
                 moduleName(config, compilationScope),
                 hostPlatformApi,
@@ -96,8 +96,8 @@ public final class KotlinCompileOptionsPolicy {
     }
 
     /** Maps Kotlin platform targeting onto the matching deterministic javac phase. */
-    public static JavacOptions javacOptions(KotlinCompilerRunner.Options kotlinOptions) {
-        KotlinCompilerRunner.Options options = Objects.requireNonNull(
+    public static JavacOptions javacOptions(KotlinCompilerOptions kotlinOptions) {
+        KotlinCompilerOptions options = Objects.requireNonNull(
                 kotlinOptions,
                 "Kotlin compilation options are required.");
         List<String> arguments = new ArrayList<>(2);

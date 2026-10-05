@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
 import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.compile.JavacOptions;
 import sh.zolt.build.compile.KotlinCompileOptionsPolicy;
-import sh.zolt.build.compile.KotlinCompilerRunner;
+import sh.zolt.build.compile.KotlinCompilerOptions;
 import sh.zolt.project.CompilerSettings;
 
 /** The bounded javac-to-kotlinc argument mapping for Kotlin test source sets. */
@@ -36,7 +36,7 @@ final class KotlinTestCompilerArgumentsPolicyTest {
                 List.of("-Werror"),
                 List.of("-parameters", "-Werror"),
                 List.of("-Werror", "-parameters"))) {
-            KotlinCompilerRunner.Options options = options(
+            KotlinCompilerOptions options = options(
                     new CompilerSettings(null, null, "", "", List.of(), testArgs),
                     List.of(KOTLIN_MAIN),
                     List.of(JAVA_TEST),
@@ -64,7 +64,7 @@ final class KotlinTestCompilerArgumentsPolicyTest {
                 List.of("-Xlint:all"),
                 List.of("-Werror"));
 
-        KotlinCompilerRunner.Options options = options(
+        KotlinCompilerOptions options = options(
                 compiler,
                 List.of(),
                 List.of(),
@@ -104,7 +104,7 @@ final class KotlinTestCompilerArgumentsPolicyTest {
         }
     }
 
-    private static KotlinCompilerRunner.Options options(
+    private static KotlinCompilerOptions options(
             CompilerSettings compiler,
             List<Path> kotlinMain,
             List<Path> javaTest,

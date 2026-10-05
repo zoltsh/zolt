@@ -23,7 +23,7 @@ final class KotlinWarningSuppressionArgumentsTest {
 
     @Test
     void mapsWarningSuppressionToBothCompilersAndPreservesItWithFriendOutput() {
-        KotlinCompilerRunner.Options options = options(
+        KotlinCompilerOptions options = options(
                         KotlinCompilationScope.TEST,
                         List.of(),
                         List.of("-nowarn"))
@@ -57,11 +57,11 @@ final class KotlinWarningSuppressionArgumentsTest {
 
     @Test
     void scopesWarningSuppressionToTheActiveCompilerLane() {
-        KotlinCompilerRunner.Options main = options(
+        KotlinCompilerOptions main = options(
                 KotlinCompilationScope.MAIN,
                 List.of("-nowarn"),
                 List.of());
-        KotlinCompilerRunner.Options test = options(
+        KotlinCompilerOptions test = options(
                 KotlinCompilationScope.TEST,
                 List.of("-nowarn"),
                 List.of());
@@ -95,7 +95,7 @@ final class KotlinWarningSuppressionArgumentsTest {
         }
     }
 
-    private static KotlinCompilerRunner.Options options(
+    private static KotlinCompilerOptions options(
             KotlinCompilationScope scope,
             List<String> mainArguments,
             List<String> testArguments) {

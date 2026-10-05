@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.compile.KotlinCompilationScope;
 import sh.zolt.build.compile.KotlinCompileOptionsPolicy;
-import sh.zolt.build.compile.KotlinCompilerRunner;
+import sh.zolt.build.compile.KotlinCompilerOptions;
 
 /** Qualifies the bounded Kotlin legacy null-check compatibility control. */
 final class KotlinLegacyNullChecksArgumentsTest {
@@ -20,7 +20,7 @@ final class KotlinLegacyNullChecksArgumentsTest {
 
     @Test
     void mapsLegacyNullChecksOnlyToKotlincAndPreservesThemWithFriendOutput() {
-        KotlinCompilerRunner.Options options = options(
+        KotlinCompilerOptions options = options(
                         KotlinCompilationScope.TEST,
                         List.of(),
                         List.of(FLAG))
@@ -35,11 +35,11 @@ final class KotlinLegacyNullChecksArgumentsTest {
 
     @Test
     void scopesLegacyNullChecksToTheActiveCompilerLane() {
-        KotlinCompilerRunner.Options main = options(
+        KotlinCompilerOptions main = options(
                 KotlinCompilationScope.MAIN,
                 List.of(FLAG),
                 List.of());
-        KotlinCompilerRunner.Options test = options(
+        KotlinCompilerOptions test = options(
                 KotlinCompilationScope.TEST,
                 List.of(FLAG),
                 List.of());

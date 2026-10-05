@@ -5,7 +5,7 @@ import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.compile.CompilerPlatformApi;
 import sh.zolt.build.compile.KotlinCompilationScope;
 import sh.zolt.build.compile.KotlinCompileOptionsPolicy;
-import sh.zolt.build.compile.KotlinCompilerRunner;
+import sh.zolt.build.compile.KotlinCompilerOptions;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.doctor.JdkStatus;
@@ -19,7 +19,7 @@ final class KotlinTestCompilePolicy {
     private KotlinTestCompilePolicy() {
     }
 
-    static KotlinCompilerRunner.Options options(
+    static KotlinCompilerOptions options(
             ProjectConfig config,
             SourceDiscoveryResult sources,
             ClasspathSet classpaths,
@@ -61,7 +61,7 @@ final class KotlinTestCompilePolicy {
                     "the selected JDK has no javac executable",
                     "Install a complete JDK or repair the configured Java toolchain.");
         }
-        KotlinCompilerRunner.Options options = KotlinCompileOptionsPolicy.options(
+        KotlinCompilerOptions options = KotlinCompileOptionsPolicy.options(
                 config,
                 jdkStatus,
                 KotlinCompilationScope.TEST);

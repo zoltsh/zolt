@@ -22,7 +22,7 @@ final class KotlinJvmDefaultArgumentsTest {
 
     @Test
     void mapsJvmDefaultOnlyToKotlincAndPreservesItWithFriendOutput() {
-        KotlinCompilerRunner.Options options = options(
+        KotlinCompilerOptions options = options(
                         KotlinCompilationScope.TEST,
                         List.of(),
                         List.of("-jvm-default=no-compatibility"))
@@ -55,14 +55,14 @@ final class KotlinJvmDefaultArgumentsTest {
     @Test
     void acceptsEveryModeAndScopesItToTheActiveCompilerLane() {
         for (String mode : List.of("enable", "no-compatibility", "disable")) {
-            KotlinCompilerRunner.Options main = options(
+            KotlinCompilerOptions main = options(
                     KotlinCompilationScope.MAIN,
                     List.of("-jvm-default=" + mode),
                     List.of("-jvm-default=disable"));
             assertEquals(mode, main.jvmDefaultMode());
         }
 
-        KotlinCompilerRunner.Options test = options(
+        KotlinCompilerOptions test = options(
                 KotlinCompilationScope.TEST,
                 List.of("-jvm-default=enable"),
                 List.of("-jvm-default=disable"));
@@ -95,7 +95,7 @@ final class KotlinJvmDefaultArgumentsTest {
         assertTrue(failure.getMessage().contains("-jvm-default=disable"));
     }
 
-    private static KotlinCompilerRunner.Options options(
+    private static KotlinCompilerOptions options(
             KotlinCompilationScope scope,
             List<String> mainArguments,
             List<String> testArguments) {

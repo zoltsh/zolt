@@ -23,7 +23,7 @@ final class KotlinExtraWarningArgumentsTest {
 
     @Test
     void composesExtraWarningsWithWerrorOnlyForKotlinc() {
-        KotlinCompilerRunner.Options options = options(
+        KotlinCompilerOptions options = options(
                         KotlinCompilationScope.TEST,
                         List.of(),
                         List.of("-Wextra", "-Werror"))
@@ -59,11 +59,11 @@ final class KotlinExtraWarningArgumentsTest {
 
     @Test
     void scopesExtraWarningsToTheActiveCompilerLane() {
-        KotlinCompilerRunner.Options main = options(
+        KotlinCompilerOptions main = options(
                 KotlinCompilationScope.MAIN,
                 List.of("-Wextra"),
                 List.of());
-        KotlinCompilerRunner.Options test = options(
+        KotlinCompilerOptions test = options(
                 KotlinCompilationScope.TEST,
                 List.of("-Wextra"),
                 List.of());
@@ -86,7 +86,7 @@ final class KotlinExtraWarningArgumentsTest {
         assertTrue(failure.getMessage().contains("-Wextra"));
     }
 
-    private static KotlinCompilerRunner.Options options(
+    private static KotlinCompilerOptions options(
             KotlinCompilationScope scope,
             List<String> mainArguments,
             List<String> testArguments) {

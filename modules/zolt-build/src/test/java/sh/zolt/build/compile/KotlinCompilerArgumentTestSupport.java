@@ -12,7 +12,7 @@ public final class KotlinCompilerArgumentTestSupport {
     private KotlinCompilerArgumentTestSupport() {
     }
 
-    public static KotlinCompilerRunner.Options options(
+    public static KotlinCompilerOptions options(
             KotlinCompilationScope scope,
             List<String> mainArguments,
             List<String> testArguments) {
@@ -27,7 +27,7 @@ public final class KotlinCompilerArgumentTestSupport {
                 scope);
     }
 
-    public static List<String> invocationArguments(KotlinCompilerRunner.Options options) {
+    public static List<String> invocationArguments(KotlinCompilerOptions options) {
         return KotlinCompilerInvocationArguments.build(
                 Path.of("/jdk"),
                 List.of(Path.of("src/Test.kt")),

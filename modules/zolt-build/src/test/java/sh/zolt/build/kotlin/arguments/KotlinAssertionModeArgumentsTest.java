@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.compile.KotlinCompilationScope;
 import sh.zolt.build.compile.KotlinCompileOptionsPolicy;
-import sh.zolt.build.compile.KotlinCompilerRunner;
+import sh.zolt.build.compile.KotlinCompilerOptions;
 
 /** Qualifies the bounded Kotlin/JVM assertion code-generation modes. */
 final class KotlinAssertionModeArgumentsTest {
@@ -20,7 +20,7 @@ final class KotlinAssertionModeArgumentsTest {
 
     @Test
     void mapsModeOnlyToKotlincAndPreservesItWithFriendOutput() {
-        KotlinCompilerRunner.Options options = options(
+        KotlinCompilerOptions options = options(
                         KotlinCompilationScope.TEST,
                         List.of(),
                         List.of(OPTION + "jvm"))
@@ -35,11 +35,11 @@ final class KotlinAssertionModeArgumentsTest {
 
     @Test
     void scopesModesToTheirCompilerLanes() {
-        KotlinCompilerRunner.Options main = options(
+        KotlinCompilerOptions main = options(
                 KotlinCompilationScope.MAIN,
                 List.of(OPTION + "always-enable"),
                 List.of(OPTION + "always-disable"));
-        KotlinCompilerRunner.Options test = options(
+        KotlinCompilerOptions test = options(
                 KotlinCompilationScope.TEST,
                 List.of(OPTION + "always-enable"),
                 List.of(OPTION + "always-disable"));
@@ -51,7 +51,7 @@ final class KotlinAssertionModeArgumentsTest {
     @Test
     void acceptsEveryCompilerMode() {
         for (String mode : List.of("always-enable", "always-disable", "jvm", "legacy")) {
-            KotlinCompilerRunner.Options options = options(
+            KotlinCompilerOptions options = options(
                     KotlinCompilationScope.MAIN,
                     List.of(OPTION + mode),
                     List.of());

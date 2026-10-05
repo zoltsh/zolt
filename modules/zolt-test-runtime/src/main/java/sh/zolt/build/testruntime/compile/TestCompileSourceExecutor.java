@@ -9,6 +9,7 @@ import sh.zolt.build.compile.IncrementalJavacExecution;
 import sh.zolt.build.compile.JavacOptions;
 import sh.zolt.build.compile.JavacResult;
 import sh.zolt.build.compile.JavacRunner;
+import sh.zolt.build.compile.KotlinCompilerOptions;
 import sh.zolt.build.compile.KotlinCompilerRunner;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.build.incremental.GeneratedOutputAttribution;
@@ -56,7 +57,7 @@ final class TestCompileSourceExecutor {
             Classpath groovyCompilerLauncherClasspath,
             Classpath groovyCompileClasspath,
             Classpath kotlinCompilerLauncherClasspath,
-            KotlinCompilerRunner.Options kotlinOptions,
+            KotlinCompilerOptions kotlinOptions,
             Path outputDirectory,
             Path generatedSourcesDirectory,
             JdkStatus jdkStatus,
@@ -132,7 +133,7 @@ final class TestCompileSourceExecutor {
             Classpath groovyCompilerLauncherClasspath,
             Classpath groovyCompileClasspath,
             Classpath kotlinCompilerLauncherClasspath,
-            KotlinCompilerRunner.Options kotlinOptions,
+            KotlinCompilerOptions kotlinOptions,
             Path outputDirectory,
             Path generatedSourcesDirectory,
             ClasspathSet classpaths,
@@ -222,7 +223,7 @@ final class TestCompileSourceExecutor {
             Classpath groovyCompilerLauncherClasspath,
             Classpath groovyCompileClasspath,
             Classpath kotlinCompilerLauncherClasspath,
-            KotlinCompilerRunner.Options kotlinOptions,
+            KotlinCompilerOptions kotlinOptions,
             Path outputDirectory,
             Path generatedSourcesDirectory,
             ClasspathSet classpaths,
@@ -258,7 +259,7 @@ final class TestCompileSourceExecutor {
             Classpath groovyCompilerLauncherClasspath,
             Classpath groovyCompileClasspath,
             Classpath kotlinCompilerLauncherClasspath,
-            KotlinCompilerRunner.Options kotlinOptions,
+            KotlinCompilerOptions kotlinOptions,
             Path outputDirectory,
             Path generatedSourcesDirectory,
             ClasspathSet classpaths,

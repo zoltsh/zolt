@@ -37,7 +37,7 @@ final class KotlinMappedCompilerArgumentsTest {
                 new Classpath(List.of(Path.of("compiler.jar"))),
                 new Classpath(List.of(Path.of("stdlib.jar"))),
                 tempDir.resolve("warnings-as-errors-classes"),
-                new KotlinCompilerRunner.Options(
+                new KotlinCompilerOptions(
                         "21", "warnings_as_errors_main", false, true, false, true));
 
         List<String> arguments = argumentContents.getFirst().lines().toList();
@@ -49,8 +49,8 @@ final class KotlinMappedCompilerArgumentsTest {
 
     @Test
     void defaultsWarningsOffAndFriendPathRetainsMappedArguments() {
-        KotlinCompilerRunner.Options defaults = new KotlinCompilerRunner.Options("21", "main", false);
-        KotlinCompilerRunner.Options mapped = new KotlinCompilerRunner.Options(
+        KotlinCompilerOptions defaults = new KotlinCompilerOptions("21", "main", false);
+        KotlinCompilerOptions mapped = new KotlinCompilerOptions(
                         "21", "test", false, true, true, true)
                 .withFriendPath(Path.of("target/classes"));
 
@@ -67,7 +67,7 @@ final class KotlinMappedCompilerArgumentsTest {
                 List.of("-Werror"),
                 List.of("-parameters", "-Werror"),
                 List.of("-Werror", "-parameters"))) {
-            KotlinCompilerRunner.Options options = mainOptions(arguments, List.of());
+            KotlinCompilerOptions options = mainOptions(arguments, List.of());
 
             assertEquals(arguments.contains("-parameters"), options.javaParameters());
             assertTrue(options.warningsAsErrors());
@@ -85,11 +85,11 @@ final class KotlinMappedCompilerArgumentsTest {
                 List.of("-Werror"),
                 List.of("-parameters"));
 
-        KotlinCompilerRunner.Options main = KotlinCompileOptionsPolicy.options(
+        KotlinCompilerOptions main = KotlinCompileOptionsPolicy.options(
                 config,
                 KotlinMainCompilePolicyTest.jdkStatus("21.0.11", "21"),
                 KotlinCompilationScope.MAIN);
-        KotlinCompilerRunner.Options test = KotlinCompileOptionsPolicy.options(
+        KotlinCompilerOptions test = KotlinCompileOptionsPolicy.options(
                 config,
                 KotlinMainCompilePolicyTest.jdkStatus("21.0.11", "21"),
                 KotlinCompilationScope.TEST);
@@ -138,7 +138,7 @@ final class KotlinMappedCompilerArgumentsTest {
         }
     }
 
-    private static KotlinCompilerRunner.Options mainOptions(
+    private static KotlinCompilerOptions mainOptions(
             List<String> arguments,
             List<String> testArguments) {
         return KotlinMainCompilePolicy.options(

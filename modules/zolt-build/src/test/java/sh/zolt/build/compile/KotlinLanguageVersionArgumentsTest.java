@@ -22,7 +22,7 @@ final class KotlinLanguageVersionArgumentsTest {
 
     @Test
     void mapsVersionPairsOnlyToKotlinc() {
-        KotlinCompilerRunner.Options options = options(
+        KotlinCompilerOptions options = options(
                 KotlinCompilationScope.MAIN,
                 List.of(
                         "-parameters",
@@ -62,11 +62,11 @@ final class KotlinLanguageVersionArgumentsTest {
         List<String> mainArguments = List.of("-language-version", "2.0", "-api-version", "1.9");
         List<String> testArguments = List.of("-language-version", "2.1", "-api-version", "2.0");
 
-        KotlinCompilerRunner.Options main = options(
+        KotlinCompilerOptions main = options(
                 KotlinCompilationScope.MAIN,
                 mainArguments,
                 testArguments);
-        KotlinCompilerRunner.Options test = options(
+        KotlinCompilerOptions test = options(
                 KotlinCompilationScope.TEST,
                 mainArguments,
                 testArguments);
@@ -105,7 +105,7 @@ final class KotlinLanguageVersionArgumentsTest {
         }
     }
 
-    private static KotlinCompilerRunner.Options options(
+    private static KotlinCompilerOptions options(
             KotlinCompilationScope scope,
             List<String> mainArguments,
             List<String> testArguments) {

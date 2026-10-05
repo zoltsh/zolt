@@ -22,7 +22,7 @@ final class KotlinProgressiveArgumentsTest {
 
     @Test
     void mapsProgressiveModeOnlyToKotlincAndPreservesItWithFriendOutput() {
-        KotlinCompilerRunner.Options options = options(
+        KotlinCompilerOptions options = options(
                         KotlinCompilationScope.TEST,
                         List.of(),
                         List.of("-progressive"))
@@ -54,11 +54,11 @@ final class KotlinProgressiveArgumentsTest {
 
     @Test
     void scopesProgressiveModeToTheActiveCompilerLane() {
-        KotlinCompilerRunner.Options main = options(
+        KotlinCompilerOptions main = options(
                 KotlinCompilationScope.MAIN,
                 List.of("-progressive"),
                 List.of());
-        KotlinCompilerRunner.Options test = options(
+        KotlinCompilerOptions test = options(
                 KotlinCompilationScope.TEST,
                 List.of("-progressive"),
                 List.of());
@@ -81,7 +81,7 @@ final class KotlinProgressiveArgumentsTest {
         assertTrue(failure.getMessage().contains("-progressive"));
     }
 
-    private static KotlinCompilerRunner.Options options(
+    private static KotlinCompilerOptions options(
             KotlinCompilationScope scope,
             List<String> mainArguments,
             List<String> testArguments) {

@@ -36,7 +36,7 @@ final class KotlinMainCompilePolicyTest {
 
     @Test
     void acceptsKotlinOnlyMainSourcesAndBuildsStableModuleName() {
-        KotlinCompilerRunner.Options options = KotlinMainCompilePolicy.options(
+        KotlinCompilerOptions options = KotlinMainCompilePolicy.options(
                 config(CompilerSettings.defaults(), Map.of(), Map.of(), "9-demo.app"),
                 sources(List.of(), List.of(), List.of(KOTLIN)),
                 classpaths(List.of()),
@@ -65,7 +65,7 @@ final class KotlinMainCompilePolicyTest {
                 "maven-artifact",
                 "");
 
-        KotlinCompilerRunner.Options options = KotlinMainCompilePolicy.options(
+        KotlinCompilerOptions options = KotlinMainCompilePolicy.options(
                 config(compiler, Map.of(), Map.of(), "different-zolt-name"),
                 sources(List.of(), List.of(), List.of(KOTLIN)),
                 classpaths(List.of()),
@@ -86,7 +86,7 @@ final class KotlinMainCompilePolicyTest {
                 CompilerSettings.PLATFORM_API_HOST,
                 "");
 
-        KotlinCompilerRunner.Options options = KotlinMainCompilePolicy.options(
+        KotlinCompilerOptions options = KotlinMainCompilePolicy.options(
                 config(settings, Map.of(), Map.of(), "demo"),
                 sources(List.of(), List.of(), List.of(KOTLIN)),
                 classpaths(List.of()),
@@ -111,7 +111,7 @@ final class KotlinMainCompilePolicyTest {
                 CompilerSettings.PLATFORM_API_RELEASE,
                 "");
 
-        KotlinCompilerRunner.Options options = KotlinMainCompilePolicy.options(
+        KotlinCompilerOptions options = KotlinMainCompilePolicy.options(
                 config(settings, Map.of(), Map.of(), "demo"),
                 sources(List.of(), List.of(), List.of(KOTLIN)),
                 classpaths(List.of()),
@@ -125,7 +125,7 @@ final class KotlinMainCompilePolicyTest {
 
     @Test
     void acceptsJavaCompositionWithDeterministicJavacOptions() {
-        KotlinCompilerRunner.Options options = KotlinMainCompilePolicy.options(
+        KotlinCompilerOptions options = KotlinMainCompilePolicy.options(
                 config(CompilerSettings.defaults(), Map.of(), Map.of(), "demo"),
                 sources(List.of(Path.of("src/main/java/Main.java")), List.of(), List.of(KOTLIN)),
                 classpaths(List.of()),
@@ -147,7 +147,7 @@ final class KotlinMainCompilePolicyTest {
         CompilerSettings compiler = new CompilerSettings(
                 null, null, "", "", List.of("-parameters"), List.of());
 
-        KotlinCompilerRunner.Options options = KotlinMainCompilePolicy.options(
+        KotlinCompilerOptions options = KotlinMainCompilePolicy.options(
                 config(compiler, Map.of(), Map.of(), "demo"),
                 sources(List.of(Path.of("src/main/java/Main.java")), List.of(), List.of(KOTLIN)),
                 classpaths(List.of()),
@@ -207,7 +207,7 @@ final class KotlinMainCompilePolicyTest {
                         sources(List.of(), List.of(), List.of(KOTLIN)),
                         classpaths(List.of()),
                         jdkStatus("21.0.11", "21")));
-        KotlinCompilerRunner.Options declaredRoot = KotlinMainCompilePolicy.options(
+        KotlinCompilerOptions declaredRoot = KotlinMainCompilePolicy.options(
                 configWithGeneratedStep(generatedStep(GeneratedSourceKind.DECLARED_ROOT)),
                 sources(List.of(Path.of("generated/main/com/example/Generated.java")), List.of(), List.of(KOTLIN)),
                 classpaths(List.of()),
@@ -227,7 +227,7 @@ final class KotlinMainCompilePolicyTest {
         }
 
         for (ProducesLane lane : List.of(ProducesLane.RESOURCES, ProducesLane.INTERMEDIATE)) {
-            KotlinCompilerRunner.Options options = KotlinMainCompilePolicy.options(
+            KotlinCompilerOptions options = KotlinMainCompilePolicy.options(
                     configWithGeneratedStep(execStep(lane)),
                     sources(List.of(), List.of(), List.of(KOTLIN)),
                     classpaths(List.of()),
@@ -242,7 +242,7 @@ final class KotlinMainCompilePolicyTest {
 
     @Test
     void acceptsOwnedKotlinExecGeneration() {
-        KotlinCompilerRunner.Options options = KotlinMainCompilePolicy.options(
+        KotlinCompilerOptions options = KotlinMainCompilePolicy.options(
                 configWithGeneratedStep(execStep("kotlin", ProducesLane.JAVA_SOURCES)),
                 sources(List.of(), List.of(), List.of(KOTLIN)),
                 classpaths(List.of()),
@@ -254,7 +254,7 @@ final class KotlinMainCompilePolicyTest {
     @Test
     void acceptsOwnedKotlinTypedGeneratorOutputs() {
         for (GeneratedSourceKind kind : List.of(GeneratedSourceKind.OPENAPI, GeneratedSourceKind.PROTOBUF)) {
-            KotlinCompilerRunner.Options options = KotlinMainCompilePolicy.options(
+            KotlinCompilerOptions options = KotlinMainCompilePolicy.options(
                     configWithGeneratedStep(generatedStep(kind, "kotlin")),
                     sources(List.of(), List.of(), List.of(KOTLIN)),
                     classpaths(List.of()),
@@ -287,7 +287,7 @@ final class KotlinMainCompilePolicyTest {
 
     @Test
     void acceptsApiAndImplementationWorkspaceDependencies() {
-        KotlinCompilerRunner.Options options = KotlinMainCompilePolicy.options(
+        KotlinCompilerOptions options = KotlinMainCompilePolicy.options(
                 config(
                         CompilerSettings.defaults(),
                         Map.of("api", "../api"),
