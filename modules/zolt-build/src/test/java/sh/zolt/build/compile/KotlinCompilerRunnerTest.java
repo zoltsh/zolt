@@ -173,6 +173,79 @@ final class KotlinCompilerRunnerTest {
     }
 
     @Test
+    void passesKaptConfigurationThroughTheArgumentFileAndIsolatesProcessors() {
+        List<List<String>> commands = new ArrayList<>();
+        List<String> argumentContents = new ArrayList<>();
+        KotlinCompilerRunner runner = new KotlinCompilerRunner(":", command -> {
+            commands.add(command);
+            argumentContents.add(readString(argumentFile(command)));
+            return new KotlinCompilerRunner.ProcessResult(0, "");
+        });
+        Path plugin = tempDir.resolve("tools/kapt.jar");
+        Path firstProcessor = tempDir.resolve("processors/first.jar");
+        Path secondProcessor = tempDir.resolve("processors/second.jar");
+        Path generatedSources = tempDir.resolve("generated/sources");
+        Path generatedClasses = tempDir.resolve("generated/classes");
+        Path stubs = tempDir.resolve("generated/stubs");
+
+        runner.compile(
+                Path.of("/jdk/bin/java"),
+                Path.of("/jdk"),
+                List.of(Path.of("src/Main.kt")),
+                new Classpath(List.of(Path.of("compiler.jar"), plugin)),
+                new Classpath(List.of(Path.of("stdlib.jar"))),
+                tempDir.resolve("classes"),
+                new KotlinCompilerOptions("21", "kapt_main", false),
+                KotlinCompilationScope.MAIN,
+                new KotlinKaptOptions(
+                        plugin,
+                        new Classpath(List.of(firstProcessor, secondProcessor)),
+                        generatedSources,
+                        generatedClasses,
+                        stubs));
+
+        String arguments = argumentContents.getFirst();
+        assertTrue(arguments.contains(quoted("-Xplugin=" + plugin)), arguments);
+        assertTrue(arguments.contains(pluginOption("aptMode", "stubsAndApt")), arguments);
+        assertTrue(arguments.contains(pluginOption("sources", generatedSources.toString())), arguments);
+        assertTrue(arguments.contains(pluginOption("classes", generatedClasses.toString())), arguments);
+        assertTrue(arguments.contains(pluginOption("stubs", stubs.toString())), arguments);
+        assertTrue(arguments.contains(pluginOption("includeCompileClasspath", "false")), arguments);
+        assertTrue(arguments.contains(pluginOption("correctErrorTypes", "true")), arguments);
+        assertTrue(arguments.contains(pluginOption("mapDiagnosticLocations", "true")), arguments);
+        int firstIndex = arguments.indexOf(pluginOption("apclasspath", firstProcessor.toString()));
+        int secondIndex = arguments.indexOf(pluginOption("apclasspath", secondProcessor.toString()));
+        assertTrue(firstIndex >= 0, arguments);
+        assertTrue(secondIndex > firstIndex, arguments);
+        assertTrue(commands.getFirst().get(2).contains("kapt.jar"));
+        assertFalse(commands.getFirst().stream().anyMatch(argument ->
+                argument.contains("first.jar") || argument.contains("second.jar")));
+    }
+
+    @Test
+    void rejectsIncompleteOrOverlappingKaptInvocationLayout() {
+        Path plugin = tempDir.resolve("kapt.jar");
+        Path output = tempDir.resolve("generated");
+
+        assertThrows(
+                KotlinCompileException.class,
+                () -> new KotlinKaptOptions(
+                        plugin,
+                        new Classpath(List.of()),
+                        output.resolve("sources"),
+                        output.resolve("classes"),
+                        output.resolve("stubs")));
+        assertThrows(
+                KotlinCompileException.class,
+                () -> new KotlinKaptOptions(
+                        plugin,
+                        new Classpath(List.of(tempDir.resolve("processor.jar"))),
+                        output,
+                        output,
+                        output.resolve("stubs")));
+    }
+
+    @Test
     void emptySourceSetCreatesOutputWithoutStartingCompiler() {
         KotlinCompilerRunner runner = new KotlinCompilerRunner(":", command -> {
             throw new AssertionError("compiler must not run");
@@ -395,6 +468,14 @@ final class KotlinCompilerRunnerTest {
         } catch (IOException exception) {
             throw new UncheckedIOException(exception);
         }
+    }
+
+    private static String quoted(String argument) {
+        return "\"" + argument + "\"";
+    }
+
+    private static String pluginOption(String name, String value) {
+        return "\"-P\"\n\"plugin:org.jetbrains.kotlin.kapt3:" + name + "=" + value + "\"";
     }
 
     private static long fileSize(Path path) {

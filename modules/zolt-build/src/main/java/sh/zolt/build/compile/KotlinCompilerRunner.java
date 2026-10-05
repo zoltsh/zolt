@@ -50,6 +50,28 @@ public final class KotlinCompilerRunner {
             Path outputDirectory,
             KotlinCompilerOptions options,
             KotlinCompilationScope scope) {
+        return compile(
+                javaExecutable,
+                jdkHome,
+                sources,
+                compilerLauncherClasspath,
+                compilationClasspath,
+                outputDirectory,
+                options,
+                scope,
+                null);
+    }
+
+    JavacResult compile(
+            Path javaExecutable,
+            Path jdkHome,
+            List<Path> sources,
+            Classpath compilerLauncherClasspath,
+            Classpath compilationClasspath,
+            Path outputDirectory,
+            KotlinCompilerOptions options,
+            KotlinCompilationScope scope,
+            KotlinKaptOptions kaptOptions) {
         KotlinCompilationScope compilationScope = Objects.requireNonNull(
                 scope,
                 "Kotlin compilation scope is required.");
@@ -79,6 +101,7 @@ public final class KotlinCompilerRunner {
                 compilationClasspath,
                 outputDirectory,
                 options,
+                kaptOptions,
                 pathSeparator);
         try (KotlinCompilerArgumentsFile argumentsFile =
                 KotlinCompilerArgumentsFile.create(compilerArguments)) {

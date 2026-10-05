@@ -18,6 +18,24 @@ final class KotlinCompilerInvocationArguments {
             Path outputDirectory,
             KotlinCompilerOptions options,
             String pathSeparator) {
+        return build(
+                jdkHome,
+                sources,
+                compilationClasspath,
+                outputDirectory,
+                options,
+                null,
+                pathSeparator);
+    }
+
+    static List<String> build(
+            Path jdkHome,
+            List<Path> sources,
+            Classpath compilationClasspath,
+            Path outputDirectory,
+            KotlinCompilerOptions options,
+            KotlinKaptOptions kaptOptions,
+            String pathSeparator) {
         List<String> arguments = new ArrayList<>();
         arguments.add("-no-stdlib");
         arguments.add("-no-reflect");
@@ -171,6 +189,7 @@ final class KotlinCompilerInvocationArguments {
         }
         options.warningLevels().forEach(level -> arguments.add("-Xwarning-level=" + level));
         options.optIns().forEach(optIn -> arguments.add("-opt-in=" + optIn));
+        addKaptArguments(arguments, kaptOptions);
         List<Path> compilationEntries = entries(compilationClasspath);
         if (!compilationEntries.isEmpty()) {
             arguments.add("-classpath");
@@ -185,6 +204,32 @@ final class KotlinCompilerInvocationArguments {
         arguments.add(outputDirectory.toString());
         sources.forEach(source -> arguments.add(source.toString()));
         return List.copyOf(arguments);
+    }
+
+    private static void addKaptArguments(
+            List<String> arguments,
+            KotlinKaptOptions options) {
+        if (options == null) {
+            return;
+        }
+        arguments.add("-Xplugin=" + options.pluginJar());
+        addPluginOption(arguments, "aptMode", "stubsAndApt");
+        addPluginOption(arguments, "sources", options.generatedSourcesDirectory().toString());
+        addPluginOption(arguments, "classes", options.generatedClassesDirectory().toString());
+        addPluginOption(arguments, "stubs", options.stubsDirectory().toString());
+        options.processorClasspath().entries().forEach(path ->
+                addPluginOption(arguments, "apclasspath", path.toAbsolutePath().normalize().toString()));
+        addPluginOption(arguments, "includeCompileClasspath", "false");
+        addPluginOption(arguments, "correctErrorTypes", "true");
+        addPluginOption(arguments, "mapDiagnosticLocations", "true");
+    }
+
+    private static void addPluginOption(
+            List<String> arguments,
+            String name,
+            String value) {
+        arguments.add("-P");
+        arguments.add("plugin:org.jetbrains.kotlin.kapt3:" + name + "=" + value);
     }
 
     private static void addVersion(
