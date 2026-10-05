@@ -778,9 +778,10 @@ may restore the complete class and `META-INF/*.kotlin_module` inventory.
 disable the unchanged-input skip.
 
 For a Kotlin-bearing source set, compiler arguments may contain the standalone
-flags `-parameters` and `-Werror`, plus one each of the paired Kotlin arguments
-`-language-version <major.minor>` and `-api-version <major.minor>`, and distinct,
-repeatable `-opt-in=<qualified.annotation.Name>` arguments. One
+flags `-parameters`, `-Werror`, and `-progressive`, plus one each of the paired
+Kotlin arguments `-language-version <major.minor>` and
+`-api-version <major.minor>`, and distinct, repeatable
+`-opt-in=<qualified.annotation.Name>` arguments. One
 `-jvm-default=<mode>` argument may also select `enable`, `no-compatibility`, or
 `disable`. The standalone and version options must be spelled as separate array
 entries and may appear at most once; each opt-in is one array entry and the same
@@ -790,6 +791,7 @@ annotation may not be repeated:
 [compiler]
 args = [
   "-parameters",
+  "-progressive",
   "-language-version", "1.9",
   "-api-version", "1.8",
   "-jvm-default=no-compatibility",
@@ -809,19 +811,22 @@ args = [
 authored Java halves of mixed compilation. The contract covers source-declared
 constructor, function, and method parameters; Kotlin compiler-generated
 synthetic parameters are outside it. `-Werror` makes a warning from either
-compiler phase fail that source set. Language/API version pairs go only to
-`kotlinc`, as do JVM-default modes and opt-ins; the matching javac phase receives
-none of them. `-jvm-default=enable` emits interface default methods plus
+compiler phase fail that source set. `-progressive` asks the selected Kotlin
+compiler to apply its latest deprecation and unstable-code fixes without their
+usual migration period. Progressive mode, language/API version pairs,
+JVM-default modes, and opt-ins go only to `kotlinc`; the matching javac phase
+receives none of them. `-jvm-default=enable` emits interface default methods plus
 compatibility `DefaultImpls`, `no-compatibility` emits only interface default
 methods, and `disable` emits abstract interface methods plus `DefaultImpls`.
 Changing modes rebuilds the source set with cleaned output so obsolete
 compatibility classes do not survive. Main and test arguments are independent,
-and changing their version pairs, JVM-default mode, or opt-ins invalidates reuse
-for that source set. The selected Kotlin compiler still decides which version
-values, language/API combinations, and JVM-default modes it supports and whether
-an opt-in annotation exists and applies. Other custom compiler arguments remain
-unsupported for Kotlin-bearing source sets because javac flags cannot in general
-be forwarded safely to kotlinc.
+and changing progressive mode, version pairs, JVM-default mode, or opt-ins
+invalidates reuse for that source set. The selected Kotlin compiler still
+decides which progressive diagnostics, version values, language/API
+combinations, and JVM-default modes it supports and whether an opt-in annotation
+exists and applies. Other custom compiler arguments remain unsupported for
+Kotlin-bearing source sets because javac flags cannot in general be forwarded
+safely to kotlinc.
 
 Kotlin compiler module identity is explicit when compatibility with another
 build must be preserved:
