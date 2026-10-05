@@ -46,6 +46,17 @@ final class KotlinTestVersionArgumentsIntegrationTest {
             assertEquals(1, apiFailure.exitCode(), combined(apiFailure));
             assertTrue(combined(apiFailure).contains("ExperimentalStdlibApi"), combined(apiFailure));
 
+            writeManifest(project, repository, "1.9", "1.8", true);
+            CommandResult optedIn = test(project, cache);
+            assertSuccessful(optedIn);
+            assertTiming(optedIn, "\"testCompilationMode\":\"full\"");
+            assertTrue(Files.isRegularFile(project.resolve(
+                    "target/test-classes/com/example/VersionedTest.class")));
+
+            CommandResult optedInWarm = test(project, cache);
+            assertSuccessful(optedInWarm);
+            assertTiming(optedInWarm, "\"testCompilationMode\":\"skipped\"");
+
             writeManifest(project, repository, "1.9", "1.9");
             CommandResult first = test(project, cache);
             assertSuccessful(first);
@@ -140,6 +151,18 @@ final class KotlinTestVersionArgumentsIntegrationTest {
             CliTestRepository repository,
             String languageVersion,
             String apiVersion) throws IOException {
+        writeManifest(project, repository, languageVersion, apiVersion, false);
+    }
+
+    private static void writeManifest(
+            Path project,
+            CliTestRepository repository,
+            String languageVersion,
+            String apiVersion,
+            boolean optIn) throws IOException {
+        String optInArgument = optIn
+                ? ", \"-opt-in=kotlin.ExperimentalStdlibApi\""
+                : "";
         Files.writeString(project.resolve("zolt.toml"), """
                 [project]
                 name = "kotlin-test-version-arguments"
@@ -151,7 +174,7 @@ final class KotlinTestVersionArgumentsIntegrationTest {
                 version = "%s"
 
                 [compiler.test]
-                args = ["-language-version", "%s", "-api-version", "%s"]
+                args = ["-language-version", "%s", "-api-version", "%s"%s]
 
                 [test.sources]
                 kotlin = ["src/test/kotlin"]
@@ -170,6 +193,7 @@ final class KotlinTestVersionArgumentsIntegrationTest {
                 KotlinCompilerCliFixture.KOTLIN_VERSION,
                 languageVersion,
                 apiVersion,
+                optInArgument,
                 repository.baseUri(),
                 KotlinCompilerCliFixture.KOTLIN_VERSION,
                 JUnitConsoleCliFixture.VERSION));
