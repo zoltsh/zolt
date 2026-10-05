@@ -1,4 +1,4 @@
-package sh.zolt.cli.build;
+package sh.zolt.cli.build.kotlin;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -12,6 +12,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import sh.zolt.cli.CliTestRepository;
 import sh.zolt.cli.CliTestSupport.CommandResult;
+import sh.zolt.cli.build.ExecSourceGeneratorCliFixture;
+import sh.zolt.cli.build.KotlinCompilerCliFixture;
 
 /** Real-compiler workspace proof for Kotlin main sources owned by a pinned exec tool. */
 final class BuildCommandExecGeneratedKotlinWorkspaceIntegrationTest {

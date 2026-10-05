@@ -1810,8 +1810,9 @@ member whose workspace processor is being rebuilt in the same command is rebuilt
 with it.
 
 Generated sources are part of the member's observed state rather than a reason to
-distrust it. Editing one by hand, or deleting the generated tree, moves the digest
-and rebuilds the member.
+distrust it. Editing or deleting an owned exec output invalidates the producer
+cache, reruns the generator, and repairs the tree before compile fingerprinting.
+If the repaired bytes equal the prior output, compilation may still be skipped.
 
 What this rests on is that a processor is a function of its declared inputs — the
 same assumption Gradle and Bazel make. A processor that reads an undeclared file,

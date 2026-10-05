@@ -9,8 +9,8 @@ import java.util.List;
 import sh.zolt.cli.CliTestRepository;
 
 /** Publishes the real test-runtime Kotlin compiler closure through a hermetic Maven repository. */
-final class KotlinCompilerCliFixture {
-    static final String KOTLIN_VERSION = "2.2.0";
+public final class KotlinCompilerCliFixture {
+    public static final String KOTLIN_VERSION = "2.2.0";
 
     private static final Artifact COMPILER = artifact(
             "org.jetbrains.kotlin",
@@ -51,7 +51,7 @@ final class KotlinCompilerCliFixture {
     private KotlinCompilerCliFixture() {
     }
 
-    static void publish(CliTestRepository repository) throws IOException {
+    public static void publish(CliTestRepository repository) throws IOException {
         publish(repository, COMPILER, List.of(DAEMON, REFLECT, SCRIPT_RUNTIME, STDLIB, COROUTINES));
         publish(repository, DAEMON, List.of());
         publish(repository, REFLECT, List.of());

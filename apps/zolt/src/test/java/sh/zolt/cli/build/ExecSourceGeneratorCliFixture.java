@@ -13,15 +13,15 @@ import sh.zolt.classpath.Classpath;
 import sh.zolt.cli.CliTestRepository;
 
 /** Publishes a tiny pinned JVM tool that copies one authored template into its owned output. */
-final class ExecSourceGeneratorCliFixture {
-    static final String VERSION = "1.0.0";
-    static final String COORDINATE = "com.example:kotlin-source-generator";
-    static final String MAIN_CLASS = "com.example.tool.KotlinSourceGenerator";
+public final class ExecSourceGeneratorCliFixture {
+    public static final String VERSION = "1.0.0";
+    public static final String COORDINATE = "com.example:kotlin-source-generator";
+    public static final String MAIN_CLASS = "com.example.tool.KotlinSourceGenerator";
 
     private ExecSourceGeneratorCliFixture() {
     }
 
-    static void publish(CliTestRepository repository, Path workDirectory) throws IOException {
+    public static void publish(CliTestRepository repository, Path workDirectory) throws IOException {
         repository.addArtifact(
                 "com.example",
                 "kotlin-source-generator",
