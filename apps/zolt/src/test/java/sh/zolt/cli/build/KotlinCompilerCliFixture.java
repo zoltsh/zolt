@@ -29,6 +29,10 @@ public final class KotlinCompilerCliFixture {
             "org.jetbrains.kotlin",
             "kotlin-noarg-compiler-plugin-embeddable",
             KOTLIN_VERSION);
+    private static final Artifact POWER_ASSERT_PLUGIN = artifact(
+            "org.jetbrains.kotlin",
+            "kotlin-power-assert-compiler-plugin-embeddable",
+            KOTLIN_VERSION);
     private static final Artifact SERIALIZATION_PLUGIN = artifact(
             "org.jetbrains.kotlin",
             "kotlin-serialization-compiler-plugin-embeddable",
@@ -87,6 +91,10 @@ public final class KotlinCompilerCliFixture {
 
     public static void publishJpaNoArg(CliTestRepository repository) throws IOException {
         publish(repository, NO_ARG_PLUGIN, List.of());
+    }
+
+    public static void publishPowerAssert(CliTestRepository repository) throws IOException {
+        publish(repository, POWER_ASSERT_PLUGIN, List.of());
     }
 
     static void writeProject(Path projectDirectory, URI repository) throws IOException {
