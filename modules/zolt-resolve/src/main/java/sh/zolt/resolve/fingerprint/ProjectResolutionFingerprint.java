@@ -7,7 +7,6 @@ import sh.zolt.project.DependencyPolicyExclusion;
 import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.project.toolchain.KotlinCompilerPlugin;
 import sh.zolt.project.RepositoryCredentialSettings;
 import sh.zolt.project.RepositorySettings;
 import java.nio.charset.StandardCharsets;
@@ -26,13 +25,6 @@ import java.util.stream.Collectors;
 public final class ProjectResolutionFingerprint {
     private static final String GROOVY_TOOLCHAIN_CATEGORY = "toolchain.groovy";
     private static final String GROOVY_COMPILER_COORDINATE = "org.apache.groovy:groovy";
-    private static final String KOTLIN_TOOLCHAIN_CATEGORY = "toolchain.kotlin";
-    private static final String KOTLIN_COMPILER_COORDINATE =
-            "org.jetbrains.kotlin:kotlin-compiler-embeddable";
-    private static final String KOTLIN_SERIALIZATION_COORDINATE =
-            "org.jetbrains.kotlin:kotlin-serialization-compiler-plugin-embeddable";
-    private static final String KOTLIN_ALL_OPEN_COORDINATE =
-            "org.jetbrains.kotlin:kotlin-allopen-compiler-plugin-embeddable";
     private static final String COMPILER_TOOL_RESOLUTION_SEMANTICS =
             "conflict-provenance-v1";
     private static final String COMPILER_TOOL_ROOT_SEMANTICS = "exact-root-v1";
@@ -82,18 +74,7 @@ public final class ProjectResolutionFingerprint {
                 GROOVY_TOOLCHAIN_CATEGORY,
                 GROOVY_COMPILER_COORDINATE,
                 config.compilerSettings().groovyVersion());
-        kotlinToolchainInput(
-                inputs, KOTLIN_COMPILER_COORDINATE, config.compilerSettings().kotlinVersion());
-        if (config.compilerSettings().kotlinPlugins()
-                .contains(KotlinCompilerPlugin.SERIALIZATION)) {
-            kotlinToolchainInput(
-                    inputs, KOTLIN_SERIALIZATION_COORDINATE, config.compilerSettings().kotlinVersion());
-        }
-        if (config.compilerSettings().kotlinPlugins()
-                .contains(KotlinCompilerPlugin.SPRING)) {
-            kotlinToolchainInput(
-                    inputs, KOTLIN_ALL_OPEN_COORDINATE, config.compilerSettings().kotlinVersion());
-        }
+        KotlinToolchainResolutionInputs.contribute(inputs, config.compilerSettings());
         repositoryInputs(inputs, config.repositorySettings());
         credentialInputs(inputs, config.repositoryCredentials());
         mapInputs(inputs, "versions", config.versionAliases());
@@ -129,13 +110,7 @@ public final class ProjectResolutionFingerprint {
      * Adds lock identity only for projects that select compiler tooling. Keeping each line
      * conditional avoids restating unrelated locks when a compiler resolution input is introduced.
      */
-    private static void kotlinToolchainInput(
-            List<String> inputs, String coordinate, String configuredVersion) {
-        compilerToolchainInput(
-                inputs, KOTLIN_TOOLCHAIN_CATEGORY, coordinate, configuredVersion);
-    }
-
-    private static void compilerToolchainInput(
+    static void compilerToolchainInput(
             List<String> inputs,
             String category,
             String coordinate,
