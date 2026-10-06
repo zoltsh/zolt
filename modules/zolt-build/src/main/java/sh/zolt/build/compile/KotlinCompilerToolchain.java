@@ -19,13 +19,14 @@ public final class KotlinCompilerToolchain {
     private final String identity;
     private final Classpath launcherClasspath;
     private final Path kaptPluginJar;
+    private final List<Path> compilerPluginJars;
 
     KotlinCompilerToolchain(
             String version,
             String sha256,
             List<Path> launcherJars,
             String launcherClosureIdentity) {
-        this(version, sha256, launcherJars, launcherClosureIdentity, null);
+        this(version, sha256, launcherJars, launcherClosureIdentity, null, List.of());
     }
 
     KotlinCompilerToolchain(
@@ -34,6 +35,16 @@ public final class KotlinCompilerToolchain {
             List<Path> launcherJars,
             String launcherClosureIdentity,
             Path kaptPluginJar) {
+        this(version, sha256, launcherJars, launcherClosureIdentity, kaptPluginJar, List.of());
+    }
+
+    KotlinCompilerToolchain(
+            String version,
+            String sha256,
+            List<Path> launcherJars,
+            String launcherClosureIdentity,
+            Path kaptPluginJar,
+            List<Path> compilerPluginJars) {
         this.version = require(version, "version");
         this.sha256 = require(sha256, "SHA-256");
         if (!SHA256.matcher(this.sha256).matches()) {
@@ -73,6 +84,25 @@ public final class KotlinCompilerToolchain {
                     "KAPT plugin JAR must be part of the Kotlin compiler launcher closure.");
         }
         this.kaptPluginJar = normalizedKapt;
+        List<Path> normalizedPlugins = Objects.requireNonNull(
+                        compilerPluginJars,
+                        "Kotlin compiler plugin JARs are required.")
+                .stream()
+                .map(path -> Objects.requireNonNull(
+                                path,
+                                "Kotlin compiler plugin JAR paths are required.")
+                        .toAbsolutePath()
+                        .normalize())
+                .toList();
+        if (!normalizedJars.containsAll(normalizedPlugins)) {
+            throw new IllegalArgumentException(
+                    "Kotlin compiler plugin JARs must be part of the compiler launcher closure.");
+        }
+        if (normalizedPlugins.stream().distinct().count() != normalizedPlugins.size()) {
+            throw new IllegalArgumentException(
+                    "Kotlin compiler plugin JARs must not contain duplicates.");
+        }
+        this.compilerPluginJars = normalizedPlugins;
     }
 
     public String coordinate() {
@@ -99,6 +129,11 @@ public final class KotlinCompilerToolchain {
     /** The verified KAPT compiler plugin when processor lanes require it. */
     public Optional<Path> kaptPluginJar() {
         return Optional.ofNullable(kaptPluginJar);
+    }
+
+    /** The ordered checksum-verified compiler plugins selected by the project. */
+    public List<Path> compilerPluginJars() {
+        return compilerPluginJars;
     }
 
     private static String require(String value, String label) {

@@ -24,29 +24,30 @@ import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 
-abstract class KotlinCompilerToolchainResolverTestSupport {
-    static final PackageId COMPILER =
+public abstract class KotlinCompilerToolchainResolverTestSupport {
+    protected static final PackageId COMPILER =
             new PackageId("org.jetbrains.kotlin", "kotlin-compiler-embeddable");
-    static final PackageId STDLIB =
+    protected static final PackageId STDLIB =
             new PackageId("org.jetbrains.kotlin", "kotlin-stdlib");
-    static final PackageId KAPT =
+    protected static final PackageId KAPT =
             new PackageId("org.jetbrains.kotlin", "kotlin-annotation-processing-embeddable");
-    static final PackageId ALPHA = new PackageId("com.example", "alpha-support");
-    static final PackageId ZETA = new PackageId("org.example", "zeta-support");
-    static final String VERSION = "2.2.0";
-    static final String COMPILER_ENTRY =
+    protected static final PackageId SERIALIZATION_PLUGIN = new PackageId(
+            "org.jetbrains.kotlin", "kotlin-serialization-compiler-plugin-embeddable");
+    protected static final PackageId ALPHA = new PackageId("com.example", "alpha-support");
+    protected static final PackageId ZETA = new PackageId("org.example", "zeta-support");
+    protected static final String VERSION = "2.2.0";
+    protected static final String COMPILER_ENTRY =
             "org/jetbrains/kotlin/cli/jvm/K2JVMCompiler.class";
-    static final String KAPT_ENTRY =
+    protected static final String KAPT_ENTRY =
             "org/jetbrains/kotlin/kapt/KaptCommandLineProcessor.class";
-
     @TempDir
-    Path tempDir;
+    protected Path tempDir;
 
-    int jarSequence;
+    protected int jarSequence;
 
-    final KotlinCompilerToolchainResolver resolver = new KotlinCompilerToolchainResolver();
+    protected final KotlinCompilerToolchainResolver resolver = new KotlinCompilerToolchainResolver();
 
-    List<ResolvedClasspathPackage> validPackages(
+    protected List<ResolvedClasspathPackage> validPackages(
             VerifiedJar root,
             VerifiedJar runtime,
             ResolvedClasspathPackage... closure) {
@@ -69,7 +70,7 @@ abstract class KotlinCompilerToolchainResolverTestSupport {
         return List.copyOf(packages);
     }
 
-    VerifiedJar compilerJar(
+    protected VerifiedJar compilerJar(
             String implementationTitle,
             String implementationVersion,
             boolean includeCompiler) throws IOException {
@@ -79,14 +80,14 @@ abstract class KotlinCompilerToolchainResolverTestSupport {
                 VERSION);
     }
 
-    VerifiedJar compilerJarWithoutManifest(boolean includeCompiler) throws IOException {
+    protected VerifiedJar compilerJarWithoutManifest(boolean includeCompiler) throws IOException {
         return verifiedArtifact(
                 writeCompilerJar(false, null, null, includeCompiler),
                 COMPILER,
                 VERSION);
     }
 
-    VerifiedJar kaptJar(
+    protected VerifiedJar kaptJar(
             String implementationVersion,
             boolean includePlugin) throws IOException {
         Path jar = tempDir.resolve("artifacts/kotlin-kapt-" + jarSequence++ + ".jar");
@@ -107,7 +108,7 @@ abstract class KotlinCompilerToolchainResolverTestSupport {
         return verifiedArtifact(jar, KAPT, VERSION);
     }
 
-    VerifiedJar plainJar(
+    protected VerifiedJar plainJar(
             PackageId packageId,
             String version,
             String content) throws IOException {
@@ -119,7 +120,7 @@ abstract class KotlinCompilerToolchainResolverTestSupport {
         return verifiedArtifact(jar, packageId, version);
     }
 
-    VerifiedJar verifiedCopy(
+    protected VerifiedJar verifiedCopy(
             VerifiedJar source,
             PackageId packageId,
             String version,
@@ -131,7 +132,7 @@ abstract class KotlinCompilerToolchainResolverTestSupport {
         return verifiedArtifact(target, packageId, version);
     }
 
-    VerifiedJar verifiedArtifact(
+    protected VerifiedJar verifiedArtifact(
             Path jar,
             PackageId packageId,
             String version) throws IOException {
@@ -154,7 +155,7 @@ abstract class KotlinCompilerToolchainResolverTestSupport {
         return new VerifiedJar(jar, hash);
     }
 
-    Path unverifiedPlainJar(String content) throws IOException {
+    protected Path unverifiedPlainJar(String content) throws IOException {
         Path jar = tempDir.resolve("unverified/plain-" + jarSequence++ + ".jar");
         Files.createDirectories(jar.getParent());
         try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar))) {
@@ -163,7 +164,7 @@ abstract class KotlinCompilerToolchainResolverTestSupport {
         return jar;
     }
 
-    Path writeCompilerJar(
+    protected Path writeCompilerJar(
             boolean includeManifest,
             String implementationTitle,
             String implementationVersion,
@@ -195,7 +196,7 @@ abstract class KotlinCompilerToolchainResolverTestSupport {
         return jar;
     }
 
-    static void writeEntry(
+    protected static void writeEntry(
             JarOutputStream output,
             String name,
             byte[] content) throws IOException {
@@ -204,7 +205,7 @@ abstract class KotlinCompilerToolchainResolverTestSupport {
         output.closeEntry();
     }
 
-    static ResolvedClasspathPackage dependency(
+    protected static ResolvedClasspathPackage dependency(
             PackageId packageId,
             VerifiedJar jar,
             String selectedVersion,
@@ -222,15 +223,15 @@ abstract class KotlinCompilerToolchainResolverTestSupport {
                 scope);
     }
 
-    static NestedArtifactIdentity compilerIdentity(String version) {
+    protected static NestedArtifactIdentity compilerIdentity(String version) {
         return NestedArtifactIdentity.external(COMPILER, version);
     }
 
-    static NestedArtifactIdentity stdlibIdentity(String version) {
+    protected static NestedArtifactIdentity stdlibIdentity(String version) {
         return NestedArtifactIdentity.external(STDLIB, version);
     }
 
-    static String sha256(Path path) throws IOException {
+    protected static String sha256(Path path) throws IOException {
         try {
             return HexFormat.of().formatHex(
                     MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)));
@@ -239,6 +240,6 @@ abstract class KotlinCompilerToolchainResolverTestSupport {
         }
     }
 
-    record VerifiedJar(Path path, String sha256) {
+    protected record VerifiedJar(Path path, String sha256) {
     }
 }

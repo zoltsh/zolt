@@ -13,24 +13,24 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.lockfile.VerifiedArtifactHashes;
+import sh.zolt.build.compile.kotlin.KotlinCompilerToolRoots;
+import sh.zolt.build.compile.kotlin.KotlinCompilerToolRoots.Selection;
 import sh.zolt.classpath.NestedArtifactIdentity;
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.classpath.ResolvedPackage;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
+import sh.zolt.project.toolchain.KotlinCompilerPlugin;
 
 /** Resolves the explicitly configured, isolated Kotlin compiler closure for one source set. */
 public final class KotlinCompilerToolchainResolver {
-    private static final PackageId KOTLIN_COMPILER =
-            new PackageId("org.jetbrains.kotlin", "kotlin-compiler-embeddable");
     private static final PackageId KOTLIN_STDLIB =
             new PackageId("org.jetbrains.kotlin", "kotlin-stdlib");
-    private static final PackageId KOTLIN_KAPT =
-            new PackageId("org.jetbrains.kotlin", "kotlin-annotation-processing-embeddable");
     private static final String COMPILER_ENTRY =
             "org/jetbrains/kotlin/cli/jvm/K2JVMCompiler.class";
     private static final String IMPLEMENTATION_TITLE = "kotlin-compiler-embeddable";
@@ -42,13 +42,21 @@ public final class KotlinCompilerToolchainResolver {
     public KotlinCompilerToolchain resolve(
             List<ResolvedClasspathPackage> packages,
             String configuredVersion) {
-        return resolve(packages, configuredVersion, KotlinCompilationScope.MAIN);
+        return resolve(packages, configuredVersion, KotlinCompilationScope.MAIN, Set.of());
     }
 
     public KotlinCompilerToolchain resolve(
             List<ResolvedClasspathPackage> packages,
             String configuredVersion,
             KotlinCompilationScope scope) {
+        return resolve(packages, configuredVersion, scope, Set.of());
+    }
+
+    public KotlinCompilerToolchain resolve(
+            List<ResolvedClasspathPackage> packages,
+            String configuredVersion,
+            KotlinCompilationScope scope,
+            Set<KotlinCompilerPlugin> expectedPlugins) {
         KotlinCompilationScope compilationScope = Objects.requireNonNull(
                 scope,
                 "Kotlin compilation scope is required.");
@@ -63,15 +71,11 @@ public final class KotlinCompilerToolchainResolver {
         List<ResolvedClasspathPackage> directRoots = toolClosure.stream()
                 .filter(dependency -> dependency.resolvedPackage().direct())
                 .toList();
-        List<ResolvedClasspathPackage> compilerRoots = directRoots.stream()
-                .filter(dependency -> dependency.resolvedPackage().packageId().equals(KOTLIN_COMPILER))
-                .toList();
-        List<ResolvedClasspathPackage> kaptRoots = directRoots.stream()
-                .filter(dependency -> dependency.resolvedPackage().packageId().equals(KOTLIN_KAPT))
-                .toList();
-
-        requireToolRoots(compilerRoots, kaptRoots, directRoots, version);
-        ResolvedClasspathPackage rootDependency = compilerRoots.getFirst();
+        Selection roots = KotlinCompilerToolRoots.select(
+                directRoots,
+                version,
+                expectedPlugins);
+        ResolvedClasspathPackage rootDependency = roots.compilerRoot();
         ResolvedPackage rootPackage = rootDependency.resolvedPackage();
         if (!version.equals(rootPackage.selectedVersion())) {
             throw invalid("configured version `" + version
@@ -80,9 +84,12 @@ public final class KotlinCompilerToolchainResolver {
         }
 
         VerifiedCompilerArtifact root = verifiedClosureArtifact(rootDependency, true);
-        VerifiedCompilerArtifact kapt = kaptRoots.isEmpty()
-                ? null
-                : verifiedClosureArtifact(kaptRoots.getFirst(), true);
+        VerifiedCompilerArtifact kapt = roots.kaptRoot()
+                .map(dependency -> verifiedClosureArtifact(dependency, true))
+                .orElse(null);
+        List<VerifiedCompilerArtifact> plugins = roots.compilerPluginRoots().stream()
+                .map(dependency -> verifiedClosureArtifact(dependency, true))
+                .toList();
         List<VerifiedCompilerArtifact> closure = orderedClosure(toolClosure, rootDependency, root);
         inspectRoot(version, root.jar());
         if (kapt != null) {
@@ -97,43 +104,8 @@ public final class KotlinCompilerToolchainResolver {
                 root.sha256(),
                 closure.stream().map(VerifiedCompilerArtifact::jar).toList(),
                 closureIdentity(closure),
-                kapt == null ? null : kapt.jar());
-    }
-
-    private static void requireToolRoots(
-            List<ResolvedClasspathPackage> compilerRoots,
-            List<ResolvedClasspathPackage> kaptRoots,
-            List<ResolvedClasspathPackage> directRoots,
-            String configuredVersion) {
-        if (compilerRoots.isEmpty()) {
-            throw invalid("zolt.lock has no direct " + KotlinCompilerToolchain.COORDINATE
-                    + " root in scope `tool-kotlin` for configured version `"
-                    + configuredVersion + "`");
-        }
-        if (compilerRoots.size() > 1) {
-            throw invalid("zolt.lock has ambiguous direct " + KotlinCompilerToolchain.COORDINATE
-                    + " roots in scope `tool-kotlin`: " + selections(compilerRoots));
-        }
-        if (kaptRoots.size() > 1) {
-            throw invalid("zolt.lock has ambiguous direct " + KOTLIN_KAPT
-                    + " roots in scope `tool-kotlin`: " + selections(kaptRoots));
-        }
-        List<ResolvedClasspathPackage> extras = directRoots.stream()
-                .filter(dependency -> !dependency.resolvedPackage().packageId().equals(KOTLIN_COMPILER))
-                .filter(dependency -> !dependency.resolvedPackage().packageId().equals(KOTLIN_KAPT))
-                .toList();
-        if (!extras.isEmpty()) {
-            throw invalid("zolt.lock has extra direct roots in scope `tool-kotlin`: "
-                    + selections(extras));
-        }
-        if (!kaptRoots.isEmpty()) {
-            String kaptVersion = kaptRoots.getFirst().resolvedPackage().selectedVersion();
-            if (!configuredVersion.equals(kaptVersion)) {
-                throw invalid("configured version `" + configuredVersion
-                        + "` does not match zolt.lock KAPT tool root version `"
-                        + kaptVersion + "`");
-            }
-        }
+                kapt == null ? null : kapt.jar(),
+                plugins.stream().map(VerifiedCompilerArtifact::jar).toList());
     }
 
     private static List<VerifiedCompilerArtifact> orderedClosure(
