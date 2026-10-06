@@ -132,6 +132,9 @@ public final class GeneratedSourceProducerFingerprintService {
                     scope,
                     step,
                     "zolt.declared-generated-root.v1");
+            case KSP -> throw BuildException.actionable(
+                    "KSP generated source execution is not enabled yet.",
+                    "Use a supported generated source kind until the complete KSP execution path is available.");
         };
     }
 

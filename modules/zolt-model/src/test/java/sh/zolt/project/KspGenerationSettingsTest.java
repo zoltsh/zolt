@@ -28,6 +28,27 @@ final class KspGenerationSettingsTest {
                 ExecGenerationSettings.empty());
 
         assertEquals(KspGenerationSettings.empty(), step.ksp());
+        assertEquals("ksp", GeneratedSourceKind.KSP.configValue());
+        assertEquals(Optional.empty(), GeneratedSourceKind.fromConfigValue("ksp"));
+        assertEquals("declared-root, openapi, protobuf, exec", GeneratedSourceKind.supportedValues());
+    }
+
+    @Test
+    void internalKspStepsRequireACompleteToolContract() {
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> new GeneratedSourceStep(
+                        "symbols",
+                        GeneratedSourceKind.KSP,
+                        "kotlin",
+                        "target/generated/ksp/main/symbols",
+                        List.of(),
+                        true,
+                        true));
+
+        assertEquals(
+                "KSP generated source steps require configured KSP settings.",
+                exception.getMessage());
     }
 
     @Test

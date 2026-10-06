@@ -78,6 +78,10 @@ public record GeneratedSourceStep(
         protobuf = protobuf == null ? ProtobufGenerationSettings.empty() : protobuf;
         exec = exec == null ? ExecGenerationSettings.empty() : exec;
         ksp = ksp == null ? KspGenerationSettings.empty() : ksp;
+        if (kind == GeneratedSourceKind.KSP && !ksp.configured()) {
+            throw new IllegalArgumentException(
+                    "KSP generated source steps require configured KSP settings.");
+        }
     }
 
     private static String requireNonBlank(String value, String name) {
