@@ -19,18 +19,26 @@ public final class SourceDiscoverer {
     private static final Set<String> OUTPUT_DIRECTORY_NAMES = Set.of("target", "build");
 
     public SourceDiscoveryResult discover(Path projectDirectory, BuildSettings settings) {
-        return discover(projectDirectory, settings, true);
+        return discover(projectDirectory, settings, true, true);
     }
 
     /** Discovers only main sources, leaving owned test roots for the test-generation phase. */
     public SourceDiscoveryResult discoverMain(Path projectDirectory, BuildSettings settings) {
-        return discover(projectDirectory, settings, false);
+        return discover(projectDirectory, settings, false, true);
+    }
+
+    /** Discovers the source universe KSP consumes, excluding KSP's own not-yet-published lanes. */
+    public SourceDiscoveryResult discoverMainBeforeKsp(
+            Path projectDirectory,
+            BuildSettings settings) {
+        return discover(projectDirectory, settings, false, false);
     }
 
     private SourceDiscoveryResult discover(
             Path projectDirectory,
             BuildSettings settings,
-            boolean includeTestSources) {
+            boolean includeTestSources,
+            boolean includeKspOutputs) {
         Path projectRoot = ProjectPaths.root(projectDirectory);
         Path output = outputPath(projectRoot, "[build.output].main", settings.output());
         Path testOutput = outputPath(projectRoot, "[build.output].test", settings.testOutput());
@@ -38,7 +46,7 @@ public final class SourceDiscoverer {
                 .map(root -> inputRoot(projectRoot, "[build].sources", root))
                 .toList();
         GeneratedRoots generatedMainRoots = generatedRoots(
-                projectRoot, settings.generatedMainSources(), "main");
+                projectRoot, settings.generatedMainSources(), "main", includeKspOutputs);
         List<SourceRoot> mainJavaRoots = new ArrayList<>(authoredMainRoots);
         mainJavaRoots.addAll(generatedMainRoots.java());
         List<SourceRoot> mainKotlinRoots = new ArrayList<>(authoredMainRoots);
@@ -68,7 +76,7 @@ public final class SourceDiscoverer {
                 .map(root -> inputRoot(projectRoot, "[test.sources].kotlin", root))
                 .toList();
         GeneratedRoots generatedTestRoots = generatedRoots(
-                projectRoot, settings.generatedTestSources(), "test");
+                projectRoot, settings.generatedTestSources(), "test", includeKspOutputs);
         List<SourceRoot> testJavaRoots = new ArrayList<>(authoredTestRoots);
         testJavaRoots.addAll(generatedTestRoots.java());
         List<SourceRoot> kotlinTestRoots = new ArrayList<>(authoredKotlinTestRoots);
@@ -119,10 +127,19 @@ public final class SourceDiscoverer {
     private static GeneratedRoots generatedRoots(
             Path projectRoot,
             List<GeneratedSourceStep> steps,
-            String scope) {
+            String scope,
+            boolean includeKspOutputs) {
         List<SourceRoot> javaRoots = new ArrayList<>();
         List<SourceRoot> kotlinRoots = new ArrayList<>();
         for (GeneratedSourceStep step : steps) {
+            if (step.kind() == GeneratedSourceKind.KSP) {
+                if (includeKspOutputs) {
+                    KspDiscoveryRoots roots = KspDiscoveryRoots.resolve(projectRoot, scope, step);
+                    javaRoots.add(new SourceRoot(roots.javaRoot(), roots.javaKey()));
+                    kotlinRoots.add(new SourceRoot(roots.kotlinRoot(), roots.kotlinKey()));
+                }
+                continue;
+            }
             if (step.kind() == GeneratedSourceKind.EXEC
                     && step.exec().produces() != ProducesLane.JAVA_SOURCES
                     && step.exec().produces() != ProducesLane.TEST_SOURCES) {
