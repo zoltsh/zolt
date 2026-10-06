@@ -38,6 +38,7 @@ final class KotlinMainKaptIntegrationTest {
             Path artifactCache = tempDir.resolve("artifact-cache");
             configureBuildCache(fakeUserHome);
             KotlinCompilerCliFixture.publish(repository);
+            KotlinCompilerCliFixture.publishSerialization(repository);
             KaptProcessorCliFixture.publish(repository, tempDir.resolve("processor"));
             writeProject(project, repository);
 
@@ -67,6 +68,7 @@ final class KotlinMainKaptIntegrationTest {
             assertEquals(0, first.exitCode(), first.stderr());
             Path output = project.resolve("target/classes/com/example");
             assertTrue(Files.isRegularFile(output.resolve("GeneratedTestMessage.class")));
+            assertTrue(Files.isRegularFile(output.resolve("SerializedMessage$$serializer.class")));
             assertTrue(Files.isRegularFile(output.resolve("Main.class")));
             assertTrue(Files.isRegularFile(output.resolve("JavaGreeting.class")));
             assertTrue(Files.isRegularFile(project.resolve(
@@ -85,6 +87,7 @@ final class KotlinMainKaptIntegrationTest {
             assertTiming(restored, "restored");
             assertTrue(Files.isDirectory(project.resolve("target/generated/sources/annotations")));
             assertTrue(Files.isRegularFile(output.resolve("GeneratedTestMessage.class")));
+            assertTrue(Files.isRegularFile(output.resolve("SerializedMessage$$serializer.class")));
 
             CommandResult restoredWarm = build(project, artifactCache);
 
@@ -108,7 +111,9 @@ final class KotlinMainKaptIntegrationTest {
                     "--cache-root", artifactCache.toString());
 
             assertEquals(0, run.exitCode(), run.stderr());
-            assertTrue(run.stdout().contains("updated-main:updated-main"), run.stdout());
+            assertTrue(
+                    run.stdout().contains("updated-main:updated-main:com.example.SerializedMessage"),
+                    run.stdout());
             assertEquals(Map.of(), repository.authorizations(), "cache-only commands must not contact the repository");
         } finally {
             if (previousUserHome == null) {
@@ -182,6 +187,7 @@ final class KotlinMainKaptIntegrationTest {
 
                 [toolchain.kotlin]
                 version = "%s"
+                plugins = ["serialization"]
 
                 [repositories]
                 central = false
@@ -191,6 +197,7 @@ final class KotlinMainKaptIntegrationTest {
 
                 [dependencies]
                 "org.jetbrains.kotlin:kotlin-stdlib" = "%s"
+                "org.jetbrains.kotlinx:kotlinx-serialization-core-jvm" = "%s"
 
                 [dependencies.processor]
                 "%s:%s" = "%s"
@@ -199,11 +206,17 @@ final class KotlinMainKaptIntegrationTest {
                 KotlinCompilerCliFixture.KOTLIN_VERSION,
                 repository.baseUri(),
                 KotlinCompilerCliFixture.KOTLIN_VERSION,
+                KotlinCompilerCliFixture.SERIALIZATION_RUNTIME_VERSION,
                 KaptProcessorCliFixture.GROUP,
                 KaptProcessorCliFixture.ARTIFACT,
                 KaptProcessorCliFixture.VERSION));
         Files.writeString(project.resolve("src/main/kotlin/com/example/Main.kt"), """
                 package com.example
+
+                import kotlinx.serialization.Serializable
+
+                @Serializable
+                data class SerializedMessage(val value: String)
 
                 object Main {
                     @JvmStatic
@@ -211,7 +224,8 @@ final class KotlinMainKaptIntegrationTest {
 
                     @JvmStatic
                     fun main(args: Array<String>) {
-                        println(JavaGreeting.message())
+                        val serialName = SerializedMessage.serializer().descriptor.serialName
+                        println(JavaGreeting.message() + ":" + serialName)
                     }
                 }
                 """);
