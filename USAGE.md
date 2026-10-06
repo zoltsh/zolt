@@ -76,23 +76,26 @@ resource lanes, and includes their identity and bytes in reuse decisions. KSP
 test generation uses the member's main output plus its ordered test compile
 classpath.
 
-The bounded Kotlin preview also supports the official serialization compiler
-plugin through a closed selector:
+The bounded Kotlin preview also supports official compiler plugins through
+closed selectors:
 
 ```toml
 [toolchain.kotlin]
 version = "2.2.0"
-plugins = ["serialization"]
+plugins = ["serialization", "spring"]
 
 [dependencies]
 "org.jetbrains.kotlin:kotlin-stdlib" = "2.2.0"
 "org.jetbrains.kotlinx:kotlinx-serialization-core-jvm" = "1.9.0"
 ```
 
-Zolt locks the compiler plugin at the selected Kotlin version in the isolated
-tool closure. The serialization runtime remains an ordinary application
-dependency and must be declared explicitly. Arbitrary compiler-plugin
-coordinates and plugin options are outside this preview.
+Zolt locks each selected compiler plugin at the Kotlin compiler version in the
+isolated tool closure. `serialization` generates serializers; its runtime
+remains an ordinary application dependency and must be declared explicitly.
+`spring` invokes Kotlin's all-open Spring preset so recognized Spring-annotated
+types can be proxied without manually writing `open`; it does not add Spring
+libraries. Select either plugin or both. Arbitrary compiler-plugin coordinates
+and plugin options are outside this preview.
 
 Pass processor options as scoped compiler arguments. Each option requires the
 matching processor dependency lane:

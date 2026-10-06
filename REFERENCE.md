@@ -745,45 +745,58 @@ Configure the mode independently in `[compiler].args` and
 `[compiler.test].args`; changing it invalidates and cleanly recompiles the
 matching source set.
 
-#### Bounded serialization compiler plugin
+#### Bounded Kotlin compiler plugins
 
-The Kotlin preview supports the official serialization compiler plugin through
-the built-in `serialization` selector:
+The Kotlin preview supports official compiler plugins through the built-in
+`serialization` and `spring` selectors:
 
 ```toml
 [toolchain.kotlin]
 version = "2.2.0"
-plugins = ["serialization"]
+plugins = ["serialization", "spring"]
 
 [dependencies]
 "org.jetbrains.kotlin:kotlin-stdlib" = "2.2.0"
 "org.jetbrains.kotlinx:kotlinx-serialization-core-jvm" = "1.9.0"
 ```
 
-`zolt resolve` adds
-`org.jetbrains.kotlin:kotlin-serialization-compiler-plugin-embeddable` at the
-selected Kotlin compiler version to the checksum-verified `tool-kotlin` scope.
-Zolt verifies the direct plugin root, version, manifest identity, and compiler
-plugin registrar before execution. The compiler plugin is available to the
-configured Kotlin main and test compiler lanes, including a lane that also uses
-KAPT, but it never enters an application compile, runtime, or package classpath.
+`zolt resolve` adds the artifact matching each selected built-in at the Kotlin
+compiler version to the checksum-verified `tool-kotlin` scope:
+
+- `serialization` selects
+  `org.jetbrains.kotlin:kotlin-serialization-compiler-plugin-embeddable`.
+- `spring` selects
+  `org.jetbrains.kotlin:kotlin-allopen-compiler-plugin-embeddable` and invokes
+  its owned `spring` preset.
+
+Zolt verifies every direct plugin root, version, and manifest identity before
+execution. It also verifies the serialization registrar and both the all-open
+registrar and command-line processor. The plugins are available to configured
+Kotlin main and test compiler lanes, including a lane that also uses KAPT, but
+never enter an application compile, runtime, or package classpath.
 
 The `kotlinx-serialization-core-jvm` entry above is an ordinary application
 dependency, not compiler tooling. Select a runtime version compatible with the
 application and declare any additional serialization formats the application
 uses in the same way. Zolt does not add runtime libraries implicitly.
 
-Adding or removing `serialization` requires a lockfile refresh. The authored
-selector, resulting lockfile, and complete compiler-tool closure participate in
-fingerprint and output-cache identity. Removing the selector therefore cannot
-restore output containing plugin-generated serializers, while a verified cache
-entry restores those generated classes as part of the complete compiled output.
-Compiler tooling remains absent from thin and uber packages; declared
-serialization runtime libraries follow the ordinary packaging rules.
+The `spring` selector does not add Spring libraries. It applies the official
+all-open Spring preset to recognized Spring annotations, making eligible Kotlin
+classes and members non-final for proxying while leaving unannotated types
+unchanged. Applications declare their chosen Spring dependencies normally.
 
-`serialization` is the only supported compiler-plugin selector. Arbitrary
-plugin coordinates, compiler-plugin paths, and plugin options are rejected or
-remain outside the bounded manifest contract.
+Adding or removing either selector requires a lockfile refresh. The authored
+selectors, resulting lockfile, owned plugin options, and complete compiler-tool
+closure participate in fingerprint and output-cache identity. Removing a
+selector therefore cannot reuse incompatible transformed or generated output,
+while a verified cache entry restores the complete compiled output. Compiler
+tooling remains absent from thin and uber packages; declared application
+runtime libraries follow the ordinary packaging rules.
+
+`serialization` and `spring` are the only supported compiler-plugin selectors.
+They may be selected independently or together. Arbitrary plugin coordinates,
+compiler-plugin paths, and plugin options are rejected or remain outside the
+bounded manifest contract.
 
 #### KSP2 source-set generation preview
 
@@ -842,8 +855,8 @@ published generated tree and the last compiled test output intact.
 
 This preview supports KSP under `[generated.main]` and `[generated.test]`; there
 is no separate integration-step namespace. KSP does not enable arbitrary
-Kotlin compiler plugins; only the built-in `serialization` selector documented
-above is supported.
+Kotlin compiler plugins; only the built-in selectors documented above are
+supported.
 
 A pre-generated Java or Kotlin tree may join that main source set through a
 `[generated.main.<id>]` step whose `kind` is `"declared-root"`. Set
