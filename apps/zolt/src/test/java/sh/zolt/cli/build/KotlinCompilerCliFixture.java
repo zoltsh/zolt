@@ -25,6 +25,10 @@ public final class KotlinCompilerCliFixture {
             "org.jetbrains.kotlin",
             "kotlin-allopen-compiler-plugin-embeddable",
             KOTLIN_VERSION);
+    private static final Artifact NO_ARG_PLUGIN = artifact(
+            "org.jetbrains.kotlin",
+            "kotlin-noarg-compiler-plugin-embeddable",
+            KOTLIN_VERSION);
     private static final Artifact SERIALIZATION_PLUGIN = artifact(
             "org.jetbrains.kotlin",
             "kotlin-serialization-compiler-plugin-embeddable",
@@ -79,6 +83,10 @@ public final class KotlinCompilerCliFixture {
 
     public static void publishSpringAllOpen(CliTestRepository repository) throws IOException {
         publish(repository, ALL_OPEN_PLUGIN, List.of());
+    }
+
+    public static void publishJpaNoArg(CliTestRepository repository) throws IOException {
+        publish(repository, NO_ARG_PLUGIN, List.of());
     }
 
     static void writeProject(Path projectDirectory, URI repository) throws IOException {

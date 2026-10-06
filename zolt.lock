@@ -1,8 +1,8 @@
 version = 7
-aliasFingerprint = "sha256:2312a0ab4b6f688d2f39da68ac026053a5825428b054a27373da38931c3d4dce"
-projectResolutionFingerprint = "sha256:eb89aa06d79c8616ebeb03a152955ca81893e2a2b8ed7fa2bac9db255551f56a"
-projectResolutionInputFingerprints = ["dependencies.api.workspace=sha256:e278f2c880bafff02f44f9d403dd68e11930a5f8e5c1d8c49e6cb9ae74963d17", "dependencies.api=sha256:4ce39b687df3a02e2eb24d4b1b2d55903971a2cfeb8593fba3cb52c81fd3bd9c", "dependencies.compile.workspace=sha256:5fa3d40686774c104593200c7c73594199c08f78e75617df760f179128c91d86", "dependencies.compile=sha256:1fe5ba2691695db8da4e166c2015e5ba3a85d075109bcc23012709fcfcd89645", "dependencies.provided=sha256:ee9fd5151af21151e1229a58161679fb2d82e7365fd91fa9b04205c966c8416a", "dependencies.test=sha256:9b1469380163893047295013809ab7ffc2cbf16b2bfca8e5a4dabd162254ce34", "dependencyMetadata=sha256:4b12573ca7adc9ba99ca7c97f539fde0362c1235fb8a7ee7fc979a30c4dd512b", "framework.quarkus=sha256:1a03038e3b6c11a6598e959b5526786bc942bd2d0e7cb6aec2401dcd36bafc1b", "framework.springBoot.native=sha256:cf597ee2519b656c8bdeb8a1aaaf81b8c9da20d7b82a94cb0643edd20e98e19f", "java=sha256:c822ebc7e176990dd66771c2496f47b8ee0f6451df7ddfa87c44aebff0a6edf6", "package=sha256:ba2fd61e998d4fab4a9205d2785ca9a48464a401346bebf655e28156a0a304c1", "repositories=sha256:e50e1129945e4af12f6d6b822fe1b5548c9425f8a3f0cfeadfb1fb4a646902e1", "schema=sha256:a08549d13c2f16087cfcaf4458dbe9436970632fe503bb7217f88c16428d2ddd", "versions=sha256:ca2f745d896b6ebc468c04d2ccbbbc59da0ef4c8f781764c0e43a6ec6d0f38d8"]
-workspaceResolutionInputFingerprint = "sha256:841e0130b0b640eb4b73dbaf4c9bde97a956884ab36641b88703b991c196b937"
+aliasFingerprint = "sha256:9a828aefb671e9ea8b7a66c0b8fd01449d9ddec1000ef73e76188d00aba2ae96"
+projectResolutionFingerprint = "sha256:1ef0a7a88f5b65769be726cc1761cbefd09f8fdd572b75a53c837287278552f8"
+projectResolutionInputFingerprints = ["dependencies.api.workspace=sha256:e278f2c880bafff02f44f9d403dd68e11930a5f8e5c1d8c49e6cb9ae74963d17", "dependencies.api=sha256:4ce39b687df3a02e2eb24d4b1b2d55903971a2cfeb8593fba3cb52c81fd3bd9c", "dependencies.compile.workspace=sha256:5fa3d40686774c104593200c7c73594199c08f78e75617df760f179128c91d86", "dependencies.compile=sha256:1fe5ba2691695db8da4e166c2015e5ba3a85d075109bcc23012709fcfcd89645", "dependencies.provided=sha256:ee9fd5151af21151e1229a58161679fb2d82e7365fd91fa9b04205c966c8416a", "dependencies.test=sha256:80a47c6ecb155d1d313094678614286ca2526c8b9d9b27ed25c1a6ce8206169a", "dependencyMetadata=sha256:f2c6ef2e5e3ed2ada29b2229e3293676653f150e8e041f3eb82001801f1c77f8", "framework.quarkus=sha256:1a03038e3b6c11a6598e959b5526786bc942bd2d0e7cb6aec2401dcd36bafc1b", "framework.springBoot.native=sha256:cf597ee2519b656c8bdeb8a1aaaf81b8c9da20d7b82a94cb0643edd20e98e19f", "java=sha256:c822ebc7e176990dd66771c2496f47b8ee0f6451df7ddfa87c44aebff0a6edf6", "package=sha256:ba2fd61e998d4fab4a9205d2785ca9a48464a401346bebf655e28156a0a304c1", "repositories=sha256:e50e1129945e4af12f6d6b822fe1b5548c9425f8a3f0cfeadfb1fb4a646902e1", "schema=sha256:a08549d13c2f16087cfcaf4458dbe9436970632fe503bb7217f88c16428d2ddd", "versions=sha256:ca2f745d896b6ebc468c04d2ccbbbc59da0ef4c8f781764c0e43a6ec6d0f38d8"]
+workspaceResolutionInputFingerprint = "sha256:0d3d85ce96b30f2149c7d954eba29a1829a813f4c9e11fdabb20e3af996769e3"
 
 [[dependencyRoot]]
 member = "apps/zolt"
@@ -210,6 +210,13 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "org.jetbrains.kotlin:kotlin-compiler-embeddable"
+version = "2.2.0"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "org.jetbrains.kotlin:kotlin-noarg-compiler-plugin-embeddable"
 version = "2.2.0"
 lane = "test"
 resolvedScope = "test"
@@ -2151,6 +2158,20 @@ pom = "blobs/v2/sha256/bd2ae4e2c91605654a8a5527da757f2b2276580d1f5eaebeabd3343af
 jarSha256 = "a26cc8e2d8619197cc4d115bea7766e9aa8e0f1e7876ea044ee1b9f305654601"
 pomSha256 = "bd2ae4e2c91605654a8a5527da757f2b2276580d1f5eaebeabd3343af8d5c467"
 members = ["apps/zolt", "modules/zolt-build"]
+dependencies = []
+
+[[package]]
+id = "org.jetbrains.kotlin:kotlin-noarg-compiler-plugin-embeddable"
+version = "2.2.0"
+source = "central"
+scope = "test"
+direct = true
+jar = "blobs/v2/sha256/13349dc1aca68c4e0964c791c92e481f559c11c4289ef37e4647dc551cf31cae/kotlin-noarg-compiler-plugin-embeddable-2.2.0.jar"
+pom = "blobs/v2/sha256/ccb9a4d15613d6828031822b4b4eea569b6acb42044da4797a27bbd1448e3e0c/kotlin-noarg-compiler-plugin-embeddable-2.2.0.pom"
+jarSha256 = "13349dc1aca68c4e0964c791c92e481f559c11c4289ef37e4647dc551cf31cae"
+pomSha256 = "ccb9a4d15613d6828031822b4b4eea569b6acb42044da4797a27bbd1448e3e0c"
+members = ["apps/zolt"]
+policies = ["version-ref: org.jetbrains.kotlin:kotlin-noarg-compiler-plugin-embeddable -> 2.2.0 from [versions].kotlin"]
 dependencies = []
 
 [[package]]
