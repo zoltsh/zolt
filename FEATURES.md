@@ -59,7 +59,9 @@ zolt run
   declarations may suppress newer Java type-use and type-parameter targets for
   older Android consumers, again independently per source set. Kotlin assertion
   code generation may be fixed on, fixed off, aligned with Java, or kept in the
-  compiler's legacy mode for each source set.
+  compiler's legacy mode for each source set. Java-callable non-null parameter
+  entry assertions may also be suppressed per source set for interoperability
+  with an existing unchecked caller.
   Main and test annotation-processor lanes run through an isolated,
   version-aligned KAPT toolchain; generated Java types are visible to both
   Kotlin and Java in the same source set without compile-classpath processor

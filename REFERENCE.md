@@ -799,7 +799,8 @@ plus `-Xmulti-dollar-interpolation`, `-Xnon-local-break-continue`,
 `-Xnested-type-aliases`, `-Xannotation-target-all`,
 `-Xjvm-expose-boxed`, `-Xconsistent-data-class-copy-visibility`, and
 `-Xemit-jvm-type-annotations`, plus `-Xno-new-java-annotation-targets`,
-`-Xno-source-debug-extension`, `-Xno-unified-null-checks`, `-Xno-optimize`,
+`-Xno-source-debug-extension`, `-Xno-unified-null-checks`,
+`-Xno-param-assertions`, `-Xno-optimize`,
 `-Xno-inline`, `-Xuse-inline-scopes-numbers`,
 `-Xenhanced-coroutines-debugging`,
 `-Xuse-14-inline-classes-mangling-scheme`, `-Xsanitize-parentheses`,
@@ -865,6 +866,7 @@ args = [
   "-Xno-new-java-annotation-targets",
   "-Xno-source-debug-extension",
   "-Xno-unified-null-checks",
+  "-Xno-param-assertions",
   "-Xno-optimize",
   "-Xno-inline",
   "-Xuse-inline-scopes-numbers",
@@ -1076,6 +1078,17 @@ null check or make the parameter nullable. Prefer the default unified checks for
 new code; use this flag only when an existing Java caller depends on the legacy
 exception contract. Configure it independently for main and test source sets;
 changing it invalidates and cleanly recompiles the matching output.
+`-Xno-param-assertions` removes the generated entry check on non-null Kotlin
+parameters of methods callable from Java. In the qualified mixed Java/Kotlin
+case, Java can pass `null` to a method that does not dereference its parameter,
+and the method can complete instead of failing in
+`Intrinsics.checkNotNullParameter`. The declaration remains non-null in the
+Kotlin type system, Kotlin callers still cannot pass `null` without an unsafe
+escape, and any later dereference may still fail. The flag is sent only to
+kotlinc and does not alter authored Java compilation. Prefer the default check;
+use suppression only for a deliberately unchecked Java interoperability
+contract. Configure it independently for main and test source sets; changing it
+invalidates and cleanly recompiles the matching output.
 `-Xno-optimize` disables the selected Kotlin compiler's backend optimizations
 for the source set. In the qualified Kotlin 2.2.0 case, it preserves an explicit
 integer-zero comparison where the default backend emits a more compact branch;
@@ -1334,7 +1347,8 @@ non-local loop control, string-concatenation mode, lambda-generation mode,
 annotated-lambda indy compatibility, SAM-conversion mode, boxed value-class
 exposure, data-class copy visibility, source-debug annotation emission,
 JSpecify, JSR-305, or package-specific Java nullness severity, legacy null-check
-exceptions, strict metadata-version semantics, annotations in metadata, backend
+exceptions, Java-entry parameter assertions, strict metadata-version semantics,
+annotations in metadata, backend
 optimization, method inlining, inline-scope debug numbering, JVM-name
 parentheses sanitization, legacy inline-class mangling, multifile-part
 inheritance, complete warning reporting, internal diagnostic-name rendering,
@@ -1354,9 +1368,11 @@ context-parameter, context-sensitive-resolution, when-guards,
 nested-type-aliases, multi-dollar-interpolation, non-local loop control,
 annotation-target, package-specific nullability, boxed value-class, and
 data-class copy visibility, source-debug annotation, and strict-metadata
-behavior, plus legacy null-check exception behavior. Main and test annotation,
+behavior, plus legacy null-check exception and Java-entry parameter-assertion
+behavior. Main and test annotation,
 boxed-exposure, copy-visibility, source-debug, strict-metadata, and legacy
-null-check and annotation-metadata settings are independent. Changing any of
+null-check, parameter-assertion, and annotation-metadata settings are
+independent. Changing any of
 them performs a cleaned full compilation of that source set so obsolete
 placement, constructors, bridges, method visibility, metadata, or null-check
 calls cannot survive. The compiler also decides whether an opt-in annotation
