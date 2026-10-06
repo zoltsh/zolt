@@ -325,7 +325,7 @@ final class ProjectValueObjectsTest {
     void enumConfigValuesStayStable() {
         assertEquals(Optional.of(GeneratedSourceKind.OPENAPI), GeneratedSourceKind.fromConfigValue("openapi"));
         assertEquals(Optional.empty(), GeneratedSourceKind.fromConfigValue("OpenAPI"));
-        assertEquals("declared-root, openapi, protobuf, exec", GeneratedSourceKind.supportedValues());
+        assertEquals("declared-root, openapi, protobuf, exec, ksp", GeneratedSourceKind.supportedValues());
 
         assertEquals(Optional.of(ProducesLane.RESOURCES), ProducesLane.fromConfigValue("resources"));
         assertEquals(Optional.of(ProducesLane.INTERMEDIATE), ProducesLane.fromConfigValue("intermediate"));

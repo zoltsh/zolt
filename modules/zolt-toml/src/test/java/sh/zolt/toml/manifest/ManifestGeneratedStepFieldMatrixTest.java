@@ -7,6 +7,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -27,14 +28,23 @@ final class ManifestGeneratedStepFieldMatrixTest {
     }
 
     static Stream<Arguments> disallowedFields() {
-        return lanes().flatMap(lane -> Stream.of(Kind.values()).flatMap(kind ->
-                assignments().stream()
-                        .filter(assignment -> !kind.allowed().contains(assignment.slot()))
-                        .map(assignment -> Arguments.of(
-                                lane,
-                                kind.symbol(),
-                                assignment.field(),
-                                assignment.source()))));
+        return Stream.of(Kind.values()).flatMap(kind ->
+                (kind == Kind.KSP ? Stream.of(Lane.MAIN) : lanes())
+                        .flatMap(lane -> assignments().stream()
+                                .filter(assignment -> !kind.allowed().contains(assignment.slot()))
+                                .map(assignment -> Arguments.of(
+                                        lane,
+                                        kind.symbol(),
+                                        assignment.field(),
+                                        assignment.source()))));
+    }
+
+    @Test
+    void rejectsKspBeforeDecodingAnyTestLaneFields() {
+        assertFailure(
+                Lane.TEST.source("kind = \"ksp\"\n"),
+                "generated.test.step.kind",
+                "supported only in [generated.main]");
     }
 
     @ParameterizedTest
@@ -141,6 +151,7 @@ final class ManifestGeneratedStepFieldMatrixTest {
         return switch (kind) {
             case "openapi" -> "kind = \"openapi\"\ninput = \"api.yaml\"\n";
             case "protobuf" -> "kind = \"protobuf\"\ninputs = [\"proto.proto\"]\n";
+            case "ksp" -> "kind = \"ksp\"\n";
             case "exec" -> "kind = \"exec\"\ntool = \"tool\"\ninputs = [\"input\"]\n"
                     + "output = \"target/generated\"\nproduces = \"java-sources\"\n";
             case "declared-root" -> "kind = \"declared-root\"\ninputs = [\"input\"]\n"
@@ -201,6 +212,10 @@ final class ManifestGeneratedStepFieldMatrixTest {
                 ManifestGeneratedStepFields.Slot.OUTPUT,
                 ManifestGeneratedStepFields.Slot.JAVA_PACKAGE,
                 ManifestGeneratedStepFields.Slot.GRPC),
+        KSP("ksp", false,
+                ManifestGeneratedStepFields.Slot.TOOL,
+                ManifestGeneratedStepFields.Slot.OUTPUT,
+                ManifestGeneratedStepFields.Slot.OPTIONS),
         EXEC("exec", ManifestGeneratedStepFields.Slot.TOOL,
                 ManifestGeneratedStepFields.Slot.MAIN_CLASS,
                 ManifestGeneratedStepFields.Slot.ARGS,
@@ -221,10 +236,19 @@ final class ManifestGeneratedStepFieldMatrixTest {
         private final Set<ManifestGeneratedStepFields.Slot> allowed;
 
         Kind(String symbol, ManifestGeneratedStepFields.Slot... specific) {
+            this(symbol, true, specific);
+        }
+
+        Kind(
+                String symbol,
+                boolean language,
+                ManifestGeneratedStepFields.Slot... specific) {
             allowed = EnumSet.of(
-                    ManifestGeneratedStepFields.Slot.LANGUAGE,
                     ManifestGeneratedStepFields.Slot.REQUIRED,
                     ManifestGeneratedStepFields.Slot.CLEAN);
+            if (language) {
+                allowed.add(ManifestGeneratedStepFields.Slot.LANGUAGE);
+            }
             allowed.addAll(List.of(specific));
             this.symbol = symbol;
         }

@@ -61,6 +61,7 @@ final class ManifestGeneratedStepsDecoder {
         return switch (kind) {
             case "openapi" -> openApi(row, row.language());
             case "protobuf" -> protobuf(row, row.language());
+            case "ksp" -> ManifestGeneratedKspStepDecoder.decode(row);
             case "exec" -> ManifestGeneratedExecStepDecoder.decode(row, row.language());
             case "declared-root" -> declaredRoot(row, row.language());
             default -> throw new IllegalStateException(

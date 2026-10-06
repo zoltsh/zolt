@@ -9,7 +9,7 @@ public enum GeneratedSourceKind {
     OPENAPI("openapi", true),
     PROTOBUF("protobuf", true),
     EXEC("exec", true),
-    KSP("ksp", false);
+    KSP("ksp", true);
 
     private final String configValue;
     private final boolean publiclySupported;

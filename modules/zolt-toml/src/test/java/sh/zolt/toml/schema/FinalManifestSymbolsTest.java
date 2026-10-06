@@ -51,7 +51,9 @@ final class FinalManifestSymbolsTest {
                 Map.entry("resource-missing-policy", List.of("fail", "keep")),
                 Map.entry("generated-tool-kind", List.of("openapi", "protobuf", "ksp", "jvm", "process")),
                 Map.entry("generated-preset-kind", List.of("openapi")),
-                Map.entry("generated-step-kind", List.of("openapi", "protobuf", "exec", "declared-root")),
+                Map.entry(
+                        "generated-step-kind",
+                        List.of("openapi", "protobuf", "ksp", "exec", "declared-root")),
                 Map.entry("generated-language", List.of("java", "kotlin")),
                 Map.entry(
                         "generated-lane",

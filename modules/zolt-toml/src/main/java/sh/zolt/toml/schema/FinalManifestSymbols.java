@@ -74,7 +74,7 @@ public final class FinalManifestSymbols {
             family("resource-missing-policy", "fail", "keep"),
             family("generated-tool-kind", "openapi", "protobuf", "ksp", "jvm", "process"),
             family("generated-preset-kind", "openapi"),
-            family("generated-step-kind", "openapi", "protobuf", "exec", "declared-root"),
+            family("generated-step-kind", "openapi", "protobuf", "ksp", "exec", "declared-root"),
             family("generated-language", "java", "kotlin"),
             family("generated-lane", "java-sources", "test-sources", "resources", "test-resources", "intermediate"),
             family("generated-cache-policy", "content", "none"),

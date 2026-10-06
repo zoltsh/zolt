@@ -29,8 +29,8 @@ final class KspGenerationSettingsTest {
 
         assertEquals(KspGenerationSettings.empty(), step.ksp());
         assertEquals("ksp", GeneratedSourceKind.KSP.configValue());
-        assertEquals(Optional.empty(), GeneratedSourceKind.fromConfigValue("ksp"));
-        assertEquals("declared-root, openapi, protobuf, exec", GeneratedSourceKind.supportedValues());
+        assertEquals(Optional.of(GeneratedSourceKind.KSP), GeneratedSourceKind.fromConfigValue("ksp"));
+        assertEquals("declared-root, openapi, protobuf, exec, ksp", GeneratedSourceKind.supportedValues());
     }
 
     @Test
