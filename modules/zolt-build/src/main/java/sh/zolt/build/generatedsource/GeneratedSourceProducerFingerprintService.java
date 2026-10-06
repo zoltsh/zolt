@@ -2,6 +2,7 @@ package sh.zolt.build.generatedsource;
 
 import sh.zolt.build.BuildException;
 import sh.zolt.build.generatedsource.ExecGeneratedSourceCache.ExecToolIdentity;
+import sh.zolt.build.generatedsource.ksp.KspProducerFingerprintService;
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.project.GeneratedSourceKind;
@@ -132,9 +133,10 @@ public final class GeneratedSourceProducerFingerprintService {
                     scope,
                     step,
                     "zolt.declared-generated-root.v1");
-            case KSP -> throw BuildException.actionable(
-                    "KSP generated source execution is not enabled yet.",
-                    "Use a supported generated source kind until the complete KSP execution path is available.");
+            case KSP -> new KspProducerFingerprintService().fingerprint(
+                    packages,
+                    config.compilerSettings().kotlinVersion(),
+                    step);
         };
     }
 
