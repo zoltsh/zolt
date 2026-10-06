@@ -15,6 +15,7 @@ import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
@@ -165,7 +166,14 @@ final class KspCliFixture {
             }
             boolean failAfterKotlin = Boolean.parseBoolean(
                     environment.getOptions().getOrDefault("fixture.failAfterKotlin", "false"));
-            return new Processor(environment.getCodeGenerator(), message, failAfterKotlin);
+            List<String> requiredSymbols = Arrays.stream(environment.getOptions()
+                            .getOrDefault("fixture.requireSymbols", "")
+                            .split(",", -1))
+                    .map(String::strip)
+                    .filter(value -> !value.isEmpty())
+                    .toList();
+            return new Processor(
+                    environment.getCodeGenerator(), message, failAfterKotlin, requiredSymbols);
         }
     }
 
@@ -173,18 +181,32 @@ final class KspCliFixture {
         private final CodeGenerator generator;
         private final String message;
         private final boolean failAfterKotlin;
+        private final List<String> requiredSymbols;
         private boolean generated;
 
-        private Processor(CodeGenerator generator, String message, boolean failAfterKotlin) {
+        private Processor(
+                CodeGenerator generator,
+                String message,
+                boolean failAfterKotlin,
+                List<String> requiredSymbols) {
             this.generator = generator;
             this.message = message;
             this.failAfterKotlin = failAfterKotlin;
+            this.requiredSymbols = List.copyOf(requiredSymbols);
         }
 
         @Override
         public List<KSAnnotated> process(Resolver resolver) {
             if (generated) {
                 return List.of();
+            }
+            for (String requiredSymbol : requiredSymbols) {
+                if (resolver.getClassDeclarationByName(
+                                resolver.getKSNameFromString(requiredSymbol))
+                        == null) {
+                    throw new IllegalStateException(
+                            "KSP CLI fixture cannot resolve required symbol " + requiredSymbol + ".");
+                }
             }
             generated = true;
             Dependencies dependencies = new Dependencies(false);

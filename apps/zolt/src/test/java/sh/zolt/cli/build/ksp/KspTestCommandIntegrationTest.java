@@ -252,7 +252,7 @@ final class KspTestCommandIntegrationTest {
 
                 [generated.test.symbols]
                 kind = "ksp"
-                options = { "fixture.message" = "test-ksp", "fixture.failAfterKotlin" = "false" }
+                options = { "fixture.message" = "test-ksp", "fixture.failAfterKotlin" = "false", "fixture.requireSymbols" = "com.example.Application,com.example.KspGeneratedTest" }
                 """.formatted(
                 currentJavaMajorVersion(),
                 KotlinCompilerCliFixture.KOTLIN_VERSION,

@@ -181,7 +181,7 @@ final class KspMainBuildCommandIntegrationTest {
 
                 [generated.main.symbols]
                 kind = "ksp"
-                options = { "fixture.message" = "cli-ksp" }
+                options = { "fixture.message" = "cli-ksp", "fixture.requireSymbols" = "com.example.Main" }
                 """.formatted(
                 currentJavaMajorVersion(),
                 KotlinCompilerCliFixture.KOTLIN_VERSION,

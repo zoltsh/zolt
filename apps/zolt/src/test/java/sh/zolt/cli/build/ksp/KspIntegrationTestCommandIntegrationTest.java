@@ -127,7 +127,7 @@ final class KspIntegrationTestCommandIntegrationTest {
 
                 [generated.test.symbols]
                 kind = "ksp"
-                options = { "fixture.message" = "integration-ksp" }
+                options = { "fixture.message" = "integration-ksp", "fixture.requireSymbols" = "com.example.Application,com.example.KspGeneratedIntegrationTest" }
                 """.formatted(
                 Runtime.version().feature(),
                 KotlinCompilerCliFixture.KOTLIN_VERSION,
