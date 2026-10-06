@@ -14,21 +14,28 @@ jobs:
   test:
     name: test ${{ matrix.name }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: ${{ matrix.timeout }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - name: foundation
             members: modules/zolt-model,modules/zolt-framework-api,modules/zolt-toml,modules/zolt-repository,modules/zolt-resolve,modules/zolt-update,modules/zolt-test-model,modules/zolt-junit-client
+            timeout: 30
           - name: build-runtime
             members: modules/zolt-build,modules/zolt-test-runtime,modules/zolt-native-image,modules/zolt-workspace
+            timeout: 30
           - name: quarkus
             members: modules/zolt-ide,modules/zolt-quarkus
+            timeout: 30
           - name: release-quality
             members: modules/zolt-release,modules/zolt-publish,modules/zolt-policy,modules/zolt-quality,modules/zolt-tree,modules/zolt-plan
+            timeout: 30
           - name: cli-apps
             members: modules/zolt-explain,modules/zolt-config,modules/zolt-selfhost,modules/zolt-init,apps/zolt-javac-worker,apps/zolt-junit-worker,apps/zolt
+            # This group includes 1,506 apps/zolt integration tests. It takes
+            # about 19 minutes locally and reached 28 minutes on ubuntu-latest.
+            timeout: 45
 
     steps:
       - name: Check out repository
