@@ -111,6 +111,31 @@ final class KspTestCommandIntegrationTest {
             assertEquals(
                     "changed-ksp-resource\n",
                     Files.readString(testOutput.resolve("META-INF/ksp-cli.txt")));
+
+            CommandResult clean = execute(
+                    "clean",
+                    "--cwd", project.toString(),
+                    "--no-progress");
+
+            assertEquals(0, clean.exitCode(), clean.stderr());
+            assertTrue(Files.notExists(project.resolve("target")));
+            assertTrue(Files.isRegularFile(project.resolve("zolt.toml")));
+            assertTrue(Files.isRegularFile(project.resolve("zolt.lock")));
+            assertTrue(Files.isRegularFile(
+                    project.resolve("src/test/kotlin/com/example/KspGeneratedTest.kt")));
+
+            CommandResult rebuilt = test(project, offlineCache);
+
+            assertEquals(0, rebuilt.exitCode(), rebuilt.stderr());
+            assertTrue(rebuilt.stdout().contains("Tests passed"), rebuilt.stdout());
+            assertTiming(rebuilt, "full");
+            assertTrue(Files.isRegularFile(
+                    generated.resolve("kotlin/com/example/GeneratedKspMessage.kt")));
+            assertTrue(Files.isRegularFile(
+                    generated.resolve("java/com/example/GeneratedJavaMessage.java")));
+            assertEquals(
+                    "changed-ksp-resource\n",
+                    Files.readString(testOutput.resolve("META-INF/ksp-cli.txt")));
             assertEquals(
                     Map.of(),
                     repository.authorizations(),
