@@ -32,6 +32,7 @@ main = "sh.zolt.cli.ZoltCli"
 
 [dependencies.test]
 "com.google.devtools.ksp:symbol-processing-aa" = { versionRef = "ksp" }
+"org.jetbrains.kotlin:kotlin-allopen-compiler-plugin-embeddable" = { versionRef = "kotlin" }
 "org.jetbrains.kotlin:kotlin-annotation-processing-embeddable" = { versionRef = "kotlin" }
 "org.jetbrains.kotlin:kotlin-compiler-embeddable" = { versionRef = "kotlin" }
 "org.jetbrains.kotlin:kotlin-serialization-compiler-plugin-embeddable" = { versionRef = "kotlin" }

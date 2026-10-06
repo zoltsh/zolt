@@ -21,6 +21,10 @@ public final class KotlinCompilerCliFixture {
             "org.jetbrains.kotlin",
             "kotlin-annotation-processing-embeddable",
             KOTLIN_VERSION);
+    private static final Artifact ALL_OPEN_PLUGIN = artifact(
+            "org.jetbrains.kotlin",
+            "kotlin-allopen-compiler-plugin-embeddable",
+            KOTLIN_VERSION);
     private static final Artifact SERIALIZATION_PLUGIN = artifact(
             "org.jetbrains.kotlin",
             "kotlin-serialization-compiler-plugin-embeddable",
@@ -71,6 +75,10 @@ public final class KotlinCompilerCliFixture {
     public static void publishSerialization(CliTestRepository repository) throws IOException {
         publish(repository, SERIALIZATION_PLUGIN, List.of());
         publish(repository, SERIALIZATION_CORE, List.of(STDLIB));
+    }
+
+    public static void publishSpringAllOpen(CliTestRepository repository) throws IOException {
+        publish(repository, ALL_OPEN_PLUGIN, List.of());
     }
 
     static void writeProject(Path projectDirectory, URI repository) throws IOException {
