@@ -45,20 +45,16 @@ final class KotlinTestCompilePolicy {
                             + " Java tests into a separate member, or keep this test source set Java-only until"
                             + " generator ownership is qualified for Kotlin/Java joint compilation.");
         }
-        if (!classpaths.testProcessor().entries().isEmpty()) {
-            throw unsupported(
-                    "test annotation processors are configured",
-                    "Remove [dependencies.test-processor] or keep the test source set Java-only.");
-        }
         if (config.frameworkSettings().quarkus().enabled()) {
             throw unsupported(
                     "Quarkus is enabled",
                     "Keep Quarkus tests Java-only until the Quarkus workspace model represents"
                             + " explicit Kotlin test roots.");
         }
-        if (!sources.testSources().isEmpty() && jdkStatus.javac().isEmpty()) {
+        if ((!sources.testSources().isEmpty() || !classpaths.testProcessor().entries().isEmpty())
+                && jdkStatus.javac().isEmpty()) {
             throw unsupported(
-                    "the selected JDK has no javac executable",
+                    "Java composition or annotation processing needs javac but the selected JDK has no javac executable",
                     "Install a complete JDK or repair the configured Java toolchain.");
         }
         KotlinCompilerOptions options = KotlinCompileOptionsPolicy.options(

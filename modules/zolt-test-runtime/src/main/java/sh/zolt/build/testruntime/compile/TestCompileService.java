@@ -282,6 +282,7 @@ public final class TestCompileService {
                 compiler.groovyLauncherClasspath(),
                 groovyCompileClasspath,
                 compiler.kotlinLauncherClasspath(),
+                compiler.kotlinKaptPluginJar(),
                 compiler.kotlinOptions(),
                 outputDirectory,
                 generatedSourcesDirectory,

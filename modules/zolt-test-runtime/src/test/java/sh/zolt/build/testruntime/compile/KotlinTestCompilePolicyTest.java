@@ -294,17 +294,37 @@ final class KotlinTestCompilePolicyTest {
     }
 
     @Test
-    void rejectsTestAnnotationProcessors() {
-        KotlinCompileException processorFailure = assertThrows(
+    void acceptsTestAnnotationProcessorsForVerifiedKaptExecution() {
+        KotlinCompilerOptions options = KotlinTestCompilePolicy.options(
+                config(CompilerSettings.defaults(), Map.of(), Map.of(), Map.of()),
+                sources(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(KOTLIN_TEST)),
+                classpaths(List.of(Path.of("processor.jar"))),
+                jdkStatus(),
+                null);
+
+        assertEquals("21", options.release());
+    }
+
+    @Test
+    void rejectsTestAnnotationProcessingWithoutJavac() {
+        JdkStatus runtimeOnly = new JdkStatus(
+                Optional.of(Path.of("/managed-jdk")),
+                Optional.of(Path.of("/managed-jdk/bin/java")),
+                Optional.empty(),
+                Optional.of(Path.of("/managed-jdk/bin/jar")),
+                Optional.of("21.0.11"),
+                "21");
+
+        KotlinCompileException failure = assertThrows(
                 KotlinCompileException.class,
                 () -> KotlinTestCompilePolicy.options(
                         config(CompilerSettings.defaults(), Map.of(), Map.of(), Map.of()),
                         sources(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(KOTLIN_TEST)),
                         classpaths(List.of(Path.of("processor.jar"))),
-                        jdkStatus(),
+                        runtimeOnly,
                         null));
 
-        assertTrue(processorFailure.getMessage().contains("[dependencies.test-processor]"));
+        assertTrue(failure.getMessage().contains("annotation processing needs javac"));
     }
 
     @Test

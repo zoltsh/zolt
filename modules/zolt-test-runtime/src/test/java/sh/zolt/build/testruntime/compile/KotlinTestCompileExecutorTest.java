@@ -138,6 +138,62 @@ final class KotlinTestCompileExecutorTest {
         assertEquals("kotlin output", attempt.output());
     }
 
+    @Test
+    void delegatesTestProcessorsToTheSharedKaptLifecycle() {
+        List<String> phases = new ArrayList<>();
+        Classpath compileClasspath = new Classpath(List.of(
+                Path.of("target/classes"), Path.of("lib/test.jar")));
+        Classpath launcherClasspath = new Classpath(List.of(
+                Path.of("lib/kotlin-compiler.jar"), Path.of("lib/kapt.jar")));
+        Classpath processorClasspath = new Classpath(List.of(Path.of("lib/test-processor.jar")));
+        Path plugin = Path.of("lib/kapt.jar");
+        Path generated = Path.of("target/generated/test-sources/annotations");
+        KotlinCompilerOptions options = new KotlinCompilerOptions(
+                "21", "demo_test", false).withFriendPath(Path.of("target/classes"));
+        CompileDiagnostics diagnostics = new CompileDiagnostics(1, 2, 3, 4, 5, 6, 7, 8);
+        KotlinTestCompileExecutor executor = new KotlinTestCompileExecutor(
+                (javac, sources, classpath, output, processors, generatedDirectory, javacOptions) -> {
+                    throw new AssertionError("standalone javac phase must not run");
+                },
+                (java, home, sources, launcher, classpath, output, kotlinOptions, scope) -> {
+                    throw new AssertionError("standalone Kotlin phase must not run");
+                },
+                (jdk, allSources, javaSources, launcher, classpath, processors, kaptPlugin,
+                        output, generatedDirectory, kotlinOptions, scope) -> {
+                    phases.add("kapt-lifecycle");
+                    assertEquals(List.of(JAVA_TEST, KOTLIN_TEST), allSources);
+                    assertEquals(List.of(JAVA_TEST), javaSources);
+                    assertEquals(launcherClasspath, launcher);
+                    assertEquals(compileClasspath, classpath);
+                    assertEquals(processorClasspath, processors);
+                    assertEquals(plugin, kaptPlugin);
+                    assertEquals(OUTPUT, output);
+                    assertEquals(generated, generatedDirectory);
+                    assertEquals(options, kotlinOptions);
+                    assertEquals(KotlinCompilationScope.TEST, scope);
+                    return new JavacResult(2, output, "kapt kotlin javac output");
+                });
+
+        TestCompileAttempt attempt = executor.compile(
+                jdkStatus(),
+                sources(List.of(JAVA_TEST), List.of(KOTLIN_TEST)),
+                compileClasspath,
+                launcherClasspath,
+                processorClasspath,
+                plugin,
+                options,
+                OUTPUT,
+                generated,
+                "kotlin-test-sources",
+                diagnostics);
+
+        assertEquals(List.of("kapt-lifecycle"), phases);
+        assertEquals(2, attempt.sourceCount());
+        assertEquals("kapt kotlin javac output", attempt.output());
+        assertEquals(List.of(JAVA_TEST, KOTLIN_TEST), attempt.compiledSources());
+        assertEquals(diagnostics, attempt.diagnostics());
+    }
+
     private static SourceDiscoveryResult sources(
             List<Path> javaTests,
             List<Path> kotlinTests) {

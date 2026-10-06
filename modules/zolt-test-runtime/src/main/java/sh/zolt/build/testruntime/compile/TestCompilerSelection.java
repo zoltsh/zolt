@@ -2,6 +2,7 @@ package sh.zolt.build.testruntime.compile;
 
 import java.nio.file.Path;
 import java.util.List;
+import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.compile.EffectiveCompilerIdentity;
 import sh.zolt.build.compile.GroovyCompilerToolchain;
 import sh.zolt.build.compile.GroovyCompilerToolchainResolver;
@@ -21,6 +22,7 @@ record TestCompilerSelection(
         String identity,
         Classpath groovyLauncherClasspath,
         Classpath kotlinLauncherClasspath,
+        Path kotlinKaptPluginJar,
         KotlinCompilerOptions kotlinOptions) {
     static TestCompilerSelection select(
             ProjectConfig config,
@@ -49,11 +51,26 @@ record TestCompilerSelection(
                         classpathPackages,
                         GroovyCompilerToolchainResolver.SourceSet.TEST,
                         config.compilerSettings().groovyVersion());
+        Path kaptPluginJar = kaptPluginJar(classpaths, kotlin);
         return new TestCompilerSelection(
                 identity(jdkStatus, groovy, kotlin),
                 groovy == null ? emptyClasspath() : groovy.launcherClasspath(),
                 kotlin == null ? emptyClasspath() : kotlin.launcherClasspath(),
+                kaptPluginJar,
                 kotlinOptions);
+    }
+
+    private static Path kaptPluginJar(
+            ClasspathSet classpaths,
+            KotlinCompilerToolchain kotlin) {
+        if (kotlin == null || classpaths.testProcessor().entries().isEmpty()) {
+            return null;
+        }
+        return kotlin.kaptPluginJar().orElseThrow(() -> new KotlinCompileException(
+                "Kotlin test annotation processing requires a checksum-verified "
+                        + "org.jetbrains.kotlin:kotlin-annotation-processing-embeddable tool root before "
+                        + "cached output can be reused or test output can be cleaned. Run `zolt resolve` "
+                        + "with [dependencies.test-processor] configured and retry."));
     }
 
     private static String identity(
