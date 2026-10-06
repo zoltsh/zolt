@@ -10,6 +10,7 @@ import sh.zolt.manifest.ManifestRelativePath;
 import sh.zolt.manifest.authored.AuthoredDeclaredRootStep;
 import sh.zolt.manifest.authored.AuthoredExecStep;
 import sh.zolt.manifest.authored.AuthoredGeneratedStep;
+import sh.zolt.manifest.authored.AuthoredKspStep;
 import sh.zolt.manifest.authored.AuthoredOpenApiStep;
 import sh.zolt.manifest.authored.AuthoredProtobufStep;
 import sh.zolt.toml.schema.FinalManifestGeneratedMainFields;
@@ -76,6 +77,7 @@ final class ManifestGeneratedStepsWriter {
                 writeOpenApi(emitter, lane, id, openApi, outputRoot);
             case AuthoredProtobufStep protobuf ->
                 writeProtobuf(emitter, lane, id, protobuf, outputRoot);
+            case AuthoredKspStep ksp -> writeKsp(emitter, lane, id, ksp, outputRoot);
             case AuthoredExecStep exec -> writeExec(emitter, lane, exec);
             case AuthoredDeclaredRootStep declared -> writeDeclared(emitter, lane, declared);
         }
@@ -86,6 +88,7 @@ final class ManifestGeneratedStepsWriter {
         return switch (step) {
             case AuthoredOpenApiStep ignored -> "openapi";
             case AuthoredProtobufStep ignored -> "protobuf";
+            case AuthoredKspStep ignored -> "ksp";
             case AuthoredExecStep ignored -> "exec";
             case AuthoredDeclaredRootStep ignored -> "declared-root";
         };
@@ -160,6 +163,32 @@ final class ManifestGeneratedStepsWriter {
                         FinalManifestGeneratedMainFields.GENERATED_MAIN_GRPC,
                         FinalManifestGeneratedTestFields.GENERATED_TEST_GRPC),
                 ManifestTomlValueEncoder.booleanValue(value)));
+    }
+
+    private static void writeKsp(
+            ManifestTomlEmitter emitter,
+            Lane lane,
+            LocalId id,
+            AuthoredKspStep step,
+            ManifestRelativePath outputRoot) {
+        if (!lane.main()) {
+            throw new IllegalArgumentException(
+                    "KSP generated steps are currently supported only in [generated.main].");
+        }
+        ManifestGeneratedKspStepWriter.write(
+                emitter,
+                id,
+                step,
+                outputRoot,
+                field(lane,
+                        FinalManifestGeneratedMainFields.GENERATED_MAIN_TOOL,
+                        FinalManifestGeneratedTestFields.GENERATED_TEST_TOOL),
+                field(lane,
+                        FinalManifestGeneratedMainFields.GENERATED_MAIN_OUTPUT,
+                        FinalManifestGeneratedTestFields.GENERATED_TEST_OUTPUT),
+                field(lane,
+                        FinalManifestGeneratedMainFields.GENERATED_MAIN_OPTIONS,
+                        FinalManifestGeneratedTestFields.GENERATED_TEST_OPTIONS));
     }
 
     private static void writeExec(

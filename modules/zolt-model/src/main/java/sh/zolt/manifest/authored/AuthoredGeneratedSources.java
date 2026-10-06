@@ -14,6 +14,7 @@ public record AuthoredGeneratedSources(
         Map<LocalId, AuthoredGeneratedStep> test) {
     private static final LocalId OPENAPI = new LocalId("openapi");
     private static final LocalId PROTOBUF = new LocalId("protobuf");
+    private static final LocalId KSP = new LocalId("ksp");
     private static final LocalId PROJECT = new LocalId("project");
 
     public AuthoredGeneratedSources {
@@ -62,6 +63,12 @@ public record AuthoredGeneratedSources(
                         protobuf.tool().orElse(PROTOBUF),
                         tools,
                         AuthoredGeneratedTool.Protobuf.class);
+            } else if (step instanceof AuthoredKspStep ksp) {
+                validateTool(
+                        id,
+                        ksp.tool().orElse(KSP),
+                        tools,
+                        AuthoredGeneratedTool.Ksp.class);
             } else if (step instanceof AuthoredExecStep exec && !exec.tool().equals(PROJECT)) {
                 validateExecTool(id, exec.tool(), tools);
             }
@@ -101,6 +108,15 @@ public record AuthoredGeneratedSources(
     }
 
     private static String kindName(Class<? extends AuthoredGeneratedTool> kind) {
-        return kind == AuthoredGeneratedTool.OpenApi.class ? "OpenAPI" : "Protobuf";
+        if (kind == AuthoredGeneratedTool.OpenApi.class) {
+            return "OpenAPI";
+        }
+        if (kind == AuthoredGeneratedTool.Protobuf.class) {
+            return "Protobuf";
+        }
+        if (kind == AuthoredGeneratedTool.Ksp.class) {
+            return "KSP";
+        }
+        throw new IllegalArgumentException("Unknown generated tool kind `" + kind.getName() + "`.");
     }
 }

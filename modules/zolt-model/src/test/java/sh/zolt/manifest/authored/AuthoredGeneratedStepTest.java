@@ -45,6 +45,44 @@ final class AuthoredGeneratedStepTest {
     }
 
     @Test
+    void kspRetainsItsToolOutputAndCanonicalProcessorOptions() {
+        LinkedHashMap<String, String> options = new LinkedHashMap<>();
+        options.put("room.schemaLocation", "schemas");
+        options.put("alpha", "");
+        AuthoredKspStep ksp = new AuthoredKspStep(
+                GeneratedStepSettings.defaultsOmitted(),
+                Optional.of(new LocalId("symbols")),
+                Optional.of(new ManifestRelativePath("target/generated/ksp/main/symbols")),
+                options);
+        options.clear();
+
+        assertEquals("symbols", ksp.tool().orElseThrow().value());
+        assertEquals(
+                List.of("alpha", "room.schemaLocation"),
+                ksp.options().keySet().stream().toList());
+        assertThrows(UnsupportedOperationException.class, () -> ksp.options().clear());
+    }
+
+    @Test
+    void kspRejectsSettingsItsNonIncrementalMixedOutputCannotHonor() {
+        GeneratedStepSettings language = new GeneratedStepSettings(
+                Optional.of(GeneratedLanguage.KOTLIN), Optional.empty(), Optional.empty());
+        GeneratedStepSettings optional = new GeneratedStepSettings(
+                Optional.empty(), Optional.of(false), Optional.empty());
+        GeneratedStepSettings retained = new GeneratedStepSettings(
+                Optional.empty(), Optional.empty(), Optional.of(false));
+
+        assertThrows(IllegalArgumentException.class, () -> ksp(language));
+        assertThrows(IllegalArgumentException.class, () -> ksp(optional));
+        assertThrows(IllegalArgumentException.class, () -> ksp(retained));
+        assertThrows(IllegalArgumentException.class, () -> new AuthoredKspStep(
+                GeneratedStepSettings.defaultsOmitted(),
+                Optional.empty(),
+                Optional.empty(),
+                Map.of(" ", "value")));
+    }
+
+    @Test
     void protobufAndDeclaredRootKeepAuthoredOrderAndCopyNonemptyInputs() {
         ArrayList<ResourceGlob> inputs = new ArrayList<>(List.of(
                 new ResourceGlob("src/z.proto"),
@@ -225,5 +263,9 @@ final class AuthoredGeneratedStepTest {
                 secretEnv,
                 inheritEnv,
                 Optional.of(600));
+    }
+
+    private static AuthoredKspStep ksp(GeneratedStepSettings settings) {
+        return new AuthoredKspStep(settings, Optional.empty(), Optional.empty(), Map.of());
     }
 }

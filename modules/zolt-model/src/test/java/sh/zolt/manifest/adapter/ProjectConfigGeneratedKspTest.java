@@ -10,14 +10,18 @@ import org.junit.jupiter.api.Test;
 import sh.zolt.manifest.DependencyCoordinate;
 import sh.zolt.manifest.DependencySelector;
 import sh.zolt.manifest.GeneratedArtifactRequest;
+import sh.zolt.manifest.GeneratedStepSettings;
 import sh.zolt.manifest.LocalId;
 import sh.zolt.manifest.VersionAliasValue;
 import sh.zolt.manifest.authored.AuthoredGeneratedPresets;
 import sh.zolt.manifest.authored.AuthoredGeneratedSources;
 import sh.zolt.manifest.authored.AuthoredGeneratedTool;
 import sh.zolt.manifest.authored.AuthoredGeneratedTools;
+import sh.zolt.manifest.authored.AuthoredKspStep;
 import sh.zolt.manifest.effective.EffectiveValue;
 import sh.zolt.project.KspGenerationSettings;
+import sh.zolt.project.GeneratedSourceKind;
+import sh.zolt.project.GeneratedSourceStep;
 
 final class ProjectConfigGeneratedKspTest {
     private static final LocalId KSP = new LocalId("ksp");
@@ -64,6 +68,33 @@ final class ProjectConfigGeneratedKspTest {
         assertEquals(Optional.empty(), settings.processors().getFirst().versionRef());
         assertEquals("ksp:symbols:engine", settings.engineGroup());
         assertEquals("ksp:symbols:processors", settings.processorGroup());
+    }
+
+    @Test
+    void projectsAMainKspStepWithOwnedDerivedOutput() {
+        AuthoredGeneratedTool.Ksp tool = new AuthoredGeneratedTool.Ksp(
+                new DependencySelector.FixedVersion("2.2.0-2.0.2"),
+                List.of(new GeneratedArtifactRequest(
+                        new DependencyCoordinate("com.example:symbol-processor"),
+                        new DependencySelector.FixedVersion("1.4.0"))));
+        AuthoredGeneratedSources sources = new AuthoredGeneratedSources(
+                new AuthoredGeneratedTools(Map.of(KSP, tool)),
+                AuthoredGeneratedPresets.empty(),
+                Map.of(new LocalId("symbols"), new AuthoredKspStep(
+                        GeneratedStepSettings.defaultsOmitted(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Map.of("room.schemaLocation", "schemas"))),
+                Map.of());
+
+        GeneratedSourceStep step = ProjectConfigGenerated.main(
+                Optional.of(sources), "target", Map.of()).getFirst();
+
+        assertEquals(GeneratedSourceKind.KSP, step.kind());
+        assertEquals("kotlin", step.language());
+        assertEquals("target/generated/ksp/main/symbols", step.output());
+        assertEquals(List.of(), step.inputs());
+        assertEquals(Map.of("room.schemaLocation", "schemas"), step.ksp().options());
     }
 
     @Test
