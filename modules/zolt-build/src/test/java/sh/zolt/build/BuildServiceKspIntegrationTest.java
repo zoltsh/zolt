@@ -4,14 +4,18 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import sh.zolt.build.cache.BuildCacheService;
+import sh.zolt.build.cache.BuildCacheSettings;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
@@ -23,6 +27,9 @@ final class BuildServiceKspIntegrationTest {
 
     @TempDir
     private Path cacheRoot;
+
+    @TempDir
+    private Path buildCacheHome;
 
     @Test
     void generatesAndCompilesKotlinJavaAndResourcesOffline() throws Exception {
@@ -43,7 +50,9 @@ final class BuildServiceKspIntegrationTest {
                 }
                 """);
         ProjectConfig config = config();
-        BuildService service = new BuildService();
+        BuildService service = new BuildService().withBuildCache(BuildCacheService.create(
+                new BuildCacheSettings(true, buildCacheHome, 0L),
+                "ksp-main-integration"));
 
         BuildResultWithClasspaths first = service.buildWithClasspaths(
                 projectDirectory, config, cacheRoot, true);
@@ -51,6 +60,7 @@ final class BuildServiceKspIntegrationTest {
         Path output = projectDirectory.resolve("target/generated/ksp/main/symbols");
         assertTrue(first.buildResult().resolveResult().isEmpty());
         assertEquals("full", first.buildResult().mainCompilationMode());
+        assertEquals("stored", first.buildResult().mainBuildCacheOutcome());
         assertTrue(Files.isRegularFile(output.resolve("kotlin/com/example/GeneratedKspMessage.kt")));
         assertTrue(Files.isRegularFile(output.resolve("java/com/example/GeneratedJavaMessage.java")));
         assertEquals(
@@ -73,6 +83,31 @@ final class BuildServiceKspIntegrationTest {
 
         assertTrue(warm.buildResult().mainCompilationSkipped());
         assertEquals("from-ksp-from-ksp", invoke(artifacts.applicationClasspath()));
+
+        deleteTree(projectDirectory.resolve("target"));
+        BuildResultWithClasspaths restored = service.buildWithClasspaths(
+                projectDirectory, config, cacheRoot, true);
+
+        assertTrue(restored.buildResult().mainCompilationRestored());
+        assertEquals("restored", restored.buildResult().mainBuildCacheOutcome());
+        assertTrue(Files.isRegularFile(output.resolve("kotlin/com/example/GeneratedKspMessage.kt")));
+        assertTrue(Files.isRegularFile(output.resolve("java/com/example/GeneratedJavaMessage.java")));
+        assertEquals(
+                "from-ksp-resource\n",
+                Files.readString(output.resolve("resources/META-INF/ksp-fixture.txt")));
+        assertEquals(
+                "from-ksp-resource\n",
+                Files.readString(projectDirectory.resolve(
+                        "target/classes/META-INF/ksp-fixture.txt")));
+        assertTrue(Files.isRegularFile(classFile("GeneratedKspMessage.class")));
+        assertTrue(Files.isRegularFile(classFile("GeneratedJavaMessage.class")));
+        assertEquals("from-ksp-from-ksp", invoke(artifacts.applicationClasspath()));
+
+        BuildResultWithClasspaths postRestoreWarm = service.buildWithClasspaths(
+                projectDirectory, config, cacheRoot, true);
+
+        assertTrue(postRestoreWarm.buildResult().mainCompilationSkipped());
+        assertEquals("skipped", postRestoreWarm.buildResult().mainCompilationMode());
     }
 
     private ProjectConfig config() {
@@ -132,6 +167,17 @@ final class BuildServiceKspIntegrationTest {
             return path.toUri().toURL();
         } catch (java.net.MalformedURLException exception) {
             throw new IllegalArgumentException(exception);
+        }
+    }
+
+    private static void deleteTree(Path root) throws IOException {
+        if (!Files.exists(root)) {
+            return;
+        }
+        try (Stream<Path> paths = Files.walk(root)) {
+            for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
+                Files.delete(path);
+            }
         }
     }
 }
