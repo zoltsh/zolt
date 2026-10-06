@@ -86,12 +86,13 @@ zolt run
   locks the matching KSP engine and processor closures separately, runs them
   outside the application classpath, and admits their generated Kotlin, Java,
   and resource lanes before compilation. The test lane serves both unit- and
-  integration-test source projections. Official Kotlin serialization and
-  all-open Spring compiler plugins are available through closed,
-  version-aligned `serialization` and `spring` selectors. Their compiler
-  tooling stays isolated; applications declare serialization and Spring
-  runtime libraries normally. Arbitrary compiler-plugin coordinates and
-  options remain outside the bounded preview.
+  integration-test source projections. Official Kotlin serialization,
+  all-open Spring, and no-arg JPA compiler plugins are available through
+  closed, version-aligned `serialization`, `spring`, and `jpa` selectors. JPA
+  no-arg does not implicitly open entity types. Compiler tooling stays
+  isolated; applications declare serialization, Spring, and persistence
+  libraries normally. Arbitrary compiler-plugin coordinates and options remain
+  outside the bounded preview.
   Warnings may be expanded, enforced, suppressed, or adjusted by diagnostic per
   source set. Kotlin/JVM string concatenation may use inline `StringBuilder` or
   either invokedynamic scheme per source set; lambda generation may likewise

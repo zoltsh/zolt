@@ -82,7 +82,7 @@ closed selectors:
 ```toml
 [toolchain.kotlin]
 version = "2.2.0"
-plugins = ["serialization", "spring"]
+plugins = ["serialization", "spring", "jpa"]
 
 [dependencies]
 "org.jetbrains.kotlin:kotlin-stdlib" = "2.2.0"
@@ -94,7 +94,11 @@ isolated tool closure. `serialization` generates serializers; its runtime
 remains an ordinary application dependency and must be declared explicitly.
 `spring` invokes Kotlin's all-open Spring preset so recognized Spring-annotated
 types can be proxied without manually writing `open`; it does not add Spring
-libraries. Select either plugin or both. Arbitrary compiler-plugin coordinates
+libraries. `jpa` invokes Kotlin's no-arg JPA preset, generating
+reflection-callable zero-parameter constructors for recognized `javax.persistence`
+and `jakarta.persistence` types. It does not make those types open or add a
+persistence API or provider. Select any subset of the three built-ins and
+declare application libraries normally. Arbitrary compiler-plugin coordinates
 and plugin options are outside this preview.
 
 Pass processor options as scoped compiler arguments. Each option requires the

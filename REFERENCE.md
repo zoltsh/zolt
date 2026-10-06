@@ -748,12 +748,12 @@ matching source set.
 #### Bounded Kotlin compiler plugins
 
 The Kotlin preview supports official compiler plugins through the built-in
-`serialization` and `spring` selectors:
+`serialization`, `spring`, and `jpa` selectors:
 
 ```toml
 [toolchain.kotlin]
 version = "2.2.0"
-plugins = ["serialization", "spring"]
+plugins = ["serialization", "spring", "jpa"]
 
 [dependencies]
 "org.jetbrains.kotlin:kotlin-stdlib" = "2.2.0"
@@ -768,12 +768,16 @@ compiler version to the checksum-verified `tool-kotlin` scope:
 - `spring` selects
   `org.jetbrains.kotlin:kotlin-allopen-compiler-plugin-embeddable` and invokes
   its owned `spring` preset.
+- `jpa` selects
+  `org.jetbrains.kotlin:kotlin-noarg-compiler-plugin-embeddable` and invokes
+  its owned `jpa` preset.
 
 Zolt verifies every direct plugin root, version, and manifest identity before
-execution. It also verifies the serialization registrar and both the all-open
-registrar and command-line processor. The plugins are available to configured
-Kotlin main and test compiler lanes, including a lane that also uses KAPT, but
-never enter an application compile, runtime, or package classpath.
+execution. It also verifies the serialization registrar and the registrar plus
+command-line processor for both all-open and no-arg. The plugins are available
+to configured Kotlin main and test compiler lanes, including a lane that also
+uses KAPT, but never enter an application compile, runtime, or package
+classpath.
 
 The `kotlinx-serialization-core-jvm` entry above is an ordinary application
 dependency, not compiler tooling. Select a runtime version compatible with the
@@ -785,7 +789,15 @@ all-open Spring preset to recognized Spring annotations, making eligible Kotlin
 classes and members non-final for proxying while leaving unannotated types
 unchanged. Applications declare their chosen Spring dependencies normally.
 
-Adding or removing either selector requires a lockfile refresh. The authored
+The `jpa` selector does not add a persistence API or provider. It applies the
+official no-arg JPA preset to recognized `javax.persistence` and
+`jakarta.persistence` annotations so frameworks can construct eligible Kotlin
+types through a zero-parameter constructor. The selector loads no all-open
+plugin: an eligible class remains final unless the source or another selected
+plugin opens it. Applications declare their chosen persistence API and provider
+normally.
+
+Adding or removing any selector requires a lockfile refresh. The authored
 selectors, resulting lockfile, owned plugin options, and complete compiler-tool
 closure participate in fingerprint and output-cache identity. Removing a
 selector therefore cannot reuse incompatible transformed or generated output,
@@ -793,10 +805,10 @@ while a verified cache entry restores the complete compiled output. Compiler
 tooling remains absent from thin and uber packages; declared application
 runtime libraries follow the ordinary packaging rules.
 
-`serialization` and `spring` are the only supported compiler-plugin selectors.
-They may be selected independently or together. Arbitrary plugin coordinates,
-compiler-plugin paths, and plugin options are rejected or remain outside the
-bounded manifest contract.
+`serialization`, `spring`, and `jpa` are the only supported compiler-plugin
+selectors. They may be selected independently or together. Arbitrary plugin
+coordinates, compiler-plugin paths, and plugin options are rejected or remain
+outside the bounded manifest contract.
 
 #### KSP2 source-set generation preview
 
