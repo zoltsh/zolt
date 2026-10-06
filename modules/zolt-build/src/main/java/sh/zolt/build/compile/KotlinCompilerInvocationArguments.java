@@ -158,6 +158,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.noCallAssertions()) {
             arguments.add("-Xno-call-assertions");
         }
+        if (options.noReceiverAssertions()) {
+            arguments.add("-Xno-receiver-assertions");
+        }
         if (!options.abiStabilityMode().isEmpty()) {
             arguments.add("-Xabi-stability=" + options.abiStabilityMode());
         }

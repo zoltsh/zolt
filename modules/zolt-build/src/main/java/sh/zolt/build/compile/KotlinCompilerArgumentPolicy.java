@@ -217,6 +217,7 @@ final class KotlinCompilerArgumentPolicy {
                 standaloneArguments.contains("-Xallow-unstable-dependencies"),
                 standaloneArguments.contains("-Xno-param-assertions"),
                 standaloneArguments.contains("-Xno-call-assertions"),
+                standaloneArguments.contains("-Xno-receiver-assertions"),
                 abiStabilityMode,
                 annotationDefaultTargetMode,
                 assertionMode,

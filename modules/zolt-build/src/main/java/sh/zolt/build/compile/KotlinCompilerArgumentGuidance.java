@@ -26,6 +26,7 @@ final class KotlinCompilerArgumentGuidance {
                 + " `-Xgenerate-strict-metadata-version`, `-Xannotations-in-metadata`,"
                 + " `-Xuse-type-table`, `-Xjvm-enable-preview`, `-Xallow-unstable-dependencies`,"
                 + " `-Xno-param-assertions`, `-Xno-call-assertions`,"
+                + " `-Xno-receiver-assertions`,"
                 + " `-language-version <major.minor>`, `-api-version <major.minor>`, and one"
                 + " `-jvm-default=<mode>`, plus repeatable"
                 + " `-opt-in=<qualified.annotation.Name>` arguments and one"

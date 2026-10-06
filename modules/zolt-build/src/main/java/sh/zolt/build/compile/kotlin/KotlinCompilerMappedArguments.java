@@ -41,6 +41,7 @@ public record KotlinCompilerMappedArguments(
         boolean allowUnstableDependencies,
         boolean noParamAssertions,
         boolean noCallAssertions,
+        boolean noReceiverAssertions,
         String abiStabilityMode,
         String annotationDefaultTargetMode,
         String assertionMode,

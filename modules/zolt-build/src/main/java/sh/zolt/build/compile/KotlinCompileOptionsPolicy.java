@@ -108,6 +108,7 @@ public final class KotlinCompileOptionsPolicy {
                 mappedArguments.allowUnstableDependencies(),
                 mappedArguments.noParamAssertions(),
                 mappedArguments.noCallAssertions(),
+                mappedArguments.noReceiverAssertions(),
                 mappedArguments.abiStabilityMode(),
                 mappedArguments.annotationDefaultTargetMode(),
                 mappedArguments.assertionMode(),

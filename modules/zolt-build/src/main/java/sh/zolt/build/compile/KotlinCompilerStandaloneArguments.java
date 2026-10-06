@@ -40,7 +40,8 @@ final class KotlinCompilerStandaloneArguments {
             "-Xjvm-enable-preview",
             "-Xallow-unstable-dependencies",
             "-Xno-param-assertions",
-            "-Xno-call-assertions");
+            "-Xno-call-assertions",
+            "-Xno-receiver-assertions");
 
     private KotlinCompilerStandaloneArguments() {
     }
