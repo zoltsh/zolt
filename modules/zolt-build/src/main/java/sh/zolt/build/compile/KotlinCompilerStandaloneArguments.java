@@ -39,7 +39,8 @@ final class KotlinCompilerStandaloneArguments {
             "-Xuse-type-table",
             "-Xjvm-enable-preview",
             "-Xallow-unstable-dependencies",
-            "-Xno-param-assertions");
+            "-Xno-param-assertions",
+            "-Xno-call-assertions");
 
     private KotlinCompilerStandaloneArguments() {
     }

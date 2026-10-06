@@ -155,6 +155,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.noParamAssertions()) {
             arguments.add("-Xno-param-assertions");
         }
+        if (options.noCallAssertions()) {
+            arguments.add("-Xno-call-assertions");
+        }
         if (!options.abiStabilityMode().isEmpty()) {
             arguments.add("-Xabi-stability=" + options.abiStabilityMode());
         }

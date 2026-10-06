@@ -107,6 +107,7 @@ public final class KotlinCompileOptionsPolicy {
                 mappedArguments.jvmPreview(),
                 mappedArguments.allowUnstableDependencies(),
                 mappedArguments.noParamAssertions(),
+                mappedArguments.noCallAssertions(),
                 mappedArguments.abiStabilityMode(),
                 mappedArguments.annotationDefaultTargetMode(),
                 mappedArguments.assertionMode(),

@@ -216,6 +216,7 @@ final class KotlinCompilerArgumentPolicy {
                 standaloneArguments.contains("-Xjvm-enable-preview"),
                 standaloneArguments.contains("-Xallow-unstable-dependencies"),
                 standaloneArguments.contains("-Xno-param-assertions"),
+                standaloneArguments.contains("-Xno-call-assertions"),
                 abiStabilityMode,
                 annotationDefaultTargetMode,
                 assertionMode,
