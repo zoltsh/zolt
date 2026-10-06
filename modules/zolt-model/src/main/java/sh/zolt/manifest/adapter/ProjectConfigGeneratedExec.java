@@ -102,6 +102,8 @@ final class ProjectConfigGeneratedExec {
                     "Generated exec step cannot reference OpenAPI tool `" + tool + "`.");
             case AuthoredGeneratedTool.Protobuf ignored -> throw new IllegalArgumentException(
                     "Generated exec step cannot reference Protobuf tool `" + tool + "`.");
+            case AuthoredGeneratedTool.Ksp ignored -> throw new IllegalArgumentException(
+                    "Generated exec step cannot reference KSP tool `" + tool + "`.");
         };
     }
 

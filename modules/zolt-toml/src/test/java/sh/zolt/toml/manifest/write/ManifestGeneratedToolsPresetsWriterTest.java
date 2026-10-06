@@ -46,6 +46,11 @@ final class ManifestGeneratedToolsPresetsWriterTest {
                                         request("org.example:runner", fixed("1.2.3")),
                                         request("org.example:helper", reference("helper-version"))),
                                 new JavaBinaryClassName("org.example.codegen.Main")),
+                        id("ksp"), new AuthoredGeneratedTool.Ksp(
+                                fixed("2.2.0-2.0.2"),
+                                List.of(
+                                        request("org.example:symbols", fixed("1.0.0")),
+                                        request("org.example:helper-symbols", reference("helper-version")))),
                         id("custom-openapi"), new AuthoredGeneratedTool.OpenApi(
                                 Optional.of(coordinate("org.example:openapi")),
                                 Optional.of(fixed("2.0.0"))),
@@ -81,6 +86,13 @@ final class ManifestGeneratedToolsPresetsWriterTest {
                     { coordinate = "org.example:helper", versionRef = "helper-version" },
                 ]
                 mainClass = "org.example.codegen.Main"
+
+                [generated.tools.ksp]
+                version = "2.2.0-2.0.2"
+                coordinates = [
+                    { coordinate = "org.example:symbols", version = "1.0.0" },
+                    { coordinate = "org.example:helper-symbols", versionRef = "helper-version" },
+                ]
 
                 [generated.tools.openapi]
                 coordinate = "org.openapitools:openapi-generator-cli"

@@ -114,7 +114,7 @@ public final class ExactUpdatePlanner {
             case DEPENDENCY, ANNOTATION_PROCESSOR -> VersionPolicy.Context.EXTERNAL_DEPENDENCY;
             case PLATFORM, BOM_VERSION, BOM_IMPORT -> VersionPolicy.Context.PLATFORM;
             case DEPENDENCY_CONSTRAINT -> VersionPolicy.Context.CONSTRAINT;
-            case EXEC_TOOL_COORDINATE, PROTOBUF_TOOL, OPENAPI_TOOL -> VersionPolicy.Context.TOOL_DEPENDENCY;
+            case EXEC_TOOL_COORDINATE, KSP_TOOL, PROTOBUF_TOOL, OPENAPI_TOOL -> VersionPolicy.Context.TOOL_DEPENDENCY;
         };
     }
 

@@ -85,14 +85,28 @@ final class ManifestGeneratedToolsTypedDecoderTest {
                 protocVersion = "4.30.0"
                 grpcVersionRef = "grpc-version"
 
+                [generated.tools.ksp]
+                version = "2.2.0-2.0.2"
+                coordinates = [
+                    { coordinate = "com.example:symbol-processor", versionRef = "processor-version" },
+                ]
+
                 [generated.tools.openapi]
                 coordinate = "org.openapitools:openapi-generator-cli"
                 versionRef = "openapi-version"
                 """).orElseThrow();
 
         assertEquals(
-                List.of("open-api-custom", "openapi", "protobuf", "protobuf-custom"),
+                List.of("ksp", "open-api-custom", "openapi", "protobuf", "protobuf-custom"),
                 tools.declarations().keySet().stream().map(LocalId::value).toList());
+
+        AuthoredGeneratedTool.Ksp ksp = assertInstanceOf(
+                AuthoredGeneratedTool.Ksp.class,
+                tools.declarations().get(id("ksp")));
+        assertFixedVersion(Optional.of(ksp.version()), "2.2.0-2.0.2");
+        assertEquals("com.example:symbol-processor", ksp.processors().getFirst().coordinate().value());
+        assertVersionReference(
+                Optional.of(ksp.processors().getFirst().selector()), "processor-version");
 
         AuthoredGeneratedTool.OpenApi builtInOpenApi = assertInstanceOf(
                 AuthoredGeneratedTool.OpenApi.class,
@@ -164,7 +178,12 @@ final class ManifestGeneratedToolsTypedDecoderTest {
                 Arguments.of(
                         "generated = { tools = { protobuf = { protocVersionRef = \"release\" } } }\n",
                         "protobuf",
-                        AuthoredGeneratedTool.Protobuf.class));
+                        AuthoredGeneratedTool.Protobuf.class),
+                Arguments.of(
+                        "[generated.tools.ksp]\nversionRef = \"release\"\n"
+                                + "coordinates = [{ coordinate = \"org.example:processor\", version = \"1.0.0\" }]\n",
+                        "ksp",
+                        AuthoredGeneratedTool.Ksp.class));
     }
 
     @Test
@@ -183,7 +202,7 @@ final class ManifestGeneratedToolsTypedDecoderTest {
                 .symbolFamily()
                 .orElseThrow();
         assertEquals(
-                Set.of("openapi", "protobuf", "jvm", "process"),
+                Set.of("openapi", "protobuf", "ksp", "jvm", "process"),
                 Set.copyOf(FinalManifestSchema.registry()
                         .symbols()
                         .family(family)
@@ -202,8 +221,29 @@ final class ManifestGeneratedToolsTypedDecoderTest {
                 "Invalid value for `generated.tools.protobuf.kind`",
                 "reserved built-in tool overrides derive their kind");
         assertFailure(
+                "[generated.tools.ksp]\nkind = \"ksp\"\n"
+                        + "version = \"2.2.0-2.0.2\"\n"
+                        + "coordinates = [{ coordinate = \"org.example:processor\", version = \"1.0.0\" }]\n",
+                "Invalid value for `generated.tools.ksp.kind`",
+                "reserved built-in tool overrides derive their kind");
+        assertFailure(
                 "[generated.tools.custom]\ncoordinate = \"invalid\"\n",
                 "Missing required manifest field `generated.tools.custom.kind`.");
+    }
+
+    @Test
+    void kspToolRequiresAnEngineVersionAndProcessorRoots() {
+        assertFailure(
+                "[generated.tools.ksp]\n"
+                        + "coordinates = [{ coordinate = \"org.example:processor\", version = \"1.0.0\" }]\n",
+                "Missing required manifest field `generated.tools.ksp.version`");
+        assertFailure(
+                "[generated.tools.ksp]\nversion = \"2.2.0-2.0.2\"\n",
+                "Missing required manifest field `generated.tools.ksp.coordinates`");
+        assertFailure(
+                "[generated.tools.ksp]\nversion = \"2.2.0-2.0.2\"\ncoordinates = []\n",
+                "Invalid value for `generated.tools.ksp.coordinates`",
+                "requires at least one processor coordinate");
     }
 
     @ParameterizedTest
@@ -223,6 +263,7 @@ final class ManifestGeneratedToolsTypedDecoderTest {
     static Stream<Arguments> conflictingSelectors() {
         return Stream.of(
                 Arguments.of("openapi", "version", "versionRef"),
+                Arguments.of("ksp", "version", "versionRef"),
                 Arguments.of("protobuf", "protocVersion", "protocVersionRef"),
                 Arguments.of("protobuf", "grpcVersion", "grpcVersionRef"));
     }
@@ -277,7 +318,11 @@ final class ManifestGeneratedToolsTypedDecoderTest {
                         "grpcCoordinate"),
                 Arguments.of(
                         "[generated.tools.custom]\nkind = \"protobuf\"\ngrpcVersionRef = \"Bad_Id\"\n",
-                        "grpcVersionRef"));
+                        "grpcVersionRef"),
+                Arguments.of(
+                        "[generated.tools.custom]\nkind = \"ksp\"\nversion = \"LATEST\"\n"
+                                + "coordinates = [{ coordinate = \"org.example:processor\", version = \"1.0.0\" }]\n",
+                        "version"));
     }
 
     @ParameterizedTest
@@ -293,7 +338,7 @@ final class ManifestGeneratedToolsTypedDecoderTest {
     }
 
     static Stream<Arguments> disallowedTypedFields() {
-        return Stream.concat(
+        return Stream.of(
                 disallowed(
                         "openapi",
                         List.of(
@@ -303,7 +348,16 @@ final class ManifestGeneratedToolsTypedDecoderTest {
                                 processFields())),
                 disallowed(
                         "protobuf",
-                        List.of(openApiFields(), jvmFields(), processFields())));
+                        List.of(openApiFields(), jvmFields(), processFields())),
+                disallowed(
+                        "ksp",
+                        List.of(
+                                List.of("coordinate = \"org.example:tool\""),
+                                protocFields(),
+                                grpcFields(),
+                                List.of("mainClass = \"org.example.Tool\""),
+                                processFields())))
+                .flatMap(stream -> stream);
     }
 
     private static Stream<Arguments> disallowed(String kind, List<List<String>> groups) {

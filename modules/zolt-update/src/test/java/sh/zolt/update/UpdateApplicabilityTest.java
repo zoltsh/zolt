@@ -19,9 +19,11 @@ final class UpdateApplicabilityTest {
     @Test
     void generatedToolLiteralsAreNotApplicableAndExplainWhy() {
         assertFalse(UpdateApplicability.isApplicable(OutdatedSurface.EXEC_TOOL_COORDINATE));
+        assertFalse(UpdateApplicability.isApplicable(OutdatedSurface.KSP_TOOL));
         assertFalse(UpdateApplicability.isApplicable(OutdatedSurface.PROTOBUF_TOOL));
         assertFalse(UpdateApplicability.isApplicable(OutdatedSurface.OPENAPI_TOOL));
         assertTrue(UpdateApplicability.reason(OutdatedSurface.EXEC_TOOL_COORDINATE).contains("exec-tool"));
+        assertTrue(UpdateApplicability.reason(OutdatedSurface.KSP_TOOL).contains("generated-tool"));
         assertTrue(UpdateApplicability.reason(OutdatedSurface.PROTOBUF_TOOL).contains("generated-tool"));
     }
 }

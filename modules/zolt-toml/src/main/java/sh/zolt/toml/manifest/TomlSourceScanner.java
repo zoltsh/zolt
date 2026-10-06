@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import org.tomlj.Toml;
+import sh.zolt.toml.manifest.scan.TomlValueSpanScanner;
 import sh.zolt.toml.manifest.TomlSyntaxNodeBuilders.Assignment;
 import sh.zolt.toml.manifest.TomlSyntaxNodeBuilders.Header;
 import sh.zolt.toml.manifest.TomlSyntaxNodeBuilders.TableBuilder;
@@ -29,7 +30,7 @@ final class TomlSourceScanner {
     TomlSourceScanner(String source) {
         this.source = source;
         this.length = source.length();
-        this.valueScanner = new TomlValueSpanScanner(source);
+        this.valueScanner = new TomlValueSpanScanner(source, TomlSourceScanner::fail);
     }
 
     Result scan() {

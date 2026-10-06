@@ -195,6 +195,26 @@ final class UpdateTargetCatalogTest {
     }
 
     @Test
+    void reportsKspEngineAndProcessorLiteralsAsBlockedToolTargets() {
+        List<UpdateTarget> targets = catalog.collect(manifest("""
+                [generated.tools.ksp]
+                version = "2.2.0-2.0.2"
+                coordinates = [
+                    { coordinate = "com.example:symbol-processor", version = "1.4.0" },
+                ]
+                """), "zolt.toml", "zolt.lock");
+
+        assertEquals(
+                List.of(
+                        "com.google.devtools.ksp:symbol-processing-aa",
+                        "com.example:symbol-processor"),
+                targets.stream().map(UpdateTarget::identifier).toList());
+        assertTrue(targets.stream()
+                .allMatch(target -> target.surface() == OutdatedSurface.KSP_TOOL));
+        assertTrue(targets.stream().noneMatch(UpdateTarget::updateable));
+    }
+
+    @Test
     void requireFindsOnlyTheExactCurrentTarget() {
         AuthoredManifest config = manifest("""
                 [dependencies]

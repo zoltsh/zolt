@@ -72,7 +72,7 @@ public final class FinalManifestSymbols {
             family("unknown-license-policy", "allow", "warn", "fail"),
             family("resource-filter-target", "main", "test"),
             family("resource-missing-policy", "fail", "keep"),
-            family("generated-tool-kind", "openapi", "protobuf", "jvm", "process"),
+            family("generated-tool-kind", "openapi", "protobuf", "ksp", "jvm", "process"),
             family("generated-preset-kind", "openapi"),
             family("generated-step-kind", "openapi", "protobuf", "exec", "declared-root"),
             family("generated-language", "java", "kotlin"),

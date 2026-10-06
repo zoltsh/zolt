@@ -121,6 +121,14 @@ final class StandaloneManifestIntegrityValidatorTest {
                         Optional.empty(),
                         Optional.empty(),
                         Optional.of(new DependencySelector.VersionReference(MISSING))),
+                new AuthoredGeneratedTool.Ksp(
+                        new DependencySelector.VersionReference(MISSING),
+                        List.of(new GeneratedArtifactRequest(
+                                LIBRARY, new DependencySelector.FixedVersion("1.0.0")))),
+                new AuthoredGeneratedTool.Ksp(
+                        new DependencySelector.FixedVersion("2.2.0-2.0.2"),
+                        List.of(new GeneratedArtifactRequest(
+                                LIBRARY, new DependencySelector.VersionReference(MISSING)))),
                 new AuthoredGeneratedTool.Jvm(
                         List.of(new GeneratedArtifactRequest(
                                 LIBRARY, new DependencySelector.VersionReference(MISSING))),

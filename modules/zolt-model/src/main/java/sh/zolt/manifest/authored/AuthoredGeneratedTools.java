@@ -9,6 +9,7 @@ import sh.zolt.manifest.ManifestModelValues;
 public record AuthoredGeneratedTools(Map<LocalId, AuthoredGeneratedTool> declarations) {
     private static final LocalId OPENAPI = new LocalId("openapi");
     private static final LocalId PROTOBUF = new LocalId("protobuf");
+    private static final LocalId KSP = new LocalId("ksp");
     private static final LocalId PROJECT = new LocalId("project");
 
     public AuthoredGeneratedTools {
@@ -38,6 +39,10 @@ public record AuthoredGeneratedTools(Map<LocalId, AuthoredGeneratedTool> declara
         if (id.equals(PROTOBUF) && !(tool instanceof AuthoredGeneratedTool.Protobuf)) {
             throw new IllegalArgumentException(
                     "Reserved generated tool ID `protobuf` derives the Protobuf tool kind.");
+        }
+        if (id.equals(KSP) && !(tool instanceof AuthoredGeneratedTool.Ksp)) {
+            throw new IllegalArgumentException(
+                    "Reserved generated tool ID `ksp` derives the KSP tool kind.");
         }
     }
 }

@@ -1,16 +1,23 @@
-package sh.zolt.toml.manifest;
+package sh.zolt.toml.manifest.scan;
+
+import java.util.Objects;
+import java.util.function.BiFunction;
 
 /** Finds the exact end of a TOML value after Tomlj has already validated the document. */
-final class TomlValueSpanScanner {
+public final class TomlValueSpanScanner {
     private final String source;
     private final int length;
+    private final BiFunction<Integer, String, RuntimeException> failure;
 
-    TomlValueSpanScanner(String source) {
-        this.source = source;
+    public TomlValueSpanScanner(
+            String source,
+            BiFunction<Integer, String, RuntimeException> failure) {
+        this.source = Objects.requireNonNull(source, "TOML source is required.");
         this.length = source.length();
+        this.failure = Objects.requireNonNull(failure, "TOML scan failure factory is required.");
     }
 
-    Result scan(int start) {
+    public Result scan(int start) {
         int cursor = start;
         int squareDepth = 0;
         int braceDepth = 0;
@@ -144,7 +151,9 @@ final class TomlValueSpanScanner {
     }
 
     private int newlineEnd(int offset) {
-        if (source.charAt(offset) == '\r' && offset + 1 < length && source.charAt(offset + 1) == '\n') {
+        if (source.charAt(offset) == '\r'
+                && offset + 1 < length
+                && source.charAt(offset + 1) == '\n') {
             return offset + 2;
         }
         return offset + 1;
@@ -170,11 +179,11 @@ final class TomlValueSpanScanner {
         return cursor;
     }
 
-    private static TomlSourceScanner.ScanException fail(int offset, String message) {
-        return TomlSourceScanner.fail(offset, message);
+    private RuntimeException fail(int offset, String message) {
+        return failure.apply(offset, message);
     }
 
-    record Result(
+    public record Result(
             int valueEnd,
             int trailingCommentStart,
             int commentEnd,

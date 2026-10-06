@@ -34,7 +34,8 @@ import java.util.Optional;
  * platform-managed or workspace dependency has no literal to advance, and SNAPSHOT literals are
  * ignored, so none of them are targets (design §20.1: one logical value, one source location).
  *
- * <p>The reserved {@code openapi} and {@code protobuf} tools are the exception to "authored only":
+ * <p>The reserved {@code openapi}, {@code protobuf}, and {@code ksp} tools are the exception to
+ * "authored only":
  * the installed release owns their coordinates, so a user declares the table solely to pin a version
  * (design §13.1). Their authored version is a real literal in the manifest and reports against the
  * built-in coordinate; §20.1 grants no carve-out that would hide it. The row is advisory either way —
@@ -49,6 +50,8 @@ final class SurfaceCollector {
             new DependencyCoordinate("com.google.protobuf:protoc");
     private static final DependencyCoordinate DEFAULT_GRPC_COORDINATE =
             new DependencyCoordinate("io.grpc:protoc-gen-grpc-java");
+    private static final DependencyCoordinate DEFAULT_KSP_COORDINATE =
+            new DependencyCoordinate("com.google.devtools.ksp:symbol-processing-aa");
 
     List<SurfaceRequest> collect(AuthoredManifest manifest) {
         return collect(manifest, List.of());
@@ -205,6 +208,22 @@ final class SurfaceCollector {
                                 PROTOBUF.equals(id),
                                 DEFAULT_GRPC_COORDINATE),
                         protobuf.grpcVersion());
+            }
+            case AuthoredGeneratedTool.Ksp ksp -> {
+                addTool(
+                        requests,
+                        OutdatedSurface.KSP_TOOL,
+                        section,
+                        Optional.of(DEFAULT_KSP_COORDINATE),
+                        Optional.of(ksp.version()));
+                for (GeneratedArtifactRequest request : ksp.processors()) {
+                    addTool(
+                            requests,
+                            OutdatedSurface.KSP_TOOL,
+                            section,
+                            Optional.of(request.coordinate()),
+                            Optional.of(request.selector()));
+                }
             }
             case AuthoredGeneratedTool.Jvm jvm -> {
                 for (GeneratedArtifactRequest request : jvm.coordinates()) {

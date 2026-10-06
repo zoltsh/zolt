@@ -126,6 +126,23 @@ public final class AliasReferences {
                         protobuf.grpcCoordinate(),
                         protobuf.grpcVersion());
             }
+            case AuthoredGeneratedTool.Ksp ksp -> {
+                addTool(
+                        references,
+                        alias,
+                        section + ".versionRef",
+                        Optional.of(new DependencyCoordinate(
+                                "com.google.devtools.ksp:symbol-processing-aa")),
+                        Optional.of(ksp.version()));
+                for (GeneratedArtifactRequest request : ksp.processors()) {
+                    addTool(
+                            references,
+                            alias,
+                            section + ".coordinates",
+                            Optional.of(request.coordinate()),
+                            Optional.of(request.selector()));
+                }
+            }
             case AuthoredGeneratedTool.Jvm jvm -> {
                 for (GeneratedArtifactRequest request : jvm.coordinates()) {
                     addTool(
