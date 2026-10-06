@@ -34,8 +34,8 @@ jobs:
           - name: cli-apps
             members: modules/zolt-explain,modules/zolt-config,modules/zolt-selfhost,modules/zolt-init,apps/zolt-javac-worker,apps/zolt-junit-worker,apps/zolt
             # This group includes 1,506 apps/zolt integration tests. It takes
-            # about 19 minutes locally and reached 28 minutes on ubuntu-latest.
-            timeout: 45
+            # about 19 minutes locally and 41 minutes on ubuntu-latest.
+            timeout: 60
 
     steps:
       - name: Check out repository
