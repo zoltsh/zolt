@@ -5,9 +5,11 @@ import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.build.cache.BuildCacheService;
 import sh.zolt.build.compile.CompileOutputLayoutValidator;
+import sh.zolt.build.compile.KotlinCompilationScope;
 import sh.zolt.build.compile.MainCompileSourceExecutor;
 import sh.zolt.build.compile.MainCompilerToolchain;
 import sh.zolt.build.compile.MainCompilerToolchainResolver;
+import sh.zolt.build.compile.kotlin.KotlinCompilerCompatibilityPolicy;
 import sh.zolt.build.discovery.SourceDiscoverer;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.build.fingerprint.BuildFingerprintCheck;
@@ -163,6 +165,8 @@ public final class BuildService {
     }
 
     private BuildResultWithClasspaths buildWithClasspaths(BuildRequest request) {
+        KotlinCompilerCompatibilityPolicy.requireConfiguredOptionsSupported(
+                request.config(), KotlinCompilationScope.MAIN);
         CompileOutputLayoutValidator.validateMain(request.projectDirectory(), request.config());
         BuildClasspathResolver.Result resolved = buildClasspathResolver.resolve(request);
         List<ResolvedClasspathPackage> classpathPackages = resolved.packages();
@@ -207,6 +211,8 @@ public final class BuildService {
             ClasspathSet classpaths,
             List<ResolvedClasspathPackage> classpathPackages,
             boolean offline) {
+        KotlinCompilerCompatibilityPolicy.requireConfiguredOptionsSupported(
+                config, KotlinCompilationScope.MAIN);
         List<ResolvedClasspathPackage> packages =
                 classpathPackages == null ? List.of() : List.copyOf(classpathPackages);
         CompileOutputLayoutValidator.validateMain(context.projectRoot(), config);
@@ -239,6 +245,8 @@ public final class BuildService {
             List<ResolvedClasspathPackage> classpathPackages,
             boolean offline,
             boolean verifiedPackageMetadataAvailable) {
+        KotlinCompilerCompatibilityPolicy.requireConfiguredOptionsSupported(
+                config, KotlinCompilationScope.MAIN);
         Path projectDirectory = context.projectRoot();
         CompileOutputLayoutValidator.validateMain(projectDirectory, config);
         if (config.packageSettings().mode() == sh.zolt.project.PackageMode.BOM) {

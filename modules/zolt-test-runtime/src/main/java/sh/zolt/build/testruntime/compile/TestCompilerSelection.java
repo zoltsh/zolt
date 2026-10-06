@@ -10,6 +10,7 @@ import sh.zolt.build.compile.KotlinCompilationScope;
 import sh.zolt.build.compile.KotlinCompilerOptions;
 import sh.zolt.build.compile.KotlinCompilerToolchain;
 import sh.zolt.build.compile.KotlinCompilerToolchainResolver;
+import sh.zolt.build.compile.kotlin.KotlinCompilerCompatibilityPolicy;
 import sh.zolt.build.compile.kotlin.KotlinCompilerInvocationToolchain;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.classpath.Classpath;
@@ -52,6 +53,10 @@ record TestCompilerSelection(
                         classpathPackages,
                         GroovyCompilerToolchainResolver.SourceSet.TEST,
                         config.compilerSettings().groovyVersion());
+        if (kotlin != null) {
+            KotlinCompilerCompatibilityPolicy.requireSupportedToolchain(
+                    kotlin.version(), KotlinCompilationScope.TEST);
+        }
         requireKaptPlugin(classpaths, kotlin);
         return new TestCompilerSelection(
                 identity(jdkStatus, groovy, kotlin),

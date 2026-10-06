@@ -36,7 +36,9 @@ zolt run
   roots, including circular cross-language references. A bounded preview also
   compiles Kotlin/JVM main sources alone or together with Java, including
   circular cross-language references, plus Kotlin/JVM unit and integration
-  tests alone or together with Java. Kotlin-bearing source sets may combine
+  tests alone or together with Java. The compilation preview is qualified for
+  stable Kotlin 2.2.x compiler and standard-library releases; other compiler
+  series and prereleases fail closed. Kotlin-bearing source sets may combine
   authored Java and Kotlin with protected pre-generated roots or Java/Kotlin
   outputs owned by pinned exec, OpenAPI, and Protobuf generators. Kotlin
   consumers may opt into the selected compiler's legacy class-file reader for

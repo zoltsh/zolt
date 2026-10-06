@@ -15,6 +15,8 @@ import sh.zolt.build.cache.BuildCacheService;
 import sh.zolt.build.compile.CompileOutputLayoutValidator;
 import sh.zolt.build.compile.GroovyCompilerRunner;
 import sh.zolt.build.compile.JavacRunner;
+import sh.zolt.build.compile.KotlinCompilationScope;
+import sh.zolt.build.compile.kotlin.KotlinCompilerCompatibilityPolicy;
 import sh.zolt.build.fingerprint.BuildFingerprintCheck;
 import sh.zolt.build.resources.ResourceCopier;
 import sh.zolt.build.resources.ResourceCopyResult;
@@ -199,6 +201,8 @@ public final class TestCompileService {
             BuildResult buildResult,
             List<ResolvedClasspathPackage> classpathPackages) {
         Path projectDirectory = context.projectRoot();
+        KotlinCompilerCompatibilityPolicy.requireConfiguredOptionsSupported(
+                config, KotlinCompilationScope.TEST);
         CompileOutputLayoutValidator.validateTest(projectDirectory, config);
         generatedSourceCoordinator.generatePreCompile(
                 projectDirectory,

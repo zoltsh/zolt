@@ -3,6 +3,7 @@ package sh.zolt.build.testruntime.compile;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
@@ -26,6 +27,7 @@ import sh.zolt.classpath.Classpath;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.ProjectConfig;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 
 final class TestCompileServiceKotlinSourcePolicyTest {
     @TempDir
@@ -122,12 +124,69 @@ final class TestCompileServiceKotlinSourcePolicyTest {
         }
     }
 
+    @Test
+    void unsupportedKotlinTestOptionFailsBeforeCacheReuseOrOwnedOutputCleanup() throws IOException {
+        Path staleClass = projectDir.resolve("target/test-classes/stale/Existing.class");
+        Path fingerprint = projectDir.resolve("target/test-classes/.zolt-build-test.fingerprint");
+        Path cacheMarker = projectDir.resolve("build-cache/do-not-touch.marker");
+        write(staleClass, new byte[] {1, 2, 3});
+        write(fingerprint, new byte[] {4, 5, 6});
+        write(cacheMarker, new byte[] {7, 8, 9});
+        BuildResult mainBuild = new BuildResult(
+                Optional.empty(),
+                0,
+                0,
+                projectDir.resolve("target/classes"),
+                "");
+
+        try (CountingRemoteCache remote = new CountingRemoteCache()) {
+            BuildCacheService cache = BuildCacheService.create(
+                    new BuildCacheSettings(true, cacheMarker.getParent(), 0L),
+                    Optional.of(new RemoteBuildCacheClient(
+                            HttpClient.newHttpClient(), remote.baseUri(), Optional.empty(), false)),
+                    "test-version");
+
+            KotlinCompileException failure = assertThrows(
+                    KotlinCompileException.class,
+                    () -> new TestCompileService()
+                            .withBuildCache(cache)
+                            .compileTests(
+                                    projectDir,
+                                    unsupportedTestOptionConfig(),
+                                    emptyClasspaths(),
+                                    mainBuild));
+
+            assertTrue(failure.getMessage().contains("[compiler.test].args"), failure.getMessage());
+            assertTrue(failure.getMessage().contains("1.9.0"), failure.getMessage());
+            assertEquals(0, remote.requestCount());
+            assertArrayEquals(new byte[] {1, 2, 3}, Files.readAllBytes(staleClass));
+            assertArrayEquals(new byte[] {4, 5, 6}, Files.readAllBytes(fingerprint));
+            assertArrayEquals(new byte[] {7, 8, 9}, Files.readAllBytes(cacheMarker));
+        }
+    }
+
     private static ProjectConfig mixedTestConfig() {
         return testConfig(List.of("src/test/groovy"), List.of("src/test/kotlin"));
     }
 
     private static ProjectConfig mixedJavaKotlinTestConfig() {
         return testConfig(List.of(), List.of("src/test/kotlin"));
+    }
+
+    private static ProjectConfig unsupportedTestOptionConfig() {
+        return new ManifestProjectConfigLoader().load("""
+                [project]
+                name = "old-kotlin-test"
+                version = "0.1.0"
+                group = "com.example"
+                java = 21
+
+                [toolchain.kotlin]
+                version = "1.9.0"
+
+                [compiler.test]
+                args = ["-Xannotation-default-target=param-property"]
+                """);
     }
 
     private static ProjectConfig testConfig(

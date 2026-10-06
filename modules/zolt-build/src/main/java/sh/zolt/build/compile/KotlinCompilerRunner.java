@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
 import sh.zolt.build.KotlinCompileException;
+import sh.zolt.build.compile.kotlin.KotlinCompilerDiagnosticPolicy;
 import sh.zolt.build.compile.kotlin.KotlinCompilerInvocationArguments;
 import sh.zolt.build.compile.kotlin.KotlinCompilerPluginOption;
 import sh.zolt.build.compile.kotlin.kapt.KotlinKaptOptions;
@@ -140,6 +141,8 @@ public final class KotlinCompilerRunner {
                     javaExecutable,
                     compilerLauncherClasspath,
                     argumentsFile.commandArgument());
+            KotlinCompilerDiagnosticPolicy.requireNoUnsupportedOption(
+                    result.output(), compilationScope);
             if (result.exitCode() != 0) {
                 throw new KotlinCompileException(
                         "Kotlin " + compilationScope.label() + " compilation failed with exit code "

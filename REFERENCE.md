@@ -695,6 +695,14 @@ the ordinary external `org.jetbrains.kotlin:kotlin-stdlib` dependency at the
 same exact version so it is available to application compilation and runtime.
 Compiler artifacts do not enter application or package classpaths.
 
+The compilation preview is qualified for stable Kotlin 2.2.x compiler and
+standard-library releases. Zolt rejects other compiler series and prereleases
+before main or test compilation can reuse cached output or clean owned class
+directories. Version-sensitive arguments are checked before generated-source
+work starts. As a final safety net, an otherwise successful compiler process is
+still rejected when it reports that a requested flag or option is unsupported;
+ordinary compiler warnings continue to follow the configured warning policy.
+
 Kotlin-only and mixed Java/Kotlin applications use the ordinary application
 lifecycle: `zolt run`, thin `zolt package` plus `zolt run-package`, and
 self-contained `uber-jar` artifacts. Configure `[project].main` with the JVM
