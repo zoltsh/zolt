@@ -58,7 +58,7 @@ final class KotlinTestKaptIntegrationTest {
                     "--no-progress");
             assertEquals(0, offlineResolve.exitCode(), offlineResolve.stderr());
 
-            CommandResult first = test(project, artifactCache);
+            CommandResult first = test(project, artifactCache, "configured-test");
 
             assertEquals(0, first.exitCode(), first.stderr());
             assertSuccessfulTests(first, 2);
@@ -70,14 +70,14 @@ final class KotlinTestKaptIntegrationTest {
                     "target/generated/test-sources/annotations/com/example/GeneratedTestMessage.java")));
             assertTiming(first, "compile test sources", "\"testCompilationMode\":\"full\"");
 
-            CommandResult warm = test(project, artifactCache);
+            CommandResult warm = test(project, artifactCache, "configured-test");
 
             assertEquals(0, warm.exitCode(), warm.stderr());
             assertSuccessfulTests(warm, 2);
             assertTiming(warm, "compile test sources", "\"testCompilationMode\":\"skipped\"");
 
             KotlinCliBuildCacheTestSupport.deleteTrees(project.resolve("target"));
-            CommandResult restored = test(project, artifactCache);
+            CommandResult restored = test(project, artifactCache, "configured-test");
 
             assertEquals(0, restored.exitCode(), restored.stderr());
             assertSuccessfulTests(restored, 2);
@@ -85,11 +85,24 @@ final class KotlinTestKaptIntegrationTest {
             assertTrue(Files.isDirectory(project.resolve("target/generated/test-sources/annotations")));
             assertTrue(Files.isRegularFile(testOutput.resolve("GeneratedTestMessage.class")));
 
-            CommandResult restoredWarm = test(project, artifactCache);
+            CommandResult restoredWarm = test(project, artifactCache, "configured-test");
 
             assertEquals(0, restoredWarm.exitCode(), restoredWarm.stderr());
             assertSuccessfulTests(restoredWarm, 2);
             assertTiming(restoredWarm, "compile test sources", "\"testCompilationMode\":\"skipped\"");
+
+            replace(project.resolve("zolt.toml"), "configured-test", "updated-test");
+            CommandResult optionChanged = test(project, artifactCache, "updated-test");
+
+            assertEquals(0, optionChanged.exitCode(), optionChanged.stderr());
+            assertSuccessfulTests(optionChanged, 2);
+            assertTiming(optionChanged, "compile test sources", "\"testCompilationMode\":\"full\"");
+
+            CommandResult optionWarm = test(project, artifactCache, "updated-test");
+
+            assertEquals(0, optionWarm.exitCode(), optionWarm.stderr());
+            assertSuccessfulTests(optionWarm, 2);
+            assertTiming(optionWarm, "compile test sources", "\"testCompilationMode\":\"skipped\"");
             assertEquals(Map.of(), repository.authorizations(), "offline commands must not contact the repository");
         } finally {
             if (previousUserHome == null) {
@@ -100,14 +113,22 @@ final class KotlinTestKaptIntegrationTest {
         }
     }
 
-    private static CommandResult test(Path project, Path artifactCache) {
+    private static CommandResult test(
+            Path project,
+            Path artifactCache,
+            String expectedMessage) {
         return execute(
                 "test",
                 "--no-progress",
                 "--timings",
                 "--timings-format", "json",
+                "--jvm-arg=-Dzolt.expected.message=" + expectedMessage,
                 "--cwd", project.toString(),
                 "--cache-root", artifactCache.toString());
+    }
+
+    private static void replace(Path path, String before, String after) throws IOException {
+        Files.writeString(path, Files.readString(path).replace(before, after));
     }
 
     private static void writeProject(Path project, CliTestRepository repository) throws IOException {
@@ -172,7 +193,7 @@ final class KotlinTestKaptIntegrationTest {
                 class KaptKotlinTest {
                     @Test
                     fun kotlinSeesGeneratedTestType() {
-                        assertEquals("configured-test", generated())
+                        assertEquals(System.getProperty("zolt.expected.message"), generated())
                     }
 
                     companion object {
@@ -191,8 +212,8 @@ final class KotlinTestKaptIntegrationTest {
                 public final class KaptJavaTest {
                     @Test
                     void javaSeesKotlinAndGeneratedTestTypes() {
-                        assertEquals("configured-test", KaptKotlinTest.generated());
-                        assertEquals("configured-test", GeneratedTestMessage.value());
+                        assertEquals(System.getProperty("zolt.expected.message"), KaptKotlinTest.generated());
+                        assertEquals(System.getProperty("zolt.expected.message"), GeneratedTestMessage.value());
                     }
                 }
                 """);
