@@ -703,13 +703,25 @@ typically `com.example.ApplicationKt`. Thin packages record the Kotlin runtime
 dependency without embedding compiler tooling, while uber JARs merge the
 application runtime and remain directly executable with `java -jar`.
 
-Mixed Java/Kotlin main compilation is a cleaned, full-scope two-phase operation.
-First, Zolt passes the complete admitted Java and Kotlin source set to
+Without annotation processors, mixed Java/Kotlin main compilation is a cleaned,
+full-scope two-phase operation. First, Zolt passes the complete admitted Java and
+Kotlin source set to
 `kotlinc` so Kotlin can resolve Java declarations. `kotlinc` emits the Kotlin
 bytecode. Zolt then passes the Java sources to `javac` with that Kotlin output first on the
 compile classpath. Java can therefore resolve the Kotlin declarations, including
-the circular relationship above. Kotlin-only main source sets skip the second
-phase.
+the circular relationship above. Kotlin-only main source sets without annotation
+processors skip the second phase.
+
+In a Kotlin-bearing main source set, annotation processors declared under
+`[dependencies.processor]` run through KAPT. `zolt resolve` automatically locks
+`org.jetbrains.kotlin:kotlin-annotation-processing-embeddable` at the configured
+Kotlin toolchain version in the isolated `tool-kotlin` scope. The processor
+classpath remains isolated from the ordinary compile classpath. Zolt runs KAPT
+in `stubsAndApt` mode, compiles Kotlin with any generated Java sources visible,
+then invokes `javac` with processing disabled so a processor never runs twice.
+Generated Java sources use `[compiler.generated].main` (by default
+`target/generated/sources/annotations`) and participate in fingerprint and
+cleanup decisions.
 
 A pre-generated Java or Kotlin tree may join that main source set through a
 `[generated.main.<id>]` step whose `kind` is `"declared-root"`. Set
@@ -733,7 +745,6 @@ output cleanup when any of these conditions applies:
 - the main source set also contains Groovy;
 - the main source set contains `module-info.java` (JPMS joint compilation is not
   supported);
-- main annotation processors are configured (KAPT is not supported);
 - `[compiler].args` contains an argument outside the bounded set documented
   below, or contains a malformed or duplicate supported argument; or
 - a Zolt-owned Java-source-producing OpenAPI, Protobuf, or exec main generation
@@ -756,8 +767,9 @@ that member's main output as a Kotlin friend path. Internal declarations from
 workspace dependency members remain inaccessible. Kotlin integration-test
 roots are admitted through `[test.integration].sources`; OpenAPI and Protobuf
 steps marked `language = "kotlin"` may also supply owned main or test sources.
-KAPT and automatic migration of Kotlin shapes outside the bounded Maven subset
-described under Migration Explain are not supported.
+KSP, custom Kotlin compiler plugins, and automatic migration of Kotlin shapes
+outside the bounded Maven subset described under Migration Explain are not
+supported.
 Sources are read as UTF-8.
 The effective Java release must not exceed the selected complete JDK;
 `[compiler].jdkApi = "host"` selects host-platform API semantics instead of
@@ -2451,11 +2463,20 @@ declarations may refer to one another across authored, declared, and exec-owned
 roots. This applies to both unit tests and the projected integration-test source
 set.
 
-Mixed tests use the same cleaned two-phase model as mixed main sources:
+Without annotation processors, mixed tests use the same cleaned two-phase model
+as mixed main sources:
 `kotlinc` first analyzes all admitted Java and Kotlin test sources and emits the
 Kotlin bytecode, then `javac` compiles the Java tests with the test output first
 on its classpath. Circular cross-language unit and integration-test references
 are therefore supported.
+
+In a Kotlin-bearing test source set, annotation processors declared under
+`[dependencies.test-processor]` use the same isolated KAPT lifecycle. Zolt locks
+one matching KAPT plugin for the configured Kotlin compiler, generates Java
+under `[compiler.generated].test`
+(by default `target/generated/test-sources/annotations`), makes those generated
+types visible to Kotlin and Java tests, and disables processing during the
+final `javac` phase. Main and test processor lanes remain separate.
 
 With Kotlin main sources, unit and integration tests may use public and
 `internal` APIs from their own member because its main output is the sole Kotlin
@@ -2464,7 +2485,7 @@ ordinary classpath entries, so their `internal` declarations remain
 inaccessible. Workspace-wide `integration-test --workspace --all` runs use the
 same bounded compiler path for every selected member, and unchanged main and
 integration-test outputs remain eligible for fingerprint reuse. The preview
-rejects Groovy test sources, `module-info.java`, test annotation processors,
+rejects Groovy test sources, `module-info.java`,
 `[compiler.test].args` containing an argument outside the bounded set documented
 above, or a malformed or duplicate supported argument, Java-source-producing
 generated-test steps, and Quarkus in the same member. The generated-test
@@ -2474,9 +2495,10 @@ pre-generated Java or Kotlin `declared-root` steps, OpenAPI steps marked
 `language = "kotlin"`, Protobuf steps marked `language = "kotlin"`, and
 source-producing exec steps marked `language = "kotlin"` are admitted. Exec
 steps that produce test resources or intermediate outputs remain compatible.
-KAPT remains unsupported. Test dependencies remain isolated from main
-compilation and main runtime. Any source change in a Kotlin-bearing test source
-set uses cleaned full-scope compilation rather than incremental javac state.
+KSP and custom Kotlin compiler plugins remain unsupported. Test dependencies
+remain isolated from main compilation and main runtime. Any source change in a
+Kotlin-bearing test source set uses cleaned full-scope compilation rather than
+incremental javac state.
 
 Test commands support class/method selection, glob patterns, JUnit tags, JVM
 arguments, XML reports, deterministic shards, named suites, and optional profile

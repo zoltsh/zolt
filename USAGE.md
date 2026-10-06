@@ -49,6 +49,11 @@ are `implementation` (default), `api`, `runtime`, `provided`, `dev`, `test`,
 `--no-resolve` is given, which commits only the source-safe manifest edit and
 names the resolve command that refreshes the stale lock.
 
+In a Kotlin/JVM source set, `processor` and `test-processor` dependencies run
+through a version-aligned, isolated KAPT toolchain. Zolt makes generated Java
+types visible to Kotlin and Java consumers in that source set. KSP and custom
+Kotlin compiler plugins are not part of the bounded preview.
+
 Inspect and update the graph:
 
 ```sh
