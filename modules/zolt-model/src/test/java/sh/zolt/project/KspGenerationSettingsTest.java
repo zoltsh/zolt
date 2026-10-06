@@ -14,6 +14,23 @@ import org.junit.jupiter.api.Test;
 
 final class KspGenerationSettingsTest {
     @Test
+    void generatedSourceStepsDefaultKspSettingsWithoutBreakingLegacyConstruction() {
+        GeneratedSourceStep step = new GeneratedSourceStep(
+                "generated",
+                GeneratedSourceKind.DECLARED_ROOT,
+                "java",
+                "target/generated",
+                List.of("src/generated"),
+                true,
+                false,
+                OpenApiGenerationSettings.empty(),
+                ProtobufGenerationSettings.empty(),
+                ExecGenerationSettings.empty());
+
+        assertEquals(KspGenerationSettings.empty(), step.ksp());
+    }
+
+    @Test
     void modelsSeparateDeterministicToolGroupsAndProtectsInputs() {
         ArrayList<KspProcessorSettings> processors = new ArrayList<>(List.of(
                 new KspProcessorSettings(
