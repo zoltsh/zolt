@@ -70,6 +70,32 @@ final class KspCompilerIntegrationArtifacts {
         packages.add(toolPackage(stdlib, STDLIB, false, List.of(), ENGINE_GROUP));
         packages.add(toolPackage(coroutines, COROUTINES, false, List.of(), ENGINE_GROUP));
         packages.add(toolPackage(processor, PROCESSOR, true, List.of(), PROCESSOR_GROUP));
+        write(lockfilePath, base, packages);
+        return prepared;
+    }
+
+    static void replaceProcessor(
+            Path cacheRoot,
+            Path lockfilePath,
+            Path processorJar) throws IOException {
+        CachedArtifact processor = cache(cacheRoot, PROCESSOR, processorJar);
+        ZoltLockfile base = new ZoltLockfileReader().read(lockfilePath);
+        List<LockPackage> packages = new ArrayList<>(base.packages().stream()
+                .filter(candidate -> !candidate.packageId().equals(PROCESSOR.packageId())
+                        || candidate.scope() != DependencyScope.TOOL_EXEC
+                        || !candidate.toolGroups().contains(PROCESSOR_GROUP))
+                .toList());
+        if (packages.size() == base.packages().size()) {
+            throw new IllegalStateException("KSP processor fixture is absent from zolt.lock.");
+        }
+        packages.add(toolPackage(processor, PROCESSOR, true, List.of(), PROCESSOR_GROUP));
+        write(lockfilePath, base, packages);
+    }
+
+    private static void write(
+            Path lockfilePath,
+            ZoltLockfile base,
+            List<LockPackage> packages) throws IOException {
         new ZoltLockfileWriter().write(lockfilePath, new ZoltLockfile(
                 base.version(),
                 base.aliasFingerprint(),
@@ -81,7 +107,6 @@ final class KspCompilerIntegrationArtifacts {
                 base.memberGraphs(),
                 base.workspaceResolutionInputFingerprint(),
                 base.dependencyRoots()));
-        return prepared;
     }
 
     private static LockPackage toolPackage(

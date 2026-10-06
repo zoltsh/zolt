@@ -27,12 +27,17 @@ final class KspProcessorFixture {
     }
 
     static Path processorJar(Path output) throws IOException {
+        return processorJar(output, "fixture-v1");
+    }
+
+    static Path processorJar(Path output, String identity) throws IOException {
         Files.createDirectories(output.toAbsolutePath().normalize().getParent());
         try (JarOutputStream jar = new JarOutputStream(Files.newOutputStream(output))) {
             addClass(jar, KspProcessorFixture.class);
             addClass(jar, Provider.class);
             addClass(jar, Processor.class);
             add(jar, PROVIDER_SERVICE, Provider.class.getName() + "\n");
+            add(jar, "META-INF/ksp-fixture-identity", identity + "\n");
         }
         return output.toAbsolutePath().normalize();
     }
