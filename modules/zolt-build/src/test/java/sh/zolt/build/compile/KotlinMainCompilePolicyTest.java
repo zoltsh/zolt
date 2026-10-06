@@ -63,7 +63,8 @@ final class KotlinMainCompilePolicyTest {
                 "",
                 "2.4.20",
                 "maven-artifact",
-                "");
+                "",
+                Set.of());
 
         KotlinCompilerOptions options = KotlinMainCompilePolicy.options(
                 config(compiler, Map.of(), Map.of(), "different-zolt-name"),

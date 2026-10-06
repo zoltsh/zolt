@@ -1,20 +1,21 @@
-package sh.zolt.build.compile;
+package sh.zolt.build.compile.kotlin;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
+import sh.zolt.build.compile.KotlinCompilerOptions;
 import sh.zolt.build.compile.kotlin.kapt.KotlinAnnotationProcessorOptions;
 import sh.zolt.build.compile.kotlin.kapt.KotlinKaptOptions;
 import sh.zolt.classpath.Classpath;
 
 /** Builds the deterministic Kotlin compiler argument-file payload. */
-final class KotlinCompilerInvocationArguments {
+public final class KotlinCompilerInvocationArguments {
     private KotlinCompilerInvocationArguments() {
     }
 
-    static List<String> build(
+    public static List<String> build(
             Path jdkHome,
             List<Path> sources,
             Classpath compilationClasspath,
@@ -27,16 +28,37 @@ final class KotlinCompilerInvocationArguments {
                 compilationClasspath,
                 outputDirectory,
                 options,
+                List.of(),
                 null,
                 pathSeparator);
     }
 
-    static List<String> build(
+    public static List<String> build(
             Path jdkHome,
             List<Path> sources,
             Classpath compilationClasspath,
             Path outputDirectory,
             KotlinCompilerOptions options,
+            KotlinKaptOptions kaptOptions,
+            String pathSeparator) {
+        return build(
+                jdkHome,
+                sources,
+                compilationClasspath,
+                outputDirectory,
+                options,
+                List.of(),
+                kaptOptions,
+                pathSeparator);
+    }
+
+    public static List<String> build(
+            Path jdkHome,
+            List<Path> sources,
+            Classpath compilationClasspath,
+            Path outputDirectory,
+            KotlinCompilerOptions options,
+            List<Path> compilerPluginJars,
             KotlinKaptOptions kaptOptions,
             String pathSeparator) {
         List<String> arguments = new ArrayList<>();
@@ -225,6 +247,7 @@ final class KotlinCompilerInvocationArguments {
         }
         options.warningLevels().forEach(level -> arguments.add("-Xwarning-level=" + level));
         options.optIns().forEach(optIn -> arguments.add("-opt-in=" + optIn));
+        addCompilerPlugins(arguments, compilerPluginJars);
         addKaptArguments(arguments, kaptOptions, options.annotationProcessorOptions());
         List<Path> compilationEntries = entries(compilationClasspath);
         if (!compilationEntries.isEmpty()) {
@@ -240,6 +263,16 @@ final class KotlinCompilerInvocationArguments {
         arguments.add(outputDirectory.toString());
         sources.forEach(source -> arguments.add(source.toString()));
         return List.copyOf(arguments);
+    }
+
+    private static void addCompilerPlugins(
+            List<String> arguments,
+            List<Path> pluginJars) {
+        if (pluginJars == null) {
+            return;
+        }
+        pluginJars.forEach(plugin ->
+                arguments.add("-Xplugin=" + plugin.toAbsolutePath().normalize()));
     }
 
     private static void addKaptArguments(

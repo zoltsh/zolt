@@ -150,7 +150,8 @@ final class KspMainGenerationCoordinatorTest {
                 "",
                 "2.2.0",
                 "",
-                "");
+                "",
+                Set.of());
         return ProjectConfigs.withDependencySections(
                 new ProjectMetadata("demo", "0.1.0", "com.example", "21", Optional.empty()),
                 ProjectConfig.defaultRepositories(),

@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
 import sh.zolt.build.KotlinCompileException;
+import sh.zolt.build.compile.kotlin.KotlinCompilerInvocationArguments;
 import sh.zolt.build.compile.kotlin.kapt.KotlinKaptOptions;
 import sh.zolt.classpath.Classpath;
 
@@ -73,6 +74,30 @@ public final class KotlinCompilerRunner {
             KotlinCompilerOptions options,
             KotlinCompilationScope scope,
             KotlinKaptOptions kaptOptions) {
+        return compile(
+                javaExecutable,
+                jdkHome,
+                sources,
+                compilerLauncherClasspath,
+                compilationClasspath,
+                outputDirectory,
+                options,
+                scope,
+                kaptOptions,
+                List.of());
+    }
+
+    public JavacResult compile(
+            Path javaExecutable,
+            Path jdkHome,
+            List<Path> sources,
+            Classpath compilerLauncherClasspath,
+            Classpath compilationClasspath,
+            Path outputDirectory,
+            KotlinCompilerOptions options,
+            KotlinCompilationScope scope,
+            KotlinKaptOptions kaptOptions,
+            List<Path> compilerPluginJars) {
         KotlinCompilationScope compilationScope = Objects.requireNonNull(
                 scope,
                 "Kotlin compilation scope is required.");
@@ -102,6 +127,7 @@ public final class KotlinCompilerRunner {
                 compilationClasspath,
                 outputDirectory,
                 options,
+                compilerPluginJars,
                 kaptOptions,
                 pathSeparator);
         try (KotlinCompilerArgumentsFile argumentsFile =

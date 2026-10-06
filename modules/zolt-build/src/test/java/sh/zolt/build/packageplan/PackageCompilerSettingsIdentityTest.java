@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import sh.zolt.project.CompilerSettings;
 
@@ -41,6 +42,7 @@ final class PackageCompilerSettingsIdentityTest {
                 "",
                 "2.4.20",
                 mainModule,
-                testModule);
+                testModule,
+                Set.of());
     }
 }
