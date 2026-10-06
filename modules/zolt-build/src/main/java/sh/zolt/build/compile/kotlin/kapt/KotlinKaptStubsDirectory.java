@@ -1,4 +1,4 @@
-package sh.zolt.build.compile;
+package sh.zolt.build.compile.kotlin.kapt;
 
 import java.io.IOException;
 import java.nio.file.Files;

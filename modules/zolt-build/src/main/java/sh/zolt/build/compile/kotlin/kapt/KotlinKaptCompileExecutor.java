@@ -1,4 +1,4 @@
-package sh.zolt.build.compile;
+package sh.zolt.build.compile.kotlin.kapt;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -7,6 +7,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 import sh.zolt.build.KotlinCompileException;
+import sh.zolt.build.compile.IncrementalJavacExecution;
+import sh.zolt.build.compile.JavacResult;
+import sh.zolt.build.compile.JavacRunner;
+import sh.zolt.build.compile.KotlinCompilationScope;
+import sh.zolt.build.compile.KotlinCompileOptionsPolicy;
+import sh.zolt.build.compile.KotlinCompilerOptions;
+import sh.zolt.build.compile.KotlinCompilerRunner;
 import sh.zolt.classpath.Classpath;
 import sh.zolt.doctor.JdkStatus;
 

@@ -12,7 +12,7 @@ import sh.zolt.build.compile.KotlinCompilationScope;
 import sh.zolt.build.compile.KotlinCompileOptionsPolicy;
 import sh.zolt.build.compile.KotlinCompilerOptions;
 import sh.zolt.build.compile.KotlinCompilerRunner;
-import sh.zolt.build.compile.KotlinKaptCompileExecutor;
+import sh.zolt.build.compile.kotlin.kapt.KotlinKaptCompileExecutor;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.classpath.Classpath;
 import sh.zolt.doctor.JdkStatus;

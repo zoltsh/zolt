@@ -6,6 +6,7 @@ import java.util.List;
 import sh.zolt.build.CompileDiagnostics;
 import sh.zolt.build.GroovyCompileException;
 import sh.zolt.build.KotlinCompileException;
+import sh.zolt.build.compile.kotlin.kapt.KotlinKaptCompileExecutor;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.build.incremental.GeneratedOutputAttribution;
 import sh.zolt.build.incremental.IncrementalCompileStateRecorder;

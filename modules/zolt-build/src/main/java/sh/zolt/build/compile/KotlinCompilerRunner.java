@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
 import sh.zolt.build.KotlinCompileException;
+import sh.zolt.build.compile.kotlin.kapt.KotlinKaptOptions;
 import sh.zolt.classpath.Classpath;
 
 /** Launches the isolated Kotlin/JVM compiler without exposing its tool closure to application code. */
@@ -62,7 +63,7 @@ public final class KotlinCompilerRunner {
                 null);
     }
 
-    JavacResult compile(
+    public JavacResult compile(
             Path javaExecutable,
             Path jdkHome,
             List<Path> sources,

@@ -18,12 +18,12 @@ import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import sh.zolt.build.KotlinCompileException;
+import sh.zolt.build.compile.kotlin.kapt.KotlinKaptOptions;
 import sh.zolt.classpath.Classpath;
 
 final class KotlinCompilerRunnerTest {
     @TempDir
     Path tempDir;
-
     @Test
     void isolatesLauncherClosureAndUsesReleaseApiDeterministically() {
         List<List<String>> commands = new ArrayList<>();

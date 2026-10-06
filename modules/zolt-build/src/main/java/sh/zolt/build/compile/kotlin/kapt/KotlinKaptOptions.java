@@ -1,4 +1,4 @@
-package sh.zolt.build.compile;
+package sh.zolt.build.compile.kotlin.kapt;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -7,13 +7,13 @@ import sh.zolt.build.KotlinCompileException;
 import sh.zolt.classpath.Classpath;
 
 /** Owned output and verified tooling inputs for one KAPT compiler invocation. */
-record KotlinKaptOptions(
+public record KotlinKaptOptions(
         Path pluginJar,
         Classpath processorClasspath,
         Path generatedSourcesDirectory,
         Path generatedClassesDirectory,
         Path stubsDirectory) {
-    KotlinKaptOptions {
+    public KotlinKaptOptions {
         pluginJar = absolute(pluginJar, "plugin JAR");
         processorClasspath = Objects.requireNonNull(
                 processorClasspath,

@@ -4,6 +4,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.StringJoiner;
+import sh.zolt.build.compile.kotlin.kapt.KotlinKaptOptions;
 import sh.zolt.classpath.Classpath;
 
 /** Builds the deterministic Kotlin compiler argument-file payload. */
