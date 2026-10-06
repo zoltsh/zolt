@@ -118,16 +118,17 @@ final class ModuleTypeReferencesTest {
         Path sourceRoot = tempDir.resolve("src");
         Path classes = tempDir.resolve("classes");
         Files.createDirectories(classes);
-        String[] args = new String[sources.length + 4];
+        String[] args = new String[sources.length + 5];
         args[0] = "-d";
         args[1] = classes.toString();
-        args[2] = "--release";
-        args[3] = "21";
+        args[2] = "-proc:none";
+        args[3] = "--release";
+        args[4] = "21";
         for (int i = 0; i < sources.length; i++) {
             Path file = sourceRoot.resolve(sources[i].relativePath());
             Files.createDirectories(file.getParent());
             Files.writeString(file, sources[i].contents());
-            args[i + 4] = file.toString();
+            args[i + 5] = file.toString();
         }
         int status = JAVAC.run(System.out, System.err, args);
         if (status != 0) {

@@ -405,6 +405,7 @@ final class ImportDeclarationGuardrailTest {
                 "-sourcepath",
                 sourcePath.toString(),
                 "-implicit:none",
+                "-proc:none",
                 "--release",
                 "21"));
         args.addAll(javaFiles);

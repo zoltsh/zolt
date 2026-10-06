@@ -31,6 +31,7 @@ main = "sh.zolt.cli.ZoltCli"
 "sh.zolt:zolt-workspace" = { workspace = true }
 
 [dependencies.test]
+"com.google.devtools.ksp:symbol-processing-aa" = { versionRef = "ksp" }
 "org.jetbrains.kotlin:kotlin-annotation-processing-embeddable" = { versionRef = "kotlin" }
 "org.jetbrains.kotlin:kotlin-compiler-embeddable" = { versionRef = "kotlin" }
 "org.junit.platform:junit-platform-console-standalone" = { versionRef = "junit-platform" }

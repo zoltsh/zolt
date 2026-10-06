@@ -1,8 +1,8 @@
 version = 7
-aliasFingerprint = "sha256:4c662e870fca51ef39cdd4c8ba32b0172a70bbf6b7a4c15884bb811fdbd59d6d"
-projectResolutionFingerprint = "sha256:42bebf92aca6fe192bed36bf1a3870f6383fda6dfe7ac144fda10b7aea4b13e8"
-projectResolutionInputFingerprints = ["dependencies.api.workspace=sha256:e278f2c880bafff02f44f9d403dd68e11930a5f8e5c1d8c49e6cb9ae74963d17", "dependencies.api=sha256:4ce39b687df3a02e2eb24d4b1b2d55903971a2cfeb8593fba3cb52c81fd3bd9c", "dependencies.compile.workspace=sha256:5fa3d40686774c104593200c7c73594199c08f78e75617df760f179128c91d86", "dependencies.compile=sha256:1fe5ba2691695db8da4e166c2015e5ba3a85d075109bcc23012709fcfcd89645", "dependencies.provided=sha256:ee9fd5151af21151e1229a58161679fb2d82e7365fd91fa9b04205c966c8416a", "dependencies.test=sha256:ba959363f9221bfc581b612d35ecfb397cfd10ce1fa8bd10d1a18542c1ba2842", "dependencyMetadata=sha256:7777212cd2f6f427207a7583aa4642e1d88bfe8f339ff62aae432eed096ab352", "framework.quarkus=sha256:1a03038e3b6c11a6598e959b5526786bc942bd2d0e7cb6aec2401dcd36bafc1b", "framework.springBoot.native=sha256:cf597ee2519b656c8bdeb8a1aaaf81b8c9da20d7b82a94cb0643edd20e98e19f", "java=sha256:c822ebc7e176990dd66771c2496f47b8ee0f6451df7ddfa87c44aebff0a6edf6", "package=sha256:ba2fd61e998d4fab4a9205d2785ca9a48464a401346bebf655e28156a0a304c1", "repositories=sha256:e50e1129945e4af12f6d6b822fe1b5548c9425f8a3f0cfeadfb1fb4a646902e1", "schema=sha256:a08549d13c2f16087cfcaf4458dbe9436970632fe503bb7217f88c16428d2ddd", "versions=sha256:fcd4354272e47b71becfe634c43978592c238f531d82a2c1528f34bbc733cf1e"]
-workspaceResolutionInputFingerprint = "sha256:7f2f9ca969c1a7b0d4ef1bed55fdecb6d15945a768d3bb0be85d9f35c5af7c8d"
+aliasFingerprint = "sha256:a931890a456f412188a6e54f8f278b0f674df0e3f5fff76f73b59e9cc5aebe26"
+projectResolutionFingerprint = "sha256:958d3c8a10cd7e4b2d7e3aa9bd11106289b188694d66ce2a4999b664cfe4e986"
+projectResolutionInputFingerprints = ["dependencies.api.workspace=sha256:e278f2c880bafff02f44f9d403dd68e11930a5f8e5c1d8c49e6cb9ae74963d17", "dependencies.api=sha256:4ce39b687df3a02e2eb24d4b1b2d55903971a2cfeb8593fba3cb52c81fd3bd9c", "dependencies.compile.workspace=sha256:5fa3d40686774c104593200c7c73594199c08f78e75617df760f179128c91d86", "dependencies.compile=sha256:1fe5ba2691695db8da4e166c2015e5ba3a85d075109bcc23012709fcfcd89645", "dependencies.provided=sha256:ee9fd5151af21151e1229a58161679fb2d82e7365fd91fa9b04205c966c8416a", "dependencies.test=sha256:53488f48cf2083534ad4c346476881bdc16f4f6b662e6db918822222e2d76c0f", "dependencyMetadata=sha256:896dc881139a1b6b7fb0c5a1e5ebf90f20051f9ee7c63a50e1e69db63095dbaa", "framework.quarkus=sha256:1a03038e3b6c11a6598e959b5526786bc942bd2d0e7cb6aec2401dcd36bafc1b", "framework.springBoot.native=sha256:cf597ee2519b656c8bdeb8a1aaaf81b8c9da20d7b82a94cb0643edd20e98e19f", "java=sha256:c822ebc7e176990dd66771c2496f47b8ee0f6451df7ddfa87c44aebff0a6edf6", "package=sha256:ba2fd61e998d4fab4a9205d2785ca9a48464a401346bebf655e28156a0a304c1", "repositories=sha256:e50e1129945e4af12f6d6b822fe1b5548c9425f8a3f0cfeadfb1fb4a646902e1", "schema=sha256:a08549d13c2f16087cfcaf4458dbe9436970632fe503bb7217f88c16428d2ddd", "versions=sha256:fcd4354272e47b71becfe634c43978592c238f531d82a2c1528f34bbc733cf1e"]
+workspaceResolutionInputFingerprint = "sha256:b3059dd6a9d5525b4392e90baf37ee1c91e6059f213f01a2326495ae6f3b3493"
 
 [[dependencyRoot]]
 member = "apps/zolt"
@@ -185,6 +185,13 @@ id = "sh.zolt:zolt-workspace"
 version = "0.1.0-SNAPSHOT"
 lane = "implementation"
 resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "com.google.devtools.ksp:symbol-processing-aa"
+version = "2.2.0-2.0.2"
+lane = "test"
+resolvedScope = "test"
 
 [[dependencyRoot]]
 member = "apps/zolt"
@@ -1316,7 +1323,7 @@ jar = "blobs/v2/sha256/1ce69a63d350645f7fccfedc724bb950e42df3d5a68b2e4f3d57eefb1
 pom = "blobs/v2/sha256/8f0bca0124a0112637fc6b9583c746da22961b40aeb9fc1fd5a838a780bf8d56/symbol-processing-aa-2.2.0-2.0.2.pom"
 jarSha256 = "1ce69a63d350645f7fccfedc724bb950e42df3d5a68b2e4f3d57eefb13fcc314"
 pomSha256 = "8f0bca0124a0112637fc6b9583c746da22961b40aeb9fc1fd5a838a780bf8d56"
-members = ["modules/zolt-build"]
+members = ["apps/zolt", "modules/zolt-build"]
 policies = ["version-ref: com.google.devtools.ksp:symbol-processing-aa -> 2.2.0-2.0.2 from [versions].ksp"]
 dependencies = ["com.google.devtools.ksp:symbol-processing-api:2.2.0-2.0.2:jar:test", "com.google.devtools.ksp:symbol-processing-common-deps:2.2.0-2.0.2:jar:test", "org.jetbrains.kotlin:kotlin-stdlib:2.2.0:jar:test", "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.8.0:jar:test"]
 
@@ -1330,7 +1337,7 @@ jar = "blobs/v2/sha256/588d17c4ea982b11028c2c82cb1d7300d269023a8068009f9ae9fb2c9
 pom = "blobs/v2/sha256/2e91c8c4c0f509eaa0caf4c7bc64906f8c53843184b50daf119ce14e69c3539d/symbol-processing-api-2.2.0-2.0.2.pom"
 jarSha256 = "588d17c4ea982b11028c2c82cb1d7300d269023a8068009f9ae9fb2c9c20c6d9"
 pomSha256 = "2e91c8c4c0f509eaa0caf4c7bc64906f8c53843184b50daf119ce14e69c3539d"
-members = ["modules/zolt-build"]
+members = ["apps/zolt", "modules/zolt-build"]
 dependencies = ["org.jetbrains.kotlin:kotlin-stdlib:2.2.0:jar:test"]
 
 [[package]]
@@ -1343,7 +1350,7 @@ jar = "blobs/v2/sha256/3d642180be184646ece9c6e7184900d92f84f8080dab838a6db69c0f8
 pom = "blobs/v2/sha256/e4d7dd0a500d4e59227dcb657dce90917b84a8639d2f1fc98bbef1c57aded308/symbol-processing-common-deps-2.2.0-2.0.2.pom"
 jarSha256 = "3d642180be184646ece9c6e7184900d92f84f8080dab838a6db69c0f8acdd6e9"
 pomSha256 = "e4d7dd0a500d4e59227dcb657dce90917b84a8639d2f1fc98bbef1c57aded308"
-members = ["modules/zolt-build"]
+members = ["apps/zolt", "modules/zolt-build"]
 dependencies = ["org.jetbrains.kotlin:kotlin-stdlib:2.2.0:jar:test"]
 
 [[package]]
@@ -2583,20 +2590,6 @@ workspaceOutput = "target/classes"
 members = ["apps/zolt", "modules/zolt-ide", "modules/zolt-quality", "modules/zolt-selfhost"]
 dependencies = []
 
-[[memberGraph]]
-member = "apps/zolt"
-id = "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm"
-version = "1.8.0"
-scope = "test"
-dependencies = []
-
-[[memberGraph]]
-member = "modules/zolt-build"
-id = "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm"
-version = "1.8.0"
-scope = "test"
-dependencies = ["org.jetbrains.kotlin:kotlin-stdlib:2.2.0:jar:test", "org.jetbrains:annotations:23.0.0:jar:test"]
-
 [[policy]]
 kind = "edge-exclusion"
 id = "commons-io:commons-io"
@@ -2757,20 +2750,6 @@ id = "com.fasterxml.jackson.core:jackson-core"
 requested = "2.22.1"
 source = "workspace member modules/zolt-sbom"
 policy = "workspace-mediation: com.fasterxml.jackson.core:jackson-core requested 2.22.1 -> 2.22.2"
-
-[[policy]]
-kind = "workspace-mediation"
-id = "org.jetbrains:annotations"
-requested = "13.0"
-source = "org.jetbrains.kotlin:kotlin-stdlib:2.2.0"
-policy = "workspace-mediation: org.jetbrains:annotations requested 13.0 -> 23.0.0"
-
-[[policy]]
-kind = "workspace-mediation"
-id = "org.jetbrains:annotations"
-requested = "13.0"
-source = "workspace member apps/zolt"
-policy = "workspace-mediation: org.jetbrains:annotations requested 13.0 -> 23.0.0"
 
 [[policy]]
 kind = "workspace-mediation"
@@ -3110,14 +3089,14 @@ reason = "newest version wins"
 
 [[conflict]]
 id = "org.jetbrains.kotlin:kotlin-stdlib"
-members = ["modules/zolt-build"]
+members = ["apps/zolt", "modules/zolt-build"]
 selected = "2.2.0"
 requested = ["1.6.21", "1.9.21", "2.1.20", "2.2.0"]
 reason = "newest version wins"
 
 [[conflict]]
 id = "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm"
-members = ["modules/zolt-build"]
+members = ["apps/zolt", "modules/zolt-build"]
 selected = "1.8.0"
 requested = ["1.6.4", "1.8.0"]
 reason = "newest version wins"
@@ -3127,7 +3106,7 @@ id = "org.jetbrains:annotations"
 members = ["apps/zolt", "modules/zolt-build"]
 selected = "23.0.0"
 requested = ["13.0", "23.0.0"]
-reason = "selected materialized graph wins"
+reason = "newest version wins"
 
 [[conflict]]
 id = "org.ow2.asm:asm"

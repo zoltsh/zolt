@@ -4,15 +4,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static sh.zolt.cli.CliTestSupport.execute;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.PrintStream;
-import java.lang.reflect.Method;
-import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
+import java.util.List;
 import java.util.Map;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
@@ -23,6 +19,7 @@ import org.junit.jupiter.api.parallel.Isolated;
 import sh.zolt.cli.CliTestRepository;
 import sh.zolt.cli.CliTestSupport.CommandResult;
 import sh.zolt.cli.build.KotlinCompilerCliFixture;
+import sh.zolt.cli.build.fixture.KotlinFixtureCompiler;
 
 /** Canonical CLI/worker proof for the explicit Kotlin prerelease-dependency bypass. */
 @Isolated("invokes the embedded Kotlin compiler while creating the dependency fixture")
@@ -149,29 +146,18 @@ final class KotlinPrereleaseDependencyBypassIntegrationTest {
     }
 
     private static void compile(Path source, Path classes) throws Exception {
-        Class<?> compilerType = Class.forName("org.jetbrains.kotlin.cli.jvm.K2JVMCompiler");
-        Object compiler = compilerType.getConstructor().newInstance();
-        Method exec = compilerType.getMethod("exec", PrintStream.class, String[].class);
-        Path stdlib = codeSource("kotlin.Unit");
-        ByteArrayOutputStream diagnostics = new ByteArrayOutputStream();
-        Object exitCode;
-        try (PrintStream output = new PrintStream(diagnostics, true, StandardCharsets.UTF_8)) {
-            String[] arguments = {
-                "-no-stdlib",
-                "-no-reflect",
-                "-classpath", stdlib.toString(),
-                "-jvm-target", Integer.toString(Runtime.version().feature()),
-                "-module-name", "prerelease_provider",
-                "-d", classes.toString(),
-                source.toString()
-            };
-            exitCode = exec.invoke(compiler, output, (Object) arguments);
-        }
-        if (!"OK".equals(exitCode.toString())) {
-            throw new IllegalStateException(
-                    "Could not compile the prerelease Kotlin metadata fixture: "
-                            + diagnostics.toString(StandardCharsets.UTF_8).strip());
-        }
+        Path stdlib = KotlinFixtureCompiler.runtimeJar(
+                "kotlin-stdlib", KotlinCompilerCliFixture.KOTLIN_VERSION);
+        KotlinFixtureCompiler.compile(
+                "prerelease Kotlin metadata fixture",
+                List.of(
+                        "-no-stdlib",
+                        "-no-reflect",
+                        "-classpath", stdlib.toString(),
+                        "-jvm-target", Integer.toString(Runtime.version().feature()),
+                        "-module-name", "prerelease_provider",
+                        "-d", classes.toString(),
+                        source.toString()));
     }
 
     private static void patchPrereleaseBit(Path classFile) throws Exception {
@@ -226,14 +212,6 @@ final class KotlinPrereleaseDependencyBypassIntegrationTest {
         bytes[offset + 1] = (byte) (value >>> 16);
         bytes[offset + 2] = (byte) (value >>> 8);
         bytes[offset + 3] = (byte) value;
-    }
-
-    private static Path codeSource(String className) throws ClassNotFoundException, URISyntaxException {
-        return Path.of(Class.forName(className)
-                .getProtectionDomain()
-                .getCodeSource()
-                .getLocation()
-                .toURI());
     }
 
     private static void writeProject(Path project, CliTestRepository repository) throws Exception {

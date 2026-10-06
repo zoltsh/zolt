@@ -1,17 +1,14 @@
 package sh.zolt.cli.build;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.PrintStream;
-import java.lang.reflect.Method;
-import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import java.util.stream.Stream;
 import sh.zolt.cli.CliTestRepository;
+import sh.zolt.cli.build.fixture.KotlinFixtureCompiler;
 
 /** Publishes a Kotlin API whose deliberately future metadata version requires an explicit bypass. */
 public final class FutureKotlinMetadataCliFixture {
@@ -68,37 +65,18 @@ public final class FutureKotlinMetadataCliFixture {
     }
 
     private static void compile(Path source, Path classes) throws Exception {
-        Class<?> compilerType = Class.forName("org.jetbrains.kotlin.cli.jvm.K2JVMCompiler");
-        Object compiler = compilerType.getConstructor().newInstance();
-        Method exec = compilerType.getMethod("exec", PrintStream.class, String[].class);
-        Path stdlib = codeSource("kotlin.Unit");
-        ByteArrayOutputStream diagnostics = new ByteArrayOutputStream();
-        Object exitCode;
-        try (PrintStream output = new PrintStream(diagnostics, true, StandardCharsets.UTF_8)) {
-            String[] arguments = {
-                "-no-stdlib",
-                "-no-reflect",
-                "-classpath", stdlib.toString(),
-                "-jvm-target", Integer.toString(Runtime.version().feature()),
-                "-Xmetadata-version=99.0.0",
-                "-module-name", "future_metadata",
-                "-d", classes.toString(),
-                source.toString()
-            };
-            exitCode = exec.invoke(compiler, output, (Object) arguments);
-        }
-        if (!"OK".equals(exitCode.toString())) {
-            throw new IllegalStateException(
-                    "Could not compile the future Kotlin metadata fixture: "
-                            + diagnostics.toString(StandardCharsets.UTF_8).strip());
-        }
-    }
-
-    private static Path codeSource(String className) throws ClassNotFoundException, URISyntaxException {
-        return Path.of(Class.forName(className)
-                .getProtectionDomain()
-                .getCodeSource()
-                .getLocation()
-                .toURI());
+        Path stdlib = KotlinFixtureCompiler.runtimeJar(
+                "kotlin-stdlib", KotlinCompilerCliFixture.KOTLIN_VERSION);
+        KotlinFixtureCompiler.compile(
+                "future Kotlin metadata fixture",
+                List.of(
+                        "-no-stdlib",
+                        "-no-reflect",
+                        "-classpath", stdlib.toString(),
+                        "-jvm-target", Integer.toString(Runtime.version().feature()),
+                        "-Xmetadata-version=99.0.0",
+                        "-module-name", "future_metadata",
+                        "-d", classes.toString(),
+                        source.toString()));
     }
 }

@@ -2,11 +2,11 @@ package sh.zolt.cli.build;
 
 import java.io.IOException;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import sh.zolt.cli.CliTestRepository;
+import sh.zolt.cli.build.fixture.KotlinFixtureCompiler;
 
 /** Publishes the real test-runtime Kotlin compiler closure through a hermetic Maven repository. */
 public final class KotlinCompilerCliFixture {
@@ -15,43 +15,35 @@ public final class KotlinCompilerCliFixture {
     private static final Artifact COMPILER = artifact(
             "org.jetbrains.kotlin",
             "kotlin-compiler-embeddable",
-            KOTLIN_VERSION,
-            "org.jetbrains.kotlin.cli.jvm.K2JVMCompiler");
+            KOTLIN_VERSION);
     private static final Artifact KAPT = artifact(
             "org.jetbrains.kotlin",
             "kotlin-annotation-processing-embeddable",
-            KOTLIN_VERSION,
-            "org.jetbrains.kotlin.kapt.KaptCommandLineProcessor");
+            KOTLIN_VERSION);
     private static final Artifact DAEMON = artifact(
             "org.jetbrains.kotlin",
             "kotlin-daemon-embeddable",
-            KOTLIN_VERSION,
-            "org.jetbrains.kotlin.daemon.common.CompileService");
+            KOTLIN_VERSION);
     private static final Artifact REFLECT = artifact(
             "org.jetbrains.kotlin",
             "kotlin-reflect",
-            "1.6.10",
-            "kotlin.reflect.jvm.internal.ReflectionFactoryImpl");
+            "1.6.10");
     private static final Artifact SCRIPT_RUNTIME = artifact(
             "org.jetbrains.kotlin",
             "kotlin-script-runtime",
-            KOTLIN_VERSION,
-            "kotlin.script.templates.standard.ScriptTemplateWithArgs");
+            KOTLIN_VERSION);
     private static final Artifact STDLIB = artifact(
             "org.jetbrains.kotlin",
             "kotlin-stdlib",
-            KOTLIN_VERSION,
-            "kotlin.Unit");
+            KOTLIN_VERSION);
     private static final Artifact COROUTINES = artifact(
             "org.jetbrains.kotlinx",
             "kotlinx-coroutines-core-jvm",
-            "1.8.0",
-            "kotlinx.coroutines.Job");
+            "1.8.0");
     private static final Artifact ANNOTATIONS = artifact(
             "org.jetbrains",
             "annotations",
-            "13.0",
-            "org.jetbrains.annotations.NotNull");
+            "13.0");
 
     private KotlinCompilerCliFixture() {
     }
@@ -131,7 +123,8 @@ public final class KotlinCompilerCliFixture {
                 artifact.artifactId(),
                 artifact.version(),
                 pom(artifact, dependencies),
-                Files.readAllBytes(markerJar(artifact.markerClass())));
+                Files.readAllBytes(KotlinFixtureCompiler.runtimeJar(
+                        artifact.artifactId(), artifact.version())));
     }
 
     private static String pom(Artifact artifact, List<Artifact> dependencies) {
@@ -163,36 +156,11 @@ public final class KotlinCompilerCliFixture {
                 dependencyXml);
     }
 
-    private static Path markerJar(String markerClass) {
-        try {
-            Class<?> marker = Class.forName(
-                    markerClass,
-                    false,
-                    KotlinCompilerCliFixture.class.getClassLoader());
-            Path location = Path.of(marker.getProtectionDomain()
-                            .getCodeSource()
-                            .getLocation()
-                            .toURI())
-                    .toAbsolutePath()
-                    .normalize();
-            if (!Files.isRegularFile(location) || !location.getFileName().toString().endsWith(".jar")) {
-                throw new IllegalStateException(
-                        "Kotlin integration marker " + markerClass + " is not loaded from a JAR: " + location);
-            }
-            return location;
-        } catch (ClassNotFoundException | URISyntaxException exception) {
-            throw new IllegalStateException(
-                    "Kotlin integration marker is unavailable on the test runtime: " + markerClass,
-                    exception);
-        }
-    }
-
     private static Artifact artifact(
             String groupId,
             String artifactId,
-            String version,
-            String markerClass) {
-        return new Artifact(groupId, artifactId, version, markerClass);
+            String version) {
+        return new Artifact(groupId, artifactId, version);
     }
 
     private static String currentJavaMajorVersion() {
@@ -203,7 +171,6 @@ public final class KotlinCompilerCliFixture {
     private record Artifact(
             String groupId,
             String artifactId,
-            String version,
-            String markerClass) {
+            String version) {
     }
 }

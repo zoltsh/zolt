@@ -98,6 +98,7 @@ public final class KaptProcessorCliFixture {
                 null,
                 null,
                 null,
+                "-proc:none",
                 "-d",
                 classes.toString(),
                 source.toString());
