@@ -808,7 +808,8 @@ plus `-Xmulti-dollar-interpolation`, `-Xnon-local-break-continue`,
 `-Xmultifile-parts-inherit`,
 `-Xvalidate-bytecode`,
 `-Xgenerate-strict-metadata-version`, `-Xannotations-in-metadata`,
-`-Xuse-type-table`, `-Xuse-old-class-files-reading`, `-Xjvm-enable-preview`, and
+`-Xuse-type-table`, `-Xuse-old-class-files-reading`,
+`-Xskip-metadata-version-check`, `-Xjvm-enable-preview`, and
 `-Xallow-unstable-dependencies`, plus
 `-Xindy-allow-annotated-lambdas` when paired with `-Xlambdas=indy`. One each of
 the paired Kotlin arguments
@@ -1252,6 +1253,16 @@ put Groovy sources in a separate member or dependency. Configure the flag
 independently for main and test source sets. Changing it invalidates and cleanly
 recompiles the matching output, and removing it restores the selected
 compiler's modern reader.
+`-Xskip-metadata-version-check` suppresses the selected Kotlin compiler's
+dependency metadata-version guard. In the qualified Kotlin 2.2.0 case, an
+otherwise callable dependency deliberately stamped with metadata version
+`99.0.0` failed compilation by default and compiled and ran only with this
+flag. The bypass does not translate, downgrade, or independently validate the
+dependency metadata; a compiler that cannot actually understand it may still
+fail or produce incompatible output. Prefer matching producer and consumer
+toolchains, and use this escape hatch only after independently qualifying the
+specific dependency. Configure it independently for main and test source sets.
+Changing it invalidates and cleanly recompiles the matching output.
 `-Xjvm-enable-preview` asks the selected Kotlin compiler to mark every emitted
 class as using JVM preview features and forwards `--enable-preview` to the javac
 phase of a mixed source set. Preview compilation requires Java 12 or newer, and
