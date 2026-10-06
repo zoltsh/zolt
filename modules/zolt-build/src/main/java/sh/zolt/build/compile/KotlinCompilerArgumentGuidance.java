@@ -35,7 +35,8 @@ final class KotlinCompilerArgumentGuidance {
                 + " `-Xsupport-compatqual-checker-framework-annotations=<mode>`, and one"
                 + " `-Xabi-stability=<mode>`, plus distinct"
                 + " repeatable `-Xnullability-annotations=@package.name:<mode>` and"
-                + " `-Xwarning-level=DIAGNOSTIC_NAME:<level>` arguments; otherwise keep this"
+                + " `-Xwarning-level=DIAGNOSTIC_NAME:<level>` arguments, plus distinct"
+                + " `-Akey=value` options when an annotation processor lane is configured; otherwise keep this"
                 + " source set Java-only.";
     }
 }

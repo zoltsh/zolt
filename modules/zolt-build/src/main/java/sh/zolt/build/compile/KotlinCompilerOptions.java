@@ -2,8 +2,10 @@ package sh.zolt.build.compile;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import sh.zolt.build.KotlinCompileException;
+import sh.zolt.build.compile.kotlin.kapt.KotlinAnnotationProcessorOptions;
 
 /** Immutable, normalized options for one Kotlin/JVM compiler invocation. */
 public record KotlinCompilerOptions(
@@ -61,9 +63,26 @@ public record KotlinCompilerOptions(
         List<String> nullabilityAnnotations,
         List<String> warningLevels,
         List<String> optIns,
+        Map<String, String> annotationProcessorOptions,
         Path friendPath) {
     public KotlinCompilerOptions(String release, String moduleName, boolean hostPlatformApi) {
         this(release, moduleName, hostPlatformApi, !hostPlatformApi, false, false, null);
+    }
+
+    public KotlinCompilerOptions(
+            String release,
+            String moduleName,
+            boolean hostPlatformApi,
+            Map<String, String> annotationProcessorOptions) {
+        this(
+                release,
+                moduleName,
+                hostPlatformApi,
+                !hostPlatformApi,
+                false,
+                false,
+                annotationProcessorOptions,
+                null);
     }
 
     public KotlinCompilerOptions(
@@ -136,6 +155,26 @@ public record KotlinCompilerOptions(
                 useJdkRelease,
                 javaParameters,
                 warningsAsErrors,
+                Map.of(),
+                friendPath);
+    }
+
+    private KotlinCompilerOptions(
+            String release,
+            String moduleName,
+            boolean hostPlatformApi,
+            boolean useJdkRelease,
+            boolean javaParameters,
+            boolean warningsAsErrors,
+            Map<String, String> annotationProcessorOptions,
+            Path friendPath) {
+        this(
+                release,
+                moduleName,
+                hostPlatformApi,
+                useJdkRelease,
+                javaParameters,
+                warningsAsErrors,
                 false,
                 false,
                 false,
@@ -184,6 +223,7 @@ public record KotlinCompilerOptions(
                 List.of(),
                 List.of(),
                 List.of(),
+                annotationProcessorOptions,
                 friendPath);
     }
 
@@ -213,6 +253,8 @@ public record KotlinCompilerOptions(
                 warningLevels,
                 "compiler warning level");
         optIns = KotlinCompilerOptionValues.copy(optIns, "compiler opt-in annotation");
+        annotationProcessorOptions = new KotlinAnnotationProcessorOptions(
+                annotationProcessorOptions).values();
         friendPath = friendPath == null ? null : friendPath.normalize();
         if (friendPath != null && friendPath.toString().contains(",")) {
             throw new KotlinCompileException(
@@ -282,6 +324,7 @@ public record KotlinCompilerOptions(
                 nullabilityAnnotations,
                 warningLevels,
                 optIns,
+                annotationProcessorOptions,
                 Objects.requireNonNull(path, "Kotlin friend path is required."));
     }
 }

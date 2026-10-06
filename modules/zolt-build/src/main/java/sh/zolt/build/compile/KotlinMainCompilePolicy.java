@@ -1,6 +1,7 @@
 package sh.zolt.build.compile;
 
 import sh.zolt.build.KotlinCompileException;
+import sh.zolt.build.compile.kotlin.kapt.KotlinAnnotationProcessorOptions;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.doctor.JdkStatus;
@@ -33,10 +34,13 @@ final class KotlinMainCompilePolicy {
                     "Java composition or annotation processing needs javac but the selected JDK has no javac executable",
                     "Install a complete JDK or repair the configured Java toolchain.");
         }
-        return KotlinCompileOptionsPolicy.options(
+        KotlinCompilerOptions options = KotlinCompileOptionsPolicy.options(
                 config,
                 jdkStatus,
                 KotlinCompilationScope.MAIN);
+        new KotlinAnnotationProcessorOptions(options.annotationProcessorOptions())
+                .requireProcessorClasspath(classpaths.processor(), KotlinCompilationScope.MAIN);
+        return options;
     }
 
     private static KotlinCompileException unsupported(String reason, String remediation) {

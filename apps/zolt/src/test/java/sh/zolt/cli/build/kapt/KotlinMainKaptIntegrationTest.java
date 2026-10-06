@@ -97,7 +97,7 @@ final class KotlinMainKaptIntegrationTest {
                     "--cache-root", artifactCache.toString());
 
             assertEquals(0, run.exitCode(), run.stderr());
-            assertTrue(run.stdout().contains("generated-test:generated-test"), run.stdout());
+            assertTrue(run.stdout().contains("configured-main:configured-main"), run.stdout());
             assertEquals(Map.of(), repository.authorizations(), "cache-only commands must not contact the repository");
         } finally {
             if (previousUserHome == null) {
@@ -161,6 +161,9 @@ final class KotlinMainKaptIntegrationTest {
 
                 [build]
                 sources = ["src/main/kotlin", "src/main/java"]
+
+                [compiler]
+                args = ["-Azolt.message=configured-main"]
 
                 [toolchain.kotlin]
                 version = "%s"

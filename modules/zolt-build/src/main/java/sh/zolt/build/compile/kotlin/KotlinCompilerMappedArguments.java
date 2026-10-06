@@ -1,6 +1,7 @@
 package sh.zolt.build.compile.kotlin;
 
 import java.util.List;
+import java.util.Map;
 
 /** Canonical bounded Kotlin manifest arguments after source-set policy validation. */
 public record KotlinCompilerMappedArguments(
@@ -53,5 +54,6 @@ public record KotlinCompilerMappedArguments(
         String explicitApiMode,
         List<String> nullabilityAnnotations,
         List<String> warningLevels,
-        List<String> optIns) {
+        List<String> optIns,
+        Map<String, String> annotationProcessorOptions) {
 }

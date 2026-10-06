@@ -6,6 +6,7 @@ import sh.zolt.build.compile.CompilerPlatformApi;
 import sh.zolt.build.compile.KotlinCompilationScope;
 import sh.zolt.build.compile.KotlinCompileOptionsPolicy;
 import sh.zolt.build.compile.KotlinCompilerOptions;
+import sh.zolt.build.compile.kotlin.kapt.KotlinAnnotationProcessorOptions;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.doctor.JdkStatus;
@@ -49,6 +50,10 @@ final class KotlinTestCompilePolicy {
                 config,
                 jdkStatus,
                 KotlinCompilationScope.TEST);
+        new KotlinAnnotationProcessorOptions(options.annotationProcessorOptions())
+                .requireProcessorClasspath(
+                        classpaths.testProcessor(),
+                        KotlinCompilationScope.TEST);
         if (sources.kotlinMainSources().isEmpty()) {
             return options;
         }

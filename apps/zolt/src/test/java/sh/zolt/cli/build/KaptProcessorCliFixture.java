@@ -70,12 +70,14 @@ public final class KaptProcessorCliFixture {
                             return false;
                         }
                         try {
+                            String message = processingEnv.getOptions()
+                                    .getOrDefault("zolt.message", "generated-test");
                             JavaFileObject source = processingEnv.getFiler()
                                     .createSourceFile("com.example.GeneratedTestMessage");
                             try (Writer writer = source.openWriter()) {
                                 writer.write("package com.example; "
                                         + "public final class GeneratedTestMessage { "
-                                        + "public static String value() { return \\"generated-test\\"; } "
+                                        + "public static String value() { return \\"" + message + "\\"; } "
                                         + "}");
                             }
                             generated = true;

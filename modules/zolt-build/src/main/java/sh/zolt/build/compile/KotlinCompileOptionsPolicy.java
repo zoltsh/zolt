@@ -122,6 +122,7 @@ public final class KotlinCompileOptionsPolicy {
                 mappedArguments.nullabilityAnnotations(),
                 mappedArguments.warningLevels(),
                 mappedArguments.optIns(),
+                mappedArguments.annotationProcessorOptions(),
                 null);
     }
 

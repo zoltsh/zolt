@@ -3,7 +3,9 @@ package sh.zolt.build.compile;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.StringJoiner;
+import sh.zolt.build.compile.kotlin.kapt.KotlinAnnotationProcessorOptions;
 import sh.zolt.build.compile.kotlin.kapt.KotlinKaptOptions;
 import sh.zolt.classpath.Classpath;
 
@@ -190,7 +192,7 @@ final class KotlinCompilerInvocationArguments {
         }
         options.warningLevels().forEach(level -> arguments.add("-Xwarning-level=" + level));
         options.optIns().forEach(optIn -> arguments.add("-opt-in=" + optIn));
-        addKaptArguments(arguments, kaptOptions);
+        addKaptArguments(arguments, kaptOptions, options.annotationProcessorOptions());
         List<Path> compilationEntries = entries(compilationClasspath);
         if (!compilationEntries.isEmpty()) {
             arguments.add("-classpath");
@@ -209,7 +211,8 @@ final class KotlinCompilerInvocationArguments {
 
     private static void addKaptArguments(
             List<String> arguments,
-            KotlinKaptOptions options) {
+            KotlinKaptOptions options,
+            Map<String, String> annotationProcessorOptions) {
         if (options == null) {
             return;
         }
@@ -220,6 +223,11 @@ final class KotlinCompilerInvocationArguments {
         addPluginOption(arguments, "stubs", options.stubsDirectory().toString());
         options.processorClasspath().entries().forEach(path ->
                 addPluginOption(arguments, "apclasspath", path.toAbsolutePath().normalize().toString()));
+        KotlinAnnotationProcessorOptions processorOptions =
+                new KotlinAnnotationProcessorOptions(annotationProcessorOptions);
+        if (!processorOptions.isEmpty()) {
+            addPluginOption(arguments, "apoptions", processorOptions.encoded());
+        }
         addPluginOption(arguments, "includeCompileClasspath", "false");
         addPluginOption(arguments, "correctErrorTypes", "true");
         addPluginOption(arguments, "mapDiagnosticLocations", "true");

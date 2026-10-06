@@ -3,10 +3,12 @@ package sh.zolt.build.compile.kotlin.kapt;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static sh.zolt.build.compile.KotlinCompilerArgumentTestSupport.options;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -14,6 +16,8 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.compile.KotlinCompilationScope;
+import sh.zolt.build.compile.KotlinCompilerOptions;
+import sh.zolt.classpath.Classpath;
 
 final class KotlinAnnotationProcessorOptionsTest {
     @Test
@@ -26,6 +30,21 @@ final class KotlinAnnotationProcessorOptionsTest {
                 Map.of("a.first", "", "z.last", "two=parts"),
                 options.values());
         assertEquals(List.of("a.first", "z.last"), new ArrayList<>(options.values().keySet()));
+    }
+
+    @Test
+    void mapsOptionsOnlyFromTheActiveCompilerLane() {
+        KotlinCompilerOptions main = options(
+                KotlinCompilationScope.MAIN,
+                List.of("-Amain.option=main"),
+                List.of("-Atest.option=test"));
+        KotlinCompilerOptions test = options(
+                KotlinCompilationScope.TEST,
+                List.of("-Amain.option=main"),
+                List.of("-Atest.option=test"));
+
+        assertEquals(Map.of("main.option", "main"), main.annotationProcessorOptions());
+        assertEquals(Map.of("test.option", "test"), test.annotationProcessorOptions());
     }
 
     @Test
@@ -70,5 +89,25 @@ final class KotlinAnnotationProcessorOptionsTest {
                 options::encoded);
 
         assertTrue(failure.getMessage().contains("modified UTF-8 limit"));
+    }
+
+    @Test
+    void requiresTheMatchingProcessorLaneWhenOptionsArePresent() {
+        KotlinAnnotationProcessorOptions options = new KotlinAnnotationProcessorOptions(
+                Map.of("example.message", "hello"));
+        for (KotlinCompilationScope scope : KotlinCompilationScope.values()) {
+            KotlinCompileException failure = assertThrows(
+                    KotlinCompileException.class,
+                    () -> options.requireProcessorClasspath(new Classpath(List.of()), scope));
+
+            String dependencyPath = scope == KotlinCompilationScope.MAIN
+                    ? "[dependencies.processor]"
+                    : "[dependencies.test-processor]";
+            assertTrue(failure.getMessage().contains(dependencyPath));
+            assertTrue(failure.getMessage().contains("-Akey=value"));
+        }
+        options.requireProcessorClasspath(
+                new Classpath(List.of(Path.of("processor.jar"))),
+                KotlinCompilationScope.MAIN);
     }
 }

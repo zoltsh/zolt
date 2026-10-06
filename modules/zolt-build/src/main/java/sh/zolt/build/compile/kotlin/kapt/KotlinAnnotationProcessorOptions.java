@@ -13,6 +13,7 @@ import java.util.TreeMap;
 import java.util.regex.Pattern;
 import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.compile.KotlinCompilationScope;
+import sh.zolt.classpath.Classpath;
 
 /** Validated, deterministic {@code -Akey=value} options for one KAPT invocation. */
 public record KotlinAnnotationProcessorOptions(Map<String, String> values) {
@@ -66,6 +67,28 @@ public record KotlinAnnotationProcessorOptions(Map<String, String> values) {
 
     public boolean isEmpty() {
         return values.isEmpty();
+    }
+
+    public void requireProcessorClasspath(
+            Classpath processorClasspath,
+            KotlinCompilationScope scope) {
+        Classpath classpath = Objects.requireNonNull(
+                processorClasspath,
+                "KAPT processor classpath is required.");
+        KotlinCompilationScope compilationScope = Objects.requireNonNull(
+                scope,
+                "Kotlin compilation scope is required.");
+        if (isEmpty() || !classpath.entries().isEmpty()) {
+            return;
+        }
+        String dependencyPath = compilationScope == KotlinCompilationScope.MAIN
+                ? "[dependencies.processor]"
+                : "[dependencies.test-processor]";
+        throw new KotlinCompileException(
+                "Kotlin " + compilationScope.label() + " compilation is not supported when "
+                        + argumentsPath(compilationScope)
+                        + " configures `-Akey=value` options without an annotation processor. Add the"
+                        + " processor under " + dependencyPath + ", or remove the `-A` options.");
     }
 
     /** Encodes the map using the wire format read by Kotlin's KAPT command-line plugin. */

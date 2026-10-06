@@ -124,6 +124,9 @@ final class KotlinTestKaptIntegrationTest {
                 [build]
                 sources = ["src/main/kotlin"]
 
+                [compiler.test]
+                args = ["-Azolt.message=configured-test"]
+
                 [toolchain.kotlin]
                 version = "%s"
 
@@ -169,7 +172,7 @@ final class KotlinTestKaptIntegrationTest {
                 class KaptKotlinTest {
                     @Test
                     fun kotlinSeesGeneratedTestType() {
-                        assertEquals("generated-test", generated())
+                        assertEquals("configured-test", generated())
                     }
 
                     companion object {
@@ -188,8 +191,8 @@ final class KotlinTestKaptIntegrationTest {
                 public final class KaptJavaTest {
                     @Test
                     void javaSeesKotlinAndGeneratedTestTypes() {
-                        assertEquals("generated-test", KaptKotlinTest.generated());
-                        assertEquals("generated-test", GeneratedTestMessage.value());
+                        assertEquals("configured-test", KaptKotlinTest.generated());
+                        assertEquals("configured-test", GeneratedTestMessage.value());
                     }
                 }
                 """);

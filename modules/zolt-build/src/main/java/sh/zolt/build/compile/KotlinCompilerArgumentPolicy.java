@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Set;
 import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.compile.kotlin.KotlinCompilerMappedArguments;
+import sh.zolt.build.compile.kotlin.kapt.KotlinAnnotationProcessorOptions;
 import sh.zolt.project.CompilerSettings;
 
 /** Parses the bounded manifest compiler-argument grammar for one Kotlin source set. */
@@ -19,6 +20,8 @@ final class KotlinCompilerArgumentPolicy {
         List<String> arguments = scope == KotlinCompilationScope.MAIN
                 ? compiler.args()
                 : compiler.testArgs();
+        KotlinAnnotationProcessorOptions annotationProcessorOptions =
+                KotlinAnnotationProcessorOptions.parse(arguments, scope);
         Set<String> standaloneArguments = new HashSet<>();
         String annotationDefaultTargetMode = "";
         String assertionMode = "";
@@ -38,6 +41,9 @@ final class KotlinCompilerArgumentPolicy {
         List<String> optIns = new ArrayList<>();
         for (int index = 0; index < arguments.size(); index++) {
             String argument = arguments.get(index);
+            if (argument.startsWith("-A")) {
+                continue;
+            }
             if (KotlinCompilerStandaloneArguments.supports(argument)) {
                 if (!standaloneArguments.add(argument)) {
                     throw duplicateArgument(scope, argument);
@@ -224,7 +230,8 @@ final class KotlinCompilerArgumentPolicy {
                 explicitApiMode,
                 List.copyOf(nullabilityAnnotations),
                 List.copyOf(warningLevels),
-                List.copyOf(optIns));
+                List.copyOf(optIns),
+                annotationProcessorOptions.values());
     }
 
     private static String versionArgument(
