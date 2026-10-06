@@ -6,6 +6,7 @@ import sh.zolt.build.fingerprint.BuildFingerprintService;
 import sh.zolt.build.generatedsource.GeneratedSourceProducerFingerprint;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.BuildSettings;
+import sh.zolt.project.GeneratedSourceKind;
 import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectMetadata;
@@ -63,7 +64,8 @@ final class PackageBuildInputFingerprint {
         // alone cannot force pre-fix output through the current compiler.
         // v3 classifies authored Groovy files as main sources rather than resources.
         // v4 gives authored Kotlin files the same source ownership before compiler support lands.
-        hash.value("schema", "zolt.package-build-input.v4");
+        // v5 fingerprints only KSP outputs published to the build, excluding compiler scratch data.
+        hash.value("schema", "zolt.package-build-input.v5");
         hash.value("compilationSemantics", compilationSemantics);
         hash.value(
                 "build",
@@ -155,9 +157,24 @@ final class PackageBuildInputFingerprint {
                     projectRoot,
                     "[generated.main." + step.id() + "].output",
                     step.output());
-            outputs.addAll(expand(output));
+            generatedOutputRoots(step.kind(), output).forEach(
+                    root -> outputs.addAll(expand(root)));
         }
         return outputs.stream().sorted().toList();
+    }
+
+    private static List<Path> generatedOutputRoots(
+            GeneratedSourceKind kind,
+            Path output) {
+        if (kind != GeneratedSourceKind.KSP) {
+            return List.of(output);
+        }
+        // KSP's cache and classes lanes are private scratch space. Only these three lanes are
+        // discovered or copied into the canonical build and therefore belong in package evidence.
+        return List.of(
+                output.resolve("java"),
+                output.resolve("kotlin"),
+                output.resolve("resources"));
     }
 
     private static boolean isSource(Path path) {

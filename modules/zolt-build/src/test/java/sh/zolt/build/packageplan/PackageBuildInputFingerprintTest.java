@@ -148,6 +148,42 @@ final class PackageBuildInputFingerprintTest {
     }
 
     @Test
+    void kspScratchOutputsDoNotChangePackageFingerprint() throws IOException {
+        ProjectConfig config = kspConfig();
+        Path output = projectRoot.resolve("target/generated/ksp/main/symbols");
+        write(output.resolve("cache/lookups.bin"), "cache-before");
+        write(output.resolve("classes/p/Scratch.class"), "classes-before");
+
+        String before = fingerprint(config, List.of());
+        write(output.resolve("cache/lookups.bin"), "cache-after");
+        write(output.resolve("classes/p/Scratch.class"), "classes-after");
+
+        assertEquals(before, fingerprint(config, List.of()));
+    }
+
+    @Test
+    void kspPublishedOutputsChangePackageFingerprint() throws IOException {
+        ProjectConfig config = kspConfig();
+        Path output = projectRoot.resolve("target/generated/ksp/main/symbols");
+        Path java = output.resolve("java/p/Generated.java");
+        Path kotlin = output.resolve("kotlin/p/Generated.kt");
+        Path resource = output.resolve("resources/META-INF/generated.txt");
+        write(java, "java-before");
+        write(kotlin, "kotlin-before");
+        write(resource, "resource-before");
+        String before = fingerprint(config, List.of());
+
+        write(java, "java-after");
+        assertNotEquals(before, fingerprint(config, List.of()));
+        write(java, "java-before");
+        write(kotlin, "kotlin-after");
+        assertNotEquals(before, fingerprint(config, List.of()));
+        write(kotlin, "kotlin-before");
+        write(resource, "resource-after");
+        assertNotEquals(before, fingerprint(config, List.of()));
+    }
+
+    @Test
     void testsSupplementalFingerprintReadsKotlinOnlyFromConfiguredKotlinRoots()
             throws IOException {
         Path configured = projectRoot.resolve("src/test/kotlin/com/example/ConfiguredTest.kt");
@@ -300,6 +336,30 @@ final class PackageBuildInputFingerprintTest {
                 group = "com.example"
                 java = 21
                 """);
+    }
+
+    private static ProjectConfig kspConfig() {
+        return new ManifestProjectConfigLoader().load("""
+                [project]
+                name = "demo"
+                version = "0.1.0"
+                group = "com.example"
+                java = 21
+
+                [generated.tools.ksp]
+                version = "2.2.0-2.0.2"
+                coordinates = [
+                    { coordinate = "com.example:fixture-processor", version = "1.0.0" },
+                ]
+
+                [generated.main.symbols]
+                kind = "ksp"
+                """);
+    }
+
+    private static void write(Path path, String content) throws IOException {
+        Files.createDirectories(path.getParent());
+        Files.writeString(path, content);
     }
 
     private static ProjectConfig testConfig(String input) {
