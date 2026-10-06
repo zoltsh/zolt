@@ -3,6 +3,8 @@ package sh.zolt.cli.build.kotlin.plugin;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static sh.zolt.cli.CliTestSupport.execute;
@@ -11,6 +13,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.jar.JarFile;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Isolated;
@@ -88,6 +91,7 @@ final class KotlinJpaNoArgPluginIntegrationTest {
             assertTiming(reenabled, "full");
             assertArrayEquals(noArgBytes, Files.readAllBytes(entityClass));
             assertRun(project, artifactCache);
+            assertPackage(project, artifactCache);
             assertEquals(Map.of(), repository.authorizations());
         } finally {
             if (previousUserHome == null) {
@@ -205,6 +209,32 @@ final class KotlinJpaNoArgPluginIntegrationTest {
                 "--cwd", project.toString(),
                 "--cache-root", artifactCache.toString(),
                 "--no-progress");
+    }
+
+    private static void assertPackage(Path project, Path artifactCache) throws IOException {
+        CommandResult packaging = execute(
+                "package",
+                "--mode", "uber-jar",
+                "--no-build-cache",
+                "--cwd", project.toString(),
+                "--cache-root", artifactCache.toString(),
+                "--no-progress");
+        assertEquals(0, packaging.exitCode(), combined(packaging));
+        Path jarPath = project.resolve("target/kotlin-jpa-no-arg-0.1.0.jar");
+        try (JarFile jar = new JarFile(jarPath.toFile())) {
+            assertNotNull(jar.getEntry("com/example/JpaEntity.class"));
+            assertNotNull(jar.getEntry("kotlin/jvm/internal/Intrinsics.class"));
+            assertNull(jar.getEntry("org/jetbrains/kotlin/cli/jvm/K2JVMCompiler.class"));
+            assertNull(jar.getEntry(
+                    "org/jetbrains/kotlin/noarg/NoArgCommandLineProcessor.class"));
+        }
+
+        CommandResult packagedRun = execute(
+                "run-package",
+                "--cwd", project.toString(),
+                "--cache-root", artifactCache.toString());
+        assertEquals(0, packagedRun.exitCode(), combined(packagedRun));
+        assertTrue(packagedRun.stdout().contains("true:true:true"), packagedRun.stdout());
     }
 
     private static void assertTiming(CommandResult result, String mode) {
