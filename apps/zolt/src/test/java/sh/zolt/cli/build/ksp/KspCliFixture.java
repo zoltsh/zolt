@@ -163,18 +163,22 @@ final class KspCliFixture {
             if (message == null || message.isBlank()) {
                 throw new IllegalArgumentException("KSP CLI fixture message is required.");
             }
-            return new Processor(environment.getCodeGenerator(), message);
+            boolean failAfterKotlin = Boolean.parseBoolean(
+                    environment.getOptions().getOrDefault("fixture.failAfterKotlin", "false"));
+            return new Processor(environment.getCodeGenerator(), message, failAfterKotlin);
         }
     }
 
     private static final class Processor implements SymbolProcessor {
         private final CodeGenerator generator;
         private final String message;
+        private final boolean failAfterKotlin;
         private boolean generated;
 
-        private Processor(CodeGenerator generator, String message) {
+        private Processor(CodeGenerator generator, String message, boolean failAfterKotlin) {
             this.generator = generator;
             this.message = message;
+            this.failAfterKotlin = failAfterKotlin;
         }
 
         @Override
@@ -193,6 +197,9 @@ final class KspCliFixture {
                         fun value(): String = "%s"
                     }
                     """.formatted(message));
+            if (failAfterKotlin) {
+                throw new IllegalStateException("KSP CLI fixture failed after a staged Kotlin write.");
+            }
             write(generator.createNewFile(
                     dependencies, "com.example", "GeneratedJavaMessage", "java"), """
                     package com.example;

@@ -136,6 +136,66 @@ final class KspTestCommandIntegrationTest {
             assertEquals(
                     "changed-ksp-resource\n",
                     Files.readString(testOutput.resolve("META-INF/ksp-cli.txt")));
+
+            byte[] classBeforeFailure = Files.readAllBytes(authoredTestClass);
+            Files.writeString(
+                    manifest,
+                    Files.readString(manifest)
+                            .replace(
+                                    "\"fixture.message\" = \"changed-ksp\"",
+                                    "\"fixture.message\" = \"partial-ksp\"")
+                            .replace(
+                                    "\"fixture.failAfterKotlin\" = \"false\"",
+                                    "\"fixture.failAfterKotlin\" = \"true\""));
+            CommandResult failureLock = execute(
+                    "resolve",
+                    "--offline",
+                    "--cwd", project.toString(),
+                    "--cache-root", offlineCache.toString(),
+                    "--no-progress");
+            assertEquals(0, failureLock.exitCode(), failureLock.stderr());
+            CommandResult failed = test(project, offlineCache);
+
+            assertEquals(1, failed.exitCode());
+            assertTrue(
+                    failed.stderr().contains(
+                            "KSP generation for [generated.test.symbols] failed"),
+                    failed.stderr());
+            assertTrue(Files.readString(
+                    generated.resolve("kotlin/com/example/GeneratedKspMessage.kt"))
+                    .contains("\"changed-ksp\""));
+            assertTrue(Files.isRegularFile(
+                    generated.resolve("java/com/example/GeneratedJavaMessage.java")));
+            assertEquals(
+                    "changed-ksp-resource\n",
+                    Files.readString(testOutput.resolve("META-INF/ksp-cli.txt")));
+            assertTrue(java.util.Arrays.equals(
+                    classBeforeFailure,
+                    Files.readAllBytes(authoredTestClass)));
+
+            Files.writeString(
+                    manifest,
+                    Files.readString(manifest).replace(
+                            "\"fixture.failAfterKotlin\" = \"true\"",
+                            "\"fixture.failAfterKotlin\" = \"false\""));
+            CommandResult repairedLock = execute(
+                    "resolve",
+                    "--offline",
+                    "--cwd", project.toString(),
+                    "--cache-root", offlineCache.toString(),
+                    "--no-progress");
+            assertEquals(0, repairedLock.exitCode(), repairedLock.stderr());
+            CommandResult repaired = test(project, offlineCache);
+
+            assertEquals(0, repaired.exitCode(), repaired.stderr());
+            assertTrue(repaired.stdout().contains("Tests passed"), repaired.stdout());
+            assertTiming(repaired, "full");
+            assertTrue(Files.readString(
+                    generated.resolve("kotlin/com/example/GeneratedKspMessage.kt"))
+                    .contains("\"partial-ksp\""));
+            assertEquals(
+                    "partial-ksp-resource\n",
+                    Files.readString(testOutput.resolve("META-INF/ksp-cli.txt")));
             assertEquals(
                     Map.of(),
                     repository.authorizations(),
@@ -192,7 +252,7 @@ final class KspTestCommandIntegrationTest {
 
                 [generated.test.symbols]
                 kind = "ksp"
-                options = { "fixture.message" = "test-ksp" }
+                options = { "fixture.message" = "test-ksp", "fixture.failAfterKotlin" = "false" }
                 """.formatted(
                 currentJavaMajorVersion(),
                 KotlinCompilerCliFixture.KOTLIN_VERSION,
