@@ -26,7 +26,7 @@ final class KotlinAnnotationTargetAllArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.annotationTargetAll());
+        assertTrue(options.policy().jvmInterop().annotationTargetAll());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(FLAG), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinAnnotationTargetAllArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.annotationTargetAll());
-        assertFalse(test.annotationTargetAll());
+        assertTrue(main.policy().jvmInterop().annotationTargetAll());
+        assertFalse(test.policy().jvmInterop().annotationTargetAll());
     }
 
     @Test

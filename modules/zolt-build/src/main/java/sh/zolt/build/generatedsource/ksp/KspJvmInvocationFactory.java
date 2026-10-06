@@ -32,6 +32,7 @@ final class KspJvmInvocationFactory {
         KotlinCompilerOptions options = Objects.requireNonNull(
                 compilerOptions,
                 "Kotlin compiler options are required.");
+        var policy = options.policy();
         KspGenerationSettings generation = Objects.requireNonNull(
                 generationSettings,
                 "KSP generation settings are required.");
@@ -49,10 +50,12 @@ final class KspJvmInvocationFactory {
         requirePlatformCompatibility(options, target, jdkFeature);
 
         String defaultLanguage = compilerLanguageVersion(selected.kotlinVersion());
-        String language = options.languageVersion().isEmpty()
+        String language = policy.language().languageVersion().isEmpty()
                 ? defaultLanguage
-                : options.languageVersion();
-        String api = options.apiVersion().isEmpty() ? language : options.apiVersion();
+                : policy.language().languageVersion();
+        String api = policy.language().apiVersion().isEmpty()
+                ? language
+                : policy.language().apiVersion();
         List<Path> friends = options.friendPath() == null
                 ? List.of()
                 : List.of(options.friendPath());
@@ -76,8 +79,8 @@ final class KspJvmInvocationFactory {
                 options.moduleName(),
                 language,
                 api,
-                options.jvmDefaultMode(),
-                options.warningsAsErrors(),
+                policy.jvmInterop().jvmDefaultMode(),
+                policy.diagnostics().warningsAsErrors(),
                 false,
                 generation.options());
     }
@@ -103,7 +106,7 @@ final class KspJvmInvocationFactory {
             KotlinCompilerOptions options,
             int target,
             int jdkFeature) {
-        if (options.jvmPreview()) {
+        if (options.policy().jvmInterop().jvmPreview()) {
             throw unsupported(
                     "JVM preview compilation is enabled",
                     "Remove `-Xjvm-enable-preview` while using KSP; standalone KSP preview"

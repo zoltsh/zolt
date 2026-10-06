@@ -54,8 +54,8 @@ final class KotlinTestCompilePolicyTest {
         assertEquals("demo_test", options.moduleName());
         assertFalse(options.hostPlatformApi());
         assertTrue(options.useJdkRelease());
-        assertFalse(options.javaParameters());
-        assertFalse(options.warningsAsErrors());
+        assertFalse(options.policy().jvmInterop().javaParameters());
+        assertFalse(options.policy().diagnostics().warningsAsErrors());
         assertEquals(Path.of("target/classes"), options.friendPath());
     }
 

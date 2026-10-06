@@ -46,7 +46,7 @@ final class KotlinMainCompilePolicyTest {
         assertEquals("zolt_9_demo_app_main", options.moduleName());
         assertFalse(options.hostPlatformApi());
         assertTrue(options.useJdkRelease());
-        assertFalse(options.javaParameters());
+        assertFalse(options.policy().jvmInterop().javaParameters());
     }
 
     @Test
@@ -140,7 +140,7 @@ final class KotlinMainCompilePolicyTest {
         assertEquals(List.of(), javac.modulePath());
         assertFalse(javac.hostPlatformApi());
         assertTrue(javac.useJdkRelease());
-        assertFalse(options.javaParameters());
+        assertFalse(options.policy().jvmInterop().javaParameters());
     }
 
     @Test
@@ -154,7 +154,7 @@ final class KotlinMainCompilePolicyTest {
                 classpaths(List.of()),
                 jdkStatus("21.0.11", "21"));
 
-        assertTrue(options.javaParameters());
+        assertTrue(options.policy().jvmInterop().javaParameters());
         assertEquals(
                 List.of("-parameters"),
                 KotlinCompileOptionsPolicy.javacOptions(options).arguments());

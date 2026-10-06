@@ -28,7 +28,7 @@ final class KotlinJvmDefaultArgumentsTest {
                         List.of("-jvm-default=no-compatibility"))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertEquals("no-compatibility", options.jvmDefaultMode());
+        assertEquals("no-compatibility", options.policy().jvmInterop().jvmDefaultMode());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
 
         List<String> argumentContents = new ArrayList<>();
@@ -59,14 +59,14 @@ final class KotlinJvmDefaultArgumentsTest {
                     KotlinCompilationScope.MAIN,
                     List.of("-jvm-default=" + mode),
                     List.of("-jvm-default=disable"));
-            assertEquals(mode, main.jvmDefaultMode());
+            assertEquals(mode, main.policy().jvmInterop().jvmDefaultMode());
         }
 
         KotlinCompilerOptions test = options(
                 KotlinCompilationScope.TEST,
                 List.of("-jvm-default=enable"),
                 List.of("-jvm-default=disable"));
-        assertEquals("disable", test.jvmDefaultMode());
+        assertEquals("disable", test.policy().jvmInterop().jvmDefaultMode());
     }
 
     @Test

@@ -32,7 +32,7 @@ final class KotlinOptInArgumentsTest {
 
         assertEquals(
                 List.of("kotlin.ExperimentalStdlibApi", "com.example.ExperimentalFeature"),
-                options.optIns());
+                options.policy().language().optIns());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
 
         List<String> argumentContents = new ArrayList<>();
@@ -68,8 +68,8 @@ final class KotlinOptInArgumentsTest {
                 List.of("-opt-in=com.example.MainExperimental"),
                 List.of("-opt-in=com.example.TestExperimental"));
 
-        assertEquals(List.of("com.example.MainExperimental"), main.optIns());
-        assertEquals(List.of("com.example.TestExperimental"), test.optIns());
+        assertEquals(List.of("com.example.MainExperimental"), main.policy().language().optIns());
+        assertEquals(List.of("com.example.TestExperimental"), test.policy().language().optIns());
     }
 
     @Test

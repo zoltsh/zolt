@@ -29,7 +29,7 @@ final class KotlinWarningSuppressionArgumentsTest {
                         List.of("-nowarn"))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.suppressWarnings());
+        assertTrue(options.policy().diagnostics().suppressWarnings());
         assertEquals(
                 List.of("-nowarn"),
                 KotlinCompileOptionsPolicy.javacOptions(options).arguments());
@@ -66,8 +66,8 @@ final class KotlinWarningSuppressionArgumentsTest {
                 List.of("-nowarn"),
                 List.of());
 
-        assertTrue(main.suppressWarnings());
-        assertFalse(test.suppressWarnings());
+        assertTrue(main.policy().diagnostics().suppressWarnings());
+        assertFalse(test.policy().diagnostics().suppressWarnings());
     }
 
     @Test

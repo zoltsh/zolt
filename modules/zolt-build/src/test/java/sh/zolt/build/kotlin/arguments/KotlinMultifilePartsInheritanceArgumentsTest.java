@@ -26,7 +26,7 @@ final class KotlinMultifilePartsInheritanceArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.multifilePartsInherit());
+        assertTrue(options.policy().codeGeneration().multifilePartsInherit());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(FLAG), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinMultifilePartsInheritanceArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.multifilePartsInherit());
-        assertFalse(test.multifilePartsInherit());
+        assertTrue(main.policy().codeGeneration().multifilePartsInherit());
+        assertFalse(test.policy().codeGeneration().multifilePartsInherit());
     }
 
     @Test

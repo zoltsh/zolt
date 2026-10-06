@@ -48,8 +48,8 @@ final class KotlinTestCompilerArgumentsPolicyTest {
             assertEquals(canonicalArguments(testArgs), javac.arguments());
             assertFalse(javac.hostPlatformApi());
             assertTrue(javac.useJdkRelease());
-            assertEquals(testArgs.contains("-parameters"), options.javaParameters());
-            assertEquals(testArgs.contains("-Werror"), options.warningsAsErrors());
+            assertEquals(testArgs.contains("-parameters"), options.policy().jvmInterop().javaParameters());
+            assertEquals(testArgs.contains("-Werror"), options.policy().diagnostics().warningsAsErrors());
             assertEquals(Path.of("target/classes"), options.friendPath());
         }
     }
@@ -70,8 +70,8 @@ final class KotlinTestCompilerArgumentsPolicyTest {
                 List.of(),
                 null);
 
-        assertFalse(options.javaParameters());
-        assertTrue(options.warningsAsErrors());
+        assertFalse(options.policy().jvmInterop().javaParameters());
+        assertTrue(options.policy().diagnostics().warningsAsErrors());
         assertEquals(
                 List.of("-Werror"),
                 KotlinCompileOptionsPolicy.javacOptions(options).arguments());

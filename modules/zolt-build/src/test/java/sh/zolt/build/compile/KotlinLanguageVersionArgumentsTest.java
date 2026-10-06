@@ -31,8 +31,8 @@ final class KotlinLanguageVersionArgumentsTest {
                         "-Werror"),
                 List.of());
 
-        assertEquals("2.1", options.languageVersion());
-        assertEquals("1.9", options.apiVersion());
+        assertEquals("2.1", options.policy().language().languageVersion());
+        assertEquals("1.9", options.policy().language().apiVersion());
         assertEquals(
                 List.of("-parameters", "-Werror"),
                 KotlinCompileOptionsPolicy.javacOptions(options).arguments());
@@ -71,10 +71,10 @@ final class KotlinLanguageVersionArgumentsTest {
                 mainArguments,
                 testArguments);
 
-        assertEquals("2.0", main.languageVersion());
-        assertEquals("1.9", main.apiVersion());
-        assertEquals("2.1", test.languageVersion());
-        assertEquals("2.0", test.apiVersion());
+        assertEquals("2.0", main.policy().language().languageVersion());
+        assertEquals("1.9", main.policy().language().apiVersion());
+        assertEquals("2.1", test.policy().language().languageVersion());
+        assertEquals("2.0", test.policy().language().apiVersion());
     }
 
     @Test

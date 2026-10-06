@@ -27,7 +27,7 @@ final class KotlinJvmPreviewArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.jvmPreview());
+        assertTrue(options.policy().jvmInterop().jvmPreview());
         assertEquals(
                 List.of("--enable-preview"),
                 KotlinCompileOptionsPolicy.javacOptions(options).arguments());
@@ -47,8 +47,8 @@ final class KotlinJvmPreviewArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.jvmPreview());
-        assertFalse(test.jvmPreview());
+        assertTrue(main.policy().jvmInterop().jvmPreview());
+        assertFalse(test.policy().jvmInterop().jvmPreview());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(test).arguments().isEmpty());
     }
 

@@ -26,7 +26,7 @@ final class KotlinLegacyInlineClassManglingArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.use14InlineClassesManglingScheme());
+        assertTrue(options.policy().codeGeneration().use14InlineClassesManglingScheme());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(FLAG), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinLegacyInlineClassManglingArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.use14InlineClassesManglingScheme());
-        assertFalse(test.use14InlineClassesManglingScheme());
+        assertTrue(main.policy().codeGeneration().use14InlineClassesManglingScheme());
+        assertFalse(test.policy().codeGeneration().use14InlineClassesManglingScheme());
     }
 
     @Test

@@ -43,8 +43,12 @@ final class KotlinAnnotationProcessorOptionsTest {
                 List.of("-Amain.option=main"),
                 List.of("-Atest.option=test"));
 
-        assertEquals(Map.of("main.option", "main"), main.annotationProcessorOptions());
-        assertEquals(Map.of("test.option", "test"), test.annotationProcessorOptions());
+        assertEquals(
+                Map.of("main.option", "main"),
+                main.policy().annotationProcessing().processorOptions());
+        assertEquals(
+                Map.of("test.option", "test"),
+                test.policy().annotationProcessing().processorOptions());
     }
 
     @Test

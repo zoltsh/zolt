@@ -26,7 +26,7 @@ final class KotlinNoNewJavaAnnotationTargetsArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.noNewJavaAnnotationTargets());
+        assertTrue(options.policy().jvmInterop().noNewJavaAnnotationTargets());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(FLAG), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinNoNewJavaAnnotationTargetsArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.noNewJavaAnnotationTargets());
-        assertFalse(test.noNewJavaAnnotationTargets());
+        assertTrue(main.policy().jvmInterop().noNewJavaAnnotationTargets());
+        assertFalse(test.policy().jvmInterop().noNewJavaAnnotationTargets());
     }
 
     @Test

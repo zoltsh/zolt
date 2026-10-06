@@ -26,7 +26,7 @@ final class KotlinLegacyNullChecksArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.noUnifiedNullChecks());
+        assertTrue(options.policy().codeGeneration().noUnifiedNullChecks());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(FLAG), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinLegacyNullChecksArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.noUnifiedNullChecks());
-        assertFalse(test.noUnifiedNullChecks());
+        assertTrue(main.policy().codeGeneration().noUnifiedNullChecks());
+        assertFalse(test.policy().codeGeneration().noUnifiedNullChecks());
     }
 
     @Test

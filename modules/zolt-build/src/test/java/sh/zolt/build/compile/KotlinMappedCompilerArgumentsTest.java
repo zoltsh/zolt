@@ -2,6 +2,7 @@ package sh.zolt.build.compile;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -37,8 +38,9 @@ final class KotlinMappedCompilerArgumentsTest {
                 new Classpath(List.of(Path.of("compiler.jar"))),
                 new Classpath(List.of(Path.of("stdlib.jar"))),
                 tempDir.resolve("warnings-as-errors-classes"),
-                new KotlinCompilerOptions(
-                        "21", "warnings_as_errors_main", false, true, false, true));
+                KotlinCompilerOptions.forArguments(
+                        "21", "warnings_as_errors_main", false, true, List.of("-Werror"),
+                        KotlinCompilationScope.MAIN));
 
         List<String> arguments = argumentContents.getFirst().lines().toList();
         assertEquals(
@@ -49,15 +51,16 @@ final class KotlinMappedCompilerArgumentsTest {
 
     @Test
     void defaultsWarningsOffAndFriendPathRetainsMappedArguments() {
-        KotlinCompilerOptions defaults = new KotlinCompilerOptions("21", "main", false);
-        KotlinCompilerOptions mapped = new KotlinCompilerOptions(
-                        "21", "test", false, true, true, true)
-                .withFriendPath(Path.of("target/classes"));
-
-        assertFalse(defaults.javaParameters());
-        assertFalse(defaults.warningsAsErrors());
-        assertTrue(mapped.javaParameters());
-        assertTrue(mapped.warningsAsErrors());
+        KotlinCompilerOptions defaults = KotlinCompilerOptions.defaults("21", "main", false);
+        KotlinCompilerOptions configured = KotlinCompilerOptions.forArguments(
+                "21", "test", false, true, List.of("-parameters", "-Werror"),
+                KotlinCompilationScope.TEST);
+        KotlinCompilerOptions mapped = configured.withFriendPath(Path.of("target/classes"));
+        assertFalse(defaults.policy().jvmInterop().javaParameters());
+        assertFalse(defaults.policy().diagnostics().warningsAsErrors());
+        assertTrue(mapped.policy().jvmInterop().javaParameters());
+        assertTrue(mapped.policy().diagnostics().warningsAsErrors());
+        assertSame(configured.policy(), mapped.policy());
         assertEquals(Path.of("target/classes"), mapped.friendPath());
     }
 
@@ -69,8 +72,9 @@ final class KotlinMappedCompilerArgumentsTest {
                 List.of("-Werror", "-parameters"))) {
             KotlinCompilerOptions options = mainOptions(arguments, List.of());
 
-            assertEquals(arguments.contains("-parameters"), options.javaParameters());
-            assertTrue(options.warningsAsErrors());
+            assertEquals(arguments.contains("-parameters"),
+                    options.policy().jvmInterop().javaParameters());
+            assertTrue(options.policy().diagnostics().warningsAsErrors());
             assertEquals(
                     arguments.contains("-parameters")
                             ? List.of("-parameters", "-Werror")
@@ -81,9 +85,7 @@ final class KotlinMappedCompilerArgumentsTest {
 
     @Test
     void scopesMappedArgumentsToTheActiveCompilerLane() {
-        ProjectConfig config = config(
-                List.of("-Werror"),
-                List.of("-parameters"));
+        ProjectConfig config = config(List.of("-Werror"), List.of("-parameters"));
 
         KotlinCompilerOptions main = KotlinCompileOptionsPolicy.options(
                 config,
@@ -94,15 +96,13 @@ final class KotlinMappedCompilerArgumentsTest {
                 KotlinMainCompilePolicyTest.jdkStatus("21.0.11", "21"),
                 KotlinCompilationScope.TEST);
 
-        assertFalse(main.javaParameters());
-        assertTrue(main.warningsAsErrors());
-        assertEquals(
-                List.of("-Werror"),
+        assertFalse(main.policy().jvmInterop().javaParameters());
+        assertTrue(main.policy().diagnostics().warningsAsErrors());
+        assertEquals(List.of("-Werror"),
                 KotlinCompileOptionsPolicy.javacOptions(main).arguments());
-        assertTrue(test.javaParameters());
-        assertFalse(test.warningsAsErrors());
-        assertEquals(
-                List.of("-parameters"),
+        assertTrue(test.policy().jvmInterop().javaParameters());
+        assertFalse(test.policy().diagnostics().warningsAsErrors());
+        assertEquals(List.of("-parameters"),
                 KotlinCompileOptionsPolicy.javacOptions(test).arguments());
     }
 

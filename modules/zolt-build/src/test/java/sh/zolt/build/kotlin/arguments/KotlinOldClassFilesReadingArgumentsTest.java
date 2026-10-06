@@ -26,7 +26,7 @@ final class KotlinOldClassFilesReadingArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.useOldClassFilesReading());
+        assertTrue(options.policy().metadata().useOldClassFilesReading());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(FLAG), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinOldClassFilesReadingArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.useOldClassFilesReading());
-        assertFalse(test.useOldClassFilesReading());
+        assertTrue(main.policy().metadata().useOldClassFilesReading());
+        assertFalse(test.policy().metadata().useOldClassFilesReading());
     }
 
     @Test

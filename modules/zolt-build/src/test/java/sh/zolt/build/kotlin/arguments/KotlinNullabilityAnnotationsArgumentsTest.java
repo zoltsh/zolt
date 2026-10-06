@@ -31,7 +31,7 @@ final class KotlinNullabilityAnnotationsArgumentsTest {
 
         assertEquals(
                 List.of("@org.jetbrains.annotations:strict", "@com.android.annotations:warn"),
-                options.nullabilityAnnotations());
+                options.policy().jvmInterop().nullabilityAnnotations());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertEquals(
@@ -53,8 +53,8 @@ final class KotlinNullabilityAnnotationsArgumentsTest {
                 List.of(JETBRAINS),
                 List.of(ANDROID));
 
-        assertEquals(List.of("@org.jetbrains.annotations:strict"), main.nullabilityAnnotations());
-        assertEquals(List.of("@com.android.annotations:warn"), test.nullabilityAnnotations());
+        assertEquals(List.of("@org.jetbrains.annotations:strict"), main.policy().jvmInterop().nullabilityAnnotations());
+        assertEquals(List.of("@com.android.annotations:warn"), test.policy().jvmInterop().nullabilityAnnotations());
     }
 
     @Test

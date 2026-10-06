@@ -26,7 +26,7 @@ final class KotlinReportAllWarningsArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.reportAllWarnings());
+        assertTrue(options.policy().diagnostics().reportAllWarnings());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(FLAG), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinReportAllWarningsArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.reportAllWarnings());
-        assertFalse(test.reportAllWarnings());
+        assertTrue(main.policy().diagnostics().reportAllWarnings());
+        assertFalse(test.policy().diagnostics().reportAllWarnings());
     }
 
     @Test

@@ -26,7 +26,7 @@ final class KotlinStrictMetadataArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.generateStrictMetadataVersion());
+        assertTrue(options.policy().metadata().generateStrictMetadataVersion());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(FLAG), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinStrictMetadataArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.generateStrictMetadataVersion());
-        assertFalse(test.generateStrictMetadataVersion());
+        assertTrue(main.policy().metadata().generateStrictMetadataVersion());
+        assertFalse(test.policy().metadata().generateStrictMetadataVersion());
     }
 
     @Test

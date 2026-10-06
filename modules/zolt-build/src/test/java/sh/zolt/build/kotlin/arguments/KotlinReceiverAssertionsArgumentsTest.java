@@ -26,7 +26,7 @@ final class KotlinReceiverAssertionsArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.noReceiverAssertions());
+        assertTrue(options.policy().codeGeneration().noReceiverAssertions());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(FLAG), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinReceiverAssertionsArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.noReceiverAssertions());
-        assertFalse(test.noReceiverAssertions());
+        assertTrue(main.policy().codeGeneration().noReceiverAssertions());
+        assertFalse(test.policy().codeGeneration().noReceiverAssertions());
     }
 
     @Test

@@ -26,7 +26,7 @@ final class KotlinUseTypeTableArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.useTypeTable());
+        assertTrue(options.policy().metadata().useTypeTable());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(FLAG), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinUseTypeTableArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.useTypeTable());
-        assertFalse(test.useTypeTable());
+        assertTrue(main.policy().metadata().useTypeTable());
+        assertFalse(test.policy().metadata().useTypeTable());
     }
 
     @Test

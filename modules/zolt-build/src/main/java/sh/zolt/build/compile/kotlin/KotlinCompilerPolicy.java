@@ -1,0 +1,168 @@
+package sh.zolt.build.compile.kotlin;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import sh.zolt.build.KotlinCompileException;
+import sh.zolt.build.compile.kotlin.kapt.KotlinAnnotationProcessorOptions;
+
+/** Immutable Kotlin compiler policy grouped by the responsibility of each option. */
+public record KotlinCompilerPolicy(
+        Language language,
+        Diagnostics diagnostics,
+        JvmInterop jvmInterop,
+        CodeGeneration codeGeneration,
+        Metadata metadata,
+        AnnotationProcessing annotationProcessing) {
+    public KotlinCompilerPolicy {
+        language = Objects.requireNonNull(language, "Kotlin language policy is required.");
+        diagnostics = Objects.requireNonNull(diagnostics, "Kotlin diagnostics policy is required.");
+        jvmInterop = Objects.requireNonNull(jvmInterop, "Kotlin JVM interop policy is required.");
+        codeGeneration = Objects.requireNonNull(
+                codeGeneration,
+                "Kotlin code-generation policy is required.");
+        metadata = Objects.requireNonNull(metadata, "Kotlin metadata policy is required.");
+        annotationProcessing = Objects.requireNonNull(
+                annotationProcessing,
+                "Kotlin annotation-processing policy is required.");
+    }
+
+    /** Kotlin language and source-compatibility behavior. */
+    public record Language(
+            boolean progressiveMode,
+            boolean contextSensitiveResolution,
+            boolean contextReceivers,
+            boolean contextParameters,
+            boolean whenGuards,
+            boolean multiDollarInterpolation,
+            boolean nonLocalBreakContinue,
+            boolean nestedTypeAliases,
+            boolean consistentDataClassCopyVisibility,
+            boolean allowKotlinPackage,
+            String annotationDefaultTargetMode,
+            String returnValueCheckerMode,
+            String languageVersion,
+            String apiVersion,
+            String explicitApiMode,
+            List<String> optIns) {
+        public Language {
+            annotationDefaultTargetMode = optional(annotationDefaultTargetMode);
+            returnValueCheckerMode = optional(returnValueCheckerMode);
+            languageVersion = optional(languageVersion);
+            apiVersion = optional(apiVersion);
+            explicitApiMode = optional(explicitApiMode);
+            optIns = copy(optIns, "compiler opt-in annotation");
+        }
+    }
+
+    /** Warning and compiler-diagnostic behavior. */
+    public record Diagnostics(
+            boolean warningsAsErrors,
+            boolean suppressWarnings,
+            boolean extraWarnings,
+            boolean reportAllWarnings,
+            boolean renderInternalDiagnosticNames,
+            List<String> warningLevels) {
+        public Diagnostics {
+            warningLevels = copy(warningLevels, "compiler warning level");
+        }
+    }
+
+    /** JVM language interop and bytecode-target semantics. */
+    public record JvmInterop(
+            boolean javaParameters,
+            boolean annotationTargetAll,
+            boolean jvmExposeBoxed,
+            boolean emitJvmTypeAnnotations,
+            boolean noNewJavaAnnotationTargets,
+            boolean jvmPreview,
+            String jspecifyAnnotationsMode,
+            String jsr305Mode,
+            String compatqualAnnotationsMode,
+            String jvmDefaultMode,
+            List<String> nullabilityAnnotations) {
+        public JvmInterop {
+            jspecifyAnnotationsMode = optional(jspecifyAnnotationsMode);
+            jsr305Mode = optional(jsr305Mode);
+            compatqualAnnotationsMode = optional(compatqualAnnotationsMode);
+            jvmDefaultMode = optional(jvmDefaultMode);
+            nullabilityAnnotations = copy(
+                    nullabilityAnnotations,
+                    "compiler nullability-annotation rule");
+        }
+    }
+
+    /** JVM backend and emitted-code behavior. */
+    public record CodeGeneration(
+            boolean noSourceDebugExtension,
+            boolean noUnifiedNullChecks,
+            boolean noOptimize,
+            boolean noInline,
+            boolean useInlineScopesNumbers,
+            boolean use14InlineClassesManglingScheme,
+            boolean enhancedCoroutinesDebugging,
+            boolean sanitizeParentheses,
+            boolean multifilePartsInherit,
+            boolean validateBytecode,
+            boolean indyAllowAnnotatedLambdas,
+            boolean noParamAssertions,
+            boolean noCallAssertions,
+            boolean noReceiverAssertions,
+            String backendThreads,
+            String assertionMode,
+            String stringConcatMode,
+            String lambdaMode,
+            String samConversionMode) {
+        public CodeGeneration {
+            backendThreads = optional(backendThreads);
+            assertionMode = optional(assertionMode);
+            stringConcatMode = optional(stringConcatMode);
+            lambdaMode = optional(lambdaMode);
+            samConversionMode = optional(samConversionMode);
+        }
+    }
+
+    /** Kotlin metadata and dependency-compatibility behavior. */
+    public record Metadata(
+            boolean generateStrictMetadataVersion,
+            boolean annotationsInMetadata,
+            boolean useTypeTable,
+            boolean useOldClassFilesReading,
+            boolean skipMetadataVersionCheck,
+            boolean skipPrereleaseCheck,
+            boolean allowUnstableDependencies,
+            String abiStabilityMode) {
+        public Metadata {
+            abiStabilityMode = optional(abiStabilityMode);
+        }
+    }
+
+    /** Bounded Kotlin annotation-processing configuration. */
+    public record AnnotationProcessing(
+            boolean useK2Kapt,
+            Map<String, String> processorOptions) {
+        public AnnotationProcessing {
+            processorOptions = new KotlinAnnotationProcessorOptions(processorOptions).values();
+        }
+    }
+
+    private static String optional(String value) {
+        return value == null || value.isBlank() ? "" : value.strip();
+    }
+
+    private static List<String> copy(List<String> values, String label) {
+        if (values == null) {
+            return List.of();
+        }
+        return values.stream()
+                .map(value -> require(value, label))
+                .toList();
+    }
+
+    private static String require(String value, String label) {
+        if (value == null || value.isBlank()) {
+            throw new KotlinCompileException("Kotlin compilation requires a " + label + ".");
+        }
+        return value.strip();
+    }
+}

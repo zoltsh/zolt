@@ -26,7 +26,7 @@ final class KotlinOptimizationArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.noOptimize());
+        assertTrue(options.policy().codeGeneration().noOptimize());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(FLAG), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinOptimizationArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.noOptimize());
-        assertFalse(test.noOptimize());
+        assertTrue(main.policy().codeGeneration().noOptimize());
+        assertFalse(test.policy().codeGeneration().noOptimize());
     }
 
     @Test

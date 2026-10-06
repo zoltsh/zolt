@@ -55,7 +55,7 @@ final class KspGeneratedSourceServiceTest {
                 List.of(),
                 KOTLIN_VERSION,
                 jdk(root),
-                new KotlinCompilerOptions("21", "demo_main", false),
+                KotlinCompilerOptions.defaults("21", "demo_main", false),
                 List.of(root.resolve("src/main/kotlin")),
                 List.of(root.resolve("src/main/java")),
                 List.of(root.resolve("lib/api.jar")));
@@ -98,7 +98,7 @@ final class KspGeneratedSourceServiceTest {
                         List.of(),
                         KOTLIN_VERSION,
                         jdk(root),
-                        new KotlinCompilerOptions("21", "demo_main", false),
+                        KotlinCompilerOptions.defaults("21", "demo_main", false),
                         List.of(root.resolve("src/main/kotlin")),
                         List.of(),
                         List.of()));
@@ -128,7 +128,7 @@ final class KspGeneratedSourceServiceTest {
                         List.of(),
                         KOTLIN_VERSION,
                         jdk(root),
-                        new KotlinCompilerOptions("21", "demo_main", false),
+                        KotlinCompilerOptions.defaults("21", "demo_main", false),
                         List.of(root.resolve("src/main/kotlin")),
                         List.of(),
                         List.of()));

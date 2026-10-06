@@ -26,7 +26,7 @@ final class KotlinJvmTypeAnnotationsArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.emitJvmTypeAnnotations());
+        assertTrue(options.policy().jvmInterop().emitJvmTypeAnnotations());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(FLAG), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinJvmTypeAnnotationsArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.emitJvmTypeAnnotations());
-        assertFalse(test.emitJvmTypeAnnotations());
+        assertTrue(main.policy().jvmInterop().emitJvmTypeAnnotations());
+        assertFalse(test.policy().jvmInterop().emitJvmTypeAnnotations());
     }
 
     @Test

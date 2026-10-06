@@ -26,7 +26,7 @@ final class KotlinJSpecifyAnnotationsArgumentsTest {
                         List.of(OPTION + "strict"))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertEquals("strict", options.jspecifyAnnotationsMode());
+        assertEquals("strict", options.policy().jvmInterop().jspecifyAnnotationsMode());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(OPTION + "strict"), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinJSpecifyAnnotationsArgumentsTest {
                 List.of(OPTION + "ignore"),
                 List.of(OPTION + "warn"));
 
-        assertEquals("ignore", main.jspecifyAnnotationsMode());
-        assertEquals("warn", test.jspecifyAnnotationsMode());
+        assertEquals("ignore", main.policy().jvmInterop().jspecifyAnnotationsMode());
+        assertEquals("warn", test.policy().jvmInterop().jspecifyAnnotationsMode());
     }
 
     @Test
@@ -55,7 +55,7 @@ final class KotlinJSpecifyAnnotationsArgumentsTest {
                     KotlinCompilationScope.MAIN,
                     List.of(OPTION + mode),
                     List.of());
-            assertEquals(mode, options.jspecifyAnnotationsMode());
+            assertEquals(mode, options.policy().jvmInterop().jspecifyAnnotationsMode());
             assertTrue(invocationArguments(options).contains(OPTION + mode));
         }
     }

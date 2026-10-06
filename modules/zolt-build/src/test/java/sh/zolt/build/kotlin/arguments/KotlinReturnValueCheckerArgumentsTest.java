@@ -26,7 +26,7 @@ final class KotlinReturnValueCheckerArgumentsTest {
                         List.of(OPTION + "check"))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertEquals("check", options.returnValueCheckerMode());
+        assertEquals("check", options.policy().language().returnValueCheckerMode());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(OPTION + "check"), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinReturnValueCheckerArgumentsTest {
                 List.of(OPTION + "full"),
                 List.of(OPTION + "disable"));
 
-        assertEquals("full", main.returnValueCheckerMode());
-        assertEquals("disable", test.returnValueCheckerMode());
+        assertEquals("full", main.policy().language().returnValueCheckerMode());
+        assertEquals("disable", test.policy().language().returnValueCheckerMode());
     }
 
     @Test
@@ -55,7 +55,7 @@ final class KotlinReturnValueCheckerArgumentsTest {
                     KotlinCompilationScope.MAIN,
                     List.of(OPTION + mode),
                     List.of());
-            assertEquals(mode, options.returnValueCheckerMode());
+            assertEquals(mode, options.policy().language().returnValueCheckerMode());
             assertTrue(invocationArguments(options).contains(OPTION + mode));
         }
     }

@@ -26,7 +26,7 @@ final class KotlinJvmExposeBoxedArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.jvmExposeBoxed());
+        assertTrue(options.policy().jvmInterop().jvmExposeBoxed());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(FLAG), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinJvmExposeBoxedArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.jvmExposeBoxed());
-        assertFalse(test.jvmExposeBoxed());
+        assertTrue(main.policy().jvmInterop().jvmExposeBoxed());
+        assertFalse(test.policy().jvmInterop().jvmExposeBoxed());
     }
 
     @Test

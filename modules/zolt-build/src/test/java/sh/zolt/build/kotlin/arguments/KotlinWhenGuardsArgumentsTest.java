@@ -26,7 +26,7 @@ final class KotlinWhenGuardsArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.whenGuards());
+        assertTrue(options.policy().language().whenGuards());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(FLAG), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinWhenGuardsArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.whenGuards());
-        assertFalse(test.whenGuards());
+        assertTrue(main.policy().language().whenGuards());
+        assertFalse(test.policy().language().whenGuards());
     }
 
     @Test

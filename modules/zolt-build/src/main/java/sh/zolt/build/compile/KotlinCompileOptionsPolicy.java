@@ -7,7 +7,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import sh.zolt.build.KotlinCompileException;
-import sh.zolt.build.compile.kotlin.KotlinCompilerMappedArguments;
+import sh.zolt.build.compile.kotlin.KotlinCompilerPolicy;
+import sh.zolt.build.compile.kotlin.KotlinJvmTargetOptions;
 import sh.zolt.doctor.JdkStatus;
 import sh.zolt.project.CompilerSettings;
 import sh.zolt.project.ProjectConfig;
@@ -27,7 +28,7 @@ public final class KotlinCompileOptionsPolicy {
                 scope,
                 "Kotlin compilation scope is required.");
         CompilerSettings compiler = config.compilerSettings();
-        KotlinCompilerMappedArguments mappedArguments =
+        KotlinCompilerPolicy mappedArguments =
                 KotlinCompilerArgumentPolicy.map(compiler, compilationScope);
         requireUtf8(compiler.encoding(), compilationScope);
         int release = featureVersion(
@@ -44,13 +45,13 @@ public final class KotlinCompileOptionsPolicy {
                             + " is newer than the selected JDK feature version " + jdkFeature,
                     "Select a Java " + release + " or newer build JDK, or lower [project].java.");
         }
-        if (mappedArguments.jvmPreview() && release < 12) {
+        if (mappedArguments.jvmInterop().jvmPreview() && release < 12) {
             throw unsupported(
                     compilationScope,
                     "JVM preview compilation targets Java " + release,
                     "Set [project].java to 12 or newer, or remove `-Xjvm-enable-preview`.");
         }
-        if (mappedArguments.jvmPreview() && release != jdkFeature) {
+        if (mappedArguments.jvmInterop().jvmPreview() && release != jdkFeature) {
             throw unsupported(
                     compilationScope,
                     "JVM preview compilation targets Java " + release
@@ -68,73 +69,12 @@ public final class KotlinCompileOptionsPolicy {
                 ? compiler.mainHostPlatformApi()
                 : compiler.testHostPlatformApi();
         return new KotlinCompilerOptions(
-                Integer.toString(release),
-                moduleName(config, compilationScope),
-                hostPlatformApi,
-                !hostPlatformApi && jdkFeature >= 9,
-                mappedArguments.javaParameters(),
-                mappedArguments.warningsAsErrors(),
-                mappedArguments.suppressWarnings(),
-                mappedArguments.extraWarnings(),
-                mappedArguments.reportAllWarnings(),
-                mappedArguments.renderInternalDiagnosticNames(),
-                mappedArguments.progressiveMode(),
-                mappedArguments.contextSensitiveResolution(),
-                mappedArguments.contextReceivers(),
-                mappedArguments.contextParameters(),
-                mappedArguments.whenGuards(),
-                mappedArguments.multiDollarInterpolation(),
-                mappedArguments.nonLocalBreakContinue(),
-                mappedArguments.nestedTypeAliases(),
-                mappedArguments.annotationTargetAll(),
-                mappedArguments.jvmExposeBoxed(),
-                mappedArguments.consistentDataClassCopyVisibility(),
-                mappedArguments.emitJvmTypeAnnotations(),
-                mappedArguments.noNewJavaAnnotationTargets(),
-                mappedArguments.noSourceDebugExtension(),
-                mappedArguments.noUnifiedNullChecks(),
-                mappedArguments.noOptimize(),
-                mappedArguments.noInline(),
-                mappedArguments.useInlineScopesNumbers(),
-                mappedArguments.use14InlineClassesManglingScheme(),
-                mappedArguments.enhancedCoroutinesDebugging(),
-                mappedArguments.sanitizeParentheses(),
-                mappedArguments.multifilePartsInherit(),
-                mappedArguments.validateBytecode(),
-                mappedArguments.indyAllowAnnotatedLambdas(),
-                mappedArguments.generateStrictMetadataVersion(),
-                mappedArguments.annotationsInMetadata(),
-                mappedArguments.useTypeTable(),
-                mappedArguments.useOldClassFilesReading(),
-                mappedArguments.skipMetadataVersionCheck(),
-                mappedArguments.skipPrereleaseCheck(),
-                mappedArguments.allowKotlinPackage(),
-                mappedArguments.useK2Kapt(),
-                mappedArguments.jvmPreview(),
-                mappedArguments.allowUnstableDependencies(),
-                mappedArguments.noParamAssertions(),
-                mappedArguments.noCallAssertions(),
-                mappedArguments.noReceiverAssertions(),
-                mappedArguments.backendThreads(),
-                mappedArguments.abiStabilityMode(),
-                mappedArguments.annotationDefaultTargetMode(),
-                mappedArguments.assertionMode(),
-                mappedArguments.returnValueCheckerMode(),
-                mappedArguments.jspecifyAnnotationsMode(),
-                mappedArguments.jsr305Mode(),
-                mappedArguments.compatqualAnnotationsMode(),
-                mappedArguments.stringConcatMode(),
-                mappedArguments.lambdaMode(),
-                mappedArguments.samConversionMode(),
-                mappedArguments.languageVersion(),
-                mappedArguments.apiVersion(),
-                mappedArguments.jvmDefaultMode(),
-                mappedArguments.explicitApiMode(),
-                mappedArguments.nullabilityAnnotations(),
-                mappedArguments.warningLevels(),
-                mappedArguments.optIns(),
-                mappedArguments.annotationProcessorOptions(),
-                null);
+                new KotlinJvmTargetOptions(
+                        Integer.toString(release),
+                        moduleName(config, compilationScope),
+                        hostPlatformApi,
+                        !hostPlatformApi && jdkFeature >= 9),
+                mappedArguments);
     }
 
     /** Maps Kotlin platform targeting onto the matching deterministic javac phase. */
@@ -142,17 +82,18 @@ public final class KotlinCompileOptionsPolicy {
         KotlinCompilerOptions options = Objects.requireNonNull(
                 kotlinOptions,
                 "Kotlin compilation options are required.");
+        KotlinCompilerPolicy policy = options.policy();
         List<String> arguments = new ArrayList<>(2);
-        if (options.javaParameters()) {
+        if (policy.jvmInterop().javaParameters()) {
             arguments.add("-parameters");
         }
-        if (options.suppressWarnings()) {
+        if (policy.diagnostics().suppressWarnings()) {
             arguments.add("-nowarn");
         }
-        if (options.warningsAsErrors()) {
+        if (policy.diagnostics().warningsAsErrors()) {
             arguments.add("-Werror");
         }
-        if (options.jvmPreview()) {
+        if (policy.jvmInterop().jvmPreview()) {
             arguments.add("--enable-preview");
         }
         return new JavacOptions(

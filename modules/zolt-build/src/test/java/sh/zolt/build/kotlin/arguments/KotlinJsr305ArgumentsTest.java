@@ -26,7 +26,7 @@ final class KotlinJsr305ArgumentsTest {
                         List.of(OPTION + "strict"))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertEquals("strict", options.jsr305Mode());
+        assertEquals("strict", options.policy().jvmInterop().jsr305Mode());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(OPTION + "strict"), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinJsr305ArgumentsTest {
                 List.of(OPTION + "ignore"),
                 List.of(OPTION + "warn"));
 
-        assertEquals("ignore", main.jsr305Mode());
-        assertEquals("warn", test.jsr305Mode());
+        assertEquals("ignore", main.policy().jvmInterop().jsr305Mode());
+        assertEquals("warn", test.policy().jvmInterop().jsr305Mode());
     }
 
     @Test
@@ -55,7 +55,7 @@ final class KotlinJsr305ArgumentsTest {
                     KotlinCompilationScope.MAIN,
                     List.of(OPTION + mode),
                     List.of());
-            assertEquals(mode, options.jsr305Mode());
+            assertEquals(mode, options.policy().jvmInterop().jsr305Mode());
             assertTrue(invocationArguments(options).contains(OPTION + mode));
         }
     }

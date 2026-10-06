@@ -26,7 +26,7 @@ final class KotlinContextSensitiveResolutionArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.contextSensitiveResolution());
+        assertTrue(options.policy().language().contextSensitiveResolution());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(FLAG), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinContextSensitiveResolutionArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.contextSensitiveResolution());
-        assertFalse(test.contextSensitiveResolution());
+        assertTrue(main.policy().language().contextSensitiveResolution());
+        assertFalse(test.policy().language().contextSensitiveResolution());
     }
 
     @Test

@@ -28,7 +28,7 @@ final class KotlinExplicitApiArgumentsTest {
                         List.of("-Xexplicit-api=warning"))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertEquals("warning", options.explicitApiMode());
+        assertEquals("warning", options.policy().language().explicitApiMode());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
 
         List<String> argumentContents = new ArrayList<>();
@@ -59,14 +59,14 @@ final class KotlinExplicitApiArgumentsTest {
                     KotlinCompilationScope.MAIN,
                     List.of("-Xexplicit-api=" + mode),
                     List.of("-Xexplicit-api=disable"));
-            assertEquals(mode, main.explicitApiMode());
+            assertEquals(mode, main.policy().language().explicitApiMode());
         }
 
         KotlinCompilerOptions test = options(
                 KotlinCompilationScope.TEST,
                 List.of("-Xexplicit-api=strict"),
                 List.of("-Xexplicit-api=warning"));
-        assertEquals("warning", test.explicitApiMode());
+        assertEquals("warning", test.policy().language().explicitApiMode());
     }
 
     @Test

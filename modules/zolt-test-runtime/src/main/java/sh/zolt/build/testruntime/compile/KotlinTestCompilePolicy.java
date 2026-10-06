@@ -50,7 +50,8 @@ final class KotlinTestCompilePolicy {
                 config,
                 jdkStatus,
                 KotlinCompilationScope.TEST);
-        new KotlinAnnotationProcessorOptions(options.annotationProcessorOptions())
+        new KotlinAnnotationProcessorOptions(
+                options.policy().annotationProcessing().processorOptions())
                 .requireProcessorClasspath(
                         classpaths.testProcessor(),
                         KotlinCompilationScope.TEST);

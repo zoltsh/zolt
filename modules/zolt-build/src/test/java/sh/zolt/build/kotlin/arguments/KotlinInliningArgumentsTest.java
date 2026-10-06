@@ -26,7 +26,7 @@ final class KotlinInliningArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.noInline());
+        assertTrue(options.policy().codeGeneration().noInline());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(FLAG), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinInliningArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.noInline());
-        assertFalse(test.noInline());
+        assertTrue(main.policy().codeGeneration().noInline());
+        assertFalse(test.policy().codeGeneration().noInline());
     }
 
     @Test

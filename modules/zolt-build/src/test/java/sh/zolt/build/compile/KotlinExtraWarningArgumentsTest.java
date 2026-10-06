@@ -29,8 +29,8 @@ final class KotlinExtraWarningArgumentsTest {
                         List.of("-Wextra", "-Werror"))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.extraWarnings());
-        assertTrue(options.warningsAsErrors());
+        assertTrue(options.policy().diagnostics().extraWarnings());
+        assertTrue(options.policy().diagnostics().warningsAsErrors());
         assertEquals(
                 List.of("-Werror"),
                 KotlinCompileOptionsPolicy.javacOptions(options).arguments());
@@ -68,8 +68,8 @@ final class KotlinExtraWarningArgumentsTest {
                 List.of("-Wextra"),
                 List.of());
 
-        assertTrue(main.extraWarnings());
-        assertFalse(test.extraWarnings());
+        assertTrue(main.policy().diagnostics().extraWarnings());
+        assertFalse(test.policy().diagnostics().extraWarnings());
     }
 
     @Test

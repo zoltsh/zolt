@@ -69,194 +69,14 @@ public final class KotlinCompilerInvocationArguments {
         arguments.add("-no-reflect");
         arguments.add("-jdk-home");
         arguments.add(jdkHome.toString());
-        if (!options.useJdkRelease()) {
-            arguments.add("-jvm-target");
-            arguments.add("8".equals(options.release()) ? "1.8" : options.release());
-        } else {
-            arguments.add("-Xjdk-release=" + options.release());
-        }
-        if (options.javaParameters()) {
-            arguments.add("-java-parameters");
-        }
-        if (options.suppressWarnings()) {
-            arguments.add("-nowarn");
-        }
-        if (options.warningsAsErrors()) {
-            arguments.add("-Werror");
-        }
-        if (options.extraWarnings()) {
-            arguments.add("-Wextra");
-        }
-        if (options.reportAllWarnings()) {
-            arguments.add("-Xreport-all-warnings");
-        }
-        if (options.renderInternalDiagnosticNames()) {
-            arguments.add("-Xrender-internal-diagnostic-names");
-        }
-        if (options.progressiveMode()) {
-            arguments.add("-progressive");
-        }
-        if (options.contextSensitiveResolution()) {
-            arguments.add("-Xcontext-sensitive-resolution");
-        }
-        if (options.contextReceivers()) {
-            arguments.add("-Xcontext-receivers");
-        }
-        if (options.contextParameters()) {
-            arguments.add("-Xcontext-parameters");
-        }
-        if (options.whenGuards()) {
-            arguments.add("-Xwhen-guards");
-        }
-        if (options.multiDollarInterpolation()) {
-            arguments.add("-Xmulti-dollar-interpolation");
-        }
-        if (options.nonLocalBreakContinue()) {
-            arguments.add("-Xnon-local-break-continue");
-        }
-        if (options.nestedTypeAliases()) {
-            arguments.add("-Xnested-type-aliases");
-        }
-        if (options.annotationTargetAll()) {
-            arguments.add("-Xannotation-target-all");
-        }
-        if (options.jvmExposeBoxed()) {
-            arguments.add("-Xjvm-expose-boxed");
-        }
-        if (options.consistentDataClassCopyVisibility()) {
-            arguments.add("-Xconsistent-data-class-copy-visibility");
-        }
-        if (options.emitJvmTypeAnnotations()) {
-            arguments.add("-Xemit-jvm-type-annotations");
-        }
-        if (options.noNewJavaAnnotationTargets()) {
-            arguments.add("-Xno-new-java-annotation-targets");
-        }
-        if (options.noSourceDebugExtension()) {
-            arguments.add("-Xno-source-debug-extension");
-        }
-        if (options.noUnifiedNullChecks()) {
-            arguments.add("-Xno-unified-null-checks");
-        }
-        if (options.noOptimize()) {
-            arguments.add("-Xno-optimize");
-        }
-        if (options.noInline()) {
-            arguments.add("-Xno-inline");
-        }
-        if (options.useInlineScopesNumbers()) {
-            arguments.add("-Xuse-inline-scopes-numbers");
-        }
-        if (options.use14InlineClassesManglingScheme()) {
-            arguments.add("-Xuse-14-inline-classes-mangling-scheme");
-        }
-        if (options.enhancedCoroutinesDebugging()) {
-            arguments.add("-Xenhanced-coroutines-debugging");
-        }
-        if (options.sanitizeParentheses()) {
-            arguments.add("-Xsanitize-parentheses");
-        }
-        if (options.multifilePartsInherit()) {
-            arguments.add("-Xmultifile-parts-inherit");
-        }
-        if (options.validateBytecode()) {
-            arguments.add("-Xvalidate-bytecode");
-        }
-        if (options.indyAllowAnnotatedLambdas()) {
-            arguments.add("-Xindy-allow-annotated-lambdas");
-        }
-        if (options.generateStrictMetadataVersion()) {
-            arguments.add("-Xgenerate-strict-metadata-version");
-        }
-        if (options.annotationsInMetadata()) {
-            arguments.add("-Xannotations-in-metadata");
-        }
-        if (options.useTypeTable()) {
-            arguments.add("-Xuse-type-table");
-        }
-        if (options.useOldClassFilesReading()) {
-            arguments.add("-Xuse-old-class-files-reading");
-        }
-        if (options.skipMetadataVersionCheck()) {
-            arguments.add("-Xskip-metadata-version-check");
-        }
-        if (options.skipPrereleaseCheck()) {
-            arguments.add("-Xskip-prerelease-check");
-        }
-        if (options.allowKotlinPackage()) {
-            arguments.add("-Xallow-kotlin-package");
-        }
-        if (options.useK2Kapt()) {
-            arguments.add("-Xuse-k2-kapt");
-        }
-        if (options.jvmPreview()) {
-            arguments.add("-Xjvm-enable-preview");
-        }
-        if (options.allowUnstableDependencies()) {
-            arguments.add("-Xallow-unstable-dependencies");
-        }
-        if (options.noParamAssertions()) {
-            arguments.add("-Xno-param-assertions");
-        }
-        if (options.noCallAssertions()) {
-            arguments.add("-Xno-call-assertions");
-        }
-        if (options.noReceiverAssertions()) {
-            arguments.add("-Xno-receiver-assertions");
-        }
-        if (!options.backendThreads().isEmpty()) {
-            arguments.add("-Xbackend-threads=" + options.backendThreads());
-        }
-        if (!options.abiStabilityMode().isEmpty()) {
-            arguments.add("-Xabi-stability=" + options.abiStabilityMode());
-        }
-        if (!options.annotationDefaultTargetMode().isEmpty()) {
-            arguments.add("-Xannotation-default-target=" + options.annotationDefaultTargetMode());
-        }
-        if (!options.assertionMode().isEmpty()) {
-            arguments.add("-Xassertions=" + options.assertionMode());
-        }
-        if (!options.returnValueCheckerMode().isEmpty()) {
-            arguments.add("-Xreturn-value-checker=" + options.returnValueCheckerMode());
-        }
-        if (!options.jspecifyAnnotationsMode().isEmpty()) {
-            arguments.add("-Xjspecify-annotations=" + options.jspecifyAnnotationsMode());
-        }
-        if (!options.jsr305Mode().isEmpty()) {
-            arguments.add("-Xjsr305=" + options.jsr305Mode());
-        }
-        if (!options.compatqualAnnotationsMode().isEmpty()) {
-            arguments.add("-Xsupport-compatqual-checker-framework-annotations="
-                    + options.compatqualAnnotationsMode());
-        }
-        options.nullabilityAnnotations().forEach(value ->
-                arguments.add("-Xnullability-annotations=" + value));
-        if (!options.stringConcatMode().isEmpty()) {
-            arguments.add("-Xstring-concat=" + options.stringConcatMode());
-        }
-        if (!options.lambdaMode().isEmpty()) {
-            arguments.add("-Xlambdas=" + options.lambdaMode());
-        }
-        if (!options.samConversionMode().isEmpty()) {
-            arguments.add("-Xsam-conversions=" + options.samConversionMode());
-        }
-        addVersion(arguments, "-language-version", options.languageVersion());
-        addVersion(arguments, "-api-version", options.apiVersion());
-        if (!options.jvmDefaultMode().isEmpty()) {
-            arguments.add("-jvm-default=" + options.jvmDefaultMode());
-        }
-        if (!options.explicitApiMode().isEmpty()) {
-            arguments.add("-Xexplicit-api=" + options.explicitApiMode());
-        }
-        options.warningLevels().forEach(level -> arguments.add("-Xwarning-level=" + level));
-        options.optIns().forEach(optIn -> arguments.add("-opt-in=" + optIn));
+        addTarget(arguments, options);
+        KotlinCompilerPolicyArguments.addTo(arguments, options.policy());
         addCompilerPlugins(arguments, compilerPluginJars, compilerPluginOptions);
-        addKaptArguments(arguments, kaptOptions, options.annotationProcessorOptions());
-        List<Path> compilationEntries = entries(compilationClasspath);
-        if (!compilationEntries.isEmpty()) {
-            arguments.add("-classpath");
-            arguments.add(joinedPath(compilationEntries, pathSeparator));
-        }
+        addKaptArguments(
+                arguments,
+                kaptOptions,
+                options.policy().annotationProcessing().processorOptions());
+        addClasspath(arguments, compilationClasspath, pathSeparator);
         if (options.friendPath() != null) {
             arguments.add("-Xfriend-paths=" + options.friendPath());
         }
@@ -266,6 +86,17 @@ public final class KotlinCompilerInvocationArguments {
         arguments.add(outputDirectory.toString());
         sources.forEach(source -> arguments.add(source.toString()));
         return List.copyOf(arguments);
+    }
+
+    private static void addTarget(
+            List<String> arguments,
+            KotlinCompilerOptions options) {
+        if (!options.useJdkRelease()) {
+            arguments.add("-jvm-target");
+            arguments.add("8".equals(options.release()) ? "1.8" : options.release());
+            return;
+        }
+        arguments.add("-Xjdk-release=" + options.release());
     }
 
     private static void addCompilerPlugins(
@@ -298,7 +129,10 @@ public final class KotlinCompilerInvocationArguments {
         addPluginOption(arguments, "classes", options.generatedClassesDirectory().toString());
         addPluginOption(arguments, "stubs", options.stubsDirectory().toString());
         options.processorClasspath().entries().forEach(path ->
-                addPluginOption(arguments, "apclasspath", path.toAbsolutePath().normalize().toString()));
+                addPluginOption(
+                        arguments,
+                        "apclasspath",
+                        path.toAbsolutePath().normalize().toString()));
         KotlinAnnotationProcessorOptions processorOptions =
                 new KotlinAnnotationProcessorOptions(annotationProcessorOptions);
         if (!processorOptions.isEmpty()) {
@@ -317,27 +151,23 @@ public final class KotlinCompilerInvocationArguments {
         arguments.add("plugin:org.jetbrains.kotlin.kapt3:" + name + "=" + value);
     }
 
-    private static void addVersion(
+    private static void addClasspath(
             List<String> arguments,
-            String name,
-            String value) {
-        if (!value.isEmpty()) {
-            arguments.add(name);
-            arguments.add(value);
+            Classpath classpath,
+            String pathSeparator) {
+        List<Path> entries = entries(classpath);
+        if (entries.isEmpty()) {
+            return;
         }
+        arguments.add("-classpath");
+        StringJoiner joiner = new StringJoiner(pathSeparator);
+        entries.forEach(entry -> joiner.add(entry.toString()));
+        arguments.add(joiner.toString());
     }
 
     private static List<Path> entries(Classpath classpath) {
         return classpath == null
                 ? List.of()
                 : classpath.entries().stream().map(Path::normalize).toList();
-    }
-
-    private static String joinedPath(
-            List<Path> entries,
-            String pathSeparator) {
-        StringJoiner joiner = new StringJoiner(pathSeparator);
-        entries.forEach(entry -> joiner.add(entry.toString()));
-        return joiner.toString();
     }
 }

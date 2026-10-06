@@ -26,7 +26,7 @@ final class KotlinSkipPrereleaseCheckArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.skipPrereleaseCheck());
+        assertTrue(options.policy().metadata().skipPrereleaseCheck());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(FLAG), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinSkipPrereleaseCheckArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.skipPrereleaseCheck());
-        assertFalse(test.skipPrereleaseCheck());
+        assertTrue(main.policy().metadata().skipPrereleaseCheck());
+        assertFalse(test.policy().metadata().skipPrereleaseCheck());
     }
 
     @Test

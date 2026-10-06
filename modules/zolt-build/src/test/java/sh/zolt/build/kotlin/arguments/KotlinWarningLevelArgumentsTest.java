@@ -27,7 +27,7 @@ final class KotlinWarningLevelArgumentsTest {
                 .withFriendPath(Path.of("target/classes"));
         assertEquals(
                 List.of("DEPRECATION:disabled", "UNUSED_VARIABLE:error"),
-                options.warningLevels());
+                options.policy().diagnostics().warningLevels());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains("-Xwarning-level=DEPRECATION:disabled"), arguments.toString());
@@ -42,13 +42,13 @@ final class KotlinWarningLevelArgumentsTest {
                     KotlinCompilationScope.MAIN,
                     List.of("-Xwarning-level=DEPRECATION:" + severity),
                     List.of("-Xwarning-level=UNUSED_VARIABLE:disabled"));
-            assertEquals(List.of("DEPRECATION:" + severity), main.warningLevels());
+            assertEquals(List.of("DEPRECATION:" + severity), main.policy().diagnostics().warningLevels());
         }
         KotlinCompilerOptions test = options(
                 KotlinCompilationScope.TEST,
                 List.of("-Xwarning-level=DEPRECATION:error"),
                 List.of("-Xwarning-level=UNUSED_VARIABLE:warning"));
-        assertEquals(List.of("UNUSED_VARIABLE:warning"), test.warningLevels());
+        assertEquals(List.of("UNUSED_VARIABLE:warning"), test.policy().diagnostics().warningLevels());
     }
 
     @Test
@@ -67,7 +67,7 @@ final class KotlinWarningLevelArgumentsTest {
                 KotlinCompilationScope.MAIN,
                 List.of("-Wextra", "-Xwarning-level=REDUNDANT_VISIBILITY_MODIFIER:disabled"),
                 List.of());
-        assertTrue(expanded.extraWarnings());
+        assertTrue(expanded.policy().diagnostics().extraWarnings());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(expanded).arguments().isEmpty());
     }
 

@@ -26,7 +26,7 @@ final class KotlinRenderInternalDiagnosticNamesArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.renderInternalDiagnosticNames());
+        assertTrue(options.policy().diagnostics().renderInternalDiagnosticNames());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(FLAG), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinRenderInternalDiagnosticNamesArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.renderInternalDiagnosticNames());
-        assertFalse(test.renderInternalDiagnosticNames());
+        assertTrue(main.policy().diagnostics().renderInternalDiagnosticNames());
+        assertFalse(test.policy().diagnostics().renderInternalDiagnosticNames());
     }
 
     @Test

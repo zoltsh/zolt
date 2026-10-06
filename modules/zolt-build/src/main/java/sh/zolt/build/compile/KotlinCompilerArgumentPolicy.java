@@ -5,7 +5,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import sh.zolt.build.KotlinCompileException;
-import sh.zolt.build.compile.kotlin.KotlinCompilerMappedArguments;
+import sh.zolt.build.compile.kotlin.KotlinCompilerPolicy;
 import sh.zolt.build.compile.kotlin.kapt.KotlinAnnotationProcessorOptions;
 import sh.zolt.project.CompilerSettings;
 
@@ -14,7 +14,7 @@ final class KotlinCompilerArgumentPolicy {
     private KotlinCompilerArgumentPolicy() {
     }
 
-    static KotlinCompilerMappedArguments map(
+    static KotlinCompilerPolicy map(
             CompilerSettings compiler,
             KotlinCompilationScope scope) {
         List<String> arguments = scope == KotlinCompilationScope.MAIN
@@ -204,69 +204,75 @@ final class KotlinCompilerArgumentPolicy {
                             + " uses `-Xindy-allow-annotated-lambdas` without `-Xlambdas=indy`",
                     "Add `-Xlambdas=indy`, or remove the annotated-lambda compatibility flag.");
         }
-        return new KotlinCompilerMappedArguments(
-                standaloneArguments.contains("-parameters"),
-                standaloneArguments.contains("-Werror"),
-                standaloneArguments.contains("-nowarn"),
-                standaloneArguments.contains("-Wextra"),
-                standaloneArguments.contains("-Xreport-all-warnings"),
-                standaloneArguments.contains("-Xrender-internal-diagnostic-names"),
-                standaloneArguments.contains("-progressive"),
-                standaloneArguments.contains("-Xcontext-sensitive-resolution"),
-                standaloneArguments.contains("-Xcontext-receivers"),
-                standaloneArguments.contains("-Xcontext-parameters"),
-                standaloneArguments.contains("-Xwhen-guards"),
-                standaloneArguments.contains("-Xmulti-dollar-interpolation"),
-                standaloneArguments.contains("-Xnon-local-break-continue"),
-                standaloneArguments.contains("-Xnested-type-aliases"),
-                standaloneArguments.contains("-Xannotation-target-all"),
-                standaloneArguments.contains("-Xjvm-expose-boxed"),
-                standaloneArguments.contains("-Xconsistent-data-class-copy-visibility"),
-                standaloneArguments.contains("-Xemit-jvm-type-annotations"),
-                standaloneArguments.contains("-Xno-new-java-annotation-targets"),
-                standaloneArguments.contains("-Xno-source-debug-extension"),
-                standaloneArguments.contains("-Xno-unified-null-checks"),
-                standaloneArguments.contains("-Xno-optimize"),
-                standaloneArguments.contains("-Xno-inline"),
-                standaloneArguments.contains("-Xuse-inline-scopes-numbers"),
-                standaloneArguments.contains("-Xuse-14-inline-classes-mangling-scheme"),
-                standaloneArguments.contains("-Xenhanced-coroutines-debugging"),
-                standaloneArguments.contains("-Xsanitize-parentheses"),
-                standaloneArguments.contains("-Xmultifile-parts-inherit"),
-                standaloneArguments.contains("-Xvalidate-bytecode"),
-                standaloneArguments.contains("-Xindy-allow-annotated-lambdas"),
-                standaloneArguments.contains("-Xgenerate-strict-metadata-version"),
-                standaloneArguments.contains("-Xannotations-in-metadata"),
-                standaloneArguments.contains("-Xuse-type-table"),
-                standaloneArguments.contains("-Xuse-old-class-files-reading"),
-                standaloneArguments.contains("-Xskip-metadata-version-check"),
-                standaloneArguments.contains("-Xskip-prerelease-check"),
-                standaloneArguments.contains("-Xallow-kotlin-package"),
-                standaloneArguments.contains("-Xuse-k2-kapt"),
-                standaloneArguments.contains("-Xjvm-enable-preview"),
-                standaloneArguments.contains("-Xallow-unstable-dependencies"),
-                standaloneArguments.contains("-Xno-param-assertions"),
-                standaloneArguments.contains("-Xno-call-assertions"),
-                standaloneArguments.contains("-Xno-receiver-assertions"),
-                backendThreads,
-                abiStabilityMode,
-                annotationDefaultTargetMode,
-                assertionMode,
-                returnValueCheckerMode,
-                jspecifyAnnotationsMode,
-                jsr305Mode,
-                compatqualAnnotationsMode,
-                stringConcatMode,
-                lambdaMode,
-                samConversionMode,
-                languageVersion,
-                apiVersion,
-                jvmDefaultMode,
-                explicitApiMode,
-                List.copyOf(nullabilityAnnotations),
-                List.copyOf(warningLevels),
-                List.copyOf(optIns),
-                annotationProcessorOptions.values());
+        return new KotlinCompilerPolicy(
+                new KotlinCompilerPolicy.Language(
+                        standaloneArguments.contains("-progressive"),
+                        standaloneArguments.contains("-Xcontext-sensitive-resolution"),
+                        standaloneArguments.contains("-Xcontext-receivers"),
+                        standaloneArguments.contains("-Xcontext-parameters"),
+                        standaloneArguments.contains("-Xwhen-guards"),
+                        standaloneArguments.contains("-Xmulti-dollar-interpolation"),
+                        standaloneArguments.contains("-Xnon-local-break-continue"),
+                        standaloneArguments.contains("-Xnested-type-aliases"),
+                        standaloneArguments.contains("-Xconsistent-data-class-copy-visibility"),
+                        standaloneArguments.contains("-Xallow-kotlin-package"),
+                        annotationDefaultTargetMode,
+                        returnValueCheckerMode,
+                        languageVersion,
+                        apiVersion,
+                        explicitApiMode,
+                        List.copyOf(optIns)),
+                new KotlinCompilerPolicy.Diagnostics(
+                        standaloneArguments.contains("-Werror"),
+                        standaloneArguments.contains("-nowarn"),
+                        standaloneArguments.contains("-Wextra"),
+                        standaloneArguments.contains("-Xreport-all-warnings"),
+                        standaloneArguments.contains("-Xrender-internal-diagnostic-names"),
+                        List.copyOf(warningLevels)),
+                new KotlinCompilerPolicy.JvmInterop(
+                        standaloneArguments.contains("-parameters"),
+                        standaloneArguments.contains("-Xannotation-target-all"),
+                        standaloneArguments.contains("-Xjvm-expose-boxed"),
+                        standaloneArguments.contains("-Xemit-jvm-type-annotations"),
+                        standaloneArguments.contains("-Xno-new-java-annotation-targets"),
+                        standaloneArguments.contains("-Xjvm-enable-preview"),
+                        jspecifyAnnotationsMode,
+                        jsr305Mode,
+                        compatqualAnnotationsMode,
+                        jvmDefaultMode,
+                        List.copyOf(nullabilityAnnotations)),
+                new KotlinCompilerPolicy.CodeGeneration(
+                        standaloneArguments.contains("-Xno-source-debug-extension"),
+                        standaloneArguments.contains("-Xno-unified-null-checks"),
+                        standaloneArguments.contains("-Xno-optimize"),
+                        standaloneArguments.contains("-Xno-inline"),
+                        standaloneArguments.contains("-Xuse-inline-scopes-numbers"),
+                        standaloneArguments.contains("-Xuse-14-inline-classes-mangling-scheme"),
+                        standaloneArguments.contains("-Xenhanced-coroutines-debugging"),
+                        standaloneArguments.contains("-Xsanitize-parentheses"),
+                        standaloneArguments.contains("-Xmultifile-parts-inherit"),
+                        standaloneArguments.contains("-Xvalidate-bytecode"),
+                        standaloneArguments.contains("-Xindy-allow-annotated-lambdas"),
+                        standaloneArguments.contains("-Xno-param-assertions"),
+                        standaloneArguments.contains("-Xno-call-assertions"),
+                        standaloneArguments.contains("-Xno-receiver-assertions"),
+                        backendThreads,
+                        assertionMode,
+                        stringConcatMode,
+                        lambdaMode,
+                        samConversionMode),
+                new KotlinCompilerPolicy.Metadata(
+                        standaloneArguments.contains("-Xgenerate-strict-metadata-version"),
+                        standaloneArguments.contains("-Xannotations-in-metadata"),
+                        standaloneArguments.contains("-Xuse-type-table"),
+                        standaloneArguments.contains("-Xuse-old-class-files-reading"),
+                        standaloneArguments.contains("-Xskip-metadata-version-check"),
+                        standaloneArguments.contains("-Xskip-prerelease-check"),
+                        standaloneArguments.contains("-Xallow-unstable-dependencies"),
+                        abiStabilityMode),
+                new KotlinCompilerPolicy.AnnotationProcessing(
+                        standaloneArguments.contains("-Xuse-k2-kapt"),
+                        annotationProcessorOptions.values()));
     }
 
     private static String versionArgument(

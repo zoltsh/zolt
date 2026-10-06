@@ -26,7 +26,7 @@ final class KotlinAnnotationsInMetadataArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.annotationsInMetadata());
+        assertTrue(options.policy().metadata().annotationsInMetadata());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(FLAG), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinAnnotationsInMetadataArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.annotationsInMetadata());
-        assertFalse(test.annotationsInMetadata());
+        assertTrue(main.policy().metadata().annotationsInMetadata());
+        assertFalse(test.policy().metadata().annotationsInMetadata());
     }
 
     @Test

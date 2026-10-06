@@ -26,7 +26,7 @@ final class KotlinAllowPackageArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.allowKotlinPackage());
+        assertTrue(options.policy().language().allowKotlinPackage());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(FLAG), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinAllowPackageArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.allowKotlinPackage());
-        assertFalse(test.allowKotlinPackage());
+        assertTrue(main.policy().language().allowKotlinPackage());
+        assertFalse(test.policy().language().allowKotlinPackage());
     }
 
     @Test

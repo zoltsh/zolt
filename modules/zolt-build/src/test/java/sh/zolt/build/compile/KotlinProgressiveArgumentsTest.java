@@ -28,7 +28,7 @@ final class KotlinProgressiveArgumentsTest {
                         List.of("-progressive"))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.progressiveMode());
+        assertTrue(options.policy().language().progressiveMode());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
 
         List<String> argumentContents = new ArrayList<>();
@@ -63,8 +63,8 @@ final class KotlinProgressiveArgumentsTest {
                 List.of("-progressive"),
                 List.of());
 
-        assertTrue(main.progressiveMode());
-        assertFalse(test.progressiveMode());
+        assertTrue(main.policy().language().progressiveMode());
+        assertFalse(test.policy().language().progressiveMode());
     }
 
     @Test

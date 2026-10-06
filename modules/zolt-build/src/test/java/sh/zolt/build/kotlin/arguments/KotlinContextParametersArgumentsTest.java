@@ -26,7 +26,7 @@ final class KotlinContextParametersArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.contextParameters());
+        assertTrue(options.policy().language().contextParameters());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(FLAG), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinContextParametersArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.contextParameters());
-        assertFalse(test.contextParameters());
+        assertTrue(main.policy().language().contextParameters());
+        assertFalse(test.policy().language().contextParameters());
     }
 
     @Test

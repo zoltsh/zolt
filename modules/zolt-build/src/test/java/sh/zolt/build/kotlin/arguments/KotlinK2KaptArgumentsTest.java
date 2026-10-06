@@ -26,7 +26,7 @@ final class KotlinK2KaptArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.useK2Kapt());
+        assertTrue(options.policy().annotationProcessing().useK2Kapt());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(FLAG), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinK2KaptArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.useK2Kapt());
-        assertFalse(test.useK2Kapt());
+        assertTrue(main.policy().annotationProcessing().useK2Kapt());
+        assertFalse(test.policy().annotationProcessing().useK2Kapt());
     }
 
     @Test

@@ -26,7 +26,7 @@ final class KotlinSourceDebugExtensionArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.noSourceDebugExtension());
+        assertTrue(options.policy().codeGeneration().noSourceDebugExtension());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(FLAG), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinSourceDebugExtensionArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.noSourceDebugExtension());
-        assertFalse(test.noSourceDebugExtension());
+        assertTrue(main.policy().codeGeneration().noSourceDebugExtension());
+        assertFalse(test.policy().codeGeneration().noSourceDebugExtension());
     }
 
     @Test

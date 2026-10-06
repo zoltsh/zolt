@@ -26,7 +26,7 @@ final class KotlinBackendThreadsArgumentsTest {
                         List.of(OPTION + "2"))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertEquals("2", options.backendThreads());
+        assertEquals("2", options.policy().codeGeneration().backendThreads());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(OPTION + "2"), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinBackendThreadsArgumentsTest {
                 List.of(OPTION + "1"),
                 List.of(OPTION + "4"));
 
-        assertEquals("1", main.backendThreads());
-        assertEquals("4", test.backendThreads());
+        assertEquals("1", main.policy().codeGeneration().backendThreads());
+        assertEquals("4", test.policy().codeGeneration().backendThreads());
     }
 
     @Test
@@ -55,7 +55,7 @@ final class KotlinBackendThreadsArgumentsTest {
                     KotlinCompilationScope.MAIN,
                     List.of(OPTION + count),
                     List.of());
-            assertEquals(count, options.backendThreads());
+            assertEquals(count, options.policy().codeGeneration().backendThreads());
             assertTrue(invocationArguments(options).contains(OPTION + count));
         }
     }

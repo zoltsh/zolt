@@ -26,7 +26,7 @@ final class KotlinSkipMetadataVersionCheckArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.skipMetadataVersionCheck());
+        assertTrue(options.policy().metadata().skipMetadataVersionCheck());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(FLAG), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinSkipMetadataVersionCheckArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.skipMetadataVersionCheck());
-        assertFalse(test.skipMetadataVersionCheck());
+        assertTrue(main.policy().metadata().skipMetadataVersionCheck());
+        assertFalse(test.policy().metadata().skipMetadataVersionCheck());
     }
 
     @Test

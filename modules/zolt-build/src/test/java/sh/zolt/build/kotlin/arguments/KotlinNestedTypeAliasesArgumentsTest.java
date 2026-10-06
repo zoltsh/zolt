@@ -26,7 +26,7 @@ final class KotlinNestedTypeAliasesArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.nestedTypeAliases());
+        assertTrue(options.policy().language().nestedTypeAliases());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(FLAG), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinNestedTypeAliasesArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.nestedTypeAliases());
-        assertFalse(test.nestedTypeAliases());
+        assertTrue(main.policy().language().nestedTypeAliases());
+        assertFalse(test.policy().language().nestedTypeAliases());
     }
 
     @Test

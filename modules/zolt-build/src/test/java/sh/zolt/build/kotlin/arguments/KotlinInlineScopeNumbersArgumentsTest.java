@@ -26,7 +26,7 @@ final class KotlinInlineScopeNumbersArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.useInlineScopesNumbers());
+        assertTrue(options.policy().codeGeneration().useInlineScopesNumbers());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(FLAG), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinInlineScopeNumbersArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.useInlineScopesNumbers());
-        assertFalse(test.useInlineScopesNumbers());
+        assertTrue(main.policy().codeGeneration().useInlineScopesNumbers());
+        assertFalse(test.policy().codeGeneration().useInlineScopesNumbers());
     }
 
     @Test

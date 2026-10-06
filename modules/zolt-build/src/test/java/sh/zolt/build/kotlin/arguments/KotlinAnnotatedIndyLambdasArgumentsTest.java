@@ -27,7 +27,7 @@ final class KotlinAnnotatedIndyLambdasArgumentsTest {
                         List.of(INDY, FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.indyAllowAnnotatedLambdas());
+        assertTrue(options.policy().codeGeneration().indyAllowAnnotatedLambdas());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(INDY), arguments.toString());
@@ -46,8 +46,8 @@ final class KotlinAnnotatedIndyLambdasArgumentsTest {
                 List.of(INDY, FLAG),
                 List.of());
 
-        assertTrue(main.indyAllowAnnotatedLambdas());
-        assertFalse(test.indyAllowAnnotatedLambdas());
+        assertTrue(main.policy().codeGeneration().indyAllowAnnotatedLambdas());
+        assertFalse(test.policy().codeGeneration().indyAllowAnnotatedLambdas());
     }
 
     @Test

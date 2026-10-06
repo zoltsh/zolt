@@ -26,7 +26,7 @@ final class KotlinSanitizeParenthesesArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.sanitizeParentheses());
+        assertTrue(options.policy().codeGeneration().sanitizeParentheses());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(FLAG), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinSanitizeParenthesesArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.sanitizeParentheses());
-        assertFalse(test.sanitizeParentheses());
+        assertTrue(main.policy().codeGeneration().sanitizeParentheses());
+        assertFalse(test.policy().codeGeneration().sanitizeParentheses());
     }
 
     @Test

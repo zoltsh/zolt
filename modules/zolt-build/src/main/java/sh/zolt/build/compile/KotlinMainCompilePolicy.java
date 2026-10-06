@@ -38,7 +38,8 @@ final class KotlinMainCompilePolicy {
                 config,
                 jdkStatus,
                 KotlinCompilationScope.MAIN);
-        new KotlinAnnotationProcessorOptions(options.annotationProcessorOptions())
+        new KotlinAnnotationProcessorOptions(
+                options.policy().annotationProcessing().processorOptions())
                 .requireProcessorClasspath(classpaths.processor(), KotlinCompilationScope.MAIN);
         return options;
     }

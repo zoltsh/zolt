@@ -26,7 +26,7 @@ final class KotlinEnhancedCoroutinesDebuggingArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.enhancedCoroutinesDebugging());
+        assertTrue(options.policy().codeGeneration().enhancedCoroutinesDebugging());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(FLAG), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinEnhancedCoroutinesDebuggingArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.enhancedCoroutinesDebugging());
-        assertFalse(test.enhancedCoroutinesDebugging());
+        assertTrue(main.policy().codeGeneration().enhancedCoroutinesDebugging());
+        assertFalse(test.policy().codeGeneration().enhancedCoroutinesDebugging());
     }
 
     @Test

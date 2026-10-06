@@ -26,7 +26,7 @@ final class KotlinMultiDollarInterpolationArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.multiDollarInterpolation());
+        assertTrue(options.policy().language().multiDollarInterpolation());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(FLAG), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinMultiDollarInterpolationArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.multiDollarInterpolation());
-        assertFalse(test.multiDollarInterpolation());
+        assertTrue(main.policy().language().multiDollarInterpolation());
+        assertFalse(test.policy().language().multiDollarInterpolation());
     }
 
     @Test

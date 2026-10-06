@@ -27,7 +27,7 @@ final class KotlinCompilerPluginArgumentsTest {
                 List.of(Path.of("src/Main.kt")),
                 new Classpath(List.of(Path.of("stdlib.jar"))),
                 tempDir.resolve("classes"),
-                new KotlinCompilerOptions("21", "plugins_main", false),
+                KotlinCompilerOptions.defaults("21", "plugins_main", false),
                 List.of(serialization, futurePlugin),
                 List.of(option),
                 null,
@@ -53,7 +53,7 @@ final class KotlinCompilerPluginArgumentsTest {
                 List.of(Path.of("src/Main.kt")),
                 new Classpath(List.of(Path.of("stdlib.jar"))),
                 tempDir.resolve("classes-kapt"),
-                new KotlinCompilerOptions("21", "plugins_kapt_main", false),
+                KotlinCompilerOptions.defaults("21", "plugins_kapt_main", false),
                 List.of(serialization),
                 List.of(new KotlinCompilerPluginOption(
                         "org.jetbrains.kotlin.allopen", "preset", "spring")),

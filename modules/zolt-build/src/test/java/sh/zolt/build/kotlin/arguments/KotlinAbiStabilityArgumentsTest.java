@@ -28,8 +28,8 @@ final class KotlinAbiStabilityArgumentsTest {
                         List.of(MODE + "unstable", ALLOW))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertEquals("unstable", options.abiStabilityMode());
-        assertTrue(options.allowUnstableDependencies());
+        assertEquals("unstable", options.policy().metadata().abiStabilityMode());
+        assertTrue(options.policy().metadata().allowUnstableDependencies());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(MODE + "unstable"), arguments.toString());
@@ -48,10 +48,10 @@ final class KotlinAbiStabilityArgumentsTest {
                 List.of(MODE + "unstable", ALLOW),
                 List.of(MODE + "stable"));
 
-        assertEquals("unstable", main.abiStabilityMode());
-        assertTrue(main.allowUnstableDependencies());
-        assertEquals("stable", test.abiStabilityMode());
-        assertFalse(test.allowUnstableDependencies());
+        assertEquals("unstable", main.policy().metadata().abiStabilityMode());
+        assertTrue(main.policy().metadata().allowUnstableDependencies());
+        assertEquals("stable", test.policy().metadata().abiStabilityMode());
+        assertFalse(test.policy().metadata().allowUnstableDependencies());
     }
 
     @Test
@@ -61,7 +61,7 @@ final class KotlinAbiStabilityArgumentsTest {
                     KotlinCompilationScope.MAIN,
                     List.of(MODE + mode),
                     List.of());
-            assertEquals(mode, options.abiStabilityMode());
+            assertEquals(mode, options.policy().metadata().abiStabilityMode());
             assertTrue(invocationArguments(options).contains(MODE + mode));
         }
     }

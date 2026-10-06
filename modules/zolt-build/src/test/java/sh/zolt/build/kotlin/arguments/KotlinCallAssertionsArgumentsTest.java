@@ -26,7 +26,7 @@ final class KotlinCallAssertionsArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.noCallAssertions());
+        assertTrue(options.policy().codeGeneration().noCallAssertions());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(FLAG), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinCallAssertionsArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.noCallAssertions());
-        assertFalse(test.noCallAssertions());
+        assertTrue(main.policy().codeGeneration().noCallAssertions());
+        assertFalse(test.policy().codeGeneration().noCallAssertions());
     }
 
     @Test

@@ -26,7 +26,7 @@ final class KotlinConsistentDataClassCopyVisibilityArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.consistentDataClassCopyVisibility());
+        assertTrue(options.policy().language().consistentDataClassCopyVisibility());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(FLAG), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinConsistentDataClassCopyVisibilityArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.consistentDataClassCopyVisibility());
-        assertFalse(test.consistentDataClassCopyVisibility());
+        assertTrue(main.policy().language().consistentDataClassCopyVisibility());
+        assertFalse(test.policy().language().consistentDataClassCopyVisibility());
     }
 
     @Test

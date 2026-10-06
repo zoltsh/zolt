@@ -37,8 +37,14 @@ final class KotlinTestCompileExecutorTest {
                 Path.of("lib/kotlin-compiler.jar"), serialization));
         KotlinCompilerInvocationToolchain invocationToolchain = new KotlinCompilerInvocationToolchain(
                 launcherClasspath, null, List.of(serialization));
-        KotlinCompilerOptions options = new KotlinCompilerOptions(
-                "8", "demo_test", false, false, true, true, Path.of("target/classes"));
+        KotlinCompilerOptions options = KotlinCompilerOptions.forArguments(
+                        "8",
+                        "demo_test",
+                        false,
+                        false,
+                        List.of("-parameters", "-Werror"),
+                        KotlinCompilationScope.TEST)
+                .withFriendPath(Path.of("target/classes"));
         CompileDiagnostics diagnostics = new CompileDiagnostics(1, 2, 3, 4, 5, 6, 7, 8);
         KotlinTestCompileExecutor executor = new KotlinTestCompileExecutor(
                 (javac, sources, classpath, output, processors, generated, javacOptions) -> {
@@ -67,8 +73,8 @@ final class KotlinTestCompileExecutorTest {
                             toolchain.compilerPluginJars());
                     assertEquals(compileClasspath, classpath);
                     assertEquals(options, kotlinOptions);
-                    assertTrue(kotlinOptions.javaParameters());
-                    assertTrue(kotlinOptions.warningsAsErrors());
+                    assertTrue(kotlinOptions.policy().jvmInterop().javaParameters());
+                    assertTrue(kotlinOptions.policy().diagnostics().warningsAsErrors());
                     assertEquals(Path.of("target/classes"), kotlinOptions.friendPath());
                     assertEquals(KotlinCompilationScope.TEST, scope);
                     return new JavacResult(2, output, "kotlin output");
@@ -113,7 +119,7 @@ final class KotlinTestCompileExecutorTest {
                         sources(List.of(JAVA_TEST), List.of(KOTLIN_TEST)),
                         new Classpath(List.of()),
                         new Classpath(List.of()),
-                        new KotlinCompilerOptions("21", "demo_test", false),
+                        KotlinCompilerOptions.defaults("21", "demo_test", false),
                         OUTPUT,
                         "",
                         CompileDiagnostics.empty()));
@@ -138,7 +144,7 @@ final class KotlinTestCompileExecutorTest {
                 sources(List.of(), List.of(KOTLIN_TEST)),
                 new Classpath(List.of()),
                 new Classpath(List.of()),
-                new KotlinCompilerOptions("21", "demo_test", false),
+                KotlinCompilerOptions.defaults("21", "demo_test", false),
                 OUTPUT,
                 "",
                 CompileDiagnostics.empty());
@@ -163,8 +169,9 @@ final class KotlinTestCompileExecutorTest {
         KotlinCompilerInvocationToolchain invocationToolchain = new KotlinCompilerInvocationToolchain(
                 launcherClasspath, plugin, List.of(serialization));
         Path generated = Path.of("target/generated/test-sources/annotations");
-        KotlinCompilerOptions options = new KotlinCompilerOptions(
-                "21", "demo_test", false).withFriendPath(Path.of("target/classes"));
+        KotlinCompilerOptions options = KotlinCompilerOptions.defaults(
+                        "21", "demo_test", false)
+                .withFriendPath(Path.of("target/classes"));
         CompileDiagnostics diagnostics = new CompileDiagnostics(1, 2, 3, 4, 5, 6, 7, 8);
         KotlinTestCompileExecutor executor = new KotlinTestCompileExecutor(
                 (javac, sources, classpath, output, processors, generatedDirectory, javacOptions) -> {

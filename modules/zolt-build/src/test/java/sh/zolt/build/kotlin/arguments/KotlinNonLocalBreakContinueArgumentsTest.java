@@ -26,7 +26,7 @@ final class KotlinNonLocalBreakContinueArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.nonLocalBreakContinue());
+        assertTrue(options.policy().language().nonLocalBreakContinue());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(FLAG), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinNonLocalBreakContinueArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.nonLocalBreakContinue());
-        assertFalse(test.nonLocalBreakContinue());
+        assertTrue(main.policy().language().nonLocalBreakContinue());
+        assertFalse(test.policy().language().nonLocalBreakContinue());
     }
 
     @Test

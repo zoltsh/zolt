@@ -26,7 +26,7 @@ final class KotlinParameterAssertionsArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.noParamAssertions());
+        assertTrue(options.policy().codeGeneration().noParamAssertions());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(FLAG), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinParameterAssertionsArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.noParamAssertions());
-        assertFalse(test.noParamAssertions());
+        assertTrue(main.policy().codeGeneration().noParamAssertions());
+        assertFalse(test.policy().codeGeneration().noParamAssertions());
     }
 
     @Test

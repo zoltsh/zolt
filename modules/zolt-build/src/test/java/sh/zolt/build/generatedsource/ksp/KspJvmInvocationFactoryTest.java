@@ -77,7 +77,8 @@ final class KspJvmInvocationFactoryTest {
     @Test
     void derivesCompilerDefaultVersionsAndJvmEightSpelling(@TempDir Path temporary) {
         Path root = temporary.toAbsolutePath().normalize();
-        KotlinCompilerOptions options = new KotlinCompilerOptions("8", "demo_main", false, false);
+        KotlinCompilerOptions options = KotlinCompilerOptions.defaults(
+                "8", "demo_main", false, false);
 
         KspJvmInvocation invocation = create(root, jdk(root, "1.8.0_472"), options);
 
@@ -102,7 +103,8 @@ final class KspJvmInvocationFactoryTest {
         assertTrue(failure.getMessage().contains("requires `-Xjdk-release`"), failure::getMessage);
         assertTrue(failure.actionableError().remediation().contains("Java 17"));
 
-        KotlinCompilerOptions hostMode = new KotlinCompilerOptions("17", "demo_main", true);
+        KotlinCompilerOptions hostMode = KotlinCompilerOptions.defaults(
+                "17", "demo_main", true);
         assertEquals("17", create(root, jdk(root, "21.0.11"), hostMode).jvmTarget());
     }
 
@@ -132,7 +134,7 @@ final class KspJvmInvocationFactoryTest {
                         output(root.resolve("staging")),
                         jdk(root, "21.0.11"),
                         toolchain(root),
-                        new KotlinCompilerOptions("21", "demo_main", false),
+                        KotlinCompilerOptions.defaults("21", "demo_main", false),
                         List.of(root.resolve("src/main/kotlin")),
                         List.of(),
                         List.of(),

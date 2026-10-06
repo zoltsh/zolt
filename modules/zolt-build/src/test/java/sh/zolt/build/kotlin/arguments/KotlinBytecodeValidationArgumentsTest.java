@@ -26,7 +26,7 @@ final class KotlinBytecodeValidationArgumentsTest {
                         List.of(FLAG))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertTrue(options.validateBytecode());
+        assertTrue(options.policy().codeGeneration().validateBytecode());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(FLAG), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinBytecodeValidationArgumentsTest {
                 List.of(FLAG),
                 List.of());
 
-        assertTrue(main.validateBytecode());
-        assertFalse(test.validateBytecode());
+        assertTrue(main.policy().codeGeneration().validateBytecode());
+        assertFalse(test.policy().codeGeneration().validateBytecode());
     }
 
     @Test
