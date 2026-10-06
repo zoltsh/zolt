@@ -28,8 +28,10 @@ public final class KotlinCompilerIntegrationArtifacts {
     public static final String KOTLIN_VERSION = "2.2.0";
     public static final String OPENAPI_TOOL_VERSION = "7.11.0";
     static final String EXEC_TOOL_VERSION = "1.0.0";
+    static final String PROCESSOR_VERSION = "1.0.0";
 
     private static final PackageId EXEC_TOOL = new PackageId("com.example", "gen-tool");
+    private static final PackageId PROCESSOR = new PackageId("com.example", "greeting-processor");
     private static final PackageId OPENAPI_TOOL =
             new PackageId("org.openapitools", "openapi-generator-cli");
 
@@ -38,6 +40,11 @@ public final class KotlinCompilerIntegrationArtifacts {
             "kotlin-compiler-embeddable",
             KOTLIN_VERSION,
             "org.jetbrains.kotlin.cli.jvm.K2JVMCompiler");
+    private static final ArtifactSpec KAPT = artifact(
+            "org.jetbrains.kotlin",
+            "kotlin-annotation-processing-embeddable",
+            KOTLIN_VERSION,
+            "org.jetbrains.kotlin.kapt.KaptCommandLineProcessor");
     private static final ArtifactSpec DAEMON = artifact(
             "org.jetbrains.kotlin",
             "kotlin-daemon-embeddable",
@@ -81,31 +88,66 @@ public final class KotlinCompilerIntegrationArtifacts {
     private KotlinCompilerIntegrationArtifacts() {}
 
     public static Prepared prepare(Path cacheRoot, Path lockfilePath) throws IOException {
-        return prepare(cacheRoot, lockfilePath, Optional.empty(), Optional.empty());
+        return prepare(
+                cacheRoot,
+                lockfilePath,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
     }
 
     public static Prepared prepareWithExecTool(
             Path cacheRoot,
             Path lockfilePath,
             Path execToolJar) throws IOException {
-        return prepare(cacheRoot, lockfilePath, Optional.of(execToolJar), Optional.empty());
+        return prepare(
+                cacheRoot,
+                lockfilePath,
+                Optional.of(execToolJar),
+                Optional.empty(),
+                Optional.empty());
     }
 
     public static Prepared prepareWithOpenApiTool(
             Path cacheRoot,
             Path lockfilePath,
             Path openApiToolJar) throws IOException {
-        return prepare(cacheRoot, lockfilePath, Optional.empty(), Optional.of(openApiToolJar));
+        return prepare(
+                cacheRoot,
+                lockfilePath,
+                Optional.empty(),
+                Optional.of(openApiToolJar),
+                Optional.empty());
+    }
+
+    public static Prepared prepareWithKaptProcessor(
+            Path cacheRoot,
+            Path lockfilePath,
+            Path processorJar) throws IOException {
+        return prepare(
+                cacheRoot,
+                lockfilePath,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(processorJar));
     }
 
     private static Prepared prepare(
             Path cacheRoot,
             Path lockfilePath,
             Optional<Path> execToolJar,
-            Optional<Path> openApiToolJar) throws IOException {
+            Optional<Path> openApiToolJar,
+            Optional<Path> processorJar) throws IOException {
         Map<PackageId, CachedArtifact> cached = new LinkedHashMap<>();
         for (ArtifactSpec spec : ARTIFACTS) {
             cached.put(spec.packageId(), cache(cacheRoot, spec));
+        }
+        if (processorJar.isPresent()) {
+            cached.put(KAPT.packageId(), cache(cacheRoot, KAPT));
+            cached.put(PROCESSOR, cache(
+                    cacheRoot,
+                    processorJar.orElseThrow(),
+                    "greeting-processor-" + PROCESSOR_VERSION + ".jar"));
         }
 
         List<LockPackage> packages = new ArrayList<>(List.of(
@@ -137,6 +179,15 @@ public final class KotlinCompilerIntegrationArtifacts {
                     openApiToolJar.orElseThrow(),
                     "openapi-generator-cli-" + OPENAPI_TOOL_VERSION + ".jar")));
         }
+        if (processorJar.isPresent()) {
+            packages.add(lockPackage(
+                    cached,
+                    KAPT,
+                    DependencyScope.TOOL_KOTLIN,
+                    true,
+                    List.of()));
+            packages.add(processorPackage(cached.get(PROCESSOR)));
+        }
         LockDependencyRoot runtimeRoot = new LockDependencyRoot(
                 ".",
                 STDLIB.packageId(),
@@ -146,6 +197,19 @@ public final class KotlinCompilerIntegrationArtifacts {
                 Optional.of(DependencyScope.COMPILE),
                 false,
                 false);
+        List<LockDependencyRoot> dependencyRoots = new ArrayList<>();
+        dependencyRoots.add(runtimeRoot);
+        if (processorJar.isPresent()) {
+            dependencyRoots.add(new LockDependencyRoot(
+                    ".",
+                    PROCESSOR,
+                    PROCESSOR_VERSION,
+                    LockArtifactVariant.defaultVariant(),
+                    DependencyLane.PROCESSOR,
+                    Optional.of(DependencyScope.PROCESSOR),
+                    false,
+                    false));
+        }
         new ZoltLockfileWriter().write(lockfilePath, new ZoltLockfile(
                 ZoltLockfile.CURRENT_VERSION,
                 Optional.empty(),
@@ -156,18 +220,22 @@ public final class KotlinCompilerIntegrationArtifacts {
                 List.of(),
                 List.of(),
                 Optional.empty(),
-                List.of(runtimeRoot)));
+                List.copyOf(dependencyRoots)));
 
+        List<Path> compilerClasspath = new ArrayList<>(List.of(
+                cached.get(COMPILER.packageId()).path(),
+                cached.get(DAEMON.packageId()).path(),
+                cached.get(REFLECT.packageId()).path(),
+                cached.get(SCRIPT_RUNTIME.packageId()).path(),
+                cached.get(STDLIB.packageId()).path(),
+                cached.get(COROUTINES.packageId()).path(),
+                cached.get(ANNOTATIONS.packageId()).path()));
+        if (processorJar.isPresent()) {
+            compilerClasspath.add(cached.get(KAPT.packageId()).path());
+        }
         return new Prepared(
                 List.of(cached.get(STDLIB.packageId()).path(), cached.get(ANNOTATIONS.packageId()).path()),
-                List.of(
-                        cached.get(COMPILER.packageId()).path(),
-                        cached.get(DAEMON.packageId()).path(),
-                        cached.get(REFLECT.packageId()).path(),
-                        cached.get(SCRIPT_RUNTIME.packageId()).path(),
-                        cached.get(STDLIB.packageId()).path(),
-                        cached.get(COROUTINES.packageId()).path(),
-                        cached.get(ANNOTATIONS.packageId()).path()));
+                List.copyOf(compilerClasspath));
     }
 
     private static LockPackage lockPackage(
@@ -231,6 +299,20 @@ public final class KotlinCompilerIntegrationArtifacts {
                 List.of(),
                 List.of(),
                 List.of("gen-tool"));
+    }
+
+    private static LockPackage processorPackage(CachedArtifact artifact) {
+        return new LockPackage(
+                PROCESSOR,
+                PROCESSOR_VERSION,
+                "central",
+                DependencyScope.PROCESSOR,
+                true,
+                Optional.of(artifact.relativePath()),
+                Optional.empty(),
+                Optional.of(artifact.sha256()),
+                Optional.empty(),
+                List.of());
     }
 
     private static LockPackage openApiToolPackage(CachedArtifact artifact) {
