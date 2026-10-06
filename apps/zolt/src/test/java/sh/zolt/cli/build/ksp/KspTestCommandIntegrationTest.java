@@ -86,6 +86,31 @@ final class KspTestCommandIntegrationTest {
             assertTrue(warm.stdout().contains("Tests passed"), warm.stdout());
             assertTiming(warm, "skipped");
             assertEquals(authoredClassTime, Files.getLastModifiedTime(authoredTestClass));
+
+            Path manifest = project.resolve("zolt.toml");
+            Files.writeString(
+                    manifest,
+                    Files.readString(manifest).replace(
+                            "\"fixture.message\" = \"test-ksp\"",
+                            "\"fixture.message\" = \"changed-ksp\""));
+            CommandResult refreshed = execute(
+                    "resolve",
+                    "--offline",
+                    "--cwd", project.toString(),
+                    "--cache-root", offlineCache.toString(),
+                    "--no-progress");
+            assertEquals(0, refreshed.exitCode(), refreshed.stderr());
+            CommandResult changed = test(project, offlineCache);
+
+            assertEquals(0, changed.exitCode(), changed.stderr());
+            assertTrue(changed.stdout().contains("Tests passed"), changed.stdout());
+            assertTiming(changed, "full");
+            assertTrue(Files.readString(
+                    generated.resolve("kotlin/com/example/GeneratedKspMessage.kt"))
+                    .contains("\"changed-ksp\""));
+            assertEquals(
+                    "changed-ksp-resource\n",
+                    Files.readString(testOutput.resolve("META-INF/ksp-cli.txt")));
             assertEquals(
                     Map.of(),
                     repository.authorizations(),
@@ -169,13 +194,13 @@ final class KspTestCommandIntegrationTest {
                 class KspGeneratedTest {
                     @Test
                     fun consumesEveryGeneratedLane() {
-                        assertEquals("test-ksp", GeneratedKspMessage.value())
-                        assertEquals("test-ksp", GeneratedJavaMessage.value())
+                        val generated = GeneratedKspMessage.value()
+                        assertEquals(generated, GeneratedJavaMessage.value())
                         val resource = javaClass.classLoader
                             .getResourceAsStream("META-INF/ksp-cli.txt")!!
                             .bufferedReader()
                             .use { it.readText() }
-                        assertEquals("test-ksp-resource\\n", resource)
+                        assertEquals("${generated}-resource\\n", resource)
                     }
                 }
                 """);
