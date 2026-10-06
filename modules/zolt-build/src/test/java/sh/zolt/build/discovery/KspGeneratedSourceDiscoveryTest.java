@@ -77,16 +77,54 @@ final class KspGeneratedSourceDiscoveryTest {
         assertTrue(result.mainSources().isEmpty());
     }
 
+    @Test
+    void excludesTestKspOutputsUntilTheyArePublished() throws IOException {
+        Path authoredJava = source("src/test/java/demo/AppTest.java");
+        Path authoredKotlin = source("src/test/kotlin/demo/AppTest.kt");
+        Path generatedJava = source("target/generated/ksp/test/symbols/java/demo/Fixture.java");
+        Path generatedKotlin = source("target/generated/ksp/test/symbols/kotlin/demo/Fixture.kt");
+        BuildSettings defaults = BuildSettings.defaults();
+        BuildSettings settings = new BuildSettings(
+                defaults.source(),
+                defaults.sourceRoots(),
+                defaults.test(),
+                defaults.outputRoot(),
+                defaults.output(),
+                defaults.testOutput(),
+                defaults.testSources(),
+                defaults.groovyTestSources(),
+                List.of("src/test/kotlin"),
+                defaults.resourceRoots(),
+                defaults.testResourceRoots(),
+                defaults.metadata()).withGeneratedSources(
+                List.of(),
+                List.of(step("test", true)));
+
+        SourceDiscoveryResult inputs = discoverer.discoverTestBeforeKsp(
+                projectDirectory,
+                settings);
+        SourceDiscoveryResult published = discoverer.discover(projectDirectory, settings);
+
+        assertEquals(List.of(authoredJava), inputs.testSources());
+        assertEquals(List.of(authoredKotlin), inputs.kotlinTestSources());
+        assertEquals(List.of(authoredJava, generatedJava), published.testSources());
+        assertEquals(List.of(authoredKotlin, generatedKotlin), published.kotlinTestSources());
+    }
+
     private static BuildSettings settings(GeneratedSourceStep step) {
         return BuildSettings.defaults().withGeneratedSources(List.of(step), List.of());
     }
 
     private static GeneratedSourceStep step(boolean required) {
+        return step("main", required);
+    }
+
+    private static GeneratedSourceStep step(String scope, boolean required) {
         return new GeneratedSourceStep(
                 "symbols",
                 GeneratedSourceKind.KSP,
                 "kotlin",
-                "target/generated/ksp/main/symbols",
+                "target/generated/ksp/" + scope + "/symbols",
                 List.of(),
                 required,
                 true,

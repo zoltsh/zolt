@@ -34,6 +34,10 @@ public final class SourceDiscoverer {
         return discover(projectDirectory, settings, false, false);
     }
 
+    public SourceDiscoveryResult discoverTestBeforeKsp(Path projectDirectory, BuildSettings settings) {
+        return discover(projectDirectory, settings, true, false);
+    }
+
     private SourceDiscoveryResult discover(
             Path projectDirectory,
             BuildSettings settings,
