@@ -2,6 +2,7 @@ package sh.zolt.build.testruntime.compile;
 
 import sh.zolt.build.cache.BuildCacheKey;
 import sh.zolt.build.cache.BuildCacheModulePolicy;
+import sh.zolt.build.cache.ProcessorBuildCacheRestore;
 import sh.zolt.build.cache.BuildCacheScope;
 import sh.zolt.build.cache.BuildCacheService;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
@@ -58,5 +59,16 @@ final class TestCompileCacheGate {
                 BuildCacheScope.TEST,
                 inputsSha,
                 compilerIdentity);
+    }
+
+    boolean restore(
+            BuildCacheKey key,
+            Path outputDirectory,
+            Classpath processorClasspath,
+            Path generatedSourcesDirectory) {
+        return ProcessorBuildCacheRestore.complete(
+                cache.restore(key, outputDirectory),
+                processorClasspath,
+                generatedSourcesDirectory).restored();
     }
 }

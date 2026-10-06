@@ -6,11 +6,11 @@ import sh.zolt.build.cache.BuildCacheModulePolicy;
 import sh.zolt.build.cache.BuildCacheRestoreResult;
 import sh.zolt.build.cache.BuildCacheScope;
 import sh.zolt.build.cache.BuildCacheService;
+import sh.zolt.build.cache.ProcessorBuildCacheRestore;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.build.fingerprint.BuildFingerprintService;
 import sh.zolt.build.incremental.IncrementalCompileState;
 import sh.zolt.project.ProjectConfig;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
@@ -55,14 +55,10 @@ final class MainBuildCacheGate {
                 projectDirectory, config, compilerIdentity, lockfilePath, sources,
                 classpaths, outputDirectory, generatedSourcesDirectory);
         BuildCacheKey key = BuildCacheKey.of(BuildCacheScope.MAIN, inputsSha, compilerIdentity);
-        BuildCacheRestoreResult restore = buildCacheService.restore(key, outputDirectory);
-        if (restore.restored()
-                && !classpaths.processor().entries().isEmpty()
-                && !ensureDirectory(generatedSourcesDirectory)) {
-            // A full compile will reset the restored output before writing it again. Treating this as
-            // a miss preserves the build-cache contract that an incomplete restore is never a hit.
-            restore = BuildCacheRestoreResult.miss();
-        }
+        BuildCacheRestoreResult restore = ProcessorBuildCacheRestore.complete(
+                buildCacheService.restore(key, outputDirectory),
+                classpaths.processor(),
+                generatedSourcesDirectory);
         return Attempt.active(key, restore);
     }
 
@@ -72,15 +68,6 @@ final class MainBuildCacheGate {
         }
         buildCacheService.store(attempt.key().orElseThrow(), outputDirectory);
         return "stored";
-    }
-
-    private static boolean ensureDirectory(Path directory) {
-        try {
-            Files.createDirectories(directory);
-            return true;
-        } catch (IOException exception) {
-            return false;
-        }
     }
 
     record Attempt(

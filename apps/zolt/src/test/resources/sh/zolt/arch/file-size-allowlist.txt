@@ -14,6 +14,5 @@ modules/zolt-explain/src/main/java/sh/zolt/explain/gradle/GradleMigrationReadine
 modules/zolt-ide/src/main/java/sh/zolt/ide/IdeModel.java|358|versioned IDE export schema keeps nested record names source-compatible
 modules/zolt-model/src/test/java/sh/zolt/manifest/authored/AuthoredManifestTest.java|480|authored manifest invariants share one exhaustive construction fixture
 modules/zolt-plan/src/test/java/sh/zolt/plan/BuildPlanServiceTest.java|463|plan node scenarios share one project fixture and node assertion vocabulary
-modules/zolt-test-runtime/src/main/java/sh/zolt/build/testruntime/compile/TestCompileService.java|351|mixed Java Groovy Kotlin and KAPT test compilation share one lifecycle boundary
 modules/zolt-test-runtime/src/test/java/sh/zolt/build/testruntime/compile/KotlinTestCompilePolicyTest.java|458|mixed-source and KAPT test policy cases share one compilation-scope fixture
 modules/zolt-workspace/src/test/java/sh/zolt/workspace/resolve/WorkspaceResolutionInputFingerprintTest.java|508|every fingerprint scenario mutates one shared two-member workspace fixture

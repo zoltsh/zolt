@@ -11,7 +11,6 @@ import sh.zolt.build.BuildResultWithClasspaths;
 import sh.zolt.build.lockfile.VerifiedArtifactIndex;
 import sh.zolt.build.BuildService;
 import sh.zolt.build.cache.BuildCacheKey;
-import sh.zolt.build.cache.BuildCacheRestoreResult;
 import sh.zolt.build.cache.BuildCacheService;
 import sh.zolt.build.compile.CompileOutputLayoutValidator;
 import sh.zolt.build.compile.GroovyCompilerRunner;
@@ -267,8 +266,8 @@ public final class TestCompileService {
                 outputDirectory, generatedSourcesDirectory, compiler.identity());
         boolean restored = false;
         if (cacheKey != null) {
-            BuildCacheRestoreResult restore = buildCacheService.restore(cacheKey, outputDirectory);
-            restored = restore.restored();
+            restored = cacheGate.restore(
+                    cacheKey, outputDirectory, classpaths.testProcessor(), generatedSourcesDirectory);
         }
         boolean runCompile = !compileSkipped && !restored;
 
