@@ -197,32 +197,31 @@ final class KotlinMainCompilePolicyTest {
     }
 
     @Test
-    void acceptsDeclaredJavaRootsButRejectsOwnedJavaGeneration() {
-        KotlinCompileException generatedJavaFailure = assertThrows(
-                KotlinCompileException.class,
-                () -> KotlinMainCompilePolicy.options(
-                        configWithGeneratedStep(execStep(ProducesLane.JAVA_SOURCES)),
-                        sources(List.of(), List.of(), List.of(KOTLIN)),
-                        classpaths(List.of()),
-                        jdkStatus("21.0.11", "21")));
-        KotlinCompilerOptions declaredRoot = KotlinMainCompilePolicy.options(
-                configWithGeneratedStep(generatedStep(GeneratedSourceKind.DECLARED_ROOT)),
-                sources(List.of(Path.of("generated/main/com/example/Generated.java")), List.of(), List.of(KOTLIN)),
+    void acceptsDeclaredAndOwnedGeneratedJavaSources() {
+        for (GeneratedSourceKind kind : List.of(
+                GeneratedSourceKind.DECLARED_ROOT,
+                GeneratedSourceKind.OPENAPI,
+                GeneratedSourceKind.PROTOBUF)) {
+            KotlinCompilerOptions options = KotlinMainCompilePolicy.options(
+                    configWithGeneratedStep(generatedStep(kind)),
+                    sources(
+                            List.of(Path.of("generated/main/com/example/Generated.java")),
+                            List.of(),
+                            List.of(KOTLIN)),
+                    classpaths(List.of()),
+                    jdkStatus("21.0.11", "21"));
+
+            assertEquals("21", options.release());
+        }
+
+        KotlinCompilerOptions exec = KotlinMainCompilePolicy.options(
+                configWithGeneratedStep(execStep(ProducesLane.JAVA_SOURCES)),
+                sources(
+                        List.of(Path.of("generated/main/com/example/Generated.java")),
+                        List.of(),
+                        List.of(KOTLIN)),
                 classpaths(List.of()),
                 jdkStatus("21.0.11", "21"));
-
-        for (GeneratedSourceKind kind : List.of(GeneratedSourceKind.OPENAPI, GeneratedSourceKind.PROTOBUF)) {
-            KotlinCompileException failure = assertThrows(
-                    KotlinCompileException.class,
-                    () -> KotlinMainCompilePolicy.options(
-                            configWithGeneratedStep(generatedStep(kind)),
-                            sources(List.of(), List.of(), List.of(KOTLIN)),
-                            classpaths(List.of()),
-                            jdkStatus("21.0.11", "21")));
-
-            assertTrue(failure.getMessage().contains("owned Java main-source generation"));
-            assertTrue(failure.getMessage().contains("pre-generated Java or Kotlin root"));
-        }
 
         for (ProducesLane lane : List.of(ProducesLane.RESOURCES, ProducesLane.INTERMEDIATE)) {
             KotlinCompilerOptions options = KotlinMainCompilePolicy.options(
@@ -233,9 +232,7 @@ final class KotlinMainCompilePolicyTest {
 
             assertEquals("21", options.release());
         }
-        assertEquals("21", declaredRoot.release());
-        assertTrue(generatedJavaFailure.getMessage().contains("owned Java main-source generation"));
-        assertTrue(generatedJavaFailure.getMessage().contains("pre-generated Java or Kotlin root"));
+        assertEquals("21", exec.release());
     }
 
     @Test
