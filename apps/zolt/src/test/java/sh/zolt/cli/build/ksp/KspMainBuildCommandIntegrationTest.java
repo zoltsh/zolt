@@ -1,13 +1,19 @@
 package sh.zolt.cli.build.ksp;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static sh.zolt.cli.CliTestSupport.execute;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.jar.JarFile;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import sh.zolt.cli.CliTestRepository;
@@ -87,6 +93,21 @@ final class KspMainBuildCommandIntegrationTest {
 
             assertEquals(0, run.exitCode(), run.stderr());
             assertTrue(run.stdout().contains("cli-ksp-cli-ksp"), run.stdout());
+
+            CommandResult packaged = execute(
+                    "package",
+                    "--mode", "uber-jar",
+                    "--no-build-cache",
+                    "--cwd", project.toString(),
+                    "--cache-root", offlineCache.toString(),
+                    "--no-progress");
+            Path jarPath = project.resolve("target/ksp-cli-0.1.0.jar");
+
+            assertEquals(0, packaged.exitCode(), packaged.stderr());
+            assertPackage(jarPath);
+            ProcessResult directRun = runJar(jarPath);
+            assertEquals(0, directRun.exitCode(), directRun.output());
+            assertEquals(List.of("cli-ksp-cli-ksp"), directRun.output().lines().toList());
             assertEquals(
                     Map.of(),
                     repository.authorizations(),
@@ -170,8 +191,43 @@ final class KspMainBuildCommandIntegrationTest {
         assertTrue(line.contains("\"mainCompilationMode\":\"" + mode + "\""), line);
     }
 
+    private static void assertPackage(Path jarPath) throws IOException {
+        try (JarFile jar = new JarFile(jarPath.toFile())) {
+            assertNotNull(jar.getEntry("com/example/Main.class"));
+            assertNotNull(jar.getEntry("com/example/GeneratedKspMessage.class"));
+            assertNotNull(jar.getEntry("com/example/GeneratedJavaMessage.class"));
+            assertNotNull(jar.getEntry("META-INF/ksp-cli.txt"));
+            assertNotNull(jar.getEntry("kotlin/Unit.class"));
+            assertNull(jar.getEntry("com/google/devtools/ksp/cmdline/KSPJvmMain.class"));
+            assertNull(jar.getEntry(
+                    "com/google/devtools/ksp/processing/SymbolProcessorProvider.class"));
+        }
+    }
+
+    private static ProcessResult runJar(Path jarPath) throws IOException, InterruptedException {
+        Path java = Path.of(System.getProperty("java.home"), "bin", executable("java"));
+        Process process = new ProcessBuilder(java.toString(), "-jar", jarPath.toString())
+                .redirectErrorStream(true)
+                .start();
+        if (!process.waitFor(20, TimeUnit.SECONDS)) {
+            process.destroyForcibly();
+            throw new AssertionError("Timed out running KSP uber JAR " + jarPath);
+        }
+        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        return new ProcessResult(process.exitValue(), output);
+    }
+
+    private static String executable(String name) {
+        return System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("win")
+                ? name + ".exe"
+                : name;
+    }
+
     private static String currentJavaMajorVersion() {
         String[] parts = System.getProperty("java.version").split("[._+-]", -1);
         return parts.length >= 2 && "1".equals(parts[0]) ? parts[1] : parts[0];
+    }
+
+    private record ProcessResult(int exitCode, String output) {
     }
 }
