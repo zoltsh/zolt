@@ -3,10 +3,17 @@
 apps/zolt-junit-worker/src/test/java/sh/zolt/junit/JunitLauncherWorkerTest.java|477|worker-process coverage still shares setup fixtures
 apps/zolt/src/test/java/sh/zolt/cli/publish/PublishWorkspaceResumeTest.java|460|immutable workspace resume scenarios share one repository fixture
 modules/zolt-build/src/main/java/sh/zolt/build/BuildService.java|384|verified compiler selection and cache fingerprinting remain one transactional build pipeline
+modules/zolt-build/src/main/java/sh/zolt/build/compile/KotlinCompilerToolchainResolver.java|397|Kotlin compiler and KAPT artifact verification share one fail-closed toolchain resolver
 modules/zolt-build/src/main/java/sh/zolt/build/compile/MainCompileSourceExecutor.java|447|full and experimental incremental compilation share cleanup and output attribution contracts
+modules/zolt-build/src/test/java/sh/zolt/build/compile/KotlinCompilerRunnerTest.java|507|process argfile and diagnostic cases share one compiler invocation fixture
+modules/zolt-build/src/test/java/sh/zolt/build/compile/KotlinCompilerToolchainResolverTest.java|458|compiler and KAPT graph failures share one hermetic artifact fixture
+modules/zolt-build/src/test/java/sh/zolt/build/compile/KotlinMainCompilePolicyTest.java|466|mixed-source and KAPT policy cases share one compilation-scope fixture
+modules/zolt-build/src/test/java/sh/zolt/build/compile/MainCompileSourceExecutorKotlinTest.java|524|Kotlin Java and KAPT execution phases share one output-lifecycle fixture
 modules/zolt-explain/src/main/java/sh/zolt/explain/ExplainSignals.java|355|migration signal definitions remain one discoverable registry with uniqueness coverage
 modules/zolt-explain/src/main/java/sh/zolt/explain/gradle/GradleMigrationReadinessFindings.java|352|Gradle signal readiness mappings remain one exhaustive switch with mapping coverage
 modules/zolt-ide/src/main/java/sh/zolt/ide/IdeModel.java|358|versioned IDE export schema keeps nested record names source-compatible
 modules/zolt-model/src/test/java/sh/zolt/manifest/authored/AuthoredManifestTest.java|480|authored manifest invariants share one exhaustive construction fixture
 modules/zolt-plan/src/test/java/sh/zolt/plan/BuildPlanServiceTest.java|463|plan node scenarios share one project fixture and node assertion vocabulary
+modules/zolt-test-runtime/src/main/java/sh/zolt/build/testruntime/compile/TestCompileService.java|351|mixed Java Groovy Kotlin and KAPT test compilation share one lifecycle boundary
+modules/zolt-test-runtime/src/test/java/sh/zolt/build/testruntime/compile/KotlinTestCompilePolicyTest.java|458|mixed-source and KAPT test policy cases share one compilation-scope fixture
 modules/zolt-workspace/src/test/java/sh/zolt/workspace/resolve/WorkspaceResolutionInputFingerprintTest.java|508|every fingerprint scenario mutates one shared two-member workspace fixture
