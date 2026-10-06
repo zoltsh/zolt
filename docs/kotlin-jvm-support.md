@@ -47,8 +47,10 @@ not mean every patch release has been exercised independently.
 
 Performance reports must distinguish whole-command latency from the later
 "compilation skipped" decision, especially for KSP-enabled projects. The
-benchmark harness and any published result remain the authority for timing
-claims; this matrix records behavior, not speed.
+`scripts/benchmark-kotlin-preview` harness measures cold, warm no-op, source-edit,
+and local-cache-restoration commands for Java-only, Kotlin-only, mixed,
+KAPT-enabled, and KSP-enabled fixtures. Its JSON summary records both wall-clock
+latency and the compile-phase mode; this matrix records behavior, not speed.
 
 ## Explicitly outside the preview
 

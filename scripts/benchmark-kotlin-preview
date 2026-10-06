@@ -1,0 +1,988 @@
+#!/usr/bin/env python3
+"""Measure complete Zolt build commands across the bounded Kotlin/JVM preview."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import math
+import os
+import pathlib
+import shutil
+import statistics
+import subprocess
+import sys
+import time
+import zipfile
+from datetime import datetime, timezone
+
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+SCENARIOS = ("java", "kotlin", "mixed", "kapt", "ksp")
+WORKFLOWS = ("cold-build", "warm-no-op", "source-edit", "cache-restore")
+KAPT_COORDINATE = ("bench.fixture", "kapt-processor", "1.0.0")
+KSP_COORDINATE = ("bench.fixture", "ksp-processor", "1.0.0")
+
+
+def positive_int(value: str) -> int:
+    parsed = int(value)
+    if parsed < 1:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return parsed
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Run a non-comparative, correctness-gated whole-command benchmark for "
+            "Java, Kotlin, mixed Java/Kotlin, KAPT, and KSP projects."
+        )
+    )
+    parser.add_argument("--zolt", default=os.environ.get("ZOLT_BENCH_ZOLT") or "zolt")
+    parser.add_argument(
+        "--work-dir",
+        type=pathlib.Path,
+        default=ROOT / "target/benchmarks/kotlin-preview",
+    )
+    parser.add_argument("--repeat", type=positive_int, default=5)
+    parser.add_argument("--cold-repeat", type=positive_int, default=3)
+    parser.add_argument("--sample-timeout", type=positive_int, default=600)
+    parser.add_argument("--java-version", type=positive_int, default=21)
+    parser.add_argument("--kotlin-version", default="2.2.0")
+    parser.add_argument("--ksp-version", default="2.2.0-2.0.2")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Write the benchmark plan without resolving dependencies or running Zolt.",
+    )
+    return parser.parse_args()
+
+
+def now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def safe_work_dir(path: pathlib.Path) -> pathlib.Path:
+    resolved = path.expanduser().resolve()
+    if resolved in {ROOT, ROOT.parent, pathlib.Path("/")} or not resolved.is_relative_to(ROOT):
+        raise RuntimeError(f"refusing unsafe Kotlin preview benchmark work directory: {resolved}")
+    return resolved
+
+
+def resolve_tool(value: str) -> str:
+    if "/" in value:
+        resolved = pathlib.Path(value).expanduser().resolve()
+        if not resolved.is_file():
+            raise RuntimeError(f"Zolt executable not found: {resolved}")
+        return str(resolved)
+    resolved = shutil.which(value)
+    if not resolved:
+        raise RuntimeError(f"Zolt executable not found on PATH: {value}")
+    return resolved
+
+
+def percentile95(values: list[int]) -> int | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    return ordered[max(0, math.ceil(0.95 * len(ordered)) - 1)]
+
+
+def toml_string(value: str | pathlib.Path) -> str:
+    return json.dumps(str(value))
+
+
+def write(path: pathlib.Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+
+
+def delete_tree(path: pathlib.Path) -> None:
+    if path.exists():
+        shutil.rmtree(path)
+
+
+class BenchmarkFailure(RuntimeError):
+    pass
+
+
+class Runner:
+    def __init__(self, args: argparse.Namespace) -> None:
+        self.args = args
+        self.work_dir = safe_work_dir(args.work_dir)
+        self.projects = self.work_dir / "projects"
+        self.logs = self.work_dir / "logs"
+        self.artifact_cache = self.work_dir / "artifact-cache"
+        self.user_home = self.work_dir / "zolt-user-home"
+        self.build_cache = self.user_home / "build-cache"
+        self.local_repository = self.work_dir / "m2"
+        self.samples_file = self.work_dir / "samples.jsonl"
+        self.summary_file = self.work_dir / "summary.json"
+        self.report_file = self.work_dir / "report.md"
+        self.zolt = args.zolt if args.dry_run else resolve_tool(args.zolt)
+        self.environment = os.environ.copy()
+        self.environment["ZOLT_USER_HOME"] = str(self.user_home)
+        self.rows: list[dict] = []
+        self.checks: list[dict] = []
+        self.started_at = now_iso()
+
+    def reset(self) -> None:
+        delete_tree(self.work_dir)
+        self.logs.mkdir(parents=True)
+
+    def command(self, *arguments: str) -> list[str]:
+        return [self.zolt, *arguments]
+
+    def build_command(self, scenario: str) -> list[str]:
+        return self.command(
+            "build",
+            "--offline",
+            "--timings",
+            "--timings-format",
+            "json",
+            "--no-progress",
+            "--cwd",
+            str(self.projects / scenario),
+            "--cache-root",
+            str(self.artifact_cache),
+        )
+
+    def run_process(
+        self,
+        command: list[str],
+        log_path: pathlib.Path,
+        *,
+        cwd: pathlib.Path | None = None,
+    ) -> tuple[int, int, str, str]:
+        started = time.perf_counter_ns()
+        try:
+            process = subprocess.run(
+                command,
+                cwd=cwd or ROOT,
+                env=self.environment,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=self.args.sample_timeout,
+            )
+            exit_code = process.returncode
+            stdout = process.stdout
+            stderr = process.stderr
+        except subprocess.TimeoutExpired as exception:
+            exit_code = 124
+            stdout = exception.stdout or ""
+            stderr = (exception.stderr or "") + (
+                f"\nCommand timed out after {self.args.sample_timeout} seconds.\n"
+            )
+        duration = round((time.perf_counter_ns() - started) / 1_000_000)
+        write(
+            log_path,
+            "$ " + " ".join(command) + "\n\nstdout:\n" + stdout + "\nstderr:\n" + stderr,
+        )
+        return exit_code, duration, stdout, stderr
+
+    def checked(
+        self,
+        command: list[str],
+        log_name: str,
+        *,
+        cwd: pathlib.Path | None = None,
+    ) -> tuple[int, str, str]:
+        exit_code, duration, stdout, stderr = self.run_process(
+            command, self.logs / log_name, cwd=cwd
+        )
+        if exit_code != 0:
+            raise BenchmarkFailure(
+                f"command failed with exit code {exit_code}; see {self.logs / log_name}"
+            )
+        return duration, stdout, stderr
+
+    def plan(self) -> dict:
+        workflows = []
+        for scenario in SCENARIOS:
+            for workflow in WORKFLOWS:
+                workflows.append(
+                    {
+                        "scenario": scenario,
+                        "workflow": workflow,
+                        "samples": (
+                            self.args.cold_repeat if workflow == "cold-build" else self.args.repeat
+                        ),
+                        "expectedCompilationMode": {
+                            "cold-build": "full",
+                            "warm-no-op": "skipped",
+                            "source-edit": "full",
+                            "cache-restore": "restored",
+                        }[workflow],
+                        "expectedProcessorBehavior": self.expected_processor_behavior(
+                            scenario, workflow
+                        ),
+                        "command": self.build_command(scenario),
+                    }
+                )
+        return {
+            "schemaVersion": 1,
+            "status": "dry-run",
+            "generatedAt": now_iso(),
+            "environment": self.environment_summary(),
+            "correctness": {"status": "not-run", "checks": []},
+            "workflows": workflows,
+        }
+
+    def environment_summary(self) -> dict:
+        return {
+            "classification": "kotlin-preview-whole-command",
+            "measurement": "wall-clock subprocess duration",
+            "zolt": self.zolt,
+            "javaVersion": self.args.java_version,
+            "kotlinVersion": self.args.kotlin_version,
+            "kspVersion": self.args.ksp_version,
+            "repeatCount": self.args.repeat,
+            "coldRepeatCount": self.args.cold_repeat,
+            "scenarios": list(SCENARIOS),
+        }
+
+    @staticmethod
+    def expected_processor_behavior(scenario: str, workflow: str) -> str:
+        if scenario == "ksp":
+            return "runs"
+        if scenario == "kapt":
+            return "runs" if workflow in {"cold-build", "source-edit"} else "skips"
+        return "not-applicable"
+
+    def prepare(self) -> None:
+        write(
+            self.user_home / "config.toml",
+            """version = 1
+
+[buildCache]
+enabled = true
+""",
+        )
+        self.write_java_project()
+        self.write_kotlin_project("kotlin")
+        self.write_mixed_project()
+        self.build_kapt_processor()
+        self.write_kapt_project()
+        self.build_ksp_processor()
+        self.write_ksp_project()
+        for scenario in SCENARIOS:
+            overlay = scenario in {"kapt", "ksp"}
+            command = self.command(
+                "resolve",
+                "--no-progress",
+                "--cwd",
+                str(self.projects / scenario),
+                "--cache-root",
+                str(self.artifact_cache),
+            )
+            if overlay:
+                command.extend(
+                    [
+                        "--repository-overlay",
+                        "maven-local",
+                        "--maven-local-root",
+                        str(self.local_repository),
+                    ]
+                )
+            self.checked(command, f"prepare/{scenario}-resolve.log")
+
+    def project_header(self, name: str, roots: list[str]) -> str:
+        rendered_roots = ", ".join(toml_string(root) for root in roots)
+        return f"""[project]
+name = {toml_string(name)}
+version = "1.0.0"
+group = "bench"
+java = {self.args.java_version}
+main = "bench.Main"
+
+[build]
+sources = [{rendered_roots}]
+
+[repositories]
+central = "https://repo.maven.apache.org/maven2"
+"""
+
+    def kotlin_config(self) -> str:
+        return f"""
+[toolchain.kotlin]
+version = {toml_string(self.args.kotlin_version)}
+
+[dependencies]
+"org.jetbrains.kotlin:kotlin-stdlib" = {toml_string(self.args.kotlin_version)}
+"""
+
+    def write_java_project(self) -> None:
+        project = self.projects / "java"
+        write(project / "zolt.toml", self.project_header("bench-java", ["src/main/java"]))
+        self.write_source("java", 0)
+
+    def write_kotlin_project(self, scenario: str) -> None:
+        project = self.projects / scenario
+        write(
+            project / "zolt.toml",
+            self.project_header(f"bench-{scenario}", ["src/main/kotlin"])
+            + self.kotlin_config(),
+        )
+        self.write_source(scenario, 0)
+
+    def write_mixed_project(self) -> None:
+        project = self.projects / "mixed"
+        write(
+            project / "zolt.toml",
+            self.project_header(
+                "bench-mixed", ["src/main/kotlin", "src/main/java"]
+            )
+            + self.kotlin_config(),
+        )
+        self.write_source("mixed", 0)
+        write(
+            project / "src/main/java/bench/JavaGreeting.java",
+            """package bench;
+
+public final class JavaGreeting {
+    private JavaGreeting() {}
+
+    public static String message() {
+        return Main.marker();
+    }
+}
+""",
+        )
+
+    def write_kapt_project(self) -> None:
+        project = self.projects / "kapt"
+        marker = project / ".benchmark/processor-invocations.log"
+        group, artifact, version = KAPT_COORDINATE
+        write(
+            project / "zolt.toml",
+            self.project_header("bench-kapt", ["src/main/kotlin"])
+            + f"""
+[compiler]
+args = [
+  "-Xuse-k2-kapt",
+  "-Azolt.message=kapt-benchmark",
+  {toml_string('-Azolt.marker=' + str(marker))},
+]
+"""
+            + self.kotlin_config()
+            + f"""
+[dependencies.processor]
+{toml_string(group + ':' + artifact)} = {toml_string(version)}
+""",
+        )
+        self.write_source("kapt", 0)
+
+    def write_ksp_project(self) -> None:
+        project = self.projects / "ksp"
+        marker = project / ".benchmark/processor-invocations.log"
+        group, artifact, version = KSP_COORDINATE
+        write(
+            project / "zolt.toml",
+            self.project_header("bench-ksp", ["src/main/kotlin"])
+            + self.kotlin_config()
+            + f"""
+[generated.tools.ksp]
+version = {toml_string(self.args.ksp_version)}
+coordinates = [
+  {{ coordinate = {toml_string(group + ':' + artifact)}, version = {toml_string(version)} }},
+]
+
+[generated.main.symbols]
+kind = "ksp"
+options = {{ "fixture.message" = "ksp-benchmark", "fixture.marker" = {toml_string(marker)} }}
+""",
+        )
+        self.write_source("ksp", 0)
+
+    def write_source(self, scenario: str, revision: int) -> None:
+        project = self.projects / scenario
+        if scenario == "java":
+            write(
+                project / "src/main/java/bench/Main.java",
+                f"""package bench;
+
+public final class Main {{
+    public static String marker() {{
+        return "revision-{revision}";
+    }}
+}}
+""",
+            )
+            return
+        generated = ""
+        if scenario == "mixed":
+            generated = "\n    fun javaMessage(): String = JavaGreeting.message()\n"
+        elif scenario == "kapt":
+            generated = "\n    fun generated(): String = GeneratedKaptMessage.value()\n"
+        elif scenario == "ksp":
+            generated = "\n    fun generated(): String = GeneratedKspMessage.value()\n"
+        write(
+            project / "src/main/kotlin/bench/Main.kt",
+            f"""package bench
+
+object Main {{
+    @JvmStatic
+    fun marker(): String = "revision-{revision}"
+{generated}}}
+""",
+        )
+
+    def publish_local_artifact(
+        self, coordinate: tuple[str, str, str], jar_path: pathlib.Path
+    ) -> None:
+        group, artifact, version = coordinate
+        base = (
+            self.local_repository
+            / pathlib.Path(*group.split("."))
+            / artifact
+            / version
+        )
+        base.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(jar_path, base / f"{artifact}-{version}.jar")
+        write(
+            base / f"{artifact}-{version}.pom",
+            f"""<project>
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>{group}</groupId>
+  <artifactId>{artifact}</artifactId>
+  <version>{version}</version>
+</project>
+""",
+        )
+
+    def build_kapt_processor(self) -> None:
+        work = self.work_dir / "processor-build/kapt"
+        source = work / "src/bench/fixture/KaptProcessor.java"
+        classes = work / "classes"
+        write(
+            source,
+            """package bench.fixture;
+
+import java.io.IOException;
+import java.io.Writer;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.util.Set;
+import javax.annotation.processing.AbstractProcessor;
+import javax.annotation.processing.RoundEnvironment;
+import javax.annotation.processing.SupportedAnnotationTypes;
+import javax.lang.model.SourceVersion;
+import javax.lang.model.element.TypeElement;
+import javax.tools.JavaFileObject;
+
+@SupportedAnnotationTypes("*")
+public final class KaptProcessor extends AbstractProcessor {
+    private boolean generated;
+
+    @Override
+    public SourceVersion getSupportedSourceVersion() {
+        return SourceVersion.latestSupported();
+    }
+
+    @Override
+    public boolean process(
+            Set<? extends TypeElement> annotations,
+            RoundEnvironment roundEnvironment) {
+        if (generated || roundEnvironment.processingOver()) {
+            return false;
+        }
+        try {
+            String marker = processingEnv.getOptions().get("zolt.marker");
+            if (marker == null || marker.isBlank()) {
+                throw new IllegalArgumentException("zolt.marker is required");
+            }
+            Path markerPath = Path.of(marker);
+            Files.createDirectories(markerPath.getParent());
+            Files.writeString(
+                    markerPath,
+                    "kapt\\n",
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.APPEND);
+            String message = processingEnv.getOptions()
+                    .getOrDefault("zolt.message", "kapt-benchmark");
+            JavaFileObject generatedSource = processingEnv.getFiler()
+                    .createSourceFile("bench.GeneratedKaptMessage");
+            try (Writer writer = generatedSource.openWriter()) {
+                writer.write("package bench; public final class GeneratedKaptMessage { "
+                        + "public static String value() { return \\\"" + message + "\\\"; } }");
+            }
+            generated = true;
+            return false;
+        } catch (IOException exception) {
+            throw new RuntimeException(exception);
+        }
+    }
+}
+""",
+        )
+        classes.mkdir(parents=True)
+        self.checked(
+            ["javac", "-proc:none", "-d", str(classes), str(source)],
+            "prepare/kapt-javac.log",
+        )
+        write(
+            classes / "META-INF/services/javax.annotation.processing.Processor",
+            "bench.fixture.KaptProcessor\n",
+        )
+        jar = work / "kapt-processor-1.0.0.jar"
+        self.jar_directory(classes, jar)
+        self.publish_local_artifact(KAPT_COORDINATE, jar)
+
+    def build_ksp_processor(self) -> None:
+        bootstrap = self.work_dir / "ksp-api-bootstrap"
+        write(
+            bootstrap / "zolt.toml",
+            self.project_header("ksp-api-bootstrap", ["src/main/java"])
+            + f"""
+[dependencies]
+"com.google.devtools.ksp:symbol-processing-api" = {toml_string(self.args.ksp_version)}
+""",
+        )
+        write(
+            bootstrap / "src/main/java/bench/Bootstrap.java",
+            "package bench; public final class Bootstrap {}\n",
+        )
+        self.checked(
+            self.command(
+                "resolve",
+                "--no-progress",
+                "--cwd",
+                str(bootstrap),
+                "--cache-root",
+                str(self.artifact_cache),
+            ),
+            "prepare/ksp-api-resolve.log",
+        )
+        _, classpath, _ = self.checked(
+            self.command(
+                "classpath",
+                "compile",
+                "--cwd",
+                str(bootstrap),
+                "--cache-root",
+                str(self.artifact_cache),
+            ),
+            "prepare/ksp-api-classpath.log",
+        )
+        work = self.work_dir / "processor-build/ksp"
+        source = work / "src/bench/fixture/KspProcessorProvider.java"
+        classes = work / "classes"
+        write(
+            source,
+            """package bench.fixture;
+
+import com.google.devtools.ksp.processing.CodeGenerator;
+import com.google.devtools.ksp.processing.Dependencies;
+import com.google.devtools.ksp.processing.Resolver;
+import com.google.devtools.ksp.processing.SymbolProcessor;
+import com.google.devtools.ksp.processing.SymbolProcessorEnvironment;
+import com.google.devtools.ksp.processing.SymbolProcessorProvider;
+import com.google.devtools.ksp.symbol.KSAnnotated;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.util.List;
+
+public final class KspProcessorProvider implements SymbolProcessorProvider {
+    @Override
+    public SymbolProcessor create(SymbolProcessorEnvironment environment) {
+        String marker = environment.getOptions().get("fixture.marker");
+        String message = environment.getOptions().get("fixture.message");
+        if (marker == null || marker.isBlank() || message == null || message.isBlank()) {
+            throw new IllegalArgumentException("fixture.marker and fixture.message are required");
+        }
+        return new Processor(environment.getCodeGenerator(), Path.of(marker), message);
+    }
+
+    private static final class Processor implements SymbolProcessor {
+        private final CodeGenerator generator;
+        private final Path marker;
+        private final String message;
+        private boolean generated;
+
+        private Processor(CodeGenerator generator, Path marker, String message) {
+            this.generator = generator;
+            this.marker = marker;
+            this.message = message;
+        }
+
+        @Override
+        public List<KSAnnotated> process(Resolver resolver) {
+            if (generated) {
+                return List.of();
+            }
+            generated = true;
+            try {
+                Files.createDirectories(marker.getParent());
+                Files.writeString(
+                        marker,
+                        "ksp\\n",
+                        StandardOpenOption.CREATE,
+                        StandardOpenOption.APPEND);
+            } catch (IOException exception) {
+                throw new UncheckedIOException(exception);
+            }
+            try (OutputStream output = generator.createNewFile(
+                    new Dependencies(false), "bench", "GeneratedKspMessage", "kt")) {
+                output.write(("package bench\\n\\n"
+                        + "object GeneratedKspMessage {\\n"
+                        + "    @JvmStatic fun value(): String = \\\"" + message + "\\\"\\n"
+                        + "}\\n").getBytes(StandardCharsets.UTF_8));
+            } catch (IOException exception) {
+                throw new UncheckedIOException(exception);
+            }
+            return List.of();
+        }
+    }
+}
+""",
+        )
+        classes.mkdir(parents=True)
+        self.checked(
+            [
+                "javac",
+                "-proc:none",
+                "-cp",
+                classpath.strip(),
+                "-d",
+                str(classes),
+                str(source),
+            ],
+            "prepare/ksp-javac.log",
+        )
+        write(
+            classes
+            / "META-INF/services/com.google.devtools.ksp.processing.SymbolProcessorProvider",
+            "bench.fixture.KspProcessorProvider\n",
+        )
+        jar = work / "ksp-processor-1.0.0.jar"
+        self.jar_directory(classes, jar)
+        self.publish_local_artifact(KSP_COORDINATE, jar)
+
+    @staticmethod
+    def jar_directory(classes: pathlib.Path, output: pathlib.Path) -> None:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            for path in sorted(classes.rglob("*")):
+                if path.is_file():
+                    info = zipfile.ZipInfo(path.relative_to(classes).as_posix())
+                    info.date_time = (1980, 1, 1, 0, 0, 0)
+                    info.compress_type = zipfile.ZIP_DEFLATED
+                    archive.writestr(info, path.read_bytes())
+
+    @staticmethod
+    def timing(stderr: str) -> tuple[str, int | None]:
+        for line in stderr.splitlines():
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if event.get("phase") == "compile main":
+                attributes = event.get("attributes") or {}
+                return attributes.get("mainCompilationMode", ""), event.get("durationMillis")
+        return "", None
+
+    def processor_count(self, scenario: str) -> int:
+        marker = self.projects / scenario / ".benchmark/processor-invocations.log"
+        if not marker.is_file():
+            return 0
+        return len(marker.read_text(encoding="utf-8").splitlines())
+
+    def record_check(self, subject: str, passed: bool, detail: str) -> None:
+        self.checks.append({"subject": subject, "passed": passed, "detail": detail})
+        if not passed:
+            raise BenchmarkFailure(f"correctness check failed for {subject}: {detail}")
+
+    def sample(
+        self,
+        scenario: str,
+        workflow: str,
+        index: int,
+        expected_mode: str,
+    ) -> None:
+        before = self.processor_count(scenario)
+        command = self.build_command(scenario)
+        exit_code, duration, stdout, stderr = self.run_process(
+            command,
+            self.logs / scenario / workflow / f"sample-{index}.log",
+        )
+        mode, compile_duration = self.timing(stderr)
+        after = self.processor_count(scenario)
+        row = {
+            "scenario": scenario,
+            "workflow": workflow,
+            "sample": index,
+            "exitCode": exit_code,
+            "durationMillis": duration,
+            "compilePhaseMillis": compile_duration,
+            "compilationMode": mode,
+            "processorInvocations": after - before,
+            "log": str(
+                (self.logs / scenario / workflow / f"sample-{index}.log").relative_to(ROOT)
+            ),
+        }
+        self.rows.append(row)
+        with self.samples_file.open("a", encoding="utf-8") as stream:
+            stream.write(json.dumps(row, sort_keys=True) + "\n")
+        self.record_check(
+            f"{scenario}/{workflow}/{index}/exit",
+            exit_code == 0,
+            f"expected exit 0, observed {exit_code}",
+        )
+        self.record_check(
+            f"{scenario}/{workflow}/{index}/mode",
+            mode == expected_mode,
+            f"expected {expected_mode}, observed {mode or '<missing>'}",
+        )
+        expected_processor = self.expected_processor_behavior(scenario, workflow)
+        if expected_processor != "not-applicable":
+            expected_count = 1 if expected_processor == "runs" else 0
+            self.record_check(
+                f"{scenario}/{workflow}/{index}/processor",
+                after - before == expected_count,
+                f"expected {expected_count} invocation, observed {after - before}",
+            )
+        self.check_outputs(scenario, workflow, index)
+
+    def check_outputs(self, scenario: str, workflow: str, index: int) -> None:
+        output = self.projects / scenario / "target/classes/bench"
+        expected = [output / "Main.class"]
+        if scenario == "mixed":
+            expected.append(output / "JavaGreeting.class")
+        elif scenario == "kapt":
+            expected.append(output / "GeneratedKaptMessage.class")
+        elif scenario == "ksp":
+            expected.append(output / "GeneratedKspMessage.class")
+        missing = [str(path) for path in expected if not path.is_file()]
+        self.record_check(
+            f"{scenario}/{workflow}/{index}/outputs",
+            not missing,
+            "all expected classes exist" if not missing else "missing " + ", ".join(missing),
+        )
+
+    def prime_cache_for_restoration(self, scenario: str) -> None:
+        project = self.projects / scenario
+        self.checked(
+            self.command(
+                "clean",
+                "--no-progress",
+                "--cwd",
+                str(project),
+            ),
+            f"{scenario}/cache-prime/clean.log",
+        )
+        before = self.processor_count(scenario)
+        _, _, stderr = self.checked(
+            self.build_command(scenario),
+            f"{scenario}/cache-prime/build.log",
+        )
+        mode, _ = self.timing(stderr)
+        after = self.processor_count(scenario)
+        self.record_check(
+            f"{scenario}/cache-prime/mode",
+            mode == "full",
+            f"expected full, observed {mode or '<missing>'}",
+        )
+        expected_processor = self.expected_processor_behavior(scenario, "source-edit")
+        if expected_processor != "not-applicable":
+            expected_count = 1 if expected_processor == "runs" else 0
+            self.record_check(
+                f"{scenario}/cache-prime/processor",
+                after - before == expected_count,
+                f"expected {expected_count} invocation, observed {after - before}",
+            )
+        self.check_outputs(scenario, "cache-prime", 0)
+
+    def run_scenario(self, scenario: str) -> None:
+        project = self.projects / scenario
+        marker = project / ".benchmark/processor-invocations.log"
+        for index in range(1, self.args.cold_repeat + 1):
+            delete_tree(project / "target")
+            delete_tree(self.build_cache)
+            self.sample(scenario, "cold-build", index, "full")
+        for index in range(1, self.args.repeat + 1):
+            self.sample(scenario, "warm-no-op", index, "skipped")
+        for index in range(1, self.args.repeat + 1):
+            self.write_source(scenario, index)
+            self.sample(scenario, "source-edit", index, "full")
+        # The build cache intentionally stays out of the warm incremental path. Prime the
+        # final edited input through the public clean-build path, then measure only restores.
+        self.prime_cache_for_restoration(scenario)
+        for index in range(1, self.args.repeat + 1):
+            delete_tree(project / "target")
+            self.sample(scenario, "cache-restore", index, "restored")
+        if scenario in {"kapt", "ksp"}:
+            self.record_check(
+                f"{scenario}/processor-marker",
+                marker.is_file(),
+                "processor marker exists" if marker.is_file() else "processor marker is missing",
+            )
+
+    def workflow_summary(self, scenario: str, workflow: str) -> dict:
+        rows = [
+            row
+            for row in self.rows
+            if row["scenario"] == scenario and row["workflow"] == workflow
+        ]
+        durations = [row["durationMillis"] for row in rows]
+        compile_durations = [
+            row["compilePhaseMillis"]
+            for row in rows
+            if row["compilePhaseMillis"] is not None
+        ]
+        return {
+            "scenario": scenario,
+            "workflow": workflow,
+            "samples": len(rows),
+            "command": self.build_command(scenario),
+            "rawMillis": durations,
+            "medianMillis": round(statistics.median(durations)),
+            "p95Millis": percentile95(durations),
+            "compilePhaseMedianMillis": (
+                round(statistics.median(compile_durations)) if compile_durations else None
+            ),
+            "compilationModes": sorted({row["compilationMode"] for row in rows}),
+            "processorInvocations": sum(row["processorInvocations"] for row in rows),
+            "logs": [row["log"] for row in rows],
+        }
+
+    def summary(self, status: str, failure: str | None = None) -> dict:
+        summary = {
+            "schemaVersion": 1,
+            "status": status,
+            "startedAt": self.started_at,
+            "generatedAt": now_iso(),
+            "environment": self.environment_summary(),
+            "correctness": {
+                "status": "passed" if status == "passed" else "failed",
+                "checks": self.checks,
+            },
+            "workflows": [
+                self.workflow_summary(scenario, workflow)
+                for scenario in SCENARIOS
+                for workflow in WORKFLOWS
+                if any(
+                    row["scenario"] == scenario and row["workflow"] == workflow
+                    for row in self.rows
+                )
+            ],
+        }
+        if failure:
+            summary["failure"] = failure
+        return summary
+
+    def write_result(self, summary: dict) -> None:
+        write(self.summary_file, json.dumps(summary, indent=2, sort_keys=True) + "\n")
+        lines = [
+            "# Kotlin/JVM Preview Benchmark",
+            "",
+            "This is a non-comparative whole-command benchmark. It reports wall-clock",
+            "latency and separately records Zolt's compile-phase mode.",
+            "",
+            f"Status: **{summary['status']}**",
+            "",
+        ]
+        workflows = summary.get("workflows", [])
+        measured = bool(workflows and "medianMillis" in workflows[0])
+        if measured:
+            lines.extend(
+                [
+                    "| Scenario | Workflow | Samples | Median | p95 | Compile median | Mode | Processor runs |",
+                    "| --- | --- | ---: | ---: | ---: | ---: | --- | ---: |",
+                ]
+            )
+            for workflow in workflows:
+                lines.append(
+                    "| {scenario} | {workflow} | {samples} | {median} ms | {p95} ms | "
+                    "{compile} | {mode} | {processors} |".format(
+                        scenario=workflow["scenario"],
+                        workflow=workflow["workflow"],
+                        samples=workflow["samples"],
+                        median=workflow["medianMillis"],
+                        p95=workflow["p95Millis"],
+                        compile=(
+                            f"{workflow['compilePhaseMedianMillis']} ms"
+                            if workflow["compilePhaseMedianMillis"] is not None
+                            else "n/a"
+                        ),
+                        mode=", ".join(workflow["compilationModes"]),
+                        processors=workflow["processorInvocations"],
+                    )
+                )
+        else:
+            lines.extend(
+                [
+                    "| Scenario | Workflow | Planned samples | Expected mode | Processor behavior |",
+                    "| --- | --- | ---: | --- | --- |",
+                ]
+            )
+            for workflow in workflows:
+                lines.append(
+                    "| {scenario} | {workflow} | {samples} | {mode} | {processor} |".format(
+                        scenario=workflow["scenario"],
+                        workflow=workflow["workflow"],
+                        samples=workflow["samples"],
+                        mode=workflow["expectedCompilationMode"],
+                        processor=workflow["expectedProcessorBehavior"],
+                    )
+                )
+        lines.extend(
+            [
+                "",
+                "KSP processor launches are counted by a controlled fixture side effect. A",
+                "warm KSP build may report `skipped` compilation while still launching KSP; the",
+                "whole-command duration is therefore the relevant no-op measurement.",
+                "Cache-restoration samples are preceded by an unmeasured public clean build",
+                "that primes the final edited input in the local output cache.",
+                "",
+            ]
+        )
+        if summary.get("failure"):
+            lines.extend([f"Failure: `{summary['failure']}`", ""])
+        write(self.report_file, "\n".join(lines))
+
+    def run(self) -> dict:
+        self.reset()
+        if self.args.dry_run:
+            summary = self.plan()
+            self.write_result(summary)
+            return summary
+        self.prepare()
+        version_duration, version_stdout, version_stderr = self.checked(
+            self.command("--version"), "prepare/zolt-version.log"
+        )
+        del version_duration, version_stderr
+        for scenario in SCENARIOS:
+            self.run_scenario(scenario)
+        summary = self.summary("passed")
+        summary["environment"]["zoltVersion"] = version_stdout.strip()
+        self.write_result(summary)
+        return summary
+
+
+def main() -> int:
+    args = parse_args()
+    runner: Runner | None = None
+    try:
+        runner = Runner(args)
+        summary = runner.run()
+        print(f"wrote Kotlin preview benchmark summary: {runner.summary_file}")
+        print(f"wrote Kotlin preview benchmark report: {runner.report_file}")
+        return 0 if summary["status"] in {"passed", "dry-run"} else 1
+    except (BenchmarkFailure, OSError, RuntimeError, subprocess.SubprocessError) as exception:
+        if runner is not None and runner.work_dir.exists():
+            summary = runner.summary("failed", str(exception))
+            runner.write_result(summary)
+            print(f"wrote failed Kotlin preview benchmark summary: {runner.summary_file}", file=sys.stderr)
+        print(f"error: {exception}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

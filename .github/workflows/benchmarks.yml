@@ -79,6 +79,7 @@ jobs:
           scripts/benchmark-openai-summary-test
           scripts/benchmark-enterprise-test
           scripts/benchmark-self-host-test
+          scripts/benchmark-kotlin-preview-test
           scripts/benchmark-large-source-test
           scripts/benchmark-large-source-report-test
           scripts/benchmark-netty-compare-test

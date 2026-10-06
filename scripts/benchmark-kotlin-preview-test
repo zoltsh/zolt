@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+WORK_DIR="target/benchmark-kotlin-preview-test"
+rm -rf "$WORK_DIR"
+
+scripts/benchmark-kotlin-preview \
+  --zolt zolt-does-not-need-to-exist \
+  --work-dir "$WORK_DIR" \
+  --repeat 2 \
+  --cold-repeat 3 \
+  --dry-run \
+  >/dev/null
+
+jq -e '
+  .status == "dry-run"
+  and .environment.classification == "kotlin-preview-whole-command"
+  and .environment.measurement == "wall-clock subprocess duration"
+  and .environment.repeatCount == 2
+  and .environment.coldRepeatCount == 3
+  and .environment.scenarios == ["java", "kotlin", "mixed", "kapt", "ksp"]
+  and .correctness.status == "not-run"
+  and (.workflows | length) == 20
+  and ([.workflows[] | select(.workflow == "cold-build") | .samples] | all(. == 3))
+  and ([.workflows[] | select(.workflow != "cold-build") | .samples] | all(. == 2))
+  and ([.workflows[] | select(.scenario == "ksp") | .expectedProcessorBehavior] | all(. == "runs"))
+  and ([.workflows[]
+    | select(.scenario == "kapt"
+        and (.workflow == "warm-no-op" or .workflow == "cache-restore"))
+    | .expectedProcessorBehavior] | all(. == "skips"))
+  and ([.workflows[] | select(.workflow == "warm-no-op") | .expectedCompilationMode] | all(. == "skipped"))
+  and ([.workflows[] | select(.workflow == "cache-restore") | .expectedCompilationMode] | all(. == "restored"))
+' "$WORK_DIR/summary.json" >/dev/null
+
+grep -F 'non-comparative whole-command benchmark' "$WORK_DIR/report.md" >/dev/null
+grep -F 'warm KSP build may report `skipped` compilation while still launching KSP' \
+  "$WORK_DIR/report.md" >/dev/null
+
+if scripts/benchmark-kotlin-preview \
+  --work-dir /tmp/zolt-kotlin-preview-unsafe \
+  --dry-run \
+  >/dev/null 2>&1; then
+  printf 'error: Kotlin preview benchmark accepted a work directory outside the repository\n' >&2
+  exit 1
+fi
+
+printf 'benchmark Kotlin preview script test passed\n'
