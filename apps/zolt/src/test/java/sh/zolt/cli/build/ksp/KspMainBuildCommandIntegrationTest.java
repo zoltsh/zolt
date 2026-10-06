@@ -108,6 +108,26 @@ final class KspMainBuildCommandIntegrationTest {
             ProcessResult directRun = runJar(jarPath);
             assertEquals(0, directRun.exitCode(), directRun.output());
             assertEquals(List.of("cli-ksp-cli-ksp"), directRun.output().lines().toList());
+
+            CommandResult clean = execute(
+                    "clean",
+                    "--cwd", project.toString(),
+                    "--no-progress");
+
+            assertEquals(0, clean.exitCode(), clean.stderr());
+            assertTrue(Files.notExists(project.resolve("target")));
+            assertTrue(Files.isRegularFile(project.resolve("zolt.lock")));
+            assertTrue(Files.isRegularFile(
+                    project.resolve("src/main/kotlin/com/example/Main.kt")));
+
+            CommandResult rebuilt = build(project, offlineCache);
+            assertEquals(0, rebuilt.exitCode(), rebuilt.stderr());
+            assertTiming(rebuilt, "full");
+            assertTrue(Files.isRegularFile(
+                    generated.resolve("kotlin/com/example/GeneratedKspMessage.kt")));
+            assertEquals(
+                    "cli-ksp-resource\n",
+                    Files.readString(project.resolve("target/classes/META-INF/ksp-cli.txt")));
             assertEquals(
                     Map.of(),
                     repository.authorizations(),
