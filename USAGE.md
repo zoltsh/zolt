@@ -82,7 +82,7 @@ closed selectors:
 ```toml
 [toolchain.kotlin]
 version = "2.2.0"
-plugins = ["serialization", "spring", "micronaut", "jpa"]
+plugins = ["serialization", "spring", "micronaut", "jpa", "power-assert"]
 
 [dependencies]
 "org.jetbrains.kotlin:kotlin-stdlib" = "2.2.0"
@@ -99,9 +99,11 @@ recognized AOP meta-annotations; it does not add Micronaut libraries. `jpa`
 invokes Kotlin's no-arg JPA preset, generating reflection-callable
 zero-parameter constructors for recognized `javax.persistence` and
 `jakarta.persistence` types. It does not make those types open or add a
-persistence API or provider. Select any subset of the four built-ins and
-declare application libraries normally. Arbitrary compiler-plugin coordinates
-and plugin options are outside this preview.
+persistence API or provider. `power-assert` enriches failures from
+`kotlin.assert`; run tests with `zolt test --jvm-arg=-ea` so JVM assertions are
+enabled. Select any subset of the five built-ins and declare application
+libraries normally. Arbitrary compiler-plugin coordinates and plugin options
+are outside this preview.
 
 Pass processor options as scoped compiler arguments. Each option requires the
 matching processor dependency lane:

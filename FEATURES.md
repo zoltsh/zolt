@@ -87,9 +87,11 @@ zolt run
   outside the application classpath, and admits their generated Kotlin, Java,
   and resource lanes before compilation. The test lane serves both unit- and
   integration-test source projections. Official Kotlin serialization,
-  all-open Spring and Micronaut, and no-arg JPA compiler plugins are available
-  through closed, version-aligned `serialization`, `spring`, `micronaut`, and
-  `jpa` selectors. JPA no-arg does not implicitly open entity types. Compiler
+  all-open Spring and Micronaut, no-arg JPA, and experimental Power-assert
+  compiler plugins are available through closed, version-aligned
+  `serialization`, `spring`, `micronaut`, `jpa`, and `power-assert` selectors.
+  JPA no-arg does not implicitly open entity types. Power-assert targets
+  `kotlin.assert`; JVM assertions must be enabled when tests run. Compiler
   tooling stays isolated; applications declare serialization, Spring,
   Micronaut, and persistence libraries normally. Arbitrary compiler-plugin
   coordinates and options remain outside the bounded preview.

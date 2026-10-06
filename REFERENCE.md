@@ -748,12 +748,12 @@ matching source set.
 #### Bounded Kotlin compiler plugins
 
 The Kotlin preview supports official compiler plugins through the built-in
-`serialization`, `spring`, `micronaut`, and `jpa` selectors:
+`serialization`, `spring`, `micronaut`, `jpa`, and `power-assert` selectors:
 
 ```toml
 [toolchain.kotlin]
 version = "2.2.0"
-plugins = ["serialization", "spring", "micronaut", "jpa"]
+plugins = ["serialization", "spring", "micronaut", "jpa", "power-assert"]
 
 [dependencies]
 "org.jetbrains.kotlin:kotlin-stdlib" = "2.2.0"
@@ -774,12 +774,15 @@ compiler version to the checksum-verified `tool-kotlin` scope:
 - `jpa` selects
   `org.jetbrains.kotlin:kotlin-noarg-compiler-plugin-embeddable` and invokes
   its owned `jpa` preset.
+- `power-assert` selects
+  `org.jetbrains.kotlin:kotlin-power-assert-compiler-plugin-embeddable` and
+  targets `kotlin.assert` through its owned `function` option.
 
 Zolt verifies every direct plugin root, version, and manifest identity before
 execution. It also verifies the serialization registrar and the registrar plus
-command-line processor for both all-open and no-arg. The plugins are available
-to configured Kotlin main and test compiler lanes, including a lane that also
-uses KAPT, but never enter an application compile, runtime, or package
+command-line processor for all-open, no-arg, and Power-assert. The plugins are
+available to configured Kotlin main and test compiler lanes, including a lane
+that also uses KAPT, but never enter an application compile, runtime, or package
 classpath.
 
 The `kotlinx-serialization-core-jvm` entry above is an ordinary application
@@ -806,6 +809,13 @@ plugin: an eligible class remains final unless the source or another selected
 plugin opens it. Applications declare their chosen persistence API and provider
 normally.
 
+The `power-assert` selector uses Kotlin's experimental Power-assert compiler
+plugin. It enriches `kotlin.assert` failures with source expressions and
+intermediate values without adding a runtime dependency. Kotlin assertions
+still follow JVM assertion status; pass `--jvm-arg=-ea` to `zolt test` when
+using this selector. Custom intercepted-function options are outside the closed
+selector contract.
+
 Adding or removing any selector requires a lockfile refresh. The authored
 selectors, resulting lockfile, owned plugin options, and complete compiler-tool
 closure participate in fingerprint and output-cache identity. Removing a
@@ -814,10 +824,10 @@ while a verified cache entry restores the complete compiled output. Compiler
 tooling remains absent from thin and uber packages; declared application
 runtime libraries follow the ordinary packaging rules.
 
-`serialization`, `spring`, `micronaut`, and `jpa` are the only supported
-compiler-plugin selectors. They may be selected independently or together.
-Arbitrary plugin coordinates, compiler-plugin paths, and plugin options are
-rejected or remain outside the bounded manifest contract.
+`serialization`, `spring`, `micronaut`, `jpa`, and `power-assert` are the only
+supported compiler-plugin selectors. They may be selected independently or
+together. Arbitrary plugin coordinates, compiler-plugin paths, and plugin
+options are rejected or remain outside the bounded manifest contract.
 
 #### KSP2 source-set generation preview
 
