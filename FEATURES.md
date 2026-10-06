@@ -33,78 +33,17 @@ zolt run
 - **Projects.** Configure sources, resources, generated sources, tasks, aliases,
   and integration-test roots.
 - **Languages.** Jointly compile Java and Groovy main sources across declared
-  roots, including circular cross-language references. A bounded preview also
-  compiles Kotlin/JVM main sources alone or together with Java, including
-  circular cross-language references, plus Kotlin/JVM unit and integration
-  tests alone or together with Java. The compilation preview is qualified for
-  stable Kotlin 2.2.x compiler and standard-library releases; other compiler
-  series and prereleases fail closed. Kotlin-bearing source sets may combine
-  authored Java and Kotlin with protected pre-generated roots or Java/Kotlin
-  outputs owned by pinned exec, OpenAPI, and Protobuf generators. Kotlin
-  consumers may opt into the selected compiler's legacy class-file reader for
-  dependency-bytecode compatibility, qualified against Groovy-generated
-  classes without enabling mixed Groovy/Kotlin source sets. They may also
-  explicitly bypass dependency metadata-version or prerelease checks for a
-  qualified compatibility case; neither bypass rewrites nor validates the
-  dependency metadata. Compiler-adjacent projects may explicitly lift the
-  compiler's protected `kotlin.*` namespace guard per source set; ordinary
-  projects retain it. Kotlin language and API versions may be pinned per main or
-  test source set, with explicit compiler-wide experimental API opt-ins and
-  JVM-default compatibility modes. Public Kotlin APIs may be checked in
-  warning or strict explicit-API mode. Progressive compilation may be enabled
-  independently for main and test sources, as may the selected compiler's
-  context-parameter and context-sensitive-resolution previews. Deprecated
-  context receivers may be admitted per source set as a migration bridge, but
-  cannot be combined with context parameters. Guarded `when`
-  branches may be explicitly enabled per source set for toolchains that still
-  expose them as a preview, and nested non-capturing type aliases may be enabled
-  per source set. Annotation defaulting may retain first-target placement, add
-  migration warnings, or propagate to both a constructor parameter and its
-  property or field; Kotlin's preview `@all:` target may likewise be enabled
-  independently for main and test sources. Value classes may expose public
-  boxed constructors and function bridges to Java module-wide, independently
-  per source set. Generated data-class `copy()` visibility may likewise be
-  aligned with primary-constructor visibility for main or test sources. Kotlin
-  type-use annotations may also be emitted into JVM class-file attributes for
-  Java reflection, independently for main and test sources. Kotlin annotation
-  declarations may suppress newer Java type-use and type-parameter targets for
-  older Android consumers, again independently per source set. Kotlin assertion
-  code generation may be fixed on, fixed off, aligned with Java, or kept in the
-  compiler's legacy mode for each source set. Java-callable non-null parameter
-  entry assertions may also be suppressed per source set for interoperability
-  with an existing unchecked caller, as may assertions on non-null uses of
-  unchecked Java platform-call results and on platform values passed as
-  non-null Kotlin extension receivers. Kotlin 2.2 unused-return-value checking
-  may run in checker-only or full automatic-annotation mode per source set.
-  Main and test annotation-processor lanes run through an isolated,
-  version-aligned KAPT toolchain; generated Java types are visible to both
-  Kotlin and Java in the same source set without compile-classpath processor
-  discovery or duplicate javac processing. Kotlin 2.2's experimental K2 KAPT
-  implementation may be selected explicitly per source set. Scoped
-  `-Akey=value` options in
-  `[compiler].args` and `[compiler.test].args` are validated and passed only to
-  the matching KAPT processor lane. Main and test source sets may instead
-  declare KSP2 processors through an owned `kind = "ksp"` generation step. Zolt
-  locks the matching KSP engine and processor closures separately, runs them
-  outside the application classpath, and admits their generated Kotlin, Java,
-  and resource lanes before compilation. The test lane serves both unit- and
-  integration-test source projections. Official Kotlin serialization,
-  all-open Spring and Micronaut, no-arg JPA, and experimental Power-assert
-  compiler plugins are available through closed, version-aligned
-  `serialization`, `spring`, `micronaut`, `jpa`, and `power-assert` selectors.
-  JPA no-arg does not implicitly open entity types. Power-assert targets
-  `kotlin.assert`; JVM assertions must be enabled when tests run. Compiler
-  tooling stays isolated; applications declare serialization, Spring,
-  Micronaut, and persistence libraries normally. Arbitrary compiler-plugin
-  coordinates and options remain outside the bounded preview.
-  Warnings may be expanded, enforced, suppressed, or adjusted by diagnostic per
-  source set. Kotlin/JVM string concatenation may use inline `StringBuilder` or
-  either invokedynamic scheme per source set; lambda generation may likewise
-  select anonymous classes or invokedynamic. Kotlin backend code generation may
-  also use a bounded explicit thread count or the host processor count per
-  source set. Conversion to
-  single-abstract-method interfaces may also select either scheme. Unsupported
-  language and compiler combinations fail closed.
+  roots, including circular cross-language references. A bounded Kotlin/JVM
+  preview supports Kotlin-only and mixed Java/Kotlin main, unit-test, and
+  integration-test workflows; isolated KAPT and KSP2 generation; owned
+  generated Kotlin sources; and five closed, version-aligned compiler-plugin
+  selectors. Stable Kotlin 2.2.x releases are accepted, unsupported
+  compiler/option combinations fail before reuse or output mutation, and
+  compiler tooling never enters application classpaths. See the
+  [Kotlin/JVM support matrix](docs/kotlin-jvm-support.md) for qualified workflows
+  and performance boundaries, and the
+  [Reference](REFERENCE.md#kotlinjvm-main-compilation-preview) for the complete
+  option catalog.
 - **Dependencies.** Use API, implementation, runtime, provided, development,
   test, and annotation-processor lanes under one `[dependencies]` namespace.
 - **Metadata.** Import BOMs and configure version aliases, exclusions,

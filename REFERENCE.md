@@ -636,6 +636,10 @@ this preview: the default main root remains `src/main/java`, so declare
 files, but not Kotlin scripts (`.kts`). A mixed executable project looks like
 this:
 
+For the concise workflow, toolchain, cache, packaging, and performance boundary,
+see the [Kotlin/JVM support matrix](docs/kotlin-jvm-support.md). This section is
+the detailed manifest and compiler-option reference.
+
 `zolt init NAME --language kotlin` emits a Kotlin-only executable with the
 required toolchain, standard-library dependency, and main source root already
 aligned. By default it also emits a matching JUnit test and test root;

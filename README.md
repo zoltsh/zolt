@@ -57,7 +57,8 @@ Zolt creates the project, resolves `zolt.lock`, runs its JUnit test, and
 packages it.
 
 Start a Kotlin/JVM project with `zolt init hello --language kotlin`. Java remains
-the default.
+the default. The [Kotlin/JVM support matrix](./docs/kotlin-jvm-support.md)
+separates qualified workflows from explicit preview boundaries.
 
 ## Model
 
