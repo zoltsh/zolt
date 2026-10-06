@@ -17,6 +17,11 @@ public final class KotlinCompilerCliFixture {
             "kotlin-compiler-embeddable",
             KOTLIN_VERSION,
             "org.jetbrains.kotlin.cli.jvm.K2JVMCompiler");
+    private static final Artifact KAPT = artifact(
+            "org.jetbrains.kotlin",
+            "kotlin-annotation-processing-embeddable",
+            KOTLIN_VERSION,
+            "org.jetbrains.kotlin.kapt.KaptCommandLineProcessor");
     private static final Artifact DAEMON = artifact(
             "org.jetbrains.kotlin",
             "kotlin-daemon-embeddable",
@@ -53,6 +58,7 @@ public final class KotlinCompilerCliFixture {
 
     public static void publish(CliTestRepository repository) throws IOException {
         publish(repository, COMPILER, List.of(DAEMON, REFLECT, SCRIPT_RUNTIME, STDLIB, COROUTINES));
+        publish(repository, KAPT, List.of());
         publish(repository, DAEMON, List.of());
         publish(repository, REFLECT, List.of());
         publish(repository, SCRIPT_RUNTIME, List.of());

@@ -1,8 +1,8 @@
 version = 7
-aliasFingerprint = "sha256:468c22f94b6412de14e792db430bb3266d07afb0a0458d873437178070b67e50"
-projectResolutionFingerprint = "sha256:39e4aad4d09cb6976c46b956727956b64ad8571fff5a221c2a69467a049745d4"
-projectResolutionInputFingerprints = ["dependencies.api.workspace=sha256:e278f2c880bafff02f44f9d403dd68e11930a5f8e5c1d8c49e6cb9ae74963d17", "dependencies.api=sha256:4ce39b687df3a02e2eb24d4b1b2d55903971a2cfeb8593fba3cb52c81fd3bd9c", "dependencies.compile.workspace=sha256:5fa3d40686774c104593200c7c73594199c08f78e75617df760f179128c91d86", "dependencies.compile=sha256:1fe5ba2691695db8da4e166c2015e5ba3a85d075109bcc23012709fcfcd89645", "dependencies.provided=sha256:ee9fd5151af21151e1229a58161679fb2d82e7365fd91fa9b04205c966c8416a", "dependencies.test=sha256:6c1476ab741e912572f1450547314c39a48f106bb064643141005cb7848c16ea", "dependencyMetadata=sha256:92fcb82aa8a3be4458662e6026ce8d6c719c61566a6a1bade8e471ab3aebaeee", "framework.quarkus=sha256:1a03038e3b6c11a6598e959b5526786bc942bd2d0e7cb6aec2401dcd36bafc1b", "framework.springBoot.native=sha256:cf597ee2519b656c8bdeb8a1aaaf81b8c9da20d7b82a94cb0643edd20e98e19f", "java=sha256:c822ebc7e176990dd66771c2496f47b8ee0f6451df7ddfa87c44aebff0a6edf6", "package=sha256:ba2fd61e998d4fab4a9205d2785ca9a48464a401346bebf655e28156a0a304c1", "repositories=sha256:e50e1129945e4af12f6d6b822fe1b5548c9425f8a3f0cfeadfb1fb4a646902e1", "schema=sha256:a08549d13c2f16087cfcaf4458dbe9436970632fe503bb7217f88c16428d2ddd", "versions=sha256:c5cc2848143df9e14e5df892377e085d7ca0f62f9ce51bcc4b3018b32ff47ecb"]
-workspaceResolutionInputFingerprint = "sha256:2293ddaedcc3cd5a34b6cee8ebbe31fff15abd2eb409f38c174a58266011145a"
+aliasFingerprint = "sha256:256cc028fadb22981809c75bad80740f60f25e8fa4931c15aa60b0a53abd0d20"
+projectResolutionFingerprint = "sha256:844a8a760f9f3a665af247109df9fc1fe4ab5c08dec87380a801deff828ad60b"
+projectResolutionInputFingerprints = ["dependencies.api.workspace=sha256:e278f2c880bafff02f44f9d403dd68e11930a5f8e5c1d8c49e6cb9ae74963d17", "dependencies.api=sha256:4ce39b687df3a02e2eb24d4b1b2d55903971a2cfeb8593fba3cb52c81fd3bd9c", "dependencies.compile.workspace=sha256:5fa3d40686774c104593200c7c73594199c08f78e75617df760f179128c91d86", "dependencies.compile=sha256:1fe5ba2691695db8da4e166c2015e5ba3a85d075109bcc23012709fcfcd89645", "dependencies.provided=sha256:ee9fd5151af21151e1229a58161679fb2d82e7365fd91fa9b04205c966c8416a", "dependencies.test=sha256:8cbf26a8530149a9f30c4900d887f2df3764776081f80a1d0f119cdad9c974e1", "dependencyMetadata=sha256:3d387e838c104003d9238b287e52062b3bf39cc8fa96e623cfe07fadc0f0a73a", "framework.quarkus=sha256:1a03038e3b6c11a6598e959b5526786bc942bd2d0e7cb6aec2401dcd36bafc1b", "framework.springBoot.native=sha256:cf597ee2519b656c8bdeb8a1aaaf81b8c9da20d7b82a94cb0643edd20e98e19f", "java=sha256:c822ebc7e176990dd66771c2496f47b8ee0f6451df7ddfa87c44aebff0a6edf6", "package=sha256:ba2fd61e998d4fab4a9205d2785ca9a48464a401346bebf655e28156a0a304c1", "repositories=sha256:e50e1129945e4af12f6d6b822fe1b5548c9425f8a3f0cfeadfb1fb4a646902e1", "schema=sha256:a08549d13c2f16087cfcaf4458dbe9436970632fe503bb7217f88c16428d2ddd", "versions=sha256:c5cc2848143df9e14e5df892377e085d7ca0f62f9ce51bcc4b3018b32ff47ecb"]
+workspaceResolutionInputFingerprint = "sha256:2f65d25d01e91416b8c1a4b41f1175cae6c40d51a9163b5334c309a4cc9de7b5"
 
 [[dependencyRoot]]
 member = "apps/zolt"
@@ -185,6 +185,13 @@ id = "sh.zolt:zolt-workspace"
 version = "0.1.0-SNAPSHOT"
 lane = "implementation"
 resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "org.jetbrains.kotlin:kotlin-annotation-processing-embeddable"
+version = "2.2.0"
+lane = "test"
+resolvedScope = "test"
 
 [[dependencyRoot]]
 member = "apps/zolt"
@@ -2026,7 +2033,7 @@ jar = "blobs/v2/sha256/6532b19ce226a164715121ada86e381c79a7c2a0c8a66311368f545e4
 pom = "blobs/v2/sha256/f0ece72fea1956cd32fe3b69eb54f2ae45c6ff592dfd56dd206b21eeb473c4d6/kotlin-annotation-processing-embeddable-2.2.0.pom"
 jarSha256 = "6532b19ce226a164715121ada86e381c79a7c2a0c8a66311368f545e4af176ea"
 pomSha256 = "f0ece72fea1956cd32fe3b69eb54f2ae45c6ff592dfd56dd206b21eeb473c4d6"
-members = ["modules/zolt-build"]
+members = ["apps/zolt", "modules/zolt-build"]
 policies = ["version-ref: org.jetbrains.kotlin:kotlin-annotation-processing-embeddable -> 2.2.0 from [versions].kotlin"]
 dependencies = []
 
