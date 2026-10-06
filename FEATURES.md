@@ -63,7 +63,9 @@ zolt run
   Main and test annotation-processor lanes run through an isolated,
   version-aligned KAPT toolchain; generated Java types are visible to both
   Kotlin and Java in the same source set without compile-classpath processor
-  discovery or duplicate javac processing.
+  discovery or duplicate javac processing. Scoped `-Akey=value` options in
+  `[compiler].args` and `[compiler.test].args` are validated and passed only to
+  the matching KAPT processor lane.
   Warnings may be expanded, enforced, suppressed, or adjusted by diagnostic per
   source set. Kotlin/JVM string concatenation may use inline `StringBuilder` or
   either invokedynamic scheme per source set; lambda generation may likewise

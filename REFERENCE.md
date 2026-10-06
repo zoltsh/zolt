@@ -723,6 +723,16 @@ Generated Java sources use `[compiler.generated].main` (by default
 `target/generated/sources/annotations`) and participate in fingerprint and
 cleanup decisions.
 
+Main KAPT processor options use `-Akey=value` entries in `[compiler].args` and
+require a non-empty `[dependencies.processor]` lane. Keys are dot-separated
+ASCII Java-identifier segments; each key may appear once. Values may be empty
+or contain additional `=` characters, but the valueless `-Akey` form is outside
+the bounded contract. Zolt canonicalizes the option map before passing it to
+KAPT, does not forward it to the non-processing javac phase, and includes the
+authored arguments in fingerprint and cache identity. Changing an option
+therefore recompiles the main source set rather than reusing incompatible
+generated output.
+
 A pre-generated Java or Kotlin tree may join that main source set through a
 `[generated.main.<id>]` step whose `kind` is `"declared-root"`. Set
 `language = "kotlin"` for a Kotlin tree because the default is Java. Zolt treats
@@ -820,7 +830,9 @@ select `ignore`, `warn`, or `strict`. One
 `warn`, or `strict` for compiler-recognized Java annotation packages. Distinct,
 repeatable `-Xwarning-level=DIAGNOSTIC_NAME:<level>` arguments may set an
 uppercase Kotlin diagnostic to `error`, `warning`, or `disabled`. The
-single `-Xabi-stability=<mode>` argument may select `stable` or `unstable`. The
+single `-Xabi-stability=<mode>` argument may select `stable` or `unstable`.
+Distinct `-Akey=value` annotation-processor options are also accepted when the
+matching source set has a configured processor lane. The
 standalone and version options must be spelled as separate array entries and
 may appear at most once; each package rule, opt-in, and warning-level rule is
 one array entry, and the same package, annotation, or diagnostic may not be
@@ -876,6 +888,7 @@ args = [
   "-Xsam-conversions=indy",
   "-Xwarning-level=REDUNDANT_VISIBILITY_MODIFIER:disabled",
   "-opt-in=kotlin.ExperimentalStdlibApi",
+  "-Amapstruct.defaultComponentModel=jakarta",
 ]
 
 [compiler.test]
@@ -885,8 +898,14 @@ args = [
   "-jvm-default=disable",
   "-Xallow-unstable-dependencies",
   "-opt-in=com.example.ExperimentalTestApi",
+  "-Azolt.fixture.mode=test",
 ]
 ```
+
+`-Akey=value` entries are source-set scoped: main options require
+`[dependencies.processor]`, while test options require
+`[dependencies.test-processor]`. Zolt rejects malformed or duplicate keys and
+never treats a processor option as an ordinary kotlinc or javac flag.
 
 `-parameters` enables Java reflection parameter metadata in both the Kotlin and
 authored Java halves of mixed compilation. The contract covers source-declared
@@ -2469,7 +2488,11 @@ one matching KAPT plugin for the configured Kotlin compiler, generates Java
 under `[compiler.generated].test`
 (by default `target/generated/test-sources/annotations`), makes those generated
 types visible to Kotlin and Java tests, and disables processing during the
-final `javac` phase. Main and test processor lanes remain separate.
+final `javac` phase. Test KAPT options use `-Akey=value` entries in
+`[compiler.test].args`; they require `[dependencies.test-processor]`, follow the
+same key/value grammar and deterministic encoding as main options, and
+participate in test fingerprint and cache identity. Main and test processor
+lanes remain separate.
 
 With Kotlin main sources, unit and integration tests may use public and
 `internal` APIs from their own member because its main output is the sole Kotlin

@@ -54,6 +54,17 @@ through a version-aligned, isolated KAPT toolchain. Zolt makes generated Java
 types visible to Kotlin and Java consumers in that source set. KSP and custom
 Kotlin compiler plugins are not part of the bounded preview.
 
+Pass processor options as scoped compiler arguments. Each option requires the
+matching processor dependency lane:
+
+```toml
+[compiler]
+args = ["-Amapstruct.defaultComponentModel=jakarta"]
+
+[compiler.test]
+args = ["-Azolt.fixture.mode=test"]
+```
+
 Inspect and update the graph:
 
 ```sh
