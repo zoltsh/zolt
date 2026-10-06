@@ -59,7 +59,9 @@ final class ManifestToolchainWriterTest {
                         new GroovyToolchainVersion("4.0.22"))),
                 Optional.of(new AuthoredKotlinToolchain(
                         new KotlinToolchainVersion("2.2.0"),
-                        Set.of(KotlinCompilerPlugin.SERIALIZATION))));
+                        Set.of(
+                                KotlinCompilerPlugin.SERIALIZATION,
+                                KotlinCompilerPlugin.SPRING))));
 
         String output = write(toolchains);
 
@@ -84,7 +86,7 @@ final class ManifestToolchainWriterTest {
 
                 [toolchain.kotlin]
                 version = "2.2.0"
-                plugins = ["serialization"]
+                plugins = ["serialization", "spring"]
                 """,
                 output);
         assertFalse(Toml.parse(output).hasErrors());

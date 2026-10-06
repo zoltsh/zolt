@@ -3,7 +3,6 @@
 apps/zolt-junit-worker/src/test/java/sh/zolt/junit/JunitLauncherWorkerTest.java|477|worker-process coverage still shares setup fixtures
 apps/zolt/src/test/java/sh/zolt/cli/publish/PublishWorkspaceResumeTest.java|460|immutable workspace resume scenarios share one repository fixture
 modules/zolt-build/src/main/java/sh/zolt/build/BuildService.java|384|verified compiler selection and cache fingerprinting remain one transactional build pipeline
-modules/zolt-build/src/main/java/sh/zolt/build/compile/KotlinCompilerToolchainResolver.java|397|Kotlin compiler and KAPT artifact verification share one fail-closed toolchain resolver
 modules/zolt-build/src/main/java/sh/zolt/build/compile/MainCompileSourceExecutor.java|447|full and experimental incremental compilation share cleanup and output attribution contracts
 modules/zolt-build/src/test/java/sh/zolt/build/compile/KotlinCompilerRunnerTest.java|507|process argfile and diagnostic cases share one compiler invocation fixture
 modules/zolt-build/src/test/java/sh/zolt/build/compile/KotlinCompilerToolchainResolverTest.java|458|compiler and KAPT graph failures share one hermetic artifact fixture

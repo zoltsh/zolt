@@ -45,7 +45,7 @@ final class ManifestToolchainDecoderTest {
 
                 [toolchain.kotlin]
                 version = "2.2.0"
-                plugins = ["serialization"]
+                plugins = ["serialization", "spring"]
                 """);
 
         assertEquals("0.1.0-rc.1", toolchains.zolt().orElseThrow().value());
@@ -64,7 +64,9 @@ final class ManifestToolchainDecoderTest {
         assertEquals("4.0.22", toolchains.groovy().orElseThrow().version().value());
         assertEquals("2.2.0", toolchains.kotlin().orElseThrow().version().value());
         assertEquals(
-                Set.of(KotlinCompilerPlugin.SERIALIZATION),
+                Set.of(
+                        KotlinCompilerPlugin.SERIALIZATION,
+                        KotlinCompilerPlugin.SPRING),
                 toolchains.kotlin().orElseThrow().plugins());
     }
 

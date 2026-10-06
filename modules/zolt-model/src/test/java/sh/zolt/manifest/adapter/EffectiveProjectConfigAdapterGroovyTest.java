@@ -59,15 +59,20 @@ final class EffectiveProjectConfigAdapterGroovyTest {
     }
 
     @Test
-    void carriesSerializationPluginSelectionThroughWorkspaceInheritance() {
+    void carriesCompilerPluginSelectionThroughWorkspaceInheritance() {
         AuthoredManifest root = workspaceRoot(kotlinToolchains(
-                "2.2.0", Set.of(KotlinCompilerPlugin.SERIALIZATION)));
+                "2.2.0",
+                Set.of(
+                        KotlinCompilerPlugin.SERIALIZATION,
+                        KotlinCompilerPlugin.SPRING)));
         AuthoredManifest member = projectManifest("app", AuthoredToolchains.empty());
 
         ProjectConfig config = adapt(COMPOSER.composeWorkspaceMember(root, MEMBER, member));
 
         assertEquals(
-                Set.of(KotlinCompilerPlugin.SERIALIZATION),
+                Set.of(
+                        KotlinCompilerPlugin.SERIALIZATION,
+                        KotlinCompilerPlugin.SPRING),
                 config.compilerSettings().kotlinPlugins());
     }
 

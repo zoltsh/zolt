@@ -1,6 +1,5 @@
 package sh.zolt.build.compile;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -14,12 +13,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.jar.Attributes;
-import java.util.jar.JarFile;
 import sh.zolt.build.KotlinCompileException;
-import sh.zolt.build.lockfile.VerifiedArtifactHashes;
+import sh.zolt.build.compile.kotlin.KotlinCompilerPluginOption;
 import sh.zolt.build.compile.kotlin.KotlinCompilerToolRoots;
 import sh.zolt.build.compile.kotlin.KotlinCompilerToolRoots.Selection;
+import sh.zolt.build.lockfile.VerifiedArtifactHashes;
 import sh.zolt.classpath.NestedArtifactIdentity;
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.classpath.ResolvedPackage;
@@ -31,17 +29,6 @@ import sh.zolt.project.toolchain.KotlinCompilerPlugin;
 public final class KotlinCompilerToolchainResolver {
     private static final PackageId KOTLIN_STDLIB =
             new PackageId("org.jetbrains.kotlin", "kotlin-stdlib");
-    private static final String COMPILER_ENTRY =
-            "org/jetbrains/kotlin/cli/jvm/K2JVMCompiler.class";
-    private static final String IMPLEMENTATION_TITLE = "kotlin-compiler-embeddable";
-    private static final String KAPT_ENTRY =
-            "org/jetbrains/kotlin/kapt/KaptCommandLineProcessor.class";
-    private static final String KAPT_IMPLEMENTATION_TITLE =
-            "kotlin-annotation-processing-embeddable";
-    private static final String SERIALIZATION_ENTRY =
-            "META-INF/services/org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar";
-    private static final String SERIALIZATION_IMPLEMENTATION_TITLE =
-            "kotlinx-serialization-compiler-plugin.embeddable";
 
     public KotlinCompilerToolchain resolve(
             List<ResolvedClasspathPackage> packages,
@@ -95,12 +82,15 @@ public final class KotlinCompilerToolchainResolver {
                 .map(dependency -> verifiedClosureArtifact(dependency, true))
                 .toList();
         List<VerifiedCompilerArtifact> closure = orderedClosure(toolClosure, rootDependency, root);
-        inspectRoot(version, root.jar());
+        KotlinCompilerToolJarInspector.inspectCompiler(version, root.jar());
         if (kapt != null) {
-            inspectKapt(version, kapt.jar());
+            KotlinCompilerToolJarInspector.inspectKapt(version, kapt.jar());
         }
-        if (!plugins.isEmpty()) {
-            inspectSerialization(version, plugins.getFirst().jar());
+        for (int index = 0; index < plugins.size(); index++) {
+            KotlinCompilerToolJarInspector.inspectPlugin(
+                    version,
+                    roots.compilerPluginRoots().get(index).resolvedPackage().packageId(),
+                    plugins.get(index).jar());
         }
         VerifiedCompilerArtifact runtime = requireRuntime(all, version, compilationScope);
         revalidate(closure);
@@ -112,7 +102,19 @@ public final class KotlinCompilerToolchainResolver {
                 closure.stream().map(VerifiedCompilerArtifact::jar).toList(),
                 closureIdentity(closure),
                 kapt == null ? null : kapt.jar(),
-                plugins.stream().map(VerifiedCompilerArtifact::jar).toList());
+                plugins.stream().map(VerifiedCompilerArtifact::jar).toList(),
+                compilerPluginOptions(expectedPlugins));
+    }
+
+    private static List<KotlinCompilerPluginOption> compilerPluginOptions(
+            Set<KotlinCompilerPlugin> plugins) {
+        if (!plugins.contains(KotlinCompilerPlugin.SPRING)) {
+            return List.of();
+        }
+        return List.of(new KotlinCompilerPluginOption(
+                "org.jetbrains.kotlin.allopen",
+                "preset",
+                "spring"));
     }
 
     private static List<VerifiedCompilerArtifact> orderedClosure(
@@ -244,76 +246,6 @@ public final class KotlinCompilerToolchainResolver {
                 && identity.classifier().isEmpty();
     }
 
-    private static void inspectRoot(String configuredVersion, Path jarPath) {
-        inspectToolJar(
-                configuredVersion,
-                jarPath,
-                COMPILER_ENTRY,
-                IMPLEMENTATION_TITLE,
-                "compiler");
-    }
-
-    private static void inspectKapt(String configuredVersion, Path jarPath) {
-        inspectToolJar(
-                configuredVersion,
-                jarPath,
-                KAPT_ENTRY,
-                KAPT_IMPLEMENTATION_TITLE,
-                "KAPT plugin");
-    }
-
-    private static void inspectSerialization(String configuredVersion, Path jarPath) {
-        inspectToolJar(
-                configuredVersion,
-                jarPath,
-                SERIALIZATION_ENTRY,
-                SERIALIZATION_IMPLEMENTATION_TITLE,
-                "serialization compiler plugin");
-    }
-
-    private static void inspectToolJar(
-            String configuredVersion,
-            Path jarPath,
-            String requiredEntry,
-            String implementationTitle,
-            String label) {
-        try (JarFile jar = new JarFile(jarPath.toFile(), false)) {
-            if (jar.getJarEntry(requiredEntry) == null) {
-                throw invalid("the selected " + label + " JAR does not contain " + requiredEntry);
-            }
-            if (jar.getManifest() == null) {
-                throw invalid("the selected " + label + " JAR has no manifest");
-            }
-            Attributes attributes = jar.getManifest().getMainAttributes();
-            String title = normalize(attributes.getValue(Attributes.Name.IMPLEMENTATION_TITLE));
-            if (!implementationTitle.equals(title)) {
-                throw invalid("the selected " + label + " JAR reports Implementation-Title `"
-                        + title + "` instead of `" + implementationTitle + "`");
-            }
-            String version = normalize(attributes.getValue(Attributes.Name.IMPLEMENTATION_VERSION));
-            if (!matchesConfiguredVersion(configuredVersion, version)) {
-                throw invalid("the selected " + label + " JAR reports Implementation-Version `"
-                        + version + "` which does not match configured version `"
-                        + configuredVersion + "`");
-            }
-        } catch (KotlinCompileException exception) {
-            throw exception;
-        } catch (IOException | RuntimeException exception) {
-            throw new KotlinCompileException(
-                    "Could not inspect the checksum-verified Kotlin " + label + " JAR at " + jarPath
-                            + ". Run `zolt resolve` to refresh the artifact cache, then retry.",
-                    exception);
-        }
-    }
-
-    private static boolean matchesConfiguredVersion(String configured, String reported) {
-        if (configured.equals(reported)) {
-            return true;
-        }
-        String releasePrefix = configured + "-release-";
-        return reported.startsWith(releasePrefix) && reported.length() > releasePrefix.length();
-    }
-
     private static void revalidate(List<VerifiedCompilerArtifact> artifacts) {
         for (VerifiedCompilerArtifact artifact : artifacts) {
             String current = VerifiedArtifactHashes.currentHash(artifact.jar()).orElseThrow(() -> invalid(
@@ -366,7 +298,7 @@ public final class KotlinCompilerToolchainResolver {
         return value == null ? "" : value.strip();
     }
 
-    private static KotlinCompileException invalid(String reason) {
+    static KotlinCompileException invalid(String reason) {
         return new KotlinCompileException(
                 "Configured Kotlin compiler toolchain is invalid because " + reason + ". "
                         + "Keep `[toolchain.kotlin].version`, the `tool-kotlin` closure, and ordinary "

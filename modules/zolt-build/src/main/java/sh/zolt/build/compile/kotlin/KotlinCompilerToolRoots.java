@@ -18,6 +18,8 @@ public final class KotlinCompilerToolRoots {
             new PackageId("org.jetbrains.kotlin", "kotlin-annotation-processing-embeddable");
     public static final PackageId SERIALIZATION =
             new PackageId("org.jetbrains.kotlin", "kotlin-serialization-compiler-plugin-embeddable");
+    public static final PackageId ALL_OPEN =
+            new PackageId("org.jetbrains.kotlin", "kotlin-allopen-compiler-plugin-embeddable");
 
     private KotlinCompilerToolRoots() {
     }
@@ -33,21 +35,31 @@ public final class KotlinCompilerToolRoots {
         List<ResolvedClasspathPackage> compilerRoots = matching(roots, COMPILER);
         List<ResolvedClasspathPackage> kaptRoots = matching(roots, KAPT);
         List<ResolvedClasspathPackage> serializationRoots = matching(roots, SERIALIZATION);
+        List<ResolvedClasspathPackage> allOpenRoots = matching(roots, ALL_OPEN);
 
         requireExactlyOneCompiler(compilerRoots, configuredVersion);
         requireAtMostOne(kaptRoots, KAPT, "KAPT");
         requireAtMostOne(serializationRoots, SERIALIZATION, "serialization compiler plugin");
-        requireExpectedPluginRoots(plugins, serializationRoots, configuredVersion);
+        requireAtMostOne(allOpenRoots, ALL_OPEN, "Spring all-open compiler plugin");
+        requireExpectedPluginRoots(
+                plugins, serializationRoots, allOpenRoots, configuredVersion);
         rejectExtraRoots(roots, plugins);
         requireAlignedVersion(kaptRoots, configuredVersion, "KAPT tool root");
         requireAlignedVersion(
                 serializationRoots,
                 configuredVersion,
                 "serialization compiler plugin tool root");
+        requireAlignedVersion(
+                allOpenRoots,
+                configuredVersion,
+                "Spring all-open compiler plugin tool root");
 
         List<ResolvedClasspathPackage> pluginRoots = new ArrayList<>();
         if (plugins.contains(KotlinCompilerPlugin.SERIALIZATION)) {
             pluginRoots.add(serializationRoots.getFirst());
+        }
+        if (plugins.contains(KotlinCompilerPlugin.SPRING)) {
+            pluginRoots.add(allOpenRoots.getFirst());
         }
         return new Selection(
                 compilerRoots.getFirst(),
@@ -89,11 +101,18 @@ public final class KotlinCompilerToolRoots {
     private static void requireExpectedPluginRoots(
             Set<KotlinCompilerPlugin> plugins,
             List<ResolvedClasspathPackage> serializationRoots,
+            List<ResolvedClasspathPackage> allOpenRoots,
             String version) {
         if (plugins.contains(KotlinCompilerPlugin.SERIALIZATION)
                 && serializationRoots.isEmpty()) {
             throw invalid("zolt.lock has no direct " + SERIALIZATION
                     + " root in scope `tool-kotlin` for configured plugin `serialization` "
+                    + "at version `" + version + "`");
+        }
+        if (plugins.contains(KotlinCompilerPlugin.SPRING)
+                && allOpenRoots.isEmpty()) {
+            throw invalid("zolt.lock has no direct " + ALL_OPEN
+                    + " root in scope `tool-kotlin` for configured plugin `spring` "
                     + "at version `" + version + "`");
         }
     }
@@ -104,14 +123,22 @@ public final class KotlinCompilerToolRoots {
         List<ResolvedClasspathPackage> extras = roots.stream()
                 .filter(root -> !root.resolvedPackage().packageId().equals(COMPILER))
                 .filter(root -> !root.resolvedPackage().packageId().equals(KAPT))
-                .filter(root -> plugins.contains(KotlinCompilerPlugin.SERIALIZATION)
-                        ? !root.resolvedPackage().packageId().equals(SERIALIZATION)
-                        : true)
+                .filter(root -> !selectedPluginRoot(
+                        root.resolvedPackage().packageId(), plugins))
                 .toList();
         if (!extras.isEmpty()) {
             throw invalid("zolt.lock has extra direct roots in scope `tool-kotlin`: "
                     + selections(extras));
         }
+    }
+
+    private static boolean selectedPluginRoot(
+            PackageId packageId,
+            Set<KotlinCompilerPlugin> plugins) {
+        return plugins.contains(KotlinCompilerPlugin.SERIALIZATION)
+                        && packageId.equals(SERIALIZATION)
+                || plugins.contains(KotlinCompilerPlugin.SPRING)
+                        && packageId.equals(ALL_OPEN);
     }
 
     private static void requireAlignedVersion(
