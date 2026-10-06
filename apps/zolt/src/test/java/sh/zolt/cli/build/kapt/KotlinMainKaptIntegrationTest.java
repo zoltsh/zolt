@@ -2,30 +2,41 @@ package sh.zolt.cli.build.kapt;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static sh.zolt.cli.CliTestSupport.execute;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.Map;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.Isolated;
 import sh.zolt.cli.CliTestRepository;
 import sh.zolt.cli.CliTestSupport.CommandResult;
 import sh.zolt.cli.build.KaptProcessorCliFixture;
 import sh.zolt.cli.build.KotlinCompilerCliFixture;
 
 /** End-to-end proof that a Kotlin application consumes KAPT-generated Java offline. */
+@Isolated("mutates user.home so the command reads an isolated build-cache config")
 final class KotlinMainKaptIntegrationTest {
     @TempDir
     private Path tempDir;
 
     @Test
     void resolvesBuildsRunsAndReusesKaptGeneratedMainOffline() throws Exception {
+        assumeTrue(System.getenv("ZOLT_USER_HOME") == null, "test needs an isolated user.home fallback");
+        String previousUserHome = System.getProperty("user.home");
+        Path fakeUserHome = tempDir.resolve("fake-user-home");
+        System.setProperty("user.home", fakeUserHome.toString());
         try (CliTestRepository repository = CliTestRepository.start()) {
             Path project = tempDir.resolve("project");
             Path onlineCache = tempDir.resolve("online-cache");
             Path artifactCache = tempDir.resolve("artifact-cache");
+            configureBuildCache(fakeUserHome);
             KotlinCompilerCliFixture.publish(repository);
             KaptProcessorCliFixture.publish(repository, tempDir.resolve("processor"));
             writeProject(project, repository);
@@ -67,6 +78,19 @@ final class KotlinMainKaptIntegrationTest {
             assertEquals(0, warm.exitCode(), warm.stderr());
             assertTiming(warm, "skipped");
 
+            deleteTree(project.resolve("target"));
+            CommandResult restored = build(project, artifactCache);
+
+            assertEquals(0, restored.exitCode(), restored.stderr());
+            assertTiming(restored, "restored");
+            assertTrue(Files.isDirectory(project.resolve("target/generated/sources/annotations")));
+            assertTrue(Files.isRegularFile(output.resolve("GeneratedTestMessage.class")));
+
+            CommandResult restoredWarm = build(project, artifactCache);
+
+            assertEquals(0, restoredWarm.exitCode(), restoredWarm.stderr());
+            assertTiming(restoredWarm, "skipped");
+
             CommandResult run = execute(
                     "run",
                     "--cwd", project.toString(),
@@ -75,6 +99,12 @@ final class KotlinMainKaptIntegrationTest {
             assertEquals(0, run.exitCode(), run.stderr());
             assertTrue(run.stdout().contains("generated-test:generated-test"), run.stdout());
             assertEquals(Map.of(), repository.authorizations(), "cache-only commands must not contact the repository");
+        } finally {
+            if (previousUserHome == null) {
+                System.clearProperty("user.home");
+            } else {
+                System.setProperty("user.home", previousUserHome);
+            }
         }
     }
 
@@ -82,12 +112,40 @@ final class KotlinMainKaptIntegrationTest {
         return execute(
                 "build",
                 "--offline",
-                "--no-build-cache",
                 "--no-progress",
                 "--timings",
                 "--timings-format", "json",
                 "--cwd", project.toString(),
                 "--cache-root", artifactCache.toString());
+    }
+
+    private static void configureBuildCache(Path fakeUserHome) throws IOException {
+        Path globalDirectory = fakeUserHome.resolve(".zolt");
+        Files.createDirectories(globalDirectory);
+        Files.writeString(globalDirectory.resolve("config.toml"), """
+                version = 1
+
+                [buildCache]
+                enabled = true
+                dir = "build-cache"
+                """);
+    }
+
+    private static void deleteTree(Path root) throws IOException {
+        if (!Files.exists(root)) {
+            return;
+        }
+        try (Stream<Path> paths = Files.walk(root)) {
+            paths.sorted(Comparator.reverseOrder()).forEach(path -> {
+                try {
+                    Files.delete(path);
+                } catch (IOException exception) {
+                    throw new UncheckedIOException(exception);
+                }
+            });
+        } catch (UncheckedIOException exception) {
+            throw exception.getCause();
+        }
     }
 
     private static void writeProject(Path project, CliTestRepository repository) throws IOException {
