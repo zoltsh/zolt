@@ -824,9 +824,11 @@ select `class` or `indy`. One `-Xannotation-default-target=<mode>` argument may
 select `first-only`, `first-only-warn`, or `param-property`. One
 `-Xassertions=<mode>` argument may select `always-enable`, `always-disable`,
 `jvm`, or `legacy`. One `-Xreturn-value-checker=<mode>` argument may select
-`check`, `full`, or `disable`. One `-Xjspecify-annotations=<mode>` argument may
-select `ignore`, `warn`, or `strict`, and one global `-Xjsr305=<mode>` argument
-may select `ignore`, `warn`, or `strict`. One
+`check`, `full`, or `disable`. One `-Xbackend-threads=<count>` argument may use
+`0` for the host processor count or an integer from 1 through 256. One
+`-Xjspecify-annotations=<mode>` argument may select `ignore`, `warn`, or
+`strict`, and one global `-Xjsr305=<mode>` argument may select `ignore`, `warn`,
+or `strict`. One
 `-Xsupport-compatqual-checker-framework-annotations=<mode>` argument may select
 `enable` or `disable`. Distinct, repeatable
 `-Xnullability-annotations=@package.name:<mode>` arguments may select `ignore`,
@@ -859,6 +861,7 @@ args = [
   "-Xannotation-default-target=param-property",
   "-Xassertions=jvm",
   "-Xreturn-value-checker=check",
+  "-Xbackend-threads=2",
   "-Xjspecify-annotations=strict",
   "-Xjsr305=strict",
   "-Xsupport-compatqual-checker-framework-annotations=enable",
@@ -1296,6 +1299,16 @@ a `@MustUseReturnValue` class reports `unused return value` in both `check` and
 build. The selected compiler remains authoritative for automatic insertion and
 checker coverage. Configure the mode independently for main and test source
 sets; changing it invalidates and cleanly recompiles the matching output.
+`-Xbackend-threads=<count>` controls parallel Kotlin backend code generation for
+the source set. Kotlin 2.2 defaults to one thread when the option is omitted;
+`0` asks the compiler to use one thread per available processor, while Zolt
+accepts explicit counts from 1 through 256. Use a fixed count when CI resource
+limits matter, and reserve `0` for hosts where using every reported processor is
+intentional. The option affects kotlinc only, not javac or KAPT processor
+execution, and does not change source semantics. The configured count is part
+of the compilation fingerprint and output-cache identity. Configure it
+independently for main and test source sets; changing it invalidates and cleanly
+recompiles the matching output.
 `-Xjspecify-annotations=strict` reports Kotlin nullability mismatches inferred
 from supported `org.jspecify.annotations` on Java declarations as compilation
 errors. `warn` reports the same mismatches as warnings, so combining it with
@@ -1391,7 +1404,7 @@ JSpecify, JSR-305, or package-specific Java nullness severity, legacy null-check
 exceptions, Java-entry parameter assertions, strict metadata-version semantics,
 platform-call result assertions, extension-receiver assertions, annotations in
 metadata, return-value-checker mode, backend optimization, method inlining,
-inline-scope debug numbering, JVM-name
+backend thread count, inline-scope debug numbering, JVM-name
 parentheses sanitization, legacy inline-class mangling, multifile-part
 inheritance, complete warning reporting, internal diagnostic-name rendering,
 generated-bytecode validation, JVM preview-class generation, or opt-ins
@@ -1401,7 +1414,8 @@ compiler still determines
 supported diagnostic names, warnings, extra and progressive checks, version
 values, language/API combinations, JVM-default and explicit-API modes,
 string-concatenation, lambda-generation, annotated-lambda indy compatibility,
-backend optimization, method inlining, inline-scope debug numbering, legacy
+backend optimization, backend scheduling, method inlining, inline-scope debug
+numbering, legacy
 inline-class mangling, complete warning reporting, generated-bytecode
 validation, internal diagnostic-name rendering,
 JVM preview-class generation, JVM-name sanitization, multifile-part inheritance,
@@ -1415,8 +1429,9 @@ behavior, platform-call result-assertion behavior, and extension-receiver
 assertion behavior, and return-value-checker behavior. Main and test annotation,
 boxed-exposure, copy-visibility, source-debug, strict-metadata, and legacy
 null-check, parameter-assertion, call-assertion, receiver-assertion, and
-annotation-metadata and return-value-checker settings are independent. Changing
-any of them performs a cleaned full compilation of that source set so obsolete
+annotation-metadata, return-value-checker, and backend-thread settings are
+independent. Changing any of them performs a cleaned full compilation of that
+source set so obsolete
 placement, constructors, bridges, method visibility, metadata, or null-check
 calls cannot survive. The compiler also decides whether an opt-in annotation
 exists and applies. Other custom compiler arguments remain unsupported for

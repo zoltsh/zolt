@@ -74,7 +74,9 @@ zolt run
   Warnings may be expanded, enforced, suppressed, or adjusted by diagnostic per
   source set. Kotlin/JVM string concatenation may use inline `StringBuilder` or
   either invokedynamic scheme per source set; lambda generation may likewise
-  select anonymous classes or invokedynamic. Conversion to
+  select anonymous classes or invokedynamic. Kotlin backend code generation may
+  also use a bounded explicit thread count or the host processor count per
+  source set. Conversion to
   single-abstract-method interfaces may also select either scheme. Unsupported
   language and compiler combinations fail closed.
 - **Dependencies.** Use API, implementation, runtime, provided, development,
