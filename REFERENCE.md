@@ -733,6 +733,18 @@ authored arguments in fingerprint and cache identity. Changing an option
 therefore recompiles the main source set rather than reusing incompatible
 generated output.
 
+`-Xuse-k2-kapt` opts a Kotlin-bearing source set with configured processors into
+the selected compiler's experimental K2 KAPT implementation. The qualified
+Kotlin 2.2.0 main-source case generated Java visible to authored Kotlin and
+Java, restored the complete compiled output from Zolt's build cache, responded
+to processor-option changes, and executed successfully. The flag does not
+enable annotation processing by itself, change processor isolation, or make the
+experimental compiler mode stable. Keep the selected Kotlin compiler and KAPT
+plugin versions aligned, and qualify each processor before adopting it.
+Configure the mode independently in `[compiler].args` and
+`[compiler.test].args`; changing it invalidates and cleanly recompiles the
+matching source set.
+
 A pre-generated Java or Kotlin tree may join that main source set through a
 `[generated.main.<id>]` step whose `kind` is `"declared-root"`. Set
 `language = "kotlin"` for a Kotlin tree because the default is Java. Zolt treats
@@ -811,7 +823,7 @@ plus `-Xmulti-dollar-interpolation`, `-Xnon-local-break-continue`,
 `-Xgenerate-strict-metadata-version`, `-Xannotations-in-metadata`,
 `-Xuse-type-table`, `-Xuse-old-class-files-reading`,
 `-Xskip-metadata-version-check`, `-Xskip-prerelease-check`,
-`-Xallow-kotlin-package`, `-Xjvm-enable-preview`, and
+`-Xallow-kotlin-package`, `-Xuse-k2-kapt`, `-Xjvm-enable-preview`, and
 `-Xallow-unstable-dependencies`, plus
 `-Xindy-allow-annotated-lambdas` when paired with `-Xlambdas=indy`. One each of
 the paired Kotlin arguments
@@ -994,7 +1006,7 @@ sanitization, legacy inline-class mangling, multifile-part inheritance,
 complete warning reporting, internal diagnostic-name rendering,
 generated-bytecode validation, annotations in metadata, metadata type-table
 serialization, ABI-stability marking, metadata-version and
-prerelease-dependency bypasses, protected-package opt-in,
+prerelease-dependency bypasses, protected-package opt-in, K2 KAPT mode,
 unstable-dependency opt-in, and opt-ins go only to `kotlinc`.
 JVM preview-class generation is coordinated across `kotlinc`, the javac phase
 of mixed compilation, and Zolt-owned runtime launches.
@@ -1458,7 +1470,8 @@ exposure, data-class copy visibility, source-debug annotation emission,
 JSpecify, JSR-305, or package-specific Java nullness severity, legacy null-check
 exceptions, Java-entry parameter assertions, strict metadata-version semantics,
 dependency metadata-version or prerelease bypass, platform-call result
-assertions, protected-package opt-in, extension-receiver assertions,
+assertions, protected-package opt-in, K2 KAPT mode, extension-receiver
+assertions,
 annotations in metadata, return-value-checker mode, backend optimization,
 method inlining,
 backend thread count, class-file reader, inline-scope debug numbering, JVM-name
@@ -2623,7 +2636,8 @@ final `javac` phase. Test KAPT options use `-Akey=value` entries in
 `[compiler.test].args`; they require `[dependencies.test-processor]`, follow the
 same key/value grammar and deterministic encoding as main options, and
 participate in test fingerprint and cache identity. Main and test processor
-lanes remain separate.
+lanes remain separate. `-Xuse-k2-kapt` in `[compiler.test].args` selects the
+same experimental compiler mode for test KAPT without changing the main lane.
 
 With Kotlin main sources, unit and integration tests may use public and
 `internal` APIs from their own member because its main output is the sole Kotlin
