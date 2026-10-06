@@ -161,6 +161,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.allowKotlinPackage()) {
             arguments.add("-Xallow-kotlin-package");
         }
+        if (options.useK2Kapt()) {
+            arguments.add("-Xuse-k2-kapt");
+        }
         if (options.jvmPreview()) {
             arguments.add("-Xjvm-enable-preview");
         }

@@ -53,6 +53,7 @@ final class KotlinCompilerOptionsCopy {
                 options.skipMetadataVersionCheck(),
                 options.skipPrereleaseCheck(),
                 options.allowKotlinPackage(),
+                options.useK2Kapt(),
                 options.jvmPreview(),
                 options.allowUnstableDependencies(),
                 options.noParamAssertions(),

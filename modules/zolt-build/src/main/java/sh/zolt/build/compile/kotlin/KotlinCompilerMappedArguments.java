@@ -42,6 +42,7 @@ public record KotlinCompilerMappedArguments(
         boolean skipMetadataVersionCheck,
         boolean skipPrereleaseCheck,
         boolean allowKotlinPackage,
+        boolean useK2Kapt,
         boolean jvmPreview,
         boolean allowUnstableDependencies,
         boolean noParamAssertions,

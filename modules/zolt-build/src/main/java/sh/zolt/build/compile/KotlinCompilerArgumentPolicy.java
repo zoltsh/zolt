@@ -242,6 +242,7 @@ final class KotlinCompilerArgumentPolicy {
                 standaloneArguments.contains("-Xskip-metadata-version-check"),
                 standaloneArguments.contains("-Xskip-prerelease-check"),
                 standaloneArguments.contains("-Xallow-kotlin-package"),
+                standaloneArguments.contains("-Xuse-k2-kapt"),
                 standaloneArguments.contains("-Xjvm-enable-preview"),
                 standaloneArguments.contains("-Xallow-unstable-dependencies"),
                 standaloneArguments.contains("-Xno-param-assertions"),

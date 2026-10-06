@@ -109,6 +109,7 @@ public final class KotlinCompileOptionsPolicy {
                 mappedArguments.skipMetadataVersionCheck(),
                 mappedArguments.skipPrereleaseCheck(),
                 mappedArguments.allowKotlinPackage(),
+                mappedArguments.useK2Kapt(),
                 mappedArguments.jvmPreview(),
                 mappedArguments.allowUnstableDependencies(),
                 mappedArguments.noParamAssertions(),
