@@ -28,7 +28,7 @@ final class KotlinSpringAllOpenPluginTestIntegrationTest {
         Path artifactCache = tempDir.resolve("artifact-cache");
         try (CliTestRepository repository = CliTestRepository.start()) {
             KotlinCompilerCliFixture.publish(repository);
-            KotlinCompilerCliFixture.publishSpringAllOpen(repository);
+            KotlinCompilerCliFixture.publishAllOpen(repository);
             JUnitConsoleCliFixture.publish(repository);
             writeProject(project, repository);
 

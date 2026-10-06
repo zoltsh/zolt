@@ -81,7 +81,7 @@ public final class KotlinCompilerCliFixture {
         publish(repository, SERIALIZATION_CORE, List.of(STDLIB));
     }
 
-    public static void publishSpringAllOpen(CliTestRepository repository) throws IOException {
+    public static void publishAllOpen(CliTestRepository repository) throws IOException {
         publish(repository, ALL_OPEN_PLUGIN, List.of());
     }
 

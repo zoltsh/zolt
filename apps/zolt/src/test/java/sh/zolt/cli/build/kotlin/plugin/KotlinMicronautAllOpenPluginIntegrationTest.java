@@ -14,20 +14,19 @@ import sh.zolt.cli.CliTestRepository;
 import sh.zolt.cli.CliTestSupport.CommandResult;
 import sh.zolt.cli.build.KotlinCompilerCliFixture;
 
-/** Real CLI proof that the closed Spring and JPA compiler-plugin selectors compose. */
-final class KotlinSpringJpaPluginIntegrationTest {
+/** Real CLI proof that the official Micronaut all-open preset honors meta-annotations. */
+final class KotlinMicronautAllOpenPluginIntegrationTest {
     @TempDir
     private Path tempDir;
 
     @Test
-    void opensAndAddsANoArgConstructorToTheSameTypeOffline() throws Exception {
+    void opensAMetaAnnotatedMicronautTypeOffline() throws Exception {
         Path project = tempDir.resolve("project");
         Path onlineCache = tempDir.resolve("online-cache");
         Path artifactCache = tempDir.resolve("artifact-cache");
         try (CliTestRepository repository = CliTestRepository.start()) {
             KotlinCompilerCliFixture.publish(repository);
             KotlinCompilerCliFixture.publishAllOpen(repository);
-            KotlinCompilerCliFixture.publishJpaNoArg(repository);
             writeProject(project, repository);
 
             CommandResult resolve = execute(
@@ -36,6 +35,8 @@ final class KotlinSpringJpaPluginIntegrationTest {
                     "--cache-root", onlineCache.toString(),
                     "--no-progress");
             assertEquals(0, resolve.exitCode(), combined(resolve));
+            assertTrue(Files.readString(project.resolve("zolt.lock")).contains(
+                    "id = \"org.jetbrains.kotlin:kotlin-allopen-compiler-plugin-embeddable\""));
             Files.move(onlineCache, artifactCache);
             repository.clearAuthorizations();
             repository.close();
@@ -49,7 +50,7 @@ final class KotlinSpringJpaPluginIntegrationTest {
                     "--no-progress");
             assertEquals(0, build.exitCode(), combined(build));
             assertTrue(Files.isRegularFile(project.resolve(
-                    "target/classes/com/example/KotlinEntity.class")));
+                    "target/classes/com/example/MicronautService.class")));
 
             CommandResult run = execute(
                     "run",
@@ -57,7 +58,7 @@ final class KotlinSpringJpaPluginIntegrationTest {
                     "--cache-root", artifactCache.toString(),
                     "--no-progress");
             assertEquals(0, run.exitCode(), combined(run));
-            assertTrue(run.stdout().contains("false:false:true:true:combined"), run.stdout());
+            assertTrue(run.stdout().contains("false:false:micronaut"), run.stdout());
             assertEquals(Map.of(), repository.authorizations());
         }
     }
@@ -65,16 +66,13 @@ final class KotlinSpringJpaPluginIntegrationTest {
     private static void writeProject(
             Path project,
             CliTestRepository repository) throws IOException {
-        Path component = project.resolve(
-                "src/main/kotlin/org/springframework/stereotype/Component.kt");
-        Path entity = project.resolve("src/main/kotlin/jakarta/persistence/Entity.kt");
+        Path around = project.resolve("src/main/kotlin/io/micronaut/aop/Around.kt");
         Path application = project.resolve("src/main/kotlin/com/example/Main.kt");
-        Files.createDirectories(component.getParent());
-        Files.createDirectories(entity.getParent());
+        Files.createDirectories(around.getParent());
         Files.createDirectories(application.getParent());
         Files.writeString(project.resolve("zolt.toml"), """
                 [project]
-                name = "kotlin-spring-jpa"
+                name = "kotlin-micronaut-all-open"
                 version = "0.1.0"
                 group = "com.example"
                 java = %s
@@ -82,7 +80,7 @@ final class KotlinSpringJpaPluginIntegrationTest {
 
                 [toolchain.kotlin]
                 version = "%s"
-                plugins = ["spring", "jpa"]
+                plugins = ["micronaut"]
 
                 [build]
                 sources = ["src/main/kotlin"]
@@ -100,44 +98,34 @@ final class KotlinSpringJpaPluginIntegrationTest {
                 KotlinCompilerCliFixture.KOTLIN_VERSION,
                 repository.baseUri(),
                 KotlinCompilerCliFixture.KOTLIN_VERSION));
-        Files.writeString(component, """
-                package org.springframework.stereotype
+        Files.writeString(around, """
+                package io.micronaut.aop
 
                 @Target(AnnotationTarget.CLASS, AnnotationTarget.ANNOTATION_CLASS)
                 @Retention(AnnotationRetention.RUNTIME)
-                annotation class Component
-                """);
-        Files.writeString(entity, """
-                package jakarta.persistence
-
-                @Target(AnnotationTarget.CLASS)
-                @Retention(AnnotationRetention.RUNTIME)
-                annotation class Entity
+                annotation class Around
                 """);
         Files.writeString(application, """
                 package com.example
 
-                import jakarta.persistence.Entity
+                import io.micronaut.aop.Around
                 import java.lang.reflect.Modifier
-                import org.springframework.stereotype.Component
 
-                @Component
-                @Entity
-                class KotlinEntity(val name: String) {
-                    fun message(): String = "combined"
+                @Around
+                annotation class Traced
+
+                @Traced
+                class MicronautService {
+                    fun message(): String = "micronaut"
                 }
 
                 fun main() {
-                    val type = KotlinEntity::class.java
+                    val type = MicronautService::class.java
                     val method = type.getDeclaredMethod("message")
-                    val constructor = type.getDeclaredConstructor()
-                    val instance = constructor.newInstance()
                     println(
                         Modifier.isFinal(type.modifiers).toString()
                             + ":" + Modifier.isFinal(method.modifiers)
-                            + ":" + (constructor.parameterCount == 0)
-                            + ":" + type.isInstance(instance)
-                            + ":" + instance.message(),
+                            + ":" + MicronautService().message(),
                     )
                 }
                 """);

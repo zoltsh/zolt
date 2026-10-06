@@ -39,7 +39,7 @@ final class KotlinSpringAllOpenPluginIntegrationTest {
             Path artifactCache = tempDir.resolve("artifact-cache");
             KotlinCliBuildCacheTestSupport.configure(fakeUserHome);
             KotlinCompilerCliFixture.publish(repository);
-            KotlinCompilerCliFixture.publishSpringAllOpen(repository);
+            KotlinCompilerCliFixture.publishAllOpen(repository);
             writeProject(project, repository.baseUri().toString());
 
             CommandResult resolve = execute(
