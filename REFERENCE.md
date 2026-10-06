@@ -748,12 +748,12 @@ matching source set.
 #### Bounded Kotlin compiler plugins
 
 The Kotlin preview supports official compiler plugins through the built-in
-`serialization`, `spring`, and `jpa` selectors:
+`serialization`, `spring`, `micronaut`, and `jpa` selectors:
 
 ```toml
 [toolchain.kotlin]
 version = "2.2.0"
-plugins = ["serialization", "spring", "jpa"]
+plugins = ["serialization", "spring", "micronaut", "jpa"]
 
 [dependencies]
 "org.jetbrains.kotlin:kotlin-stdlib" = "2.2.0"
@@ -768,6 +768,9 @@ compiler version to the checksum-verified `tool-kotlin` scope:
 - `spring` selects
   `org.jetbrains.kotlin:kotlin-allopen-compiler-plugin-embeddable` and invokes
   its owned `spring` preset.
+- `micronaut` selects the same all-open artifact and invokes its owned
+  `micronaut` preset. Selecting both all-open presets keeps one direct tool root
+  and emits both preset options in deterministic order.
 - `jpa` selects
   `org.jetbrains.kotlin:kotlin-noarg-compiler-plugin-embeddable` and invokes
   its owned `jpa` preset.
@@ -789,6 +792,12 @@ all-open Spring preset to recognized Spring annotations, making eligible Kotlin
 classes and members non-final for proxying while leaving unannotated types
 unchanged. Applications declare their chosen Spring dependencies normally.
 
+The `micronaut` selector similarly adds no Micronaut libraries. It applies the
+official all-open Micronaut preset to `@Around`, `@Introduction`,
+`@InterceptorBinding`, and `@InterceptorBindingDefinitions`, including
+application annotations meta-annotated with those types. Applications declare
+their chosen Micronaut dependencies normally.
+
 The `jpa` selector does not add a persistence API or provider. It applies the
 official no-arg JPA preset to recognized `javax.persistence` and
 `jakarta.persistence` annotations so frameworks can construct eligible Kotlin
@@ -805,10 +814,10 @@ while a verified cache entry restores the complete compiled output. Compiler
 tooling remains absent from thin and uber packages; declared application
 runtime libraries follow the ordinary packaging rules.
 
-`serialization`, `spring`, and `jpa` are the only supported compiler-plugin
-selectors. They may be selected independently or together. Arbitrary plugin
-coordinates, compiler-plugin paths, and plugin options are rejected or remain
-outside the bounded manifest contract.
+`serialization`, `spring`, `micronaut`, and `jpa` are the only supported
+compiler-plugin selectors. They may be selected independently or together.
+Arbitrary plugin coordinates, compiler-plugin paths, and plugin options are
+rejected or remain outside the bounded manifest contract.
 
 #### KSP2 source-set generation preview
 
