@@ -745,6 +745,56 @@ Configure the mode independently in `[compiler].args` and
 `[compiler.test].args`; changing it invalidates and cleanly recompiles the
 matching source set.
 
+#### KSP2 main generation preview
+
+A Kotlin-bearing main source set may run KSP2 as an owned pre-compile generator.
+Declare the KSP engine version and the processor roots together, then reference
+that tool from a `kind = "ksp"` main step (the tool defaults to the reserved
+`ksp` id):
+
+```toml
+[toolchain.kotlin]
+version = "2.2.0"
+
+[generated.tools.ksp]
+version = "2.2.0-2.0.2"
+coordinates = [
+    { coordinate = "com.example:my-ksp-processor", version = "1.0.0" },
+]
+
+[generated.main.symbols]
+kind = "ksp"
+options = { "processor.mode" = "production" }
+```
+
+The KSP release must begin with the configured Kotlin version followed by `-`;
+Zolt rejects a mismatched engine before generation. `zolt resolve` locks the
+`com.google.devtools.ksp:symbol-processing-aa` engine closure and the declared
+processor closure in separate checksum-verified `tool-exec` groups. Neither
+closure enters the compile, runtime, or package classpath. Fixed versions and
+version references use the ordinary generated-tool selector rules.
+
+The default output for the example is
+`target/generated/ksp/main/symbols`. A KSP step owns one root with published
+`kotlin`, `java`, and `resources` lanes; all three are admitted before main
+compilation or resource copying. `required = false`, `clean = false`, and a
+`language` override are rejected because the multi-lane output is required and
+Zolt-owned. A custom safe project-relative `output` is allowed.
+
+Generation runs in a staging tree and publishes the complete owned root only
+after the KSP process succeeds, so a failed processor cannot replace the last
+successful generated sources or resources with a partial tree. Zolt currently
+disables KSP's internal incremental state and runs the processor before each
+main build. Byte-identical published output can still preserve the ordinary
+compile no-op; changing the processor closure, engine, options, or published
+bytes invalidates compile and output-cache reuse. `zolt clean`, workspace
+builds, package evidence, cache restoration, and packaged artifacts use the
+same owned output contract.
+
+This preview supports KSP only under `[generated.main]`. A
+`[generated.test]` KSP step fails during manifest decoding, and arbitrary Kotlin
+compiler plugins remain unsupported.
+
 A pre-generated Java or Kotlin tree may join that main source set through a
 `[generated.main.<id>]` step whose `kind` is `"declared-root"`. Set
 `language = "kotlin"` for a Kotlin tree because the default is Java. Zolt treats
@@ -781,9 +831,9 @@ that member's main output as a Kotlin friend path. Internal declarations from
 workspace dependency members remain inaccessible. Kotlin integration-test
 roots are admitted through `[test.integration].sources`; OpenAPI and Protobuf
 steps marked `language = "kotlin"` may also supply owned main or test sources.
-KSP, custom Kotlin compiler plugins, and automatic migration of Kotlin shapes
-outside the bounded Maven subset described under Migration Explain are not
-supported.
+KSP test generation, custom Kotlin compiler plugins, and automatic migration of
+Kotlin shapes outside the bounded Maven subset described under Migration Explain
+are not supported.
 Sources are read as UTF-8.
 The effective Java release must not exceed the selected complete JDK;
 `[compiler].jdkApi = "host"` selects host-platform API semantics instead of
@@ -2706,6 +2756,8 @@ Zolt has project-model support for common Java application shapes:
 - Vert.x applications with platform BOMs and dependency exclusions.
 - OpenAPI generated Java or Kotlin sources with tool versioning and presets.
 - Protobuf/gRPC generated Java or Kotlin sources.
+- KSP2-generated Kotlin, Java, and resources for Kotlin-bearing main source
+  sets, with separately locked engine and processor closures.
 - Generic exec steps that run a pinned tool — a resolver-locked `jvm` tool, a
   PATH `process` tool, or the member's own `project` classpath — to produce Java
   or Kotlin sources or resources consumed by the build.
@@ -2746,6 +2798,13 @@ OpenAPI step must select a generator and options that actually emit `.kt` files.
 Its owned output is generated before discovery and participates in fingerprint,
 workspace, and output-cache decisions. Protobuf and non-source exec outputs
 remain Java-only.
+
+`ksp` is also a reserved tool id, but it has no implicit processor selection:
+declare `[generated.tools.ksp]` with a matching KSP engine version and at least
+one processor coordinate. A `kind = "ksp"` step has fixed Kotlin, Java, and
+resource lanes rather than a configurable `language` or `produces` value. See
+[KSP2 main generation preview](#ksp2-main-generation-preview) for its complete
+contract.
 
 For example, an external generator can hand an existing Kotlin tree to Zolt
 without granting cleanup ownership:
@@ -2909,10 +2968,11 @@ cache = "none"                          # always-run; excluded from --offline; h
 
 ## Generated Producer Contract
 
-Every generated-source producer — the OpenAPI and protobuf built-ins and the
-generic exec step — obeys one contract, documented here the way resolution is,
-because a build tool that runs third-party tools must be explicit about what
-those tools may read and produce:
+The OpenAPI and protobuf built-ins and the generic exec step obey one declared-IO
+contract, documented here the way resolution is, because a build tool that runs
+third-party tools must be explicit about what those tools may read and produce.
+KSP uses the separate source-set and fixed multi-lane contract documented under
+[KSP2 main generation preview](#ksp2-main-generation-preview).
 
 - Inputs are exactly the declared closure. Zolt expands the `inputs` globs
   itself, sorts them, and hashes their content into the step fingerprint;
