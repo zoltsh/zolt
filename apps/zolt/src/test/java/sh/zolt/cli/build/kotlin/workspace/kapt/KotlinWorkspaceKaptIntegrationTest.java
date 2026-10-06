@@ -3,6 +3,7 @@ package sh.zolt.cli.build.kotlin.workspace.kapt;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static sh.zolt.cli.CliTestSupport.execute;
 
 import java.net.URI;
@@ -12,12 +13,15 @@ import java.nio.file.attribute.FileTime;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.Isolated;
 import sh.zolt.cli.CliTestRepository;
 import sh.zolt.cli.CliTestSupport.CommandResult;
 import sh.zolt.cli.build.KaptProcessorCliFixture;
+import sh.zolt.cli.build.KotlinCliBuildCacheTestSupport;
 import sh.zolt.cli.build.KotlinCompilerCliFixture;
 
-/** Real CLI proof for conservative KAPT option invalidation across Kotlin workspace members. */
+/** Real CLI proof for KAPT invalidation and compiled-output reuse across Kotlin workspace members. */
+@Isolated("mutates user.home so the command reads an isolated build-cache config")
 final class KotlinWorkspaceKaptIntegrationTest {
     private static final FileTime WARM_SENTINEL = FileTime.fromMillis(946_684_800_000L);
 
@@ -100,6 +104,75 @@ final class KotlinWorkspaceKaptIntegrationTest {
         }
     }
 
+    @Test
+    void restoresProviderAndConsumerClassesFromBuildCacheOffline() throws Exception {
+        assumeTrue(System.getenv("ZOLT_USER_HOME") == null, "test needs an isolated user.home fallback");
+        String previousUserHome = System.getProperty("user.home");
+        Path fakeUserHome = tempDir.resolve("cache-user-home");
+        System.setProperty("user.home", fakeUserHome.toString());
+        try (CliTestRepository repository = CliTestRepository.start()) {
+            Path workspace = tempDir.resolve("cached-workspace");
+            Path onlineCache = tempDir.resolve("cached-online-cache");
+            Path offlineCache = tempDir.resolve("cached-offline-cache");
+            KotlinCliBuildCacheTestSupport.configure(fakeUserHome);
+            KotlinCompilerCliFixture.publish(repository);
+            KaptProcessorCliFixture.publish(repository, tempDir.resolve("cached-processor"));
+            writeWorkspace(workspace, repository.baseUri(), "cached-workspace");
+
+            CommandResult resolve = execute(
+                    "resolve",
+                    "--workspace",
+                    "--cwd", workspace.toString(),
+                    "--cache-root", onlineCache.toString(),
+                    "--no-progress");
+            assertEquals(0, resolve.exitCode(), combined(resolve));
+            Files.move(onlineCache, offlineCache);
+            repository.clearAuthorizations();
+            repository.close();
+
+            CommandResult first = cachedBuild(workspace, offlineCache);
+            assertEquals(0, first.exitCode(), combined(first));
+            assertWorkspaceCompilation(first, 0, 0, 2);
+            Path providerTarget = workspace.resolve("modules/provider/target");
+            Path consumerTarget = workspace.resolve("apps/consumer/target");
+            Path generatedSources = providerTarget.resolve("generated/sources/annotations");
+            Path generatedSource = generatedSources.resolve("com/example/GeneratedTestMessage.java");
+            assertTrue(Files.readString(generatedSource).contains("cached-workspace"));
+
+            KotlinCliBuildCacheTestSupport.deleteTrees(providerTarget, consumerTarget);
+            CommandResult restored = cachedBuild(workspace, offlineCache);
+            assertEquals(0, restored.exitCode(), combined(restored));
+            assertWorkspaceCompilation(restored, 0, 2, 0);
+            assertTrue(Files.isDirectory(generatedSources));
+            assertTrue(Files.isRegularFile(providerTarget.resolve(
+                    "classes/com/example/GeneratedTestMessage.class")));
+            assertTrue(Files.isRegularFile(consumerTarget.resolve(
+                    "classes/com/example/consumer/Main.class")));
+
+            CommandResult warm = cachedBuild(workspace, offlineCache);
+            assertEquals(0, warm.exitCode(), combined(warm));
+            assertWorkspaceCompilation(warm, 2, 0, 0);
+            CommandResult run = execute(
+                    "run",
+                    "--workspace",
+                    "--member", "apps/consumer",
+                    "--cwd", workspace.toString(),
+                    "--cache-root", offlineCache.toString());
+            assertEquals(0, run.exitCode(), combined(run));
+            assertTrue(run.stdout().contains("cached-workspace"), run.stdout());
+            assertEquals(
+                    Map.of(),
+                    repository.authorizations(),
+                    "workspace cache restoration must remain cache-only");
+        } finally {
+            if (previousUserHome == null) {
+                System.clearProperty("user.home");
+            } else {
+                System.setProperty("user.home", previousUserHome);
+            }
+        }
+    }
+
     private static CommandResult build(Path workspace, Path cache) {
         return execute(
                 "build",
@@ -110,6 +183,33 @@ final class KotlinWorkspaceKaptIntegrationTest {
                 "--no-progress",
                 "--cwd", workspace.toString(),
                 "--cache-root", cache.toString());
+    }
+
+    private static CommandResult cachedBuild(Path workspace, Path cache) {
+        return execute(
+                "build",
+                "--workspace",
+                "--all",
+                "--offline",
+                "--timings",
+                "--timings-format", "json",
+                "--no-progress",
+                "--cwd", workspace.toString(),
+                "--cache-root", cache.toString());
+    }
+
+    private static void assertWorkspaceCompilation(
+            CommandResult result,
+            int skipped,
+            int restored,
+            int executed) {
+        String timing = result.stderr().lines()
+                .filter(line -> line.contains("\"phase\":\"build workspace\""))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Missing workspace timing in:\n" + result.stderr()));
+        assertTrue(timing.contains("\"mainCompilationsSkipped\":\"" + skipped + "\""), timing);
+        assertTrue(timing.contains("\"mainCompilationsRestored\":\"" + restored + "\""), timing);
+        assertTrue(timing.contains("\"mainCompilationsExecuted\":\"" + executed + "\""), timing);
     }
 
     private static void writeWorkspace(
