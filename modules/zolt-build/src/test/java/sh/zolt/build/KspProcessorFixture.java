@@ -62,18 +62,25 @@ final class KspProcessorFixture {
             if (message == null || message.isBlank()) {
                 throw new IllegalArgumentException("KSP fixture message option was not forwarded.");
             }
-            return new Processor(environment.getCodeGenerator(), message);
+            boolean failAfterKotlin = Boolean.parseBoolean(
+                    environment.getOptions().getOrDefault("fixture.failAfterKotlin", "false"));
+            return new Processor(environment.getCodeGenerator(), message, failAfterKotlin);
         }
     }
 
     private static final class Processor implements SymbolProcessor {
         private final CodeGenerator generator;
         private final String message;
+        private final boolean failAfterKotlin;
         private boolean generated;
 
-        private Processor(CodeGenerator generator, String message) {
+        private Processor(
+                CodeGenerator generator,
+                String message,
+                boolean failAfterKotlin) {
             this.generator = generator;
             this.message = message;
+            this.failAfterKotlin = failAfterKotlin;
         }
 
         @Override
@@ -92,6 +99,9 @@ final class KspProcessorFixture {
                         fun value(): String = "%s"
                     }
                     """.formatted(stringLiteral(message)));
+            if (failAfterKotlin) {
+                throw new IllegalStateException("KSP fixture failed after a partial staged write.");
+            }
             write(generator.createNewFile(
                     dependencies, "com.example", "GeneratedJavaMessage", "java"), """
                     package com.example;

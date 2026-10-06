@@ -2,6 +2,7 @@ package sh.zolt.build;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -133,9 +134,37 @@ final class BuildServiceKspIntegrationTest {
         assertTrue(reverted.buildResult().mainCompilationRestored());
         assertEquals("restored", reverted.buildResult().mainBuildCacheOutcome());
         assertEquals("from-ksp-from-ksp", invoke(artifacts.applicationClasspath()));
+
+        BuildException failure = assertThrows(
+                BuildException.class,
+                () -> service.buildWithClasspaths(
+                        projectDirectory, config("partial", true), cacheRoot, true));
+
+        assertTrue(failure.getMessage().contains("KSP generation for [generated.main.symbols] failed"));
+        assertTrue(Files.readString(output.resolve("kotlin/com/example/GeneratedKspMessage.kt"))
+                .contains("\"from-ksp\""));
+        assertTrue(Files.isRegularFile(output.resolve("java/com/example/GeneratedJavaMessage.java")));
+        assertEquals(
+                "from-ksp-resource\n",
+                Files.readString(output.resolve("resources/META-INF/ksp-fixture.txt")));
+        assertEquals(
+                "from-ksp-resource\n",
+                Files.readString(projectDirectory.resolve(
+                        "target/classes/META-INF/ksp-fixture.txt")));
+        assertEquals("from-ksp-from-ksp", invoke(artifacts.applicationClasspath()));
+
+        BuildResultWithClasspaths recovered = service.buildWithClasspaths(
+                projectDirectory, config, cacheRoot, true);
+
+        assertTrue(recovered.buildResult().mainCompilationSkipped());
+        assertEquals("from-ksp-from-ksp", invoke(artifacts.applicationClasspath()));
     }
 
     private ProjectConfig config(String message) {
+        return config(message, false);
+    }
+
+    private ProjectConfig config(String message, boolean failAfterKotlin) {
         return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "ksp-integration"
@@ -160,8 +189,8 @@ final class BuildServiceKspIntegrationTest {
 
                 [generated.main.symbols]
                 kind = "ksp"
-                options = { "fixture.message" = "%s" }
-                """.formatted(message));
+                options = { "fixture.message" = "%s", "fixture.failAfterKotlin" = "%s" }
+                """.formatted(message, failAfterKotlin));
     }
 
     private void source(String relative, String content) throws Exception {
