@@ -38,6 +38,7 @@ final class KotlinCompilerStandaloneArguments {
             "-Xannotations-in-metadata",
             "-Xuse-type-table",
             "-Xuse-old-class-files-reading",
+            "-Xskip-metadata-version-check",
             "-Xjvm-enable-preview",
             "-Xallow-unstable-dependencies",
             "-Xno-param-assertions",

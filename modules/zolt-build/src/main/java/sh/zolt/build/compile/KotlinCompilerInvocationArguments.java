@@ -149,6 +149,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.useOldClassFilesReading()) {
             arguments.add("-Xuse-old-class-files-reading");
         }
+        if (options.skipMetadataVersionCheck()) {
+            arguments.add("-Xskip-metadata-version-check");
+        }
         if (options.jvmPreview()) {
             arguments.add("-Xjvm-enable-preview");
         }

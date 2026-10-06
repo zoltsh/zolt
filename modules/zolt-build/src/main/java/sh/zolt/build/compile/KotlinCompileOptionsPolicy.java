@@ -105,6 +105,7 @@ public final class KotlinCompileOptionsPolicy {
                 mappedArguments.annotationsInMetadata(),
                 mappedArguments.useTypeTable(),
                 mappedArguments.useOldClassFilesReading(),
+                mappedArguments.skipMetadataVersionCheck(),
                 mappedArguments.jvmPreview(),
                 mappedArguments.allowUnstableDependencies(),
                 mappedArguments.noParamAssertions(),

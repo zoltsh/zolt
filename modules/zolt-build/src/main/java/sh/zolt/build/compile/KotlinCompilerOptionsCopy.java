@@ -49,6 +49,7 @@ final class KotlinCompilerOptionsCopy {
                 options.annotationsInMetadata(),
                 options.useTypeTable(),
                 options.useOldClassFilesReading(),
+                options.skipMetadataVersionCheck(),
                 options.jvmPreview(),
                 options.allowUnstableDependencies(),
                 options.noParamAssertions(),
