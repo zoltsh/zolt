@@ -158,6 +158,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.skipPrereleaseCheck()) {
             arguments.add("-Xskip-prerelease-check");
         }
+        if (options.allowKotlinPackage()) {
+            arguments.add("-Xallow-kotlin-package");
+        }
         if (options.jvmPreview()) {
             arguments.add("-Xjvm-enable-preview");
         }

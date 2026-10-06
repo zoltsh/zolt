@@ -41,6 +41,7 @@ final class KotlinCompilerStandaloneArguments {
             "-Xuse-old-class-files-reading",
             "-Xskip-metadata-version-check",
             "-Xskip-prerelease-check",
+            "-Xallow-kotlin-package",
             "-Xjvm-enable-preview",
             "-Xallow-unstable-dependencies",
             "-Xno-param-assertions",

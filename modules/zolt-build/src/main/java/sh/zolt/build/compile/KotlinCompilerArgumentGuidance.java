@@ -27,6 +27,7 @@ final class KotlinCompilerArgumentGuidance {
                 + " `-Xgenerate-strict-metadata-version`, `-Xannotations-in-metadata`,"
                 + " `-Xuse-type-table`, `-Xuse-old-class-files-reading`,"
                 + " `-Xskip-metadata-version-check`, `-Xskip-prerelease-check`,"
+                + " `-Xallow-kotlin-package`,"
                 + " `-Xjvm-enable-preview`, `-Xallow-unstable-dependencies`,"
                 + " `-Xno-param-assertions`, `-Xno-call-assertions`,"
                 + " `-Xno-receiver-assertions`,"
