@@ -794,7 +794,8 @@ disable the unchanged-input skip.
 For a Kotlin-bearing source set, compiler arguments may contain the standalone
 flags `-parameters`, `-nowarn`, `-Werror`, `-Wextra`,
 `-Xreport-all-warnings`, `-Xrender-internal-diagnostic-names`, `-progressive`,
-`-Xcontext-parameters`, `-Xcontext-sensitive-resolution`, and `-Xwhen-guards`,
+`-Xcontext-receivers`, `-Xcontext-parameters`,
+`-Xcontext-sensitive-resolution`, and `-Xwhen-guards`,
 plus `-Xmulti-dollar-interpolation`, `-Xnon-local-break-continue`,
 `-Xnested-type-aliases`, `-Xannotation-target-all`,
 `-Xjvm-expose-boxed`, `-Xconsistent-data-class-copy-visibility`, and
@@ -958,10 +959,16 @@ therefore overrides `-nowarn`, `-Werror`, or `-Wextra` for that Kotlin
 diagnostic without changing authored Java warning policy.
 `-progressive` asks the selected Kotlin compiler to apply its latest deprecation
 and unstable-code fixes without their usual migration period.
+`-Xcontext-receivers` admits deprecated `context(Type)` receiver syntax as a
+migration bridge for source sets that have not yet moved to named context
+parameters. In the qualified Kotlin 2.2 case, the syntax fails without the flag,
+compiles and executes with it, and produces the compiler's migration warning.
+Zolt rejects `-Xcontext-receivers` and `-Xcontext-parameters` together before
+compilation. Configure the bridge independently for main and test sources;
+changing it invalidates the matching source set. Prefer context parameters for
+new code.
 `-Xcontext-parameters` enables named context dependencies on Kotlin functions
-and properties when the selected compiler supports that language feature. The
-deprecated `-Xcontext-receivers` switch remains outside the bounded argument
-set.
+and properties when the selected compiler supports that language feature.
 `-Xcontext-sensitive-resolution` enables the selected Kotlin compiler's preview
 for resolving unqualified enum entries and sealed-class members when the
 surrounding context establishes the expected type. `-Xwhen-guards` enables
@@ -970,8 +977,8 @@ Kotlin 2.1. Kotlin 2.2 promotes guard conditions to stable, so that compiler
 also accepts the syntax without the flag. A language-version pin remains
 authoritative: Kotlin 2.2 does not backport guard syntax to language version 2.1
 merely because the flag is present. Extra warnings, progressive mode, context
-parameters, context-sensitive resolution, when guards, multi-dollar
-interpolation, non-local loop control, nested type aliases,
+receivers, context parameters, context-sensitive resolution, when guards,
+multi-dollar interpolation, non-local loop control, nested type aliases,
 annotation defaulting and all-target annotations, language/API version pairs,
 boxed value-class exposure, JVM-default modes, explicit-API modes,
 data-class copy visibility, string-concatenation modes, lambda-generation modes,

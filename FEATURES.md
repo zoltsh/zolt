@@ -44,13 +44,14 @@ zolt run
   classes without enabling mixed Groovy/Kotlin source sets. They may also
   explicitly bypass dependency metadata-version checks for a qualified
   forward-compatibility case; the bypass neither rewrites nor validates newer
-  metadata. Kotlin
-  language and API versions may be pinned per main or test source set, with
-  explicit compiler-wide experimental API opt-ins and JVM-default compatibility
-  modes. Public Kotlin APIs may be checked in
+  metadata. Kotlin language and API versions may be pinned per main or test
+  source set, with explicit compiler-wide experimental API opt-ins and
+  JVM-default compatibility modes. Public Kotlin APIs may be checked in
   warning or strict explicit-API mode. Progressive compilation may be enabled
   independently for main and test sources, as may the selected compiler's
-  context-parameter and context-sensitive-resolution previews. Guarded `when`
+  context-parameter and context-sensitive-resolution previews. Deprecated
+  context receivers may be admitted per source set as a migration bridge, but
+  cannot be combined with context parameters. Guarded `when`
   branches may be explicitly enabled per source set for toolchains that still
   expose them as a preview, and nested non-capturing type aliases may be enabled
   per source set. Annotation defaulting may retain first-target placement, add
