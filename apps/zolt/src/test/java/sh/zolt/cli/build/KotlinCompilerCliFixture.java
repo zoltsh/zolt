@@ -11,6 +11,7 @@ import sh.zolt.cli.build.fixture.KotlinFixtureCompiler;
 /** Publishes the real test-runtime Kotlin compiler closure through a hermetic Maven repository. */
 public final class KotlinCompilerCliFixture {
     public static final String KOTLIN_VERSION = "2.2.0";
+    public static final String SERIALIZATION_RUNTIME_VERSION = "1.9.0";
 
     private static final Artifact COMPILER = artifact(
             "org.jetbrains.kotlin",
@@ -20,6 +21,14 @@ public final class KotlinCompilerCliFixture {
             "org.jetbrains.kotlin",
             "kotlin-annotation-processing-embeddable",
             KOTLIN_VERSION);
+    private static final Artifact SERIALIZATION_PLUGIN = artifact(
+            "org.jetbrains.kotlin",
+            "kotlin-serialization-compiler-plugin-embeddable",
+            KOTLIN_VERSION);
+    private static final Artifact SERIALIZATION_CORE = artifact(
+            "org.jetbrains.kotlinx",
+            "kotlinx-serialization-core-jvm",
+            SERIALIZATION_RUNTIME_VERSION);
     private static final Artifact DAEMON = artifact(
             "org.jetbrains.kotlin",
             "kotlin-daemon-embeddable",
@@ -57,6 +66,11 @@ public final class KotlinCompilerCliFixture {
         publish(repository, STDLIB, List.of(ANNOTATIONS));
         publish(repository, COROUTINES, List.of());
         publish(repository, ANNOTATIONS, List.of());
+    }
+
+    public static void publishSerialization(CliTestRepository repository) throws IOException {
+        publish(repository, SERIALIZATION_PLUGIN, List.of());
+        publish(repository, SERIALIZATION_CORE, List.of(STDLIB));
     }
 
     static void writeProject(Path projectDirectory, URI repository) throws IOException {

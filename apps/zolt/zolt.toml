@@ -34,6 +34,8 @@ main = "sh.zolt.cli.ZoltCli"
 "com.google.devtools.ksp:symbol-processing-aa" = { versionRef = "ksp" }
 "org.jetbrains.kotlin:kotlin-annotation-processing-embeddable" = { versionRef = "kotlin" }
 "org.jetbrains.kotlin:kotlin-compiler-embeddable" = { versionRef = "kotlin" }
+"org.jetbrains.kotlin:kotlin-serialization-compiler-plugin-embeddable" = { versionRef = "kotlin" }
+"org.jetbrains.kotlinx:kotlinx-serialization-core-jvm" = { versionRef = "kotlinx-serialization" }
 "org.junit.platform:junit-platform-console-standalone" = { versionRef = "junit-platform" }
 
 [test.suites.worker-failure-diagnostic]
