@@ -13,6 +13,7 @@ final class KotlinCompilerStandaloneArguments {
             "-Xrender-internal-diagnostic-names",
             "-progressive",
             "-Xcontext-sensitive-resolution",
+            "-Xcontext-receivers",
             "-Xcontext-parameters",
             "-Xwhen-guards",
             "-Xmulti-dollar-interpolation",

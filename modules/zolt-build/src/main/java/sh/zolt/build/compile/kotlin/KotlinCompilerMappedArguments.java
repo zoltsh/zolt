@@ -13,6 +13,7 @@ public record KotlinCompilerMappedArguments(
         boolean renderInternalDiagnosticNames,
         boolean progressiveMode,
         boolean contextSensitiveResolution,
+        boolean contextReceivers,
         boolean contextParameters,
         boolean whenGuards,
         boolean multiDollarInterpolation,

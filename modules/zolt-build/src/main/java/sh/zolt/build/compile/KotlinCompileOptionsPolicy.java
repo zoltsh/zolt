@@ -80,6 +80,7 @@ public final class KotlinCompileOptionsPolicy {
                 mappedArguments.renderInternalDiagnosticNames(),
                 mappedArguments.progressiveMode(),
                 mappedArguments.contextSensitiveResolution(),
+                mappedArguments.contextReceivers(),
                 mappedArguments.contextParameters(),
                 mappedArguments.whenGuards(),
                 mappedArguments.multiDollarInterpolation(),

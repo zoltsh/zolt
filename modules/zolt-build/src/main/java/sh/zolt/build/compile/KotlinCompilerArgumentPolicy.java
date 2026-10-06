@@ -186,6 +186,16 @@ final class KotlinCompilerArgumentPolicy {
                 && standaloneArguments.contains("-Xreport-all-warnings")) {
             throw incompatibleArguments(scope, "-nowarn", "-Xreport-all-warnings");
         }
+        if (standaloneArguments.contains("-Xcontext-receivers")
+                && standaloneArguments.contains("-Xcontext-parameters")) {
+            throw unsupported(
+                    scope,
+                    argumentsPath(scope)
+                            + " combines mutually exclusive compiler arguments"
+                            + " `-Xcontext-receivers` and `-Xcontext-parameters`",
+                    "Use legacy context receivers while migrating, or use named context parameters,"
+                            + " but do not enable both syntaxes in one source set.");
+        }
         if (standaloneArguments.contains("-Xindy-allow-annotated-lambdas")
                 && !"indy".equals(lambdaMode)) {
             throw unsupported(
@@ -203,6 +213,7 @@ final class KotlinCompilerArgumentPolicy {
                 standaloneArguments.contains("-Xrender-internal-diagnostic-names"),
                 standaloneArguments.contains("-progressive"),
                 standaloneArguments.contains("-Xcontext-sensitive-resolution"),
+                standaloneArguments.contains("-Xcontext-receivers"),
                 standaloneArguments.contains("-Xcontext-parameters"),
                 standaloneArguments.contains("-Xwhen-guards"),
                 standaloneArguments.contains("-Xmulti-dollar-interpolation"),

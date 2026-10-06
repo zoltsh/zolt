@@ -24,6 +24,7 @@ final class KotlinCompilerOptionsCopy {
                 options.renderInternalDiagnosticNames(),
                 options.progressiveMode(),
                 options.contextSensitiveResolution(),
+                options.contextReceivers(),
                 options.contextParameters(),
                 options.whenGuards(),
                 options.multiDollarInterpolation(),
