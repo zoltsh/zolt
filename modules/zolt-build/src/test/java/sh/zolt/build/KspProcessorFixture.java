@@ -58,19 +58,22 @@ final class KspProcessorFixture {
     public static final class Provider implements SymbolProcessorProvider {
         @Override
         public SymbolProcessor create(SymbolProcessorEnvironment environment) {
-            if (!"from-ksp".equals(environment.getOptions().get("fixture.message"))) {
-                throw new IllegalArgumentException("KSP fixture option was not forwarded.");
+            String message = environment.getOptions().get("fixture.message");
+            if (message == null || message.isBlank()) {
+                throw new IllegalArgumentException("KSP fixture message option was not forwarded.");
             }
-            return new Processor(environment.getCodeGenerator());
+            return new Processor(environment.getCodeGenerator(), message);
         }
     }
 
     private static final class Processor implements SymbolProcessor {
         private final CodeGenerator generator;
+        private final String message;
         private boolean generated;
 
-        private Processor(CodeGenerator generator) {
+        private Processor(CodeGenerator generator, String message) {
             this.generator = generator;
+            this.message = message;
         }
 
         @Override
@@ -86,9 +89,9 @@ final class KspProcessorFixture {
 
                     object GeneratedKspMessage {
                         @JvmStatic
-                        fun value(): String = "from-ksp"
+                        fun value(): String = "%s"
                     }
-                    """);
+                    """.formatted(stringLiteral(message)));
             write(generator.createNewFile(
                     dependencies, "com.example", "GeneratedJavaMessage", "java"), """
                     package com.example;
@@ -102,8 +105,15 @@ final class KspProcessorFixture {
                     }
                     """);
             write(generator.createNewFileByPath(
-                    dependencies, "META-INF/ksp-fixture", "txt"), "from-ksp-resource\n");
+                    dependencies, "META-INF/ksp-fixture", "txt"), message + "-resource\n");
             return List.of();
+        }
+
+        private static String stringLiteral(String value) {
+            return value.replace("\\", "\\\\")
+                    .replace("\"", "\\\"")
+                    .replace("\r", "\\r")
+                    .replace("\n", "\\n");
         }
 
         private static void write(OutputStream output, String content) {

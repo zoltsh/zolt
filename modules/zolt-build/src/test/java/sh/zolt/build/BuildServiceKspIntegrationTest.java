@@ -49,7 +49,7 @@ final class BuildServiceKspIntegrationTest {
                         GeneratedKspMessage.value() + "-" + GeneratedJavaMessage.value()
                 }
                 """);
-        ProjectConfig config = config();
+        ProjectConfig config = config("from-ksp");
         BuildService service = new BuildService().withBuildCache(BuildCacheService.create(
                 new BuildCacheSettings(true, buildCacheHome, 0L),
                 "ksp-main-integration"));
@@ -108,9 +108,34 @@ final class BuildServiceKspIntegrationTest {
 
         assertTrue(postRestoreWarm.buildResult().mainCompilationSkipped());
         assertEquals("skipped", postRestoreWarm.buildResult().mainCompilationMode());
+
+        ProjectConfig changedConfig = config("changed-ksp");
+        BuildResultWithClasspaths changed = service.buildWithClasspaths(
+                projectDirectory, changedConfig, cacheRoot, true);
+
+        assertFalse(changed.buildResult().mainCompilationSkipped());
+        assertFalse(changed.buildResult().mainCompilationRestored());
+        assertEquals("full", changed.buildResult().mainCompilationMode());
+        assertEquals("stored", changed.buildResult().mainBuildCacheOutcome());
+        assertEquals(
+                "changed-ksp-resource\n",
+                Files.readString(output.resolve("resources/META-INF/ksp-fixture.txt")));
+        assertEquals(
+                "changed-ksp-resource\n",
+                Files.readString(projectDirectory.resolve(
+                        "target/classes/META-INF/ksp-fixture.txt")));
+        assertEquals("changed-ksp-changed-ksp", invoke(artifacts.applicationClasspath()));
+
+        deleteTree(projectDirectory.resolve("target/classes"));
+        BuildResultWithClasspaths reverted = service.buildWithClasspaths(
+                projectDirectory, config, cacheRoot, true);
+
+        assertTrue(reverted.buildResult().mainCompilationRestored());
+        assertEquals("restored", reverted.buildResult().mainBuildCacheOutcome());
+        assertEquals("from-ksp-from-ksp", invoke(artifacts.applicationClasspath()));
     }
 
-    private ProjectConfig config() {
+    private ProjectConfig config(String message) {
         return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "ksp-integration"
@@ -135,8 +160,8 @@ final class BuildServiceKspIntegrationTest {
 
                 [generated.main.symbols]
                 kind = "ksp"
-                options = { "fixture.message" = "from-ksp" }
-                """);
+                options = { "fixture.message" = "%s" }
+                """.formatted(message));
     }
 
     private void source(String relative, String content) throws Exception {
