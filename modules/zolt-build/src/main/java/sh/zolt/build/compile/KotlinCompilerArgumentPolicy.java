@@ -240,6 +240,7 @@ final class KotlinCompilerArgumentPolicy {
                 standaloneArguments.contains("-Xuse-type-table"),
                 standaloneArguments.contains("-Xuse-old-class-files-reading"),
                 standaloneArguments.contains("-Xskip-metadata-version-check"),
+                standaloneArguments.contains("-Xskip-prerelease-check"),
                 standaloneArguments.contains("-Xjvm-enable-preview"),
                 standaloneArguments.contains("-Xallow-unstable-dependencies"),
                 standaloneArguments.contains("-Xno-param-assertions"),

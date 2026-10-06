@@ -26,7 +26,7 @@ final class KotlinCompilerArgumentGuidance {
                 + " `-Xindy-allow-annotated-lambdas` with `-Xlambdas=indy`,"
                 + " `-Xgenerate-strict-metadata-version`, `-Xannotations-in-metadata`,"
                 + " `-Xuse-type-table`, `-Xuse-old-class-files-reading`,"
-                + " `-Xskip-metadata-version-check`,"
+                + " `-Xskip-metadata-version-check`, `-Xskip-prerelease-check`,"
                 + " `-Xjvm-enable-preview`, `-Xallow-unstable-dependencies`,"
                 + " `-Xno-param-assertions`, `-Xno-call-assertions`,"
                 + " `-Xno-receiver-assertions`,"

@@ -40,6 +40,7 @@ public record KotlinCompilerMappedArguments(
         boolean useTypeTable,
         boolean useOldClassFilesReading,
         boolean skipMetadataVersionCheck,
+        boolean skipPrereleaseCheck,
         boolean jvmPreview,
         boolean allowUnstableDependencies,
         boolean noParamAssertions,

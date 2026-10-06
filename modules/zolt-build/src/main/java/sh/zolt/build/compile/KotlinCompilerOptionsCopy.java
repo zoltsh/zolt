@@ -51,6 +51,7 @@ final class KotlinCompilerOptionsCopy {
                 options.useTypeTable(),
                 options.useOldClassFilesReading(),
                 options.skipMetadataVersionCheck(),
+                options.skipPrereleaseCheck(),
                 options.jvmPreview(),
                 options.allowUnstableDependencies(),
                 options.noParamAssertions(),

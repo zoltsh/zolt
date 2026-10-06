@@ -107,6 +107,7 @@ public final class KotlinCompileOptionsPolicy {
                 mappedArguments.useTypeTable(),
                 mappedArguments.useOldClassFilesReading(),
                 mappedArguments.skipMetadataVersionCheck(),
+                mappedArguments.skipPrereleaseCheck(),
                 mappedArguments.jvmPreview(),
                 mappedArguments.allowUnstableDependencies(),
                 mappedArguments.noParamAssertions(),

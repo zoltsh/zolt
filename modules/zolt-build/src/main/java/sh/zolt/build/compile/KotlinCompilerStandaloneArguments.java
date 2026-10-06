@@ -40,6 +40,7 @@ final class KotlinCompilerStandaloneArguments {
             "-Xuse-type-table",
             "-Xuse-old-class-files-reading",
             "-Xskip-metadata-version-check",
+            "-Xskip-prerelease-check",
             "-Xjvm-enable-preview",
             "-Xallow-unstable-dependencies",
             "-Xno-param-assertions",

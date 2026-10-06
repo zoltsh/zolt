@@ -155,6 +155,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.skipMetadataVersionCheck()) {
             arguments.add("-Xskip-metadata-version-check");
         }
+        if (options.skipPrereleaseCheck()) {
+            arguments.add("-Xskip-prerelease-check");
+        }
         if (options.jvmPreview()) {
             arguments.add("-Xjvm-enable-preview");
         }
