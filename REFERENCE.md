@@ -811,7 +811,7 @@ plus `-Xmulti-dollar-interpolation`, `-Xnon-local-break-continue`,
 `-Xgenerate-strict-metadata-version`, `-Xannotations-in-metadata`,
 `-Xuse-type-table`, `-Xuse-old-class-files-reading`,
 `-Xskip-metadata-version-check`, `-Xskip-prerelease-check`,
-`-Xjvm-enable-preview`, and
+`-Xallow-kotlin-package`, `-Xjvm-enable-preview`, and
 `-Xallow-unstable-dependencies`, plus
 `-Xindy-allow-annotated-lambdas` when paired with `-Xlambdas=indy`. One each of
 the paired Kotlin arguments
@@ -994,8 +994,8 @@ sanitization, legacy inline-class mangling, multifile-part inheritance,
 complete warning reporting, internal diagnostic-name rendering,
 generated-bytecode validation, annotations in metadata, metadata type-table
 serialization, ABI-stability marking, metadata-version and
-prerelease-dependency bypasses, unstable-dependency opt-in, and opt-ins go only
-to `kotlinc`.
+prerelease-dependency bypasses, protected-package opt-in,
+unstable-dependency opt-in, and opt-ins go only to `kotlinc`.
 JVM preview-class generation is coordinated across `kotlinc`, the javac phase
 of mixed compilation, and Zolt-owned runtime launches.
 `-Xmulti-dollar-interpolation` enables Kotlin 2.1's preview syntax when the
@@ -1284,6 +1284,16 @@ compatibility. Prefer a release-built dependency, and use this escape hatch
 only after independently qualifying the exact producer and consumer
 toolchains. Configure it independently for main and test source sets. Changing
 it invalidates and cleanly recompiles the matching output.
+`-Xallow-kotlin-package` lifts the selected compiler's default restriction that
+reserves `kotlin.*` packages for the Kotlin standard library. In the qualified
+Kotlin 2.2.0 case, `package kotlin.zoltprobe` failed compilation by default and
+compiled and ran only with the flag. The opt-in does not grant namespace
+ownership, prevent collisions with the standard library, or protect against
+future Kotlin additions. Reserve it for stdlib/compiler-adjacent projects whose
+package ownership and complete runtime classpath are controlled; ordinary
+applications and libraries should keep the compiler guard. Configure it
+independently for main and test source sets. Changing it invalidates and cleanly
+recompiles the matching output.
 `-Xjvm-enable-preview` asks the selected Kotlin compiler to mark every emitted
 class as using JVM preview features and forwards `--enable-preview` to the javac
 phase of a mixed source set. Preview compilation requires Java 12 or newer, and
@@ -1448,8 +1458,9 @@ exposure, data-class copy visibility, source-debug annotation emission,
 JSpecify, JSR-305, or package-specific Java nullness severity, legacy null-check
 exceptions, Java-entry parameter assertions, strict metadata-version semantics,
 dependency metadata-version or prerelease bypass, platform-call result
-assertions, extension-receiver assertions, annotations in
-metadata, return-value-checker mode, backend optimization, method inlining,
+assertions, protected-package opt-in, extension-receiver assertions,
+annotations in metadata, return-value-checker mode, backend optimization,
+method inlining,
 backend thread count, class-file reader, inline-scope debug numbering, JVM-name
 parentheses sanitization, legacy inline-class mangling, multifile-part
 inheritance, complete warning reporting, internal diagnostic-name rendering,

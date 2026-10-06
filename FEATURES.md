@@ -44,8 +44,10 @@ zolt run
   classes without enabling mixed Groovy/Kotlin source sets. They may also
   explicitly bypass dependency metadata-version or prerelease checks for a
   qualified compatibility case; neither bypass rewrites nor validates the
-  dependency metadata. Kotlin language and API versions may be pinned per main
-  or test source set, with explicit compiler-wide experimental API opt-ins and
+  dependency metadata. Compiler-adjacent projects may explicitly lift the
+  compiler's protected `kotlin.*` namespace guard per source set; ordinary
+  projects retain it. Kotlin language and API versions may be pinned per main or
+  test source set, with explicit compiler-wide experimental API opt-ins and
   JVM-default compatibility modes. Public Kotlin APIs may be checked in
   warning or strict explicit-API mode. Progressive compilation may be enabled
   independently for main and test sources, as may the selected compiler's
