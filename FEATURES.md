@@ -36,11 +36,12 @@ zolt run
   roots, including circular cross-language references. A bounded preview also
   compiles Kotlin/JVM main sources alone or together with Java, including
   circular cross-language references, plus Kotlin/JVM unit and integration
-  tests alone or together with Java. Kotlin main and test trees may be authored,
-  protected pre-generated roots, or owned outputs of pinned exec and OpenAPI
-  and Protobuf generators. Kotlin language and API versions may be pinned per
-  main or test source set, with explicit compiler-wide experimental API opt-ins
-  and JVM-default compatibility modes. Public Kotlin APIs may be checked in
+  tests alone or together with Java. Kotlin-bearing source sets may combine
+  authored Java and Kotlin with protected pre-generated roots or Java/Kotlin
+  outputs owned by pinned exec, OpenAPI, and Protobuf generators. Kotlin
+  language and API versions may be pinned per main or test source set, with
+  explicit compiler-wide experimental API opt-ins and JVM-default compatibility
+  modes. Public Kotlin APIs may be checked in
   warning or strict explicit-API mode. Progressive compilation may be enabled
   independently for main and test sources, as may the selected compiler's
   context-parameter and context-sensitive-resolution previews. Guarded `when`
