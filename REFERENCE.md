@@ -810,7 +810,8 @@ plus `-Xmulti-dollar-interpolation`, `-Xnon-local-break-continue`,
 `-Xvalidate-bytecode`,
 `-Xgenerate-strict-metadata-version`, `-Xannotations-in-metadata`,
 `-Xuse-type-table`, `-Xuse-old-class-files-reading`,
-`-Xskip-metadata-version-check`, `-Xjvm-enable-preview`, and
+`-Xskip-metadata-version-check`, `-Xskip-prerelease-check`,
+`-Xjvm-enable-preview`, and
 `-Xallow-unstable-dependencies`, plus
 `-Xindy-allow-annotated-lambdas` when paired with `-Xlambdas=indy`. One each of
 the paired Kotlin arguments
@@ -992,8 +993,9 @@ inline-scope debug numbering, enhanced coroutine debugging, parentheses
 sanitization, legacy inline-class mangling, multifile-part inheritance,
 complete warning reporting, internal diagnostic-name rendering,
 generated-bytecode validation, annotations in metadata, metadata type-table
-serialization, ABI-stability marking,
-unstable-dependency opt-in, and opt-ins go only to `kotlinc`.
+serialization, ABI-stability marking, metadata-version and
+prerelease-dependency bypasses, unstable-dependency opt-in, and opt-ins go only
+to `kotlinc`.
 JVM preview-class generation is coordinated across `kotlinc`, the javac phase
 of mixed compilation, and Zolt-owned runtime launches.
 `-Xmulti-dollar-interpolation` enables Kotlin 2.1's preview syntax when the
@@ -1270,6 +1272,18 @@ fail or produce incompatible output. Prefer matching producer and consumer
 toolchains, and use this escape hatch only after independently qualifying the
 specific dependency. Configure it independently for main and test source sets.
 Changing it invalidates and cleanly recompiles the matching output.
+`-Xskip-prerelease-check` suppresses the selected Kotlin compiler's guard
+against dependency declarations marked as produced by a prerelease compiler.
+In the qualified Kotlin 2.2.0 case, an otherwise callable dependency whose
+`kotlin.Metadata.xi` value carried the prerelease bit failed compilation by
+default and compiled and ran only with this flag. The compiler also marks
+declarations compiled through the bypass as prerelease, so the compatibility
+risk can propagate to downstream Kotlin consumers. The flag does not make the
+dependency stable or guarantee source, binary, metadata, or runtime
+compatibility. Prefer a release-built dependency, and use this escape hatch
+only after independently qualifying the exact producer and consumer
+toolchains. Configure it independently for main and test source sets. Changing
+it invalidates and cleanly recompiles the matching output.
 `-Xjvm-enable-preview` asks the selected Kotlin compiler to mark every emitted
 class as using JVM preview features and forwards `--enable-preview` to the javac
 phase of a mixed source set. Preview compilation requires Java 12 or newer, and
@@ -1433,7 +1447,8 @@ annotated-lambda indy compatibility, SAM-conversion mode, boxed value-class
 exposure, data-class copy visibility, source-debug annotation emission,
 JSpecify, JSR-305, or package-specific Java nullness severity, legacy null-check
 exceptions, Java-entry parameter assertions, strict metadata-version semantics,
-platform-call result assertions, extension-receiver assertions, annotations in
+dependency metadata-version or prerelease bypass, platform-call result
+assertions, extension-receiver assertions, annotations in
 metadata, return-value-checker mode, backend optimization, method inlining,
 backend thread count, class-file reader, inline-scope debug numbering, JVM-name
 parentheses sanitization, legacy inline-class mangling, multifile-part
