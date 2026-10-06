@@ -65,6 +65,7 @@ final class EffectiveProjectConfigAdapterGroovyTest {
                 Set.of(
                         KotlinCompilerPlugin.SERIALIZATION,
                         KotlinCompilerPlugin.SPRING,
+                        KotlinCompilerPlugin.MICRONAUT,
                         KotlinCompilerPlugin.JPA)));
         AuthoredManifest member = projectManifest("app", AuthoredToolchains.empty());
 
@@ -74,6 +75,7 @@ final class EffectiveProjectConfigAdapterGroovyTest {
                 Set.of(
                         KotlinCompilerPlugin.SERIALIZATION,
                         KotlinCompilerPlugin.SPRING,
+                        KotlinCompilerPlugin.MICRONAUT,
                         KotlinCompilerPlugin.JPA),
                 config.compilerSettings().kotlinPlugins());
     }

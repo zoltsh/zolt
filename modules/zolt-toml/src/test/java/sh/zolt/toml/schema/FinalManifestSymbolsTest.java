@@ -46,7 +46,9 @@ final class FinalManifestSymbolsTest {
                 Map.entry("toolchain-distribution", List.of("temurin", "graalvm-community")),
                 Map.entry("toolchain-policy", List.of("prefer-managed", "require-managed", "allow-system")),
                 Map.entry("toolchain-feature", List.of("native-image")),
-                Map.entry("kotlin-compiler-plugin", List.of("serialization", "spring", "jpa")),
+                Map.entry(
+                        "kotlin-compiler-plugin",
+                        List.of("serialization", "spring", "micronaut", "jpa")),
                 Map.entry("conflict-policy", List.of("resolve", "warn", "fail")),
                 Map.entry("unknown-license-policy", List.of("allow", "warn", "fail")),
                 Map.entry("resource-filter-target", List.of("main", "test")),

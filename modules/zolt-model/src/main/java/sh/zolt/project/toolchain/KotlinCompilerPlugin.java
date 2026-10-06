@@ -6,6 +6,7 @@ import java.util.Optional;
 public enum KotlinCompilerPlugin {
     SERIALIZATION("serialization"),
     SPRING("spring"),
+    MICRONAUT("micronaut"),
     JPA("jpa");
 
     private final String id;

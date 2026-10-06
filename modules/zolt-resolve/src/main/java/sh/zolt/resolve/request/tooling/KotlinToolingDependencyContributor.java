@@ -47,7 +47,9 @@ public final class KotlinToolingDependencyContributor {
             contribute(version.strip(), KOTLIN_SERIALIZATION, requests);
         }
         if (config.compilerSettings().kotlinPlugins()
-                .contains(KotlinCompilerPlugin.SPRING)) {
+                        .contains(KotlinCompilerPlugin.SPRING)
+                || config.compilerSettings().kotlinPlugins()
+                        .contains(KotlinCompilerPlugin.MICRONAUT)) {
             contribute(version.strip(), KOTLIN_ALL_OPEN, requests);
         }
         if (config.compilerSettings().kotlinPlugins()

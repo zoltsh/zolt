@@ -53,7 +53,7 @@ final class KotlinCompilerToolJarInspector {
                     jar,
                     List.of(REGISTRAR, COMMAND_LINE_PROCESSOR),
                     "kotlin-allopen-compiler-plugin.embeddable",
-                    "Spring all-open compiler plugin");
+                    "all-open compiler plugin");
             return;
         }
         if (packageId.equals(KotlinCompilerToolRoots.NO_ARG)) {

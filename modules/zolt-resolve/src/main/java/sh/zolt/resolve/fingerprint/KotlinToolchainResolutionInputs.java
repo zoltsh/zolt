@@ -21,17 +21,16 @@ final class KotlinToolchainResolutionInputs {
 
     static void contribute(List<String> inputs, CompilerSettings settings) {
         input(inputs, COMPILER, settings.kotlinVersion());
-        for (KotlinCompilerPlugin plugin : settings.kotlinPlugins()) {
-            input(inputs, coordinate(plugin), settings.kotlinVersion());
+        if (settings.kotlinPlugins().contains(KotlinCompilerPlugin.SERIALIZATION)) {
+            input(inputs, SERIALIZATION, settings.kotlinVersion());
         }
-    }
-
-    private static String coordinate(KotlinCompilerPlugin plugin) {
-        return switch (plugin) {
-            case SERIALIZATION -> SERIALIZATION;
-            case SPRING -> ALL_OPEN;
-            case JPA -> NO_ARG;
-        };
+        if (settings.kotlinPlugins().contains(KotlinCompilerPlugin.SPRING)
+                || settings.kotlinPlugins().contains(KotlinCompilerPlugin.MICRONAUT)) {
+            input(inputs, ALL_OPEN, settings.kotlinVersion());
+        }
+        if (settings.kotlinPlugins().contains(KotlinCompilerPlugin.JPA)) {
+            input(inputs, NO_ARG, settings.kotlinVersion());
+        }
     }
 
     private static void input(

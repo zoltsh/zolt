@@ -97,8 +97,8 @@ final class KotlinToolingDependencyContributorTest {
     void contributesTheVersionAlignedCompilerPluginsOnce() {
         List<DependencyRequest> requests = new ArrayList<>();
 
-        contributor.contribute(config("2.2.0", false, true, true, true), requests);
-        contributor.contribute(config("2.2.0", false, true, true, true), requests);
+        contributor.contribute(config("2.2.0", false, true, true, true, true), requests);
+        contributor.contribute(config("2.2.0", false, true, true, true, true), requests);
 
         assertEquals(4, requests.size());
         for (PackageId packageId : List.of(
@@ -136,7 +136,7 @@ final class KotlinToolingDependencyContributorTest {
             boolean processor,
             boolean serialization,
             boolean spring) {
-        return config(kotlinVersion, processor, serialization, spring, false);
+        return config(kotlinVersion, processor, serialization, spring, false, false);
     }
 
     private static ProjectConfig config(
@@ -144,6 +144,7 @@ final class KotlinToolingDependencyContributorTest {
             boolean processor,
             boolean serialization,
             boolean spring,
+            boolean micronaut,
             boolean jpa) {
         List<String> selectedPlugins = new ArrayList<>();
         if (serialization) {
@@ -151,6 +152,9 @@ final class KotlinToolingDependencyContributorTest {
         }
         if (spring) {
             selectedPlugins.add("\"spring\"");
+        }
+        if (micronaut) {
+            selectedPlugins.add("\"micronaut\"");
         }
         if (jpa) {
             selectedPlugins.add("\"jpa\"");

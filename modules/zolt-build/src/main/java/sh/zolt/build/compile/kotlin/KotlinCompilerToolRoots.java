@@ -43,7 +43,7 @@ public final class KotlinCompilerToolRoots {
         requireExactlyOneCompiler(compilerRoots, configuredVersion);
         requireAtMostOne(kaptRoots, KAPT, "KAPT");
         requireAtMostOne(serializationRoots, SERIALIZATION, "serialization compiler plugin");
-        requireAtMostOne(allOpenRoots, ALL_OPEN, "Spring all-open compiler plugin");
+        requireAtMostOne(allOpenRoots, ALL_OPEN, "all-open compiler plugin");
         requireAtMostOne(noArgRoots, NO_ARG, "JPA no-arg compiler plugin");
         requireExpectedPluginRoots(
                 plugins, serializationRoots, allOpenRoots, noArgRoots, configuredVersion);
@@ -56,7 +56,7 @@ public final class KotlinCompilerToolRoots {
         requireAlignedVersion(
                 allOpenRoots,
                 configuredVersion,
-                "Spring all-open compiler plugin tool root");
+                "all-open compiler plugin tool root");
         requireAlignedVersion(
                 noArgRoots,
                 configuredVersion,
@@ -66,7 +66,7 @@ public final class KotlinCompilerToolRoots {
         if (plugins.contains(KotlinCompilerPlugin.SERIALIZATION)) {
             pluginRoots.add(serializationRoots.getFirst());
         }
-        if (plugins.contains(KotlinCompilerPlugin.SPRING)) {
+        if (usesAllOpen(plugins)) {
             pluginRoots.add(allOpenRoots.getFirst());
         }
         if (plugins.contains(KotlinCompilerPlugin.JPA)) {
@@ -121,10 +121,10 @@ public final class KotlinCompilerToolRoots {
                     + " root in scope `tool-kotlin` for configured plugin `serialization` "
                     + "at version `" + version + "`");
         }
-        if (plugins.contains(KotlinCompilerPlugin.SPRING)
+        if (usesAllOpen(plugins)
                 && allOpenRoots.isEmpty()) {
             throw invalid("zolt.lock has no direct " + ALL_OPEN
-                    + " root in scope `tool-kotlin` for configured plugin `spring` "
+                    + " root in scope `tool-kotlin` for a configured all-open selector "
                     + "at version `" + version + "`");
         }
         if (plugins.contains(KotlinCompilerPlugin.JPA)
@@ -155,10 +155,15 @@ public final class KotlinCompilerToolRoots {
             Set<KotlinCompilerPlugin> plugins) {
         return plugins.contains(KotlinCompilerPlugin.SERIALIZATION)
                         && packageId.equals(SERIALIZATION)
-                || plugins.contains(KotlinCompilerPlugin.SPRING)
+                || usesAllOpen(plugins)
                         && packageId.equals(ALL_OPEN)
                 || plugins.contains(KotlinCompilerPlugin.JPA)
                         && packageId.equals(NO_ARG);
+    }
+
+    private static boolean usesAllOpen(Set<KotlinCompilerPlugin> plugins) {
+        return plugins.contains(KotlinCompilerPlugin.SPRING)
+                || plugins.contains(KotlinCompilerPlugin.MICRONAUT);
     }
 
     private static void requireAlignedVersion(

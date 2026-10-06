@@ -99,6 +99,7 @@ final class KotlinSpringCompilerToolchainResolverTest
                 KotlinCompilationScope.MAIN,
                 Set.of(
                         KotlinCompilerPlugin.SPRING,
+                        KotlinCompilerPlugin.MICRONAUT,
                         KotlinCompilerPlugin.SERIALIZATION,
                         KotlinCompilerPlugin.JPA));
 
@@ -111,6 +112,7 @@ final class KotlinSpringCompilerToolchainResolverTest
         assertEquals(
                 List.of(
                         "plugin:org.jetbrains.kotlin.allopen:preset=spring",
+                        "plugin:org.jetbrains.kotlin.allopen:preset=micronaut",
                         "plugin:org.jetbrains.kotlin.noarg:preset=jpa"),
                 toolchain.compilerPluginOptions().stream()
                         .map(KotlinCompilerPluginOption::argument)
@@ -145,7 +147,7 @@ final class KotlinSpringCompilerToolchainResolverTest
                         VERSION,
                         KotlinCompilationScope.MAIN,
                         Set.of(KotlinCompilerPlugin.SPRING)),
-                "does not match zolt.lock Spring all-open compiler plugin tool root version `2.2.1`");
+                "does not match zolt.lock all-open compiler plugin tool root version `2.2.1`");
     }
 
     @Test

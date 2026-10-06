@@ -115,6 +115,12 @@ public final class KotlinCompilerToolchainResolver {
                     "preset",
                     "spring"));
         }
+        if (plugins.contains(KotlinCompilerPlugin.MICRONAUT)) {
+            options.add(new KotlinCompilerPluginOption(
+                    "org.jetbrains.kotlin.allopen",
+                    "preset",
+                    "micronaut"));
+        }
         if (plugins.contains(KotlinCompilerPlugin.JPA)) {
             options.add(new KotlinCompilerPluginOption(
                     "org.jetbrains.kotlin.noarg",

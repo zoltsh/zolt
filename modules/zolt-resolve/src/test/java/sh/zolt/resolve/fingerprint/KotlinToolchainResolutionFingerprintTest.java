@@ -35,7 +35,7 @@ final class KotlinToolchainResolutionFingerprintTest {
     @Test
     void fingerprintsTheVersionAlignedCompilerPlugins() {
         ProjectConfig plain = config("2.2.0");
-        ProjectConfig plugins = config("2.2.0", true, true, true);
+        ProjectConfig plugins = config("2.2.0", true, true, true, true);
 
         assertEquals(
                 List.of(
@@ -59,13 +59,14 @@ final class KotlinToolchainResolutionFingerprintTest {
     }
 
     private static ProjectConfig config(String kotlinVersion) {
-        return config(kotlinVersion, false, false, false);
+        return config(kotlinVersion, false, false, false, false);
     }
 
     private static ProjectConfig config(
             String kotlinVersion,
             boolean serialization,
             boolean spring,
+            boolean micronaut,
             boolean jpa) {
         List<String> selectedPlugins = new ArrayList<>();
         if (serialization) {
@@ -73,6 +74,9 @@ final class KotlinToolchainResolutionFingerprintTest {
         }
         if (spring) {
             selectedPlugins.add("\"spring\"");
+        }
+        if (micronaut) {
+            selectedPlugins.add("\"micronaut\"");
         }
         if (jpa) {
             selectedPlugins.add("\"jpa\"");
