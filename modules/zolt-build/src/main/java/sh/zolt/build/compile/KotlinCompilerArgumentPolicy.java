@@ -25,6 +25,7 @@ final class KotlinCompilerArgumentPolicy {
         Set<String> standaloneArguments = new HashSet<>();
         String annotationDefaultTargetMode = "";
         String assertionMode = "";
+        String returnValueCheckerMode = "";
         String jspecifyAnnotationsMode = "";
         String jsr305Mode = "";
         String compatqualAnnotationsMode = "";
@@ -100,6 +101,12 @@ final class KotlinCompilerArgumentPolicy {
                             throw duplicateArgument(scope, argument);
                         }
                         assertionMode = KotlinCompilerModeArguments.assertions(scope, argument);
+                    } else if (argument.startsWith("-Xreturn-value-checker=")) {
+                        if (!returnValueCheckerMode.isEmpty()) {
+                            throw duplicateArgument(scope, argument);
+                        }
+                        returnValueCheckerMode =
+                                KotlinCompilerModeArguments.returnValueChecker(scope, argument);
                     } else if (argument.startsWith("-Xjspecify-annotations=")) {
                         if (!jspecifyAnnotationsMode.isEmpty()) {
                             throw duplicateArgument(scope, argument);
@@ -221,6 +228,7 @@ final class KotlinCompilerArgumentPolicy {
                 abiStabilityMode,
                 annotationDefaultTargetMode,
                 assertionMode,
+                returnValueCheckerMode,
                 jspecifyAnnotationsMode,
                 jsr305Mode,
                 compatqualAnnotationsMode,

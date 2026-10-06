@@ -33,6 +33,7 @@ final class KotlinCompilerArgumentGuidance {
                 + " `-Xexplicit-api=<mode>`, one `-Xstring-concat=<mode>`, one"
                 + " `-Xlambdas=<mode>`, one `-Xsam-conversions=<mode>`, one"
                 + " `-Xannotation-default-target=<mode>`, one `-Xassertions=<mode>`, one"
+                + " `-Xreturn-value-checker=<mode>`, one"
                 + " `-Xjspecify-annotations=<mode>`, one `-Xjsr305=<mode>`, one"
                 + " `-Xsupport-compatqual-checker-framework-annotations=<mode>`, and one"
                 + " `-Xabi-stability=<mode>`, plus distinct"

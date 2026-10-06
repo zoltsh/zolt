@@ -112,6 +112,7 @@ public final class KotlinCompileOptionsPolicy {
                 mappedArguments.abiStabilityMode(),
                 mappedArguments.annotationDefaultTargetMode(),
                 mappedArguments.assertionMode(),
+                mappedArguments.returnValueCheckerMode(),
                 mappedArguments.jspecifyAnnotationsMode(),
                 mappedArguments.jsr305Mode(),
                 mappedArguments.compatqualAnnotationsMode(),

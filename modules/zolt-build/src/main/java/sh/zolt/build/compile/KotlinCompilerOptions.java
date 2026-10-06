@@ -53,6 +53,7 @@ public record KotlinCompilerOptions(
         String abiStabilityMode,
         String annotationDefaultTargetMode,
         String assertionMode,
+        String returnValueCheckerMode,
         String jspecifyAnnotationsMode,
         String jsr305Mode,
         String compatqualAnnotationsMode,
@@ -226,6 +227,7 @@ public record KotlinCompilerOptions(
                 "",
                 "",
                 "",
+                "",
                 List.of(),
                 List.of(),
                 List.of(),
@@ -240,6 +242,7 @@ public record KotlinCompilerOptions(
         annotationDefaultTargetMode = KotlinCompilerOptionValues.optional(
                 annotationDefaultTargetMode);
         assertionMode = KotlinCompilerOptionValues.optional(assertionMode);
+        returnValueCheckerMode = KotlinCompilerOptionValues.optional(returnValueCheckerMode);
         jspecifyAnnotationsMode = KotlinCompilerOptionValues.optional(
                 jspecifyAnnotationsMode);
         jsr305Mode = KotlinCompilerOptionValues.optional(jsr305Mode);
@@ -320,6 +323,7 @@ public record KotlinCompilerOptions(
                 abiStabilityMode,
                 annotationDefaultTargetMode,
                 assertionMode,
+                returnValueCheckerMode,
                 jspecifyAnnotationsMode,
                 jsr305Mode,
                 compatqualAnnotationsMode,

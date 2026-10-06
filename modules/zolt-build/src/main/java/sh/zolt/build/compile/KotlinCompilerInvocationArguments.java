@@ -170,6 +170,9 @@ final class KotlinCompilerInvocationArguments {
         if (!options.assertionMode().isEmpty()) {
             arguments.add("-Xassertions=" + options.assertionMode());
         }
+        if (!options.returnValueCheckerMode().isEmpty()) {
+            arguments.add("-Xreturn-value-checker=" + options.returnValueCheckerMode());
+        }
         if (!options.jspecifyAnnotationsMode().isEmpty()) {
             arguments.add("-Xjspecify-annotations=" + options.jspecifyAnnotationsMode());
         }

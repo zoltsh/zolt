@@ -45,6 +45,7 @@ public record KotlinCompilerMappedArguments(
         String abiStabilityMode,
         String annotationDefaultTargetMode,
         String assertionMode,
+        String returnValueCheckerMode,
         String jspecifyAnnotationsMode,
         String jsr305Mode,
         String compatqualAnnotationsMode,

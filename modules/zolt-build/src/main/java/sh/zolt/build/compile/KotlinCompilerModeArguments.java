@@ -84,6 +84,17 @@ final class KotlinCompilerModeArguments {
                         + " `-Xassertions=jvm`, or `-Xassertions=legacy`, or remove the argument.");
     }
 
+    static String returnValueChecker(KotlinCompilationScope scope, String argument) {
+        return require(
+                scope,
+                argument,
+                "-Xreturn-value-checker=",
+                "return-value-checker",
+                List.of("check", "full", "disable"),
+                "Use `-Xreturn-value-checker=check`, `-Xreturn-value-checker=full`, or"
+                        + " `-Xreturn-value-checker=disable`, or remove the argument.");
+    }
+
     static String jspecifyAnnotations(KotlinCompilationScope scope, String argument) {
         return require(
                 scope,
