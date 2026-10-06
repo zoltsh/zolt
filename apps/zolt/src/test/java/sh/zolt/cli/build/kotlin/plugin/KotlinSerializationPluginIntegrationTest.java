@@ -1,6 +1,8 @@
 package sh.zolt.cli.build.kotlin.plugin;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static sh.zolt.cli.CliTestSupport.execute;
 
@@ -8,6 +10,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.jar.JarFile;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import sh.zolt.cli.CliTestRepository;
@@ -51,7 +54,37 @@ final class KotlinSerializationPluginIntegrationTest {
                     "--cache-root", cache.toString());
             assertEquals(0, run.exitCode(), combined(run));
             assertTrue(run.stdout().contains("com.example.Message:real"), run.stdout());
+
+            CommandResult packaging = execute(
+                    "package",
+                    "--mode", "uber-jar",
+                    "--no-build-cache",
+                    "--cwd", project.toString(),
+                    "--cache-root", cache.toString());
+            assertEquals(0, packaging.exitCode(), combined(packaging));
+            Path jarPath = project.resolve("target/kotlin-serialization-plugin-0.1.0.jar");
+            assertPackagedInventory(jarPath);
+
+            CommandResult packagedRun = execute(
+                    "run-package",
+                    "--cwd", project.toString(),
+                    "--cache-root", cache.toString());
+            assertEquals(0, packagedRun.exitCode(), combined(packagedRun));
+            assertTrue(
+                    packagedRun.stdout().contains("com.example.Message:real"),
+                    packagedRun.stdout());
             assertEquals(Map.of(), repository.authorizations());
+        }
+    }
+
+    private static void assertPackagedInventory(Path jarPath) throws IOException {
+        try (JarFile jar = new JarFile(jarPath.toFile())) {
+            assertNotNull(jar.getEntry("com/example/Message$$serializer.class"));
+            assertNotNull(jar.getEntry("kotlinx/serialization/KSerializer.class"));
+            assertNull(jar.getEntry("org/jetbrains/kotlin/cli/jvm/K2JVMCompiler.class"));
+            assertNull(jar.getEntry(
+                    "org/jetbrains/kotlinx/serialization/compiler/extensions/"
+                            + "SerializationComponentRegistrar.class"));
         }
     }
 
