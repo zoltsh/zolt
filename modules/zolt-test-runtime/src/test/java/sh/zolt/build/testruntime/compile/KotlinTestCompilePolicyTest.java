@@ -211,47 +211,42 @@ final class KotlinTestCompilePolicyTest {
     }
 
     @Test
-    void acceptsDeclaredJavaRootsButRejectsOwnedJavaGeneration() {
-        KotlinCompilerOptions declaredRoot = KotlinTestCompilePolicy.options(
-                configWithGeneratedTestStep(generatedStep(GeneratedSourceKind.DECLARED_ROOT)),
-                sources(
-                        List.of(),
-                        List.of(),
-                        List.of(),
-                        List.of(Path.of("generated/test/com/example/DeclaredTest.java")),
-                        List.of(),
-                        List.of(KOTLIN_TEST)),
-                classpaths(List.of()),
-                jdkStatus(),
-                null);
+    void acceptsDeclaredAndOwnedGeneratedJavaTestSources() {
+        for (GeneratedSourceKind kind : List.of(
+                GeneratedSourceKind.DECLARED_ROOT,
+                GeneratedSourceKind.OPENAPI,
+                GeneratedSourceKind.PROTOBUF)) {
+            KotlinCompilerOptions options = KotlinTestCompilePolicy.options(
+                    configWithGeneratedTestStep(generatedStep(kind)),
+                    sources(
+                            List.of(),
+                            List.of(),
+                            List.of(),
+                            List.of(Path.of("generated/test/com/example/GeneratedTest.java")),
+                            List.of(),
+                            List.of(KOTLIN_TEST)),
+                    classpaths(List.of()),
+                    jdkStatus(),
+                    null);
 
-        for (GeneratedSourceKind kind : List.of(GeneratedSourceKind.OPENAPI, GeneratedSourceKind.PROTOBUF)) {
-            KotlinCompileException failure = assertThrows(
-                    KotlinCompileException.class,
-                    () -> KotlinTestCompilePolicy.options(
-                            configWithGeneratedTestStep(generatedStep(kind)),
-                            sources(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(KOTLIN_TEST)),
-                            classpaths(List.of()),
-                            jdkStatus(),
-                            null));
-
-            assertTrue(failure.getMessage().contains("owned Java test-source generation"));
-            assertTrue(failure.getMessage().contains("pre-generated Java or Kotlin test root"));
-            assertTrue(failure.getMessage().contains("kind = \"declared-root\""));
+            assertEquals("21", options.release());
         }
 
         for (ProducesLane lane : List.of(ProducesLane.JAVA_SOURCES, ProducesLane.TEST_SOURCES)) {
-            KotlinCompileException failure = assertThrows(
-                    KotlinCompileException.class,
-                    () -> KotlinTestCompilePolicy.options(
-                            configWithGeneratedTestStep(execStep(lane)),
-                            sources(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(KOTLIN_TEST)),
-                            classpaths(List.of()),
-                            jdkStatus(),
-                            null));
+            KotlinCompilerOptions options = KotlinTestCompilePolicy.options(
+                    configWithGeneratedTestStep(execStep(lane)),
+                    sources(
+                            List.of(),
+                            List.of(),
+                            List.of(),
+                            List.of(Path.of("generated/test/com/example/GeneratedTest.java")),
+                            List.of(),
+                            List.of(KOTLIN_TEST)),
+                    classpaths(List.of()),
+                    jdkStatus(),
+                    null);
 
-            assertTrue(failure.getMessage().contains("owned Java test-source generation"));
-            assertTrue(failure.getMessage().contains("pre-generated Java or Kotlin test root"));
+            assertEquals("21", options.release());
         }
 
         for (ProducesLane lane : List.of(ProducesLane.TEST_RESOURCES, ProducesLane.INTERMEDIATE)) {
@@ -264,7 +259,6 @@ final class KotlinTestCompilePolicyTest {
 
             assertEquals("21", options.release());
         }
-        assertEquals("21", declaredRoot.release());
     }
 
     @Test

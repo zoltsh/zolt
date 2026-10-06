@@ -9,10 +9,7 @@ import sh.zolt.build.compile.KotlinCompilerOptions;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.doctor.JdkStatus;
-import sh.zolt.project.GeneratedSourceKind;
-import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.project.ProducesLane;
 
 /** Correctness-first eligibility rules for the bounded Kotlin/JVM test compiler. */
 final class KotlinTestCompilePolicy {
@@ -35,15 +32,6 @@ final class KotlinTestCompilePolicy {
                     "the test source set contains module-info.java",
                     "Remove module-info.java or keep this test source set Java-only until modular"
                             + " Kotlin/Java joint compilation is supported.");
-        }
-        if (config.build().generatedTestSources().stream()
-                .anyMatch(KotlinTestCompilePolicy::producesOwnedJavaSources)) {
-            throw unsupported(
-                    "owned Java test-source generation is configured",
-                    "Use language = \"kotlin\" for an OpenAPI, Protobuf, or exec step that emits Kotlin, use kind ="
-                            + " \"declared-root\" for a pre-generated Java or Kotlin test root, move generated"
-                            + " Java tests into a separate member, or keep this test source set Java-only until"
-                            + " generator ownership is qualified for Kotlin/Java joint compilation.");
         }
         if (config.frameworkSettings().quarkus().enabled()) {
             throw unsupported(
@@ -70,17 +58,6 @@ final class KotlinTestCompilePolicy {
                     "Build the member's Kotlin main sources before compiling its tests.");
         }
         return options.withFriendPath(mainOutputDirectory);
-    }
-
-    private static boolean producesOwnedJavaSources(GeneratedSourceStep step) {
-        return switch (step.kind()) {
-            case DECLARED_ROOT -> false;
-            case OPENAPI -> !"kotlin".equals(step.language());
-            case PROTOBUF -> !"kotlin".equals(step.language());
-            case EXEC -> "java".equals(step.language())
-                    && (step.exec().produces() == ProducesLane.JAVA_SOURCES
-                            || step.exec().produces() == ProducesLane.TEST_SOURCES);
-        };
     }
 
     private static KotlinCompileException unsupported(String reason, String remediation) {
