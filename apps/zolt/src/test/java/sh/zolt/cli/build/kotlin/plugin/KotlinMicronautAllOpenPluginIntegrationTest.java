@@ -2,6 +2,8 @@ package sh.zolt.cli.build.kotlin.plugin;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static sh.zolt.cli.CliTestSupport.execute;
@@ -10,6 +12,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.jar.JarFile;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Isolated;
@@ -85,6 +88,7 @@ final class KotlinMicronautAllOpenPluginIntegrationTest {
             assertTiming(reenabled, "full");
             assertArrayEquals(openBytes, Files.readAllBytes(service));
             assertRun(project, artifactCache, "false:false:micronaut");
+            assertPackage(project, artifactCache);
             assertEquals(Map.of(), repository.authorizations());
         } finally {
             if (previousUserHome == null) {
@@ -204,6 +208,34 @@ final class KotlinMicronautAllOpenPluginIntegrationTest {
                 "--no-progress");
         assertEquals(0, run.exitCode(), combined(run));
         assertTrue(run.stdout().contains(expected), run.stdout());
+    }
+
+    private static void assertPackage(Path project, Path artifactCache) throws IOException {
+        CommandResult packaging = execute(
+                "package",
+                "--mode", "uber-jar",
+                "--no-build-cache",
+                "--cwd", project.toString(),
+                "--cache-root", artifactCache.toString(),
+                "--no-progress");
+        assertEquals(0, packaging.exitCode(), combined(packaging));
+        Path jarPath = project.resolve("target/kotlin-micronaut-all-open-0.1.0.jar");
+        try (JarFile jar = new JarFile(jarPath.toFile())) {
+            assertNotNull(jar.getEntry("com/example/MicronautService.class"));
+            assertNotNull(jar.getEntry("kotlin/jvm/internal/Intrinsics.class"));
+            assertNull(jar.getEntry("org/jetbrains/kotlin/cli/jvm/K2JVMCompiler.class"));
+            assertNull(jar.getEntry(
+                    "org/jetbrains/kotlin/allopen/AllOpenCommandLineProcessor.class"));
+        }
+
+        CommandResult packagedRun = execute(
+                "run-package",
+                "--cwd", project.toString(),
+                "--cache-root", artifactCache.toString());
+        assertEquals(0, packagedRun.exitCode(), combined(packagedRun));
+        assertTrue(
+                packagedRun.stdout().contains("false:false:micronaut"),
+                packagedRun.stdout());
     }
 
     private static void assertTiming(CommandResult result, String mode) {
