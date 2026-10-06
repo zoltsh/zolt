@@ -54,6 +54,7 @@ final class ProjectConfigGenerated {
     private static final String MAIN_OUTPUT_PREFIX = "generated/sources/";
     private static final String TEST_OUTPUT_PREFIX = "generated/test-sources/";
     private static final String MAIN_KSP_OUTPUT_PREFIX = "generated/ksp/main/";
+    private static final String TEST_KSP_OUTPUT_PREFIX = "generated/ksp/test/";
 
     private ProjectConfigGenerated() {
     }
@@ -115,16 +116,14 @@ final class ProjectConfigGenerated {
             String outputRoot,
             Map<LocalId, EffectiveValue<VersionAliasValue>> versions,
             boolean mainScope) {
-        if (!mainScope) {
-            throw new IllegalArgumentException(
-                    "Generated KSP step `" + id + "` is currently supported only in [generated.main].");
-        }
         return new GeneratedSourceStep(
                 id.value(),
                 GeneratedSourceKind.KSP,
                 "kotlin",
                 step.output().map(ManifestRelativePath::value)
-                        .orElseGet(() -> outputRoot + "/" + MAIN_KSP_OUTPUT_PREFIX + id.value()),
+                        .orElseGet(() -> outputRoot + "/"
+                                + (mainScope ? MAIN_KSP_OUTPUT_PREFIX : TEST_KSP_OUTPUT_PREFIX)
+                                + id.value()),
                 List.of(),
                 true,
                 true,

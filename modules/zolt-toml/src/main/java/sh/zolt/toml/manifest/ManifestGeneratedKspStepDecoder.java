@@ -7,17 +7,12 @@ import sh.zolt.manifest.LocalId;
 import sh.zolt.manifest.ManifestRelativePath;
 import sh.zolt.manifest.authored.AuthoredKspStep;
 
-/** Decodes the main-only KSP generated-step surface. */
+/** Decodes the bounded KSP generated-step surface. */
 final class ManifestGeneratedKspStepDecoder {
     private ManifestGeneratedKspStepDecoder() {
     }
 
     static AuthoredKspStep decode(ManifestGeneratedStepsDecoder.Row row) {
-        if (row.fields() != ManifestGeneratedStepFields.MAIN) {
-            return ManifestGeneratedStepsDecoder.invalid(
-                    row.required(ManifestGeneratedStepFields.Slot.KIND),
-                    "KSP generated steps are currently supported only in [generated.main].");
-        }
         row.reject(ManifestGeneratedStepFields.Slot.LANGUAGE);
         Optional<LocalId> tool = row.optionalId(ManifestGeneratedStepFields.Slot.TOOL);
         row.reject(

@@ -29,22 +29,13 @@ final class ManifestGeneratedStepFieldMatrixTest {
 
     static Stream<Arguments> disallowedFields() {
         return Stream.of(Kind.values()).flatMap(kind ->
-                (kind == Kind.KSP ? Stream.of(Lane.MAIN) : lanes())
-                        .flatMap(lane -> assignments().stream()
+                lanes().flatMap(lane -> assignments().stream()
                                 .filter(assignment -> !kind.allowed().contains(assignment.slot()))
                                 .map(assignment -> Arguments.of(
                                         lane,
                                         kind.symbol(),
                                         assignment.field(),
                                         assignment.source()))));
-    }
-
-    @Test
-    void rejectsKspBeforeDecodingAnyTestLaneFields() {
-        assertFailure(
-                Lane.TEST.source("kind = \"ksp\"\n"),
-                "generated.test.step.kind",
-                "supported only in [generated.main]");
     }
 
     @ParameterizedTest

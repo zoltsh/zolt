@@ -46,4 +46,36 @@ final class ManifestKspConfigAdapterTest {
                 step.ksp().processors().getFirst().coordinate());
         assertEquals(Map.of("room.schemaLocation", "schemas"), step.ksp().options());
     }
+
+    @Test
+    void projectsAPublicTestKspDeclarationIntoItsOwnedTestContract() {
+        ProjectConfig config = FinalManifests.load("""
+                [project]
+                name = "ksp-demo"
+                version = "1.0.0"
+                group = "com.example"
+                java = 21
+
+                [generated.tools.ksp]
+                version = "2.2.0-2.0.2"
+                coordinates = [
+                    { coordinate = "com.example:test-processor", version = "1.4.0" },
+                ]
+
+                [generated.test.fixtures]
+                kind = "ksp"
+                options = { mode = "test" }
+                """);
+
+        GeneratedSourceStep step = config.build().generatedTestSources().getFirst();
+
+        assertEquals(GeneratedSourceKind.KSP, step.kind());
+        assertEquals("kotlin", step.language());
+        assertEquals("target/generated/ksp/test/fixtures", step.output());
+        assertEquals(List.of(), step.inputs());
+        assertTrue(step.required());
+        assertTrue(step.clean());
+        assertEquals("ksp", step.ksp().toolName());
+        assertEquals(Map.of("mode", "test"), step.ksp().options());
+    }
 }

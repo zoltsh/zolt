@@ -171,15 +171,12 @@ final class ManifestGeneratedStepsWriter {
             LocalId id,
             AuthoredKspStep step,
             ManifestRelativePath outputRoot) {
-        if (!lane.main()) {
-            throw new IllegalArgumentException(
-                    "KSP generated steps are currently supported only in [generated.main].");
-        }
         ManifestGeneratedKspStepWriter.write(
                 emitter,
                 id,
                 step,
                 outputRoot,
+                lane.main(),
                 field(lane,
                         FinalManifestGeneratedMainFields.GENERATED_MAIN_TOOL,
                         FinalManifestGeneratedTestFields.GENERATED_TEST_TOOL),

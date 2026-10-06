@@ -39,14 +39,18 @@ final class ManifestGeneratedKspStepDecoderTest {
     }
 
     @Test
-    void rejectsKspOutsideMainAtTheKindField() {
-        assertFailure(
-                """
-                [generated.test.symbols]
-                kind = "ksp"
-                """,
-                "generated.test.symbols.kind",
-                "supported only in [generated.main]");
+    void decodesKspInTheTestLane() {
+        AuthoredKspStep step = assertInstanceOf(
+                AuthoredKspStep.class,
+                decode("""
+                        [generated.test.symbols]
+                        kind = "ksp"
+                        options = { fixture = "enabled" }
+                        """).test().orElseThrow().get(new LocalId("symbols")));
+
+        assertTrue(step.tool().isEmpty());
+        assertTrue(step.output().isEmpty());
+        assertEquals(Map.of("fixture", "enabled"), step.options());
     }
 
     @Test

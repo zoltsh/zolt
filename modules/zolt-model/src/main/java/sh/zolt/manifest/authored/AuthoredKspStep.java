@@ -8,7 +8,7 @@ import sh.zolt.manifest.LocalId;
 import sh.zolt.manifest.ManifestModelValues;
 import sh.zolt.manifest.ManifestRelativePath;
 
-/** Authored main-scope {@code kind = "ksp"} generated step. */
+/** Authored {@code kind = "ksp"} generated step. */
 public record AuthoredKspStep(
         GeneratedStepSettings settings,
         Optional<LocalId> tool,

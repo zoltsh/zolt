@@ -1,7 +1,6 @@
 package sh.zolt.toml.manifest.write;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static sh.zolt.toml.manifest.ManifestSemanticTestSupport.decodeAuthoredManifest;
 
 import java.util.Map;
@@ -48,20 +47,22 @@ final class ManifestGeneratedKspStepWriterTest {
     }
 
     @Test
-    void rejectsKspStepsInTheUnimplementedTestLane() {
+    void emitsCanonicalTestKspFieldsAndOmitsTheDerivedOutput() {
         AuthoredKspStep step = new AuthoredKspStep(
                 GeneratedStepSettings.defaultsOmitted(),
                 Optional.empty(),
-                Optional.empty(),
-                Map.of());
+                Optional.of(new ManifestRelativePath("target/generated/ksp/test/symbols")),
+                Map.of("fixture", "enabled"));
 
-        IllegalArgumentException failure = assertThrows(
-                IllegalArgumentException.class,
-                () -> write(Map.of(), Map.of(new LocalId("symbols"), step)));
+        String output = write(Map.of(), Map.of(new LocalId("symbols"), step));
 
         assertEquals(
-                "KSP generated steps are currently supported only in [generated.main].",
-                failure.getMessage());
+                """
+                [generated.test.symbols]
+                kind = "ksp"
+                options = { fixture = "enabled" }
+                """,
+                output);
     }
 
     private static String write(

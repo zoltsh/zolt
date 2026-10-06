@@ -98,6 +98,33 @@ final class ProjectConfigGeneratedKspTest {
     }
 
     @Test
+    void projectsATestKspStepWithOwnedDerivedOutput() {
+        AuthoredGeneratedTool.Ksp tool = new AuthoredGeneratedTool.Ksp(
+                new DependencySelector.FixedVersion("2.2.0-2.0.2"),
+                List.of(new GeneratedArtifactRequest(
+                        new DependencyCoordinate("com.example:test-processor"),
+                        new DependencySelector.FixedVersion("1.4.0"))));
+        AuthoredGeneratedSources sources = new AuthoredGeneratedSources(
+                new AuthoredGeneratedTools(Map.of(KSP, tool)),
+                AuthoredGeneratedPresets.empty(),
+                Map.of(),
+                Map.of(new LocalId("fixtures"), new AuthoredKspStep(
+                        GeneratedStepSettings.defaultsOmitted(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Map.of("mode", "test"))));
+
+        GeneratedSourceStep step = ProjectConfigGenerated.test(
+                Optional.of(sources), "target", Map.of()).getFirst();
+
+        assertEquals(GeneratedSourceKind.KSP, step.kind());
+        assertEquals("kotlin", step.language());
+        assertEquals("target/generated/ksp/test/fixtures", step.output());
+        assertEquals(List.of(), step.inputs());
+        assertEquals(Map.of("mode", "test"), step.ksp().options());
+    }
+
+    @Test
     void rejectsMissingOrWrongKindToolReferences() {
         AuthoredGeneratedSources sources = new AuthoredGeneratedSources(
                 new AuthoredGeneratedTools(Map.of(
