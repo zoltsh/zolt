@@ -6,11 +6,13 @@ import java.util.List;
 /** Checksum-derived identity and isolated launch classpaths for one KSP2 JVM step. */
 record KspJvmToolchain(
         String version,
+        String kotlinVersion,
         List<Path> engineClasspath,
         List<Path> processorClasspath,
         String identity) {
     KspJvmToolchain {
         version = requireText(version, "KSP version");
+        kotlinVersion = requireText(kotlinVersion, "Kotlin version");
         engineClasspath = requirePaths(engineClasspath, "KSP engine classpath");
         processorClasspath = requirePaths(processorClasspath, "KSP processor classpath");
         identity = requireText(identity, "KSP toolchain identity");

@@ -90,9 +90,10 @@ final class KspJvmToolchainResolver {
 
         return new KspJvmToolchain(
                 ksp,
+                kotlin,
                 verifiedEngine.stream().map(VerifiedArtifact::path).toList(),
                 verifiedProcessors.stream().map(VerifiedArtifact::path).toList(),
-                "ksp:" + ksp + "|engine=" + identity(verifiedEngine)
+                "ksp:" + ksp + "|kotlin=" + kotlin + "|engine=" + identity(verifiedEngine)
                         + "|processors=" + identity(verifiedProcessors));
     }
 

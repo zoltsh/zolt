@@ -49,6 +49,7 @@ final class KspJvmToolchainResolverTest {
         KspJvmToolchain moved = resolve(relocated.packages());
 
         assertEquals(KSP_VERSION, original.version());
+        assertEquals(KOTLIN_VERSION, original.kotlinVersion());
         assertEquals(
                 List.of(first.engine(), first.engineSupport()),
                 original.engineClasspath());
@@ -57,7 +58,8 @@ final class KspJvmToolchainResolverTest {
                 original.processorClasspath());
         assertEquals(original.identity(), moved.identity());
         assertFalse(original.identity().contains(temporary.toString()));
-        assertTrue(original.identity().startsWith("ksp:" + KSP_VERSION + "|engine=sha256:"));
+        assertTrue(original.identity().startsWith(
+                "ksp:" + KSP_VERSION + "|kotlin=" + KOTLIN_VERSION + "|engine=sha256:"));
     }
 
     @Test
