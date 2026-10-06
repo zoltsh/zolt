@@ -152,6 +152,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.allowUnstableDependencies()) {
             arguments.add("-Xallow-unstable-dependencies");
         }
+        if (options.noParamAssertions()) {
+            arguments.add("-Xno-param-assertions");
+        }
         if (!options.abiStabilityMode().isEmpty()) {
             arguments.add("-Xabi-stability=" + options.abiStabilityMode());
         }

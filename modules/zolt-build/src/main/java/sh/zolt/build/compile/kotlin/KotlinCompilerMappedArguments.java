@@ -39,6 +39,7 @@ public record KotlinCompilerMappedArguments(
         boolean useTypeTable,
         boolean jvmPreview,
         boolean allowUnstableDependencies,
+        boolean noParamAssertions,
         String abiStabilityMode,
         String annotationDefaultTargetMode,
         String assertionMode,

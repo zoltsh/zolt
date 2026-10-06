@@ -38,7 +38,8 @@ final class KotlinCompilerStandaloneArguments {
             "-Xannotations-in-metadata",
             "-Xuse-type-table",
             "-Xjvm-enable-preview",
-            "-Xallow-unstable-dependencies");
+            "-Xallow-unstable-dependencies",
+            "-Xno-param-assertions");
 
     private KotlinCompilerStandaloneArguments() {
     }

@@ -215,6 +215,7 @@ final class KotlinCompilerArgumentPolicy {
                 standaloneArguments.contains("-Xuse-type-table"),
                 standaloneArguments.contains("-Xjvm-enable-preview"),
                 standaloneArguments.contains("-Xallow-unstable-dependencies"),
+                standaloneArguments.contains("-Xno-param-assertions"),
                 abiStabilityMode,
                 annotationDefaultTargetMode,
                 assertionMode,
