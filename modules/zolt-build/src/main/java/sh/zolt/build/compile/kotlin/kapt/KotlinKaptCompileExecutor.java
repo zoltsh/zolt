@@ -60,7 +60,8 @@ public final class KotlinKaptCompileExecutor {
                     kotlinOptions,
                     scope,
                     kaptOptions,
-                    compilerToolchain.compilerPluginJars());
+                    compilerToolchain.compilerPluginJars(),
+                    compilerToolchain.compilerPluginOptions());
             List<Path> generatedJavaSources = generatedJavaSources(
                     generatedSourcesDirectory,
                     scope);
@@ -74,7 +75,8 @@ public final class KotlinKaptCompileExecutor {
                     kotlinOptions,
                     scope,
                     null,
-                    compilerToolchain.compilerPluginJars());
+                    compilerToolchain.compilerPluginJars(),
+                    compilerToolchain.compilerPluginOptions());
             JavacResult java = javacRunner.compile(
                     jdkStatus.javac().orElseThrow(),
                     combinedSources(javaSources, generatedJavaSources),

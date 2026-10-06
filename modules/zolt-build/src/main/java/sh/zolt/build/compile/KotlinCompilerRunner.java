@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Objects;
 import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.compile.kotlin.KotlinCompilerInvocationArguments;
+import sh.zolt.build.compile.kotlin.KotlinCompilerPluginOption;
 import sh.zolt.build.compile.kotlin.kapt.KotlinKaptOptions;
 import sh.zolt.classpath.Classpath;
 
@@ -84,6 +85,7 @@ public final class KotlinCompilerRunner {
                 options,
                 scope,
                 kaptOptions,
+                List.of(),
                 List.of());
     }
 
@@ -97,7 +99,8 @@ public final class KotlinCompilerRunner {
             KotlinCompilerOptions options,
             KotlinCompilationScope scope,
             KotlinKaptOptions kaptOptions,
-            List<Path> compilerPluginJars) {
+            List<Path> compilerPluginJars,
+            List<KotlinCompilerPluginOption> compilerPluginOptions) {
         KotlinCompilationScope compilationScope = Objects.requireNonNull(
                 scope,
                 "Kotlin compilation scope is required.");
@@ -128,6 +131,7 @@ public final class KotlinCompilerRunner {
                 outputDirectory,
                 options,
                 compilerPluginJars,
+                compilerPluginOptions,
                 kaptOptions,
                 pathSeparator);
         try (KotlinCompilerArgumentsFile argumentsFile =

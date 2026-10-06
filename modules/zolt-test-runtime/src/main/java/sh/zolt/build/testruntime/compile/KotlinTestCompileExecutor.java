@@ -40,7 +40,8 @@ final class KotlinTestCompileExecutor {
                                 options,
                                 scope,
                                 null,
-                                toolchain.compilerPluginJars()),
+                                toolchain.compilerPluginJars(),
+                                toolchain.compilerPluginOptions()),
                 new KotlinKaptCompileExecutor(javacRunner, kotlinCompilerRunner)::compile);
     }
 

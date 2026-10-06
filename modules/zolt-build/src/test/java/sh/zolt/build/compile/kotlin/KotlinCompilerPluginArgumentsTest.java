@@ -19,6 +19,8 @@ final class KotlinCompilerPluginArgumentsTest {
     void passesVerifiedCompilerPluginsInSelectionOrder() {
         Path serialization = tempDir.resolve("tools/serialization.jar");
         Path futurePlugin = tempDir.resolve("tools/future.jar");
+        KotlinCompilerPluginOption option = new KotlinCompilerPluginOption(
+                "org.jetbrains.kotlin.allopen", "preset", "spring");
 
         List<String> arguments = KotlinCompilerInvocationArguments.build(
                 Path.of("/jdk"),
@@ -27,6 +29,7 @@ final class KotlinCompilerPluginArgumentsTest {
                 tempDir.resolve("classes"),
                 new KotlinCompilerOptions("21", "plugins_main", false),
                 List.of(serialization, futurePlugin),
+                List.of(option),
                 null,
                 ":");
 
@@ -35,6 +38,9 @@ final class KotlinCompilerPluginArgumentsTest {
         assertTrue(arguments.indexOf(serializationArgument) >= 0, arguments.toString());
         assertTrue(arguments.indexOf(futureArgument) > arguments.indexOf(serializationArgument),
                 arguments.toString());
+        int optionFlag = arguments.indexOf("-P");
+        assertTrue(optionFlag > arguments.indexOf(futureArgument), arguments.toString());
+        assertEquals(option.argument(), arguments.get(optionFlag + 1));
     }
 
     @Test
@@ -49,6 +55,8 @@ final class KotlinCompilerPluginArgumentsTest {
                 tempDir.resolve("classes-kapt"),
                 new KotlinCompilerOptions("21", "plugins_kapt_main", false),
                 List.of(serialization),
+                List.of(new KotlinCompilerPluginOption(
+                        "org.jetbrains.kotlin.allopen", "preset", "spring")),
                 new KotlinKaptOptions(
                         kapt,
                         new Classpath(List.of(tempDir.resolve("processor.jar"))),
@@ -59,5 +67,10 @@ final class KotlinCompilerPluginArgumentsTest {
 
         assertEquals(1, arguments.stream().filter(("-Xplugin=" + serialization)::equals).count());
         assertEquals(1, arguments.stream().filter(("-Xplugin=" + kapt)::equals).count());
+        assertEquals(
+                1,
+                arguments.stream()
+                        .filter("plugin:org.jetbrains.kotlin.allopen:preset=spring"::equals)
+                        .count());
     }
 }

@@ -16,17 +16,21 @@ final class KotlinCompilerInvocationToolchainTest {
         Path kapt = Path.of("tools/kapt.jar");
         Path serialization = Path.of("tools/serialization.jar");
         Classpath launcher = new Classpath(List.of(compiler, kapt, serialization));
+        KotlinCompilerPluginOption option = new KotlinCompilerPluginOption(
+                "org.jetbrains.kotlin.allopen", "preset", "spring");
 
         KotlinCompilerInvocationToolchain toolchain = new KotlinCompilerInvocationToolchain(
                 launcher,
                 kapt,
-                List.of(serialization));
+                List.of(serialization),
+                List.of(option));
 
         assertEquals(launcher, toolchain.launcherClasspath());
         assertEquals(kapt.toAbsolutePath().normalize(), toolchain.kaptPluginJar().orElseThrow());
         assertEquals(
                 List.of(serialization.toAbsolutePath().normalize()),
                 toolchain.compilerPluginJars());
+        assertEquals(List.of(option), toolchain.compilerPluginOptions());
     }
 
     @Test
@@ -54,5 +58,25 @@ final class KotlinCompilerInvocationToolchainTest {
                         null,
                         List.of(serialization, serialization)));
         assertTrue(duplicate.getMessage().contains("duplicates"));
+    }
+
+    @Test
+    void rejectsOptionsWithoutAPluginAndExactDuplicates() {
+        Classpath launcher = new Classpath(List.of(Path.of("tools/compiler.jar")));
+        KotlinCompilerPluginOption option = new KotlinCompilerPluginOption(
+                "org.jetbrains.kotlin.allopen", "preset", "spring");
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new KotlinCompilerInvocationToolchain(
+                        launcher, null, List.of(), List.of(option)));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new KotlinCompilerInvocationToolchain(
+                        new Classpath(List.of(
+                                Path.of("tools/compiler.jar"), Path.of("tools/allopen.jar"))),
+                        null,
+                        List.of(Path.of("tools/allopen.jar")),
+                        List.of(option, option)));
     }
 }

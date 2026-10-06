@@ -6,6 +6,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
 import sh.zolt.build.compile.kotlin.KotlinCompilerInvocationToolchain;
+import sh.zolt.build.compile.kotlin.KotlinCompilerPluginOption;
 import sh.zolt.classpath.Classpath;
 
 /** The checksum-verified, relocatably identified Kotlin compiler launcher closure. */
@@ -21,6 +22,7 @@ public final class KotlinCompilerToolchain {
     private final Classpath launcherClasspath;
     private final Path kaptPluginJar;
     private final List<Path> compilerPluginJars;
+    private final List<KotlinCompilerPluginOption> compilerPluginOptions;
 
     KotlinCompilerToolchain(
             String version,
@@ -46,6 +48,24 @@ public final class KotlinCompilerToolchain {
             String launcherClosureIdentity,
             Path kaptPluginJar,
             List<Path> compilerPluginJars) {
+        this(
+                version,
+                sha256,
+                launcherJars,
+                launcherClosureIdentity,
+                kaptPluginJar,
+                compilerPluginJars,
+                List.of());
+    }
+
+    KotlinCompilerToolchain(
+            String version,
+            String sha256,
+            List<Path> launcherJars,
+            String launcherClosureIdentity,
+            Path kaptPluginJar,
+            List<Path> compilerPluginJars,
+            List<KotlinCompilerPluginOption> compilerPluginOptions) {
         this.version = require(version, "version");
         this.sha256 = require(sha256, "SHA-256");
         if (!SHA256.matcher(this.sha256).matches()) {
@@ -104,6 +124,10 @@ public final class KotlinCompilerToolchain {
                     "Kotlin compiler plugin JARs must not contain duplicates.");
         }
         this.compilerPluginJars = normalizedPlugins;
+        this.compilerPluginOptions = List.copyOf(Objects.requireNonNull(
+                compilerPluginOptions,
+                "Kotlin compiler plugin options are required."));
+        validatePluginOptions(normalizedPlugins, this.compilerPluginOptions);
     }
 
     public String coordinate() {
@@ -137,12 +161,18 @@ public final class KotlinCompilerToolchain {
         return compilerPluginJars;
     }
 
+    /** Ordered Zolt-owned options for the verified compiler plugins. */
+    public List<KotlinCompilerPluginOption> compilerPluginOptions() {
+        return compilerPluginOptions;
+    }
+
     /** Verified invocation paths for compilation lanes that do not own resolution. */
     public KotlinCompilerInvocationToolchain invocationToolchain() {
         return new KotlinCompilerInvocationToolchain(
                 launcherClasspath,
                 kaptPluginJar,
-                compilerPluginJars);
+                compilerPluginJars,
+                compilerPluginOptions);
     }
 
     private static String require(String value, String label) {
@@ -151,5 +181,18 @@ public final class KotlinCompilerToolchain {
                     "Kotlin compiler " + label + " is required.");
         }
         return value.strip();
+    }
+
+    private static void validatePluginOptions(
+            List<Path> plugins,
+            List<KotlinCompilerPluginOption> options) {
+        if (!options.isEmpty() && plugins.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Kotlin compiler plugin options require a verified plugin JAR.");
+        }
+        if (options.stream().distinct().count() != options.size()) {
+            throw new IllegalArgumentException(
+                    "Kotlin compiler plugin options must not contain duplicates.");
+        }
     }
 }

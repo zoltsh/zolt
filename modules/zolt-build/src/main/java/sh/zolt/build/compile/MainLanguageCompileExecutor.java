@@ -150,7 +150,8 @@ final class MainLanguageCompileExecutor {
                 plan.kotlinOptions(),
                 KotlinCompilationScope.MAIN,
                 null,
-                plan.kotlinToolchain().compilerPluginJars());
+                plan.kotlinToolchain().compilerPluginJars(),
+                plan.kotlinToolchain().compilerPluginOptions());
         if (sources.mainSources().isEmpty()) {
             return kotlin;
         }

@@ -29,6 +29,7 @@ public final class KotlinCompilerInvocationArguments {
                 outputDirectory,
                 options,
                 List.of(),
+                List.of(),
                 null,
                 pathSeparator);
     }
@@ -48,6 +49,7 @@ public final class KotlinCompilerInvocationArguments {
                 outputDirectory,
                 options,
                 List.of(),
+                List.of(),
                 kaptOptions,
                 pathSeparator);
     }
@@ -59,6 +61,7 @@ public final class KotlinCompilerInvocationArguments {
             Path outputDirectory,
             KotlinCompilerOptions options,
             List<Path> compilerPluginJars,
+            List<KotlinCompilerPluginOption> compilerPluginOptions,
             KotlinKaptOptions kaptOptions,
             String pathSeparator) {
         List<String> arguments = new ArrayList<>();
@@ -247,7 +250,7 @@ public final class KotlinCompilerInvocationArguments {
         }
         options.warningLevels().forEach(level -> arguments.add("-Xwarning-level=" + level));
         options.optIns().forEach(optIn -> arguments.add("-opt-in=" + optIn));
-        addCompilerPlugins(arguments, compilerPluginJars);
+        addCompilerPlugins(arguments, compilerPluginJars, compilerPluginOptions);
         addKaptArguments(arguments, kaptOptions, options.annotationProcessorOptions());
         List<Path> compilationEntries = entries(compilationClasspath);
         if (!compilationEntries.isEmpty()) {
@@ -267,12 +270,19 @@ public final class KotlinCompilerInvocationArguments {
 
     private static void addCompilerPlugins(
             List<String> arguments,
-            List<Path> pluginJars) {
+            List<Path> pluginJars,
+            List<KotlinCompilerPluginOption> pluginOptions) {
         if (pluginJars == null) {
             return;
         }
         pluginJars.forEach(plugin ->
                 arguments.add("-Xplugin=" + plugin.toAbsolutePath().normalize()));
+        if (pluginOptions != null) {
+            pluginOptions.forEach(option -> {
+                arguments.add("-P");
+                arguments.add(option.argument());
+            });
+        }
     }
 
     private static void addKaptArguments(
