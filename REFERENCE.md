@@ -808,7 +808,7 @@ plus `-Xmulti-dollar-interpolation`, `-Xnon-local-break-continue`,
 `-Xmultifile-parts-inherit`,
 `-Xvalidate-bytecode`,
 `-Xgenerate-strict-metadata-version`, `-Xannotations-in-metadata`,
-`-Xuse-type-table`, `-Xjvm-enable-preview`, and
+`-Xuse-type-table`, `-Xuse-old-class-files-reading`, `-Xjvm-enable-preview`, and
 `-Xallow-unstable-dependencies`, plus
 `-Xindy-allow-annotated-lambdas` when paired with `-Xlambdas=indy`. One each of
 the paired Kotlin arguments
@@ -886,6 +886,7 @@ args = [
   "-Xgenerate-strict-metadata-version",
   "-Xannotations-in-metadata",
   "-Xuse-type-table",
+  "-Xuse-old-class-files-reading",
   "-Xjvm-enable-preview",
   "-Xabi-stability=stable",
   "-language-version", "1.9",
@@ -1239,6 +1240,18 @@ table encoding and reader compatibility. Configure the flag independently for
 main and test source sets; changing it invalidates and cleanly recompiles the
 matching output, and removing it restores the compiler's default metadata
 layout.
+`-Xuse-old-class-files-reading` switches the selected Kotlin compiler from its
+modern class-file reader to the legacy implementation for dependency and prior
+output bytecode. It is an opt-in compatibility fallback, not a general
+performance setting: keep the modern reader unless a dependency exposes a
+confirmed reader incompatibility. In the qualified case, Kotlin 2.2.0 compiled
+and ran against an actual Groovy 4.0.22-generated class with either reader. The
+fallback does not compile Groovy sources, admit mixed Groovy/Kotlin source sets,
+or remove the need for the Groovy runtime when generated classes reference it;
+put Groovy sources in a separate member or dependency. Configure the flag
+independently for main and test source sets. Changing it invalidates and cleanly
+recompiles the matching output, and removing it restores the selected
+compiler's modern reader.
 `-Xjvm-enable-preview` asks the selected Kotlin compiler to mark every emitted
 class as using JVM preview features and forwards `--enable-preview` to the javac
 phase of a mixed source set. Preview compilation requires Java 12 or newer, and
@@ -1404,7 +1417,7 @@ JSpecify, JSR-305, or package-specific Java nullness severity, legacy null-check
 exceptions, Java-entry parameter assertions, strict metadata-version semantics,
 platform-call result assertions, extension-receiver assertions, annotations in
 metadata, return-value-checker mode, backend optimization, method inlining,
-backend thread count, inline-scope debug numbering, JVM-name
+backend thread count, class-file reader, inline-scope debug numbering, JVM-name
 parentheses sanitization, legacy inline-class mangling, multifile-part
 inheritance, complete warning reporting, internal diagnostic-name rendering,
 generated-bytecode validation, JVM preview-class generation, or opt-ins
@@ -1415,8 +1428,8 @@ supported diagnostic names, warnings, extra and progressive checks, version
 values, language/API combinations, JVM-default and explicit-API modes,
 string-concatenation, lambda-generation, annotated-lambda indy compatibility,
 backend optimization, backend scheduling, method inlining, inline-scope debug
-numbering, legacy
-inline-class mangling, complete warning reporting, generated-bytecode
+numbering, class-file reading, legacy inline-class mangling, complete warning
+reporting, generated-bytecode
 validation, internal diagnostic-name rendering,
 JVM preview-class generation, JVM-name sanitization, multifile-part inheritance,
 and SAM-conversion modes,
@@ -1425,15 +1438,15 @@ nested-type-aliases, multi-dollar-interpolation, non-local loop control,
 annotation-target, package-specific nullability, boxed value-class, and
 data-class copy visibility, source-debug annotation, and strict-metadata
 behavior, plus legacy null-check exception and Java-entry parameter-assertion
-behavior, platform-call result-assertion behavior, and extension-receiver
-assertion behavior, and return-value-checker behavior. Main and test annotation,
+behavior, platform-call result-assertion behavior, extension-receiver assertion
+behavior, and return-value-checker behavior. Main and test annotation,
 boxed-exposure, copy-visibility, source-debug, strict-metadata, and legacy
 null-check, parameter-assertion, call-assertion, receiver-assertion, and
-annotation-metadata, return-value-checker, and backend-thread settings are
-independent. Changing any of them performs a cleaned full compilation of that
-source set so obsolete
-placement, constructors, bridges, method visibility, metadata, or null-check
-calls cannot survive. The compiler also decides whether an opt-in annotation
+annotation-metadata, return-value-checker, backend-thread, and class-reader
+settings are independent. Changing any of them performs a cleaned full
+compilation of that source set so obsolete placement, constructors, bridges,
+method visibility, metadata, or null-check calls cannot survive. The compiler
+also decides whether an opt-in annotation
 exists and applies. Other custom compiler arguments remain unsupported for
 Kotlin-bearing source sets because javac flags cannot in general be forwarded
 safely to `kotlinc`.

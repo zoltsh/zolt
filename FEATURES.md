@@ -39,6 +39,9 @@ zolt run
   tests alone or together with Java. Kotlin-bearing source sets may combine
   authored Java and Kotlin with protected pre-generated roots or Java/Kotlin
   outputs owned by pinned exec, OpenAPI, and Protobuf generators. Kotlin
+  consumers may opt into the selected compiler's legacy class-file reader for
+  dependency-bytecode compatibility, qualified against Groovy-generated
+  classes without enabling mixed Groovy/Kotlin source sets. Kotlin
   language and API versions may be pinned per main or test source set, with
   explicit compiler-wide experimental API opt-ins and JVM-default compatibility
   modes. Public Kotlin APIs may be checked in
