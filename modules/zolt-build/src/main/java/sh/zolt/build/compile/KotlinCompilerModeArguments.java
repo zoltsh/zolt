@@ -1,161 +1,180 @@
 package sh.zolt.build.compile;
 
-import java.util.List;
+import java.util.Arrays;
 import sh.zolt.build.KotlinCompileException;
+import sh.zolt.build.compile.kotlin.KotlinCompilerModes.AbiStabilityMode;
+import sh.zolt.build.compile.kotlin.KotlinCompilerModes.AnnotationDefaultTargetMode;
+import sh.zolt.build.compile.kotlin.KotlinCompilerModes.AssertionMode;
+import sh.zolt.build.compile.kotlin.KotlinCompilerModes.ClosureGenerationMode;
+import sh.zolt.build.compile.kotlin.KotlinCompilerModes.CompatqualAnnotationsMode;
+import sh.zolt.build.compile.kotlin.KotlinCompilerModes.ExplicitApiMode;
+import sh.zolt.build.compile.kotlin.KotlinCompilerModes.JvmDefaultMode;
+import sh.zolt.build.compile.kotlin.KotlinCompilerModes.NullabilityMode;
+import sh.zolt.build.compile.kotlin.KotlinCompilerModes.ReturnValueCheckerMode;
+import sh.zolt.build.compile.kotlin.KotlinCompilerModes.StringConcatMode;
+import sh.zolt.build.compile.kotlin.KotlinCompilerModes.Value;
 
 /** Validates the bounded enum-valued Kotlin compiler arguments. */
 final class KotlinCompilerModeArguments {
     private KotlinCompilerModeArguments() {
     }
 
-    static String jvmDefault(KotlinCompilationScope scope, String argument) {
+    static JvmDefaultMode jvmDefault(KotlinCompilationScope scope, String argument) {
         return require(
                 scope,
                 argument,
                 "-jvm-default=",
                 "JVM-default",
-                List.of("enable", "no-compatibility", "disable"),
+                JvmDefaultMode.class,
                 "Use `-jvm-default=enable`, `-jvm-default=no-compatibility`, or"
                         + " `-jvm-default=disable`, or remove the argument.");
     }
 
-    static String explicitApi(KotlinCompilationScope scope, String argument) {
+    static ExplicitApiMode explicitApi(KotlinCompilationScope scope, String argument) {
         return require(
                 scope,
                 argument,
                 "-Xexplicit-api=",
                 "explicit-API",
-                List.of("strict", "warning", "disable"),
+                ExplicitApiMode.class,
                 "Use `-Xexplicit-api=strict`, `-Xexplicit-api=warning`, or"
                         + " `-Xexplicit-api=disable`, or remove the argument.");
     }
 
-    static String stringConcat(KotlinCompilationScope scope, String argument) {
+    static StringConcatMode stringConcat(KotlinCompilationScope scope, String argument) {
         return require(
                 scope,
                 argument,
                 "-Xstring-concat=",
                 "string-concatenation",
-                List.of("indy-with-constants", "indy", "inline"),
+                StringConcatMode.class,
                 "Use `-Xstring-concat=indy-with-constants`, `-Xstring-concat=indy`, or"
                         + " `-Xstring-concat=inline`, or remove the argument.");
     }
 
-    static String lambda(KotlinCompilationScope scope, String argument) {
+    static ClosureGenerationMode lambda(KotlinCompilationScope scope, String argument) {
         return require(
                 scope,
                 argument,
                 "-Xlambdas=",
                 "lambda-generation",
-                List.of("class", "indy"),
+                ClosureGenerationMode.class,
                 "Use `-Xlambdas=class` or `-Xlambdas=indy`, or remove the argument.");
     }
 
-    static String samConversion(KotlinCompilationScope scope, String argument) {
+    static ClosureGenerationMode samConversion(KotlinCompilationScope scope, String argument) {
         return require(
                 scope,
                 argument,
                 "-Xsam-conversions=",
                 "SAM-conversion",
-                List.of("class", "indy"),
+                ClosureGenerationMode.class,
                 "Use `-Xsam-conversions=class` or `-Xsam-conversions=indy`, or remove the argument.");
     }
 
-    static String annotationDefaultTarget(KotlinCompilationScope scope, String argument) {
+    static AnnotationDefaultTargetMode annotationDefaultTarget(
+            KotlinCompilationScope scope,
+            String argument) {
         return require(
                 scope,
                 argument,
                 "-Xannotation-default-target=",
                 "annotation-default-target",
-                List.of("first-only", "first-only-warn", "param-property"),
+                AnnotationDefaultTargetMode.class,
                 "Use `-Xannotation-default-target=first-only`,"
                         + " `-Xannotation-default-target=first-only-warn`, or"
                         + " `-Xannotation-default-target=param-property`, or remove the argument.");
     }
 
-    static String assertions(KotlinCompilationScope scope, String argument) {
+    static AssertionMode assertions(KotlinCompilationScope scope, String argument) {
         return require(
                 scope,
                 argument,
                 "-Xassertions=",
                 "assertion",
-                List.of("always-enable", "always-disable", "jvm", "legacy"),
+                AssertionMode.class,
                 "Use `-Xassertions=always-enable`, `-Xassertions=always-disable`,"
                         + " `-Xassertions=jvm`, or `-Xassertions=legacy`, or remove the argument.");
     }
 
-    static String returnValueChecker(KotlinCompilationScope scope, String argument) {
+    static ReturnValueCheckerMode returnValueChecker(
+            KotlinCompilationScope scope,
+            String argument) {
         return require(
                 scope,
                 argument,
                 "-Xreturn-value-checker=",
                 "return-value-checker",
-                List.of("check", "full", "disable"),
+                ReturnValueCheckerMode.class,
                 "Use `-Xreturn-value-checker=check`, `-Xreturn-value-checker=full`, or"
                         + " `-Xreturn-value-checker=disable`, or remove the argument.");
     }
 
-    static String jspecifyAnnotations(KotlinCompilationScope scope, String argument) {
+    static NullabilityMode jspecifyAnnotations(
+            KotlinCompilationScope scope,
+            String argument) {
         return require(
                 scope,
                 argument,
                 "-Xjspecify-annotations=",
                 "JSpecify-annotation",
-                List.of("ignore", "warn", "strict"),
+                NullabilityMode.class,
                 "Use `-Xjspecify-annotations=ignore`, `-Xjspecify-annotations=warn`, or"
                         + " `-Xjspecify-annotations=strict`, or remove the argument.");
     }
 
-    static String jsr305(KotlinCompilationScope scope, String argument) {
+    static NullabilityMode jsr305(KotlinCompilationScope scope, String argument) {
         return require(
                 scope,
                 argument,
                 "-Xjsr305=",
                 "JSR-305",
-                List.of("ignore", "warn", "strict"),
+                NullabilityMode.class,
                 "Use `-Xjsr305=ignore`, `-Xjsr305=warn`, or `-Xjsr305=strict`, or remove"
                         + " the argument.");
     }
 
-    static String compatqualAnnotations(KotlinCompilationScope scope, String argument) {
+    static CompatqualAnnotationsMode compatqualAnnotations(
+            KotlinCompilationScope scope,
+            String argument) {
         return require(
                 scope,
                 argument,
                 "-Xsupport-compatqual-checker-framework-annotations=",
                 "Checker Framework compatqual-annotation",
-                List.of("enable", "disable"),
+                CompatqualAnnotationsMode.class,
                 "Use `-Xsupport-compatqual-checker-framework-annotations=enable` or"
                         + " `-Xsupport-compatqual-checker-framework-annotations=disable`, or"
                         + " remove the argument.");
     }
 
-    static String abiStability(KotlinCompilationScope scope, String argument) {
+    static AbiStabilityMode abiStability(KotlinCompilationScope scope, String argument) {
         return require(
                 scope,
                 argument,
                 "-Xabi-stability=",
                 "ABI-stability",
-                List.of("stable", "unstable"),
+                AbiStabilityMode.class,
                 "Use `-Xabi-stability=stable` or `-Xabi-stability=unstable`, or remove"
                         + " the argument.");
     }
 
-    private static String require(
+    private static <T extends Enum<T> & Value> T require(
             KotlinCompilationScope scope,
             String argument,
             String prefix,
             String label,
-            List<String> allowed,
+            Class<T> modeType,
             String remediation) {
         String value = argument.substring(prefix.length());
-        if (!allowed.contains(value)) {
-            throw new KotlinCompileException(
-                    "Kotlin " + scope.label() + " compilation is not supported when "
-                            + argumentsPath(scope)
-                            + " contains invalid Kotlin " + label + " argument `" + argument + "`. "
-                            + remediation);
-        }
-        return value;
+        return Arrays.stream(modeType.getEnumConstants())
+                .filter(mode -> mode.configured() && mode.argumentValue().equals(value))
+                .findFirst()
+                .orElseThrow(() -> new KotlinCompileException(
+                        "Kotlin " + scope.label() + " compilation is not supported when "
+                                + argumentsPath(scope)
+                                + " contains invalid Kotlin " + label + " argument `" + argument
+                                + "`. " + remediation));
     }
 
     private static String argumentsPath(KotlinCompilationScope scope) {

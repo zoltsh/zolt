@@ -26,7 +26,7 @@ final class KotlinStringConcatArgumentsTest {
                         List.of(OPTION + "inline"))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertEquals("inline", options.policy().codeGeneration().stringConcatMode());
+        assertEquals("inline", options.policy().codeGeneration().stringConcatMode().argumentValue());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(OPTION + "inline"), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinStringConcatArgumentsTest {
                 List.of(OPTION + "indy"),
                 List.of(OPTION + "inline"));
 
-        assertEquals("indy", main.policy().codeGeneration().stringConcatMode());
-        assertEquals("inline", test.policy().codeGeneration().stringConcatMode());
+        assertEquals("indy", main.policy().codeGeneration().stringConcatMode().argumentValue());
+        assertEquals("inline", test.policy().codeGeneration().stringConcatMode().argumentValue());
     }
 
     @Test
@@ -55,7 +55,7 @@ final class KotlinStringConcatArgumentsTest {
                     KotlinCompilationScope.MAIN,
                     List.of(OPTION + mode),
                     List.of());
-            assertEquals(mode, options.policy().codeGeneration().stringConcatMode());
+            assertEquals(mode, options.policy().codeGeneration().stringConcatMode().argumentValue());
             assertTrue(invocationArguments(options).contains(OPTION + mode));
         }
     }

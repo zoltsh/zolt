@@ -26,7 +26,7 @@ final class KotlinAssertionModeArgumentsTest {
                         List.of(OPTION + "jvm"))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertEquals("jvm", options.policy().codeGeneration().assertionMode());
+        assertEquals("jvm", options.policy().codeGeneration().assertionMode().argumentValue());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(OPTION + "jvm"), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinAssertionModeArgumentsTest {
                 List.of(OPTION + "always-enable"),
                 List.of(OPTION + "always-disable"));
 
-        assertEquals("always-enable", main.policy().codeGeneration().assertionMode());
-        assertEquals("always-disable", test.policy().codeGeneration().assertionMode());
+        assertEquals("always-enable", main.policy().codeGeneration().assertionMode().argumentValue());
+        assertEquals("always-disable", test.policy().codeGeneration().assertionMode().argumentValue());
     }
 
     @Test
@@ -55,7 +55,7 @@ final class KotlinAssertionModeArgumentsTest {
                     KotlinCompilationScope.MAIN,
                     List.of(OPTION + mode),
                     List.of());
-            assertEquals(mode, options.policy().codeGeneration().assertionMode());
+            assertEquals(mode, options.policy().codeGeneration().assertionMode().argumentValue());
             assertTrue(invocationArguments(options).contains(OPTION + mode));
         }
     }

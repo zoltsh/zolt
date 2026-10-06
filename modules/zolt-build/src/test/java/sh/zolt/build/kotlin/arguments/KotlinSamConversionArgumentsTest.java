@@ -26,7 +26,7 @@ final class KotlinSamConversionArgumentsTest {
                         List.of(OPTION + "class"))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertEquals("class", options.policy().codeGeneration().samConversionMode());
+        assertEquals("class", options.policy().codeGeneration().samConversionMode().argumentValue());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(OPTION + "class"), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinSamConversionArgumentsTest {
                 List.of(OPTION + "class"),
                 List.of(OPTION + "indy"));
 
-        assertEquals("class", main.policy().codeGeneration().samConversionMode());
-        assertEquals("indy", test.policy().codeGeneration().samConversionMode());
+        assertEquals("class", main.policy().codeGeneration().samConversionMode().argumentValue());
+        assertEquals("indy", test.policy().codeGeneration().samConversionMode().argumentValue());
     }
 
     @Test
@@ -55,7 +55,7 @@ final class KotlinSamConversionArgumentsTest {
                     KotlinCompilationScope.MAIN,
                     List.of(OPTION + mode),
                     List.of());
-            assertEquals(mode, options.policy().codeGeneration().samConversionMode());
+            assertEquals(mode, options.policy().codeGeneration().samConversionMode().argumentValue());
             assertTrue(invocationArguments(options).contains(OPTION + mode));
         }
     }

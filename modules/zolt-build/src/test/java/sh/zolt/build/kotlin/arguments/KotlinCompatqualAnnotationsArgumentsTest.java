@@ -27,7 +27,7 @@ final class KotlinCompatqualAnnotationsArgumentsTest {
                         List.of(OPTION + "disable"))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertEquals("disable", options.policy().jvmInterop().compatqualAnnotationsMode());
+        assertEquals("disable", options.policy().jvmInterop().compatqualAnnotationsMode().argumentValue());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(OPTION + "disable"), arguments.toString());
@@ -45,8 +45,8 @@ final class KotlinCompatqualAnnotationsArgumentsTest {
                 List.of(OPTION + "disable"),
                 List.of(OPTION + "enable"));
 
-        assertEquals("disable", main.policy().jvmInterop().compatqualAnnotationsMode());
-        assertEquals("enable", test.policy().jvmInterop().compatqualAnnotationsMode());
+        assertEquals("disable", main.policy().jvmInterop().compatqualAnnotationsMode().argumentValue());
+        assertEquals("enable", test.policy().jvmInterop().compatqualAnnotationsMode().argumentValue());
     }
 
     @Test
@@ -56,7 +56,7 @@ final class KotlinCompatqualAnnotationsArgumentsTest {
                     KotlinCompilationScope.MAIN,
                     List.of(OPTION + mode),
                     List.of());
-            assertEquals(mode, options.policy().jvmInterop().compatqualAnnotationsMode());
+            assertEquals(mode, options.policy().jvmInterop().compatqualAnnotationsMode().argumentValue());
             assertTrue(invocationArguments(options).contains(OPTION + mode));
         }
     }

@@ -4,6 +4,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import sh.zolt.build.KotlinCompileException;
+import sh.zolt.build.compile.kotlin.KotlinCompilerModes.AbiStabilityMode;
+import sh.zolt.build.compile.kotlin.KotlinCompilerModes.AnnotationDefaultTargetMode;
+import sh.zolt.build.compile.kotlin.KotlinCompilerModes.AssertionMode;
+import sh.zolt.build.compile.kotlin.KotlinCompilerModes.ClosureGenerationMode;
+import sh.zolt.build.compile.kotlin.KotlinCompilerModes.CompatqualAnnotationsMode;
+import sh.zolt.build.compile.kotlin.KotlinCompilerModes.ExplicitApiMode;
+import sh.zolt.build.compile.kotlin.KotlinCompilerModes.JvmDefaultMode;
+import sh.zolt.build.compile.kotlin.KotlinCompilerModes.NullabilityMode;
+import sh.zolt.build.compile.kotlin.KotlinCompilerModes.ReturnValueCheckerMode;
+import sh.zolt.build.compile.kotlin.KotlinCompilerModes.StringConcatMode;
 import sh.zolt.build.compile.kotlin.kapt.KotlinAnnotationProcessorOptions;
 
 /** Immutable Kotlin compiler policy grouped by the responsibility of each option. */
@@ -39,18 +49,24 @@ public record KotlinCompilerPolicy(
             boolean nestedTypeAliases,
             boolean consistentDataClassCopyVisibility,
             boolean allowKotlinPackage,
-            String annotationDefaultTargetMode,
-            String returnValueCheckerMode,
+            AnnotationDefaultTargetMode annotationDefaultTargetMode,
+            ReturnValueCheckerMode returnValueCheckerMode,
             String languageVersion,
             String apiVersion,
-            String explicitApiMode,
+            ExplicitApiMode explicitApiMode,
             List<String> optIns) {
         public Language {
-            annotationDefaultTargetMode = optional(annotationDefaultTargetMode);
-            returnValueCheckerMode = optional(returnValueCheckerMode);
+            annotationDefaultTargetMode = Objects.requireNonNull(
+                    annotationDefaultTargetMode,
+                    "Kotlin annotation-default-target mode is required.");
+            returnValueCheckerMode = Objects.requireNonNull(
+                    returnValueCheckerMode,
+                    "Kotlin return-value-checker mode is required.");
             languageVersion = optional(languageVersion);
             apiVersion = optional(apiVersion);
-            explicitApiMode = optional(explicitApiMode);
+            explicitApiMode = Objects.requireNonNull(
+                    explicitApiMode,
+                    "Kotlin explicit-API mode is required.");
             optIns = copy(optIns, "compiler opt-in annotation");
         }
     }
@@ -76,16 +92,24 @@ public record KotlinCompilerPolicy(
             boolean emitJvmTypeAnnotations,
             boolean noNewJavaAnnotationTargets,
             boolean jvmPreview,
-            String jspecifyAnnotationsMode,
-            String jsr305Mode,
-            String compatqualAnnotationsMode,
-            String jvmDefaultMode,
+            NullabilityMode jspecifyAnnotationsMode,
+            NullabilityMode jsr305Mode,
+            CompatqualAnnotationsMode compatqualAnnotationsMode,
+            JvmDefaultMode jvmDefaultMode,
             List<String> nullabilityAnnotations) {
         public JvmInterop {
-            jspecifyAnnotationsMode = optional(jspecifyAnnotationsMode);
-            jsr305Mode = optional(jsr305Mode);
-            compatqualAnnotationsMode = optional(compatqualAnnotationsMode);
-            jvmDefaultMode = optional(jvmDefaultMode);
+            jspecifyAnnotationsMode = Objects.requireNonNull(
+                    jspecifyAnnotationsMode,
+                    "Kotlin JSpecify-annotation mode is required.");
+            jsr305Mode = Objects.requireNonNull(
+                    jsr305Mode,
+                    "Kotlin JSR-305 mode is required.");
+            compatqualAnnotationsMode = Objects.requireNonNull(
+                    compatqualAnnotationsMode,
+                    "Kotlin compatqual-annotation mode is required.");
+            jvmDefaultMode = Objects.requireNonNull(
+                    jvmDefaultMode,
+                    "Kotlin JVM-default mode is required.");
             nullabilityAnnotations = copy(
                     nullabilityAnnotations,
                     "compiler nullability-annotation rule");
@@ -109,16 +133,24 @@ public record KotlinCompilerPolicy(
             boolean noCallAssertions,
             boolean noReceiverAssertions,
             String backendThreads,
-            String assertionMode,
-            String stringConcatMode,
-            String lambdaMode,
-            String samConversionMode) {
+            AssertionMode assertionMode,
+            StringConcatMode stringConcatMode,
+            ClosureGenerationMode lambdaMode,
+            ClosureGenerationMode samConversionMode) {
         public CodeGeneration {
             backendThreads = optional(backendThreads);
-            assertionMode = optional(assertionMode);
-            stringConcatMode = optional(stringConcatMode);
-            lambdaMode = optional(lambdaMode);
-            samConversionMode = optional(samConversionMode);
+            assertionMode = Objects.requireNonNull(
+                    assertionMode,
+                    "Kotlin assertion mode is required.");
+            stringConcatMode = Objects.requireNonNull(
+                    stringConcatMode,
+                    "Kotlin string-concatenation mode is required.");
+            lambdaMode = Objects.requireNonNull(
+                    lambdaMode,
+                    "Kotlin lambda-generation mode is required.");
+            samConversionMode = Objects.requireNonNull(
+                    samConversionMode,
+                    "Kotlin SAM-conversion mode is required.");
         }
     }
 
@@ -131,9 +163,11 @@ public record KotlinCompilerPolicy(
             boolean skipMetadataVersionCheck,
             boolean skipPrereleaseCheck,
             boolean allowUnstableDependencies,
-            String abiStabilityMode) {
+            AbiStabilityMode abiStabilityMode) {
         public Metadata {
-            abiStabilityMode = optional(abiStabilityMode);
+            abiStabilityMode = Objects.requireNonNull(
+                    abiStabilityMode,
+                    "Kotlin ABI-stability mode is required.");
         }
     }
 

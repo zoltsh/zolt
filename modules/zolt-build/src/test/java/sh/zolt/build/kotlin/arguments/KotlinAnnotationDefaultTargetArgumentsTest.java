@@ -26,7 +26,7 @@ final class KotlinAnnotationDefaultTargetArgumentsTest {
                         List.of(OPTION + "param-property"))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertEquals("param-property", options.policy().language().annotationDefaultTargetMode());
+        assertEquals("param-property", options.policy().language().annotationDefaultTargetMode().argumentValue());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(OPTION + "param-property"), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinAnnotationDefaultTargetArgumentsTest {
                 List.of(OPTION + "first-only"),
                 List.of(OPTION + "param-property"));
 
-        assertEquals("first-only", main.policy().language().annotationDefaultTargetMode());
-        assertEquals("param-property", test.policy().language().annotationDefaultTargetMode());
+        assertEquals("first-only", main.policy().language().annotationDefaultTargetMode().argumentValue());
+        assertEquals("param-property", test.policy().language().annotationDefaultTargetMode().argumentValue());
     }
 
     @Test
@@ -55,7 +55,7 @@ final class KotlinAnnotationDefaultTargetArgumentsTest {
                     KotlinCompilationScope.MAIN,
                     List.of(OPTION + mode),
                     List.of());
-            assertEquals(mode, options.policy().language().annotationDefaultTargetMode());
+            assertEquals(mode, options.policy().language().annotationDefaultTargetMode().argumentValue());
             assertTrue(invocationArguments(options).contains(OPTION + mode));
         }
     }

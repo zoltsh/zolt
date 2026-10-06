@@ -79,7 +79,7 @@ final class KspJvmInvocationFactory {
                 options.moduleName(),
                 language,
                 api,
-                policy.jvmInterop().jvmDefaultMode(),
+                policy.jvmInterop().jvmDefaultMode().argumentValue(),
                 policy.diagnostics().warningsAsErrors(),
                 false,
                 generation.options());

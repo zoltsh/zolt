@@ -5,6 +5,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import sh.zolt.build.KotlinCompileException;
+import sh.zolt.build.compile.kotlin.KotlinCompilerModes;
 import sh.zolt.build.compile.kotlin.KotlinCompilerPolicy;
 import sh.zolt.build.compile.kotlin.kapt.KotlinAnnotationProcessorOptions;
 import sh.zolt.project.CompilerSettings;
@@ -13,7 +14,6 @@ import sh.zolt.project.CompilerSettings;
 final class KotlinCompilerArgumentPolicy {
     private KotlinCompilerArgumentPolicy() {
     }
-
     static KotlinCompilerPolicy map(
             CompilerSettings compiler,
             KotlinCompilationScope scope) {
@@ -23,21 +23,21 @@ final class KotlinCompilerArgumentPolicy {
         KotlinAnnotationProcessorOptions annotationProcessorOptions =
                 KotlinAnnotationProcessorOptions.parse(arguments, scope);
         Set<String> standaloneArguments = new HashSet<>();
-        String annotationDefaultTargetMode = "";
-        String assertionMode = "";
-        String returnValueCheckerMode = "";
+        var annotationDefaultTargetMode = KotlinCompilerModes.AnnotationDefaultTargetMode.UNSPECIFIED;
+        var assertionMode = KotlinCompilerModes.AssertionMode.UNSPECIFIED;
+        var returnValueCheckerMode = KotlinCompilerModes.ReturnValueCheckerMode.UNSPECIFIED;
         String backendThreads = "";
-        String jspecifyAnnotationsMode = "";
-        String jsr305Mode = "";
-        String compatqualAnnotationsMode = "";
-        String abiStabilityMode = "";
-        String stringConcatMode = "";
-        String lambdaMode = "";
-        String samConversionMode = "";
+        var jspecifyAnnotationsMode = KotlinCompilerModes.NullabilityMode.UNSPECIFIED;
+        var jsr305Mode = KotlinCompilerModes.NullabilityMode.UNSPECIFIED;
+        var compatqualAnnotationsMode = KotlinCompilerModes.CompatqualAnnotationsMode.UNSPECIFIED;
+        var abiStabilityMode = KotlinCompilerModes.AbiStabilityMode.UNSPECIFIED;
+        var stringConcatMode = KotlinCompilerModes.StringConcatMode.UNSPECIFIED;
+        var lambdaMode = KotlinCompilerModes.ClosureGenerationMode.UNSPECIFIED;
+        var samConversionMode = KotlinCompilerModes.ClosureGenerationMode.UNSPECIFIED;
         String languageVersion = "";
         String apiVersion = "";
-        String jvmDefaultMode = "";
-        String explicitApiMode = "";
+        var jvmDefaultMode = KotlinCompilerModes.JvmDefaultMode.UNSPECIFIED;
+        var explicitApiMode = KotlinCompilerModes.ExplicitApiMode.UNSPECIFIED;
         List<String> nullabilityAnnotations = new ArrayList<>();
         List<String> warningLevels = new ArrayList<>();
         List<String> optIns = new ArrayList<>();
@@ -67,43 +67,43 @@ final class KotlinCompilerArgumentPolicy {
                 }
                 default -> {
                     if (argument.startsWith("-jvm-default=")) {
-                        if (!jvmDefaultMode.isEmpty()) {
+                        if (jvmDefaultMode.configured()) {
                             throw duplicateArgument(scope, argument);
                         }
                         jvmDefaultMode = KotlinCompilerModeArguments.jvmDefault(scope, argument);
                     } else if (argument.startsWith("-Xexplicit-api=")) {
-                        if (!explicitApiMode.isEmpty()) {
+                        if (explicitApiMode.configured()) {
                             throw duplicateArgument(scope, argument);
                         }
                         explicitApiMode = KotlinCompilerModeArguments.explicitApi(scope, argument);
                     } else if (argument.startsWith("-Xstring-concat=")) {
-                        if (!stringConcatMode.isEmpty()) {
+                        if (stringConcatMode.configured()) {
                             throw duplicateArgument(scope, argument);
                         }
                         stringConcatMode = KotlinCompilerModeArguments.stringConcat(scope, argument);
                     } else if (argument.startsWith("-Xlambdas=")) {
-                        if (!lambdaMode.isEmpty()) {
+                        if (lambdaMode.configured()) {
                             throw duplicateArgument(scope, argument);
                         }
                         lambdaMode = KotlinCompilerModeArguments.lambda(scope, argument);
                     } else if (argument.startsWith("-Xsam-conversions=")) {
-                        if (!samConversionMode.isEmpty()) {
+                        if (samConversionMode.configured()) {
                             throw duplicateArgument(scope, argument);
                         }
                         samConversionMode = KotlinCompilerModeArguments.samConversion(scope, argument);
                     } else if (argument.startsWith("-Xannotation-default-target=")) {
-                        if (!annotationDefaultTargetMode.isEmpty()) {
+                        if (annotationDefaultTargetMode.configured()) {
                             throw duplicateArgument(scope, argument);
                         }
                         annotationDefaultTargetMode =
                                 KotlinCompilerModeArguments.annotationDefaultTarget(scope, argument);
                     } else if (argument.startsWith("-Xassertions=")) {
-                        if (!assertionMode.isEmpty()) {
+                        if (assertionMode.configured()) {
                             throw duplicateArgument(scope, argument);
                         }
                         assertionMode = KotlinCompilerModeArguments.assertions(scope, argument);
                     } else if (argument.startsWith("-Xreturn-value-checker=")) {
-                        if (!returnValueCheckerMode.isEmpty()) {
+                        if (returnValueCheckerMode.configured()) {
                             throw duplicateArgument(scope, argument);
                         }
                         returnValueCheckerMode =
@@ -115,25 +115,25 @@ final class KotlinCompilerArgumentPolicy {
                         backendThreads =
                                 KotlinCompilerNumericArguments.backendThreads(scope, argument);
                     } else if (argument.startsWith("-Xjspecify-annotations=")) {
-                        if (!jspecifyAnnotationsMode.isEmpty()) {
+                        if (jspecifyAnnotationsMode.configured()) {
                             throw duplicateArgument(scope, argument);
                         }
                         jspecifyAnnotationsMode =
                                 KotlinCompilerModeArguments.jspecifyAnnotations(scope, argument);
                     } else if (argument.startsWith("-Xjsr305=")) {
-                        if (!jsr305Mode.isEmpty()) {
+                        if (jsr305Mode.configured()) {
                             throw duplicateArgument(scope, argument);
                         }
                         jsr305Mode = KotlinCompilerModeArguments.jsr305(scope, argument);
                     } else if (argument.startsWith(
                             "-Xsupport-compatqual-checker-framework-annotations=")) {
-                        if (!compatqualAnnotationsMode.isEmpty()) {
+                        if (compatqualAnnotationsMode.configured()) {
                             throw duplicateArgument(scope, argument);
                         }
                         compatqualAnnotationsMode =
                                 KotlinCompilerModeArguments.compatqualAnnotations(scope, argument);
                     } else if (argument.startsWith("-Xabi-stability=")) {
-                        if (!abiStabilityMode.isEmpty()) {
+                        if (abiStabilityMode.configured()) {
                             throw duplicateArgument(scope, argument);
                         }
                         abiStabilityMode =
@@ -197,7 +197,7 @@ final class KotlinCompilerArgumentPolicy {
                             + " but do not enable both syntaxes in one source set.");
         }
         if (standaloneArguments.contains("-Xindy-allow-annotated-lambdas")
-                && !"indy".equals(lambdaMode)) {
+                && lambdaMode != KotlinCompilerModes.ClosureGenerationMode.INDY) {
             throw unsupported(
                     scope,
                     argumentsPath(scope)

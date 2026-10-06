@@ -148,28 +148,28 @@ final class KotlinCompilerPolicyArguments {
         KotlinCompilerPolicy.Metadata metadata = policy.metadata();
 
         addValue(arguments, "-Xbackend-threads=", codeGeneration.backendThreads());
-        addValue(arguments, "-Xabi-stability=", metadata.abiStabilityMode());
-        addValue(
+        addMode(arguments, "-Xabi-stability=", metadata.abiStabilityMode());
+        addMode(
                 arguments,
                 "-Xannotation-default-target=",
                 language.annotationDefaultTargetMode());
-        addValue(arguments, "-Xassertions=", codeGeneration.assertionMode());
-        addValue(arguments, "-Xreturn-value-checker=", language.returnValueCheckerMode());
-        addValue(arguments, "-Xjspecify-annotations=", jvmInterop.jspecifyAnnotationsMode());
-        addValue(arguments, "-Xjsr305=", jvmInterop.jsr305Mode());
-        addValue(
+        addMode(arguments, "-Xassertions=", codeGeneration.assertionMode());
+        addMode(arguments, "-Xreturn-value-checker=", language.returnValueCheckerMode());
+        addMode(arguments, "-Xjspecify-annotations=", jvmInterop.jspecifyAnnotationsMode());
+        addMode(arguments, "-Xjsr305=", jvmInterop.jsr305Mode());
+        addMode(
                 arguments,
                 "-Xsupport-compatqual-checker-framework-annotations=",
                 jvmInterop.compatqualAnnotationsMode());
         jvmInterop.nullabilityAnnotations().forEach(value ->
                 arguments.add("-Xnullability-annotations=" + value));
-        addValue(arguments, "-Xstring-concat=", codeGeneration.stringConcatMode());
-        addValue(arguments, "-Xlambdas=", codeGeneration.lambdaMode());
-        addValue(arguments, "-Xsam-conversions=", codeGeneration.samConversionMode());
+        addMode(arguments, "-Xstring-concat=", codeGeneration.stringConcatMode());
+        addMode(arguments, "-Xlambdas=", codeGeneration.lambdaMode());
+        addMode(arguments, "-Xsam-conversions=", codeGeneration.samConversionMode());
         addPair(arguments, "-language-version", language.languageVersion());
         addPair(arguments, "-api-version", language.apiVersion());
-        addValue(arguments, "-jvm-default=", jvmInterop.jvmDefaultMode());
-        addValue(arguments, "-Xexplicit-api=", language.explicitApiMode());
+        addMode(arguments, "-jvm-default=", jvmInterop.jvmDefaultMode());
+        addMode(arguments, "-Xexplicit-api=", language.explicitApiMode());
         diagnostics.warningLevels().forEach(level -> arguments.add("-Xwarning-level=" + level));
         language.optIns().forEach(optIn -> arguments.add("-opt-in=" + optIn));
     }
@@ -183,6 +183,15 @@ final class KotlinCompilerPolicyArguments {
     private static void addValue(List<String> arguments, String prefix, String value) {
         if (!value.isEmpty()) {
             arguments.add(prefix + value);
+        }
+    }
+
+    private static void addMode(
+            List<String> arguments,
+            String prefix,
+            KotlinCompilerModes.Value mode) {
+        if (mode.configured()) {
+            arguments.add(prefix + mode.argumentValue());
         }
     }
 

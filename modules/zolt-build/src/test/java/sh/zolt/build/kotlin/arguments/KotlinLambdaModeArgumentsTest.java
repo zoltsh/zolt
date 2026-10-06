@@ -26,7 +26,7 @@ final class KotlinLambdaModeArgumentsTest {
                         List.of(OPTION + "class"))
                 .withFriendPath(Path.of("target/classes"));
 
-        assertEquals("class", options.policy().codeGeneration().lambdaMode());
+        assertEquals("class", options.policy().codeGeneration().lambdaMode().argumentValue());
         assertTrue(KotlinCompileOptionsPolicy.javacOptions(options).arguments().isEmpty());
         List<String> arguments = invocationArguments(options);
         assertTrue(arguments.contains(OPTION + "class"), arguments.toString());
@@ -44,8 +44,8 @@ final class KotlinLambdaModeArgumentsTest {
                 List.of(OPTION + "class"),
                 List.of(OPTION + "indy"));
 
-        assertEquals("class", main.policy().codeGeneration().lambdaMode());
-        assertEquals("indy", test.policy().codeGeneration().lambdaMode());
+        assertEquals("class", main.policy().codeGeneration().lambdaMode().argumentValue());
+        assertEquals("indy", test.policy().codeGeneration().lambdaMode().argumentValue());
     }
 
     @Test
@@ -55,7 +55,7 @@ final class KotlinLambdaModeArgumentsTest {
                     KotlinCompilationScope.MAIN,
                     List.of(OPTION + mode),
                     List.of());
-            assertEquals(mode, options.policy().codeGeneration().lambdaMode());
+            assertEquals(mode, options.policy().codeGeneration().lambdaMode().argumentValue());
             assertTrue(invocationArguments(options).contains(OPTION + mode));
         }
     }
