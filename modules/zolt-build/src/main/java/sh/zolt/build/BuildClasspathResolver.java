@@ -49,6 +49,8 @@ final class BuildClasspathResolver {
         return GeneratedSourceToolingGate.openApiToolingMissing(
                         lockfileReader, request.lockfilePath(), request.config(), request.offline())
                 || GeneratedSourceToolingGate.execToolingMissing(
+                        lockfileReader, request.lockfilePath(), request.config(), request.offline())
+                || GeneratedSourceToolingGate.kspToolingMissing(
                         lockfileReader, request.lockfilePath(), request.config(), request.offline());
     }
 

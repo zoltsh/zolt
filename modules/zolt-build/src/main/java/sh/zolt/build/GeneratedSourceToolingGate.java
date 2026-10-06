@@ -8,10 +8,12 @@ import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.ProjectConfig;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Stream;
 
 /**
- * Decides whether a project declares OpenAPI or exec generated sources whose tooling is absent from
+ * Decides whether a project declares OpenAPI, exec, or KSP generated sources whose tooling is absent from
  * {@code zolt.lock}, so the build can trigger a re-resolve (online) or fail with an actionable error
  * (offline). Kept out of {@link BuildService} to keep that class within its file-size budget.
  */
@@ -49,6 +51,39 @@ final class GeneratedSourceToolingGate {
                 "Exec generation requires locked tool artifacts in scope `tool-exec`, "
                         + "but zolt.lock does not contain them.",
                 "Run `zolt resolve` without --offline to seed the exec tooling, then retry.");
+    }
+
+    static boolean kspToolingMissing(
+            ZoltLockfileReader lockfileReader,
+            Path lockfilePath,
+            ProjectConfig config,
+            boolean offline) {
+        Set<String> requiredGroups = Stream.concat(
+                        config.build().generatedMainSources().stream(),
+                        config.build().generatedTestSources().stream())
+                .filter(step -> step.kind() == GeneratedSourceKind.KSP)
+                .flatMap(step -> Stream.of(step.ksp().engineGroup(), step.ksp().processorGroup()))
+                .collect(java.util.stream.Collectors.toCollection(TreeSet::new));
+        if (requiredGroups.isEmpty() || !Files.isRegularFile(lockfilePath)) {
+            return false;
+        }
+        ZoltLockfile lockfile = lockfileReader.read(lockfilePath);
+        Set<String> presentGroups = lockfile.packages().stream()
+                .filter(lockPackage -> lockPackage.scope() == DependencyScope.TOOL_EXEC)
+                .flatMap(lockPackage -> lockPackage.toolGroups().stream())
+                .collect(java.util.stream.Collectors.toSet());
+        Set<String> missing = new TreeSet<>(requiredGroups);
+        missing.removeAll(presentGroups);
+        if (missing.isEmpty()) {
+            return false;
+        }
+        if (offline) {
+            throw BuildException.actionable(
+                    "KSP generation requires locked engine and processor closures, but zolt.lock is missing tool groups "
+                            + missing + ".",
+                    "Run `zolt resolve` without --offline to seed the isolated KSP tooling, then retry.");
+        }
+        return true;
     }
 
     private static boolean toolingMissing(
