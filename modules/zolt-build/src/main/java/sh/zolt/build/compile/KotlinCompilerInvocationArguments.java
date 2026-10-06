@@ -146,6 +146,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.useTypeTable()) {
             arguments.add("-Xuse-type-table");
         }
+        if (options.useOldClassFilesReading()) {
+            arguments.add("-Xuse-old-class-files-reading");
+        }
         if (options.jvmPreview()) {
             arguments.add("-Xjvm-enable-preview");
         }

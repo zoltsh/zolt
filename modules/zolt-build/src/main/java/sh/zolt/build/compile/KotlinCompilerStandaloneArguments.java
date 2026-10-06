@@ -37,6 +37,7 @@ final class KotlinCompilerStandaloneArguments {
             "-Xgenerate-strict-metadata-version",
             "-Xannotations-in-metadata",
             "-Xuse-type-table",
+            "-Xuse-old-class-files-reading",
             "-Xjvm-enable-preview",
             "-Xallow-unstable-dependencies",
             "-Xno-param-assertions",
