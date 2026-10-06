@@ -1,11 +1,8 @@
 package sh.zolt.build.compile;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Stream;
 import sh.zolt.build.CompileDiagnostics;
 import sh.zolt.build.GroovyCompileException;
 import sh.zolt.build.KotlinCompileException;
@@ -22,6 +19,7 @@ final class MainLanguageCompileExecutor {
     private final JavacRunner javacRunner;
     private final GroovyCompilerRunner groovyCompilerRunner;
     private final KotlinCompilerRunner kotlinCompilerRunner;
+    private final KotlinKaptCompileExecutor kotlinKaptCompileExecutor;
     private final IncrementalCompileStateRecorder incrementalCompileStateRecorder;
 
     MainLanguageCompileExecutor(
@@ -32,6 +30,9 @@ final class MainLanguageCompileExecutor {
         this.javacRunner = javacRunner;
         this.groovyCompilerRunner = groovyCompilerRunner;
         this.kotlinCompilerRunner = kotlinCompilerRunner;
+        this.kotlinKaptCompileExecutor = new KotlinKaptCompileExecutor(
+                javacRunner,
+                kotlinCompilerRunner);
         this.incrementalCompileStateRecorder = incrementalCompileStateRecorder;
     }
 
@@ -170,90 +171,18 @@ final class MainLanguageCompileExecutor {
             Path generatedSourcesDirectory,
             JdkStatus jdkStatus,
             Plan plan) {
-        createGeneratedSourcesDirectory(generatedSourcesDirectory);
-        try (KotlinKaptStubsDirectory stubs = KotlinKaptStubsDirectory.create()) {
-            KotlinKaptOptions kaptOptions = new KotlinKaptOptions(
-                    plan.kotlinToolchain().kaptPluginJar().orElseThrow(),
-                    classpaths.processor(),
-                    generatedSourcesDirectory,
-                    outputDirectory,
-                    stubs.path());
-            JavacResult kapt = kotlinCompilerRunner.compile(
-                    jdkStatus.java().orElseThrow(),
-                    jdkStatus.javaHome().orElseThrow(),
-                    sources.allMainSources(),
-                    plan.kotlinToolchain().launcherClasspath(),
-                    classpaths.compile(),
-                    outputDirectory,
-                    plan.kotlinOptions(),
-                    KotlinCompilationScope.MAIN,
-                    kaptOptions);
-            List<Path> generatedJavaSources = generatedJavaSources(generatedSourcesDirectory);
-            List<Path> kotlinInputs = combinedSources(
-                    sources.allMainSources(),
-                    generatedJavaSources);
-            JavacResult kotlin = kotlinCompilerRunner.compile(
-                    jdkStatus.java().orElseThrow(),
-                    jdkStatus.javaHome().orElseThrow(),
-                    kotlinInputs,
-                    plan.kotlinToolchain().launcherClasspath(),
-                    classpaths.compile(),
-                    outputDirectory,
-                    plan.kotlinOptions());
-            List<Path> javaInputs = combinedSources(
-                    sources.mainSources(),
-                    generatedJavaSources);
-            JavacResult java = javacRunner.compile(
-                    jdkStatus.javac().orElseThrow(),
-                    javaInputs,
-                    kotlinJavacClasspath(outputDirectory, classpaths.compile()),
-                    outputDirectory,
-                    new Classpath(List.of()),
-                    null,
-                    KotlinCompileOptionsPolicy.javacOptions(plan.kotlinOptions()));
-            return new JavacResult(
-                    sources.allMainSources().size(),
-                    outputDirectory,
-                    IncrementalJavacExecution.combinedOutput(
-                            kapt.output(),
-                            IncrementalJavacExecution.combinedOutput(
-                                    kotlin.output(), java.output())));
-        }
-    }
-
-    private static void createGeneratedSourcesDirectory(Path directory) {
-        try {
-            Files.createDirectories(directory);
-        } catch (IOException exception) {
-            throw new KotlinCompileException(
-                    "Could not create the KAPT generated-source directory " + directory
-                            + ". Check that the project directory is writable.",
-                    exception);
-        }
-    }
-
-    private static List<Path> generatedJavaSources(Path directory) {
-        try (Stream<Path> paths = Files.walk(directory)) {
-            return paths.filter(Files::isRegularFile)
-                    .map(Path::normalize)
-                    .filter(path -> path.getFileName().toString().endsWith(".java"))
-                    .sorted()
-                    .toList();
-        } catch (IOException exception) {
-            throw new KotlinCompileException(
-                    "Could not inspect KAPT generated Java sources under " + directory
-                            + ". Check that the generated-source directory is readable.",
-                    exception);
-        }
-    }
-
-    private static List<Path> combinedSources(
-            List<Path> authored,
-            List<Path> generated) {
-        List<Path> combined = new ArrayList<>(authored.size() + generated.size());
-        combined.addAll(authored);
-        combined.addAll(generated);
-        return List.copyOf(combined);
+        return kotlinKaptCompileExecutor.compile(
+                jdkStatus,
+                sources.allMainSources(),
+                sources.mainSources(),
+                plan.kotlinToolchain().launcherClasspath(),
+                classpaths.compile(),
+                classpaths.processor(),
+                plan.kotlinToolchain().kaptPluginJar().orElseThrow(),
+                outputDirectory,
+                generatedSourcesDirectory,
+                plan.kotlinOptions(),
+                KotlinCompilationScope.MAIN);
     }
 
     private static Classpath kotlinJavacClasspath(
