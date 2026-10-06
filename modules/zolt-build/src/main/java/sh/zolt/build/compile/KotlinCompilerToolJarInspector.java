@@ -65,6 +65,15 @@ final class KotlinCompilerToolJarInspector {
                     "JPA no-arg compiler plugin");
             return;
         }
+        if (packageId.equals(KotlinCompilerToolRoots.POWER_ASSERT)) {
+            inspect(
+                    version,
+                    jar,
+                    List.of(REGISTRAR, COMMAND_LINE_PROCESSOR),
+                    "kotlin-power-assert-compiler-plugin.embeddable",
+                    "Power-assert compiler plugin");
+            return;
+        }
         throw KotlinCompilerToolchainResolver.invalid(
                 "the selected compiler plugin root is unsupported: " + packageId);
     }

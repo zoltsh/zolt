@@ -45,7 +45,7 @@ final class ManifestToolchainDecoderTest {
 
                 [toolchain.kotlin]
                 version = "2.2.0"
-                plugins = ["serialization", "spring", "micronaut", "jpa"]
+                plugins = ["serialization", "spring", "micronaut", "jpa", "power-assert"]
                 """);
 
         assertEquals("0.1.0-rc.1", toolchains.zolt().orElseThrow().value());
@@ -68,7 +68,8 @@ final class ManifestToolchainDecoderTest {
                         KotlinCompilerPlugin.SERIALIZATION,
                         KotlinCompilerPlugin.SPRING,
                         KotlinCompilerPlugin.MICRONAUT,
-                        KotlinCompilerPlugin.JPA),
+                        KotlinCompilerPlugin.JPA,
+                        KotlinCompilerPlugin.POWER_ASSERT),
                 toolchains.kotlin().orElseThrow().plugins());
     }
 

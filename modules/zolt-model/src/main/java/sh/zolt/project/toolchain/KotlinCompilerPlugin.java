@@ -7,7 +7,8 @@ public enum KotlinCompilerPlugin {
     SERIALIZATION("serialization"),
     SPRING("spring"),
     MICRONAUT("micronaut"),
-    JPA("jpa");
+    JPA("jpa"),
+    POWER_ASSERT("power-assert");
 
     private final String id;
 

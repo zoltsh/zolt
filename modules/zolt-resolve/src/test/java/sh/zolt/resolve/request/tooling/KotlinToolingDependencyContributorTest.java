@@ -25,6 +25,8 @@ final class KotlinToolingDependencyContributorTest {
             "org.jetbrains.kotlin", "kotlin-allopen-compiler-plugin-embeddable");
     private static final PackageId KOTLIN_NO_ARG = new PackageId(
             "org.jetbrains.kotlin", "kotlin-noarg-compiler-plugin-embeddable");
+    private static final PackageId KOTLIN_POWER_ASSERT = new PackageId(
+            "org.jetbrains.kotlin", "kotlin-power-assert-compiler-plugin-embeddable");
 
     private final KotlinToolingDependencyContributor contributor =
             new KotlinToolingDependencyContributor();
@@ -97,12 +99,15 @@ final class KotlinToolingDependencyContributorTest {
     void contributesTheVersionAlignedCompilerPluginsOnce() {
         List<DependencyRequest> requests = new ArrayList<>();
 
-        contributor.contribute(config("2.2.0", false, true, true, true, true), requests);
-        contributor.contribute(config("2.2.0", false, true, true, true, true), requests);
+        contributor.contribute(config("2.2.0", false, true, true, true, true, true), requests);
+        contributor.contribute(config("2.2.0", false, true, true, true, true, true), requests);
 
-        assertEquals(4, requests.size());
+        assertEquals(5, requests.size());
         for (PackageId packageId : List.of(
-                KOTLIN_SERIALIZATION, KOTLIN_ALL_OPEN, KOTLIN_NO_ARG)) {
+                KOTLIN_SERIALIZATION,
+                KOTLIN_ALL_OPEN,
+                KOTLIN_NO_ARG,
+                KOTLIN_POWER_ASSERT)) {
             DependencyRequest plugin = requests.stream()
                     .filter(request -> request.packageId().equals(packageId))
                     .findFirst()
@@ -136,7 +141,7 @@ final class KotlinToolingDependencyContributorTest {
             boolean processor,
             boolean serialization,
             boolean spring) {
-        return config(kotlinVersion, processor, serialization, spring, false, false);
+        return config(kotlinVersion, processor, serialization, spring, false, false, false);
     }
 
     private static ProjectConfig config(
@@ -145,7 +150,8 @@ final class KotlinToolingDependencyContributorTest {
             boolean serialization,
             boolean spring,
             boolean micronaut,
-            boolean jpa) {
+            boolean jpa,
+            boolean powerAssert) {
         List<String> selectedPlugins = new ArrayList<>();
         if (serialization) {
             selectedPlugins.add("\"serialization\"");
@@ -158,6 +164,9 @@ final class KotlinToolingDependencyContributorTest {
         }
         if (jpa) {
             selectedPlugins.add("\"jpa\"");
+        }
+        if (powerAssert) {
+            selectedPlugins.add("\"power-assert\"");
         }
         String plugins = selectedPlugins.isEmpty()
                 ? ""

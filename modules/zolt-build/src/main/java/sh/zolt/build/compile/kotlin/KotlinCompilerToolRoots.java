@@ -22,6 +22,8 @@ public final class KotlinCompilerToolRoots {
             new PackageId("org.jetbrains.kotlin", "kotlin-allopen-compiler-plugin-embeddable");
     public static final PackageId NO_ARG =
             new PackageId("org.jetbrains.kotlin", "kotlin-noarg-compiler-plugin-embeddable");
+    public static final PackageId POWER_ASSERT = new PackageId(
+            "org.jetbrains.kotlin", "kotlin-power-assert-compiler-plugin-embeddable");
 
     private KotlinCompilerToolRoots() {
     }
@@ -39,14 +41,21 @@ public final class KotlinCompilerToolRoots {
         List<ResolvedClasspathPackage> serializationRoots = matching(roots, SERIALIZATION);
         List<ResolvedClasspathPackage> allOpenRoots = matching(roots, ALL_OPEN);
         List<ResolvedClasspathPackage> noArgRoots = matching(roots, NO_ARG);
+        List<ResolvedClasspathPackage> powerAssertRoots = matching(roots, POWER_ASSERT);
 
         requireExactlyOneCompiler(compilerRoots, configuredVersion);
         requireAtMostOne(kaptRoots, KAPT, "KAPT");
         requireAtMostOne(serializationRoots, SERIALIZATION, "serialization compiler plugin");
         requireAtMostOne(allOpenRoots, ALL_OPEN, "all-open compiler plugin");
         requireAtMostOne(noArgRoots, NO_ARG, "JPA no-arg compiler plugin");
+        requireAtMostOne(powerAssertRoots, POWER_ASSERT, "Power-assert compiler plugin");
         requireExpectedPluginRoots(
-                plugins, serializationRoots, allOpenRoots, noArgRoots, configuredVersion);
+                plugins,
+                serializationRoots,
+                allOpenRoots,
+                noArgRoots,
+                powerAssertRoots,
+                configuredVersion);
         rejectExtraRoots(roots, plugins);
         requireAlignedVersion(kaptRoots, configuredVersion, "KAPT tool root");
         requireAlignedVersion(
@@ -61,6 +70,10 @@ public final class KotlinCompilerToolRoots {
                 noArgRoots,
                 configuredVersion,
                 "JPA no-arg compiler plugin tool root");
+        requireAlignedVersion(
+                powerAssertRoots,
+                configuredVersion,
+                "Power-assert compiler plugin tool root");
 
         List<ResolvedClasspathPackage> pluginRoots = new ArrayList<>();
         if (plugins.contains(KotlinCompilerPlugin.SERIALIZATION)) {
@@ -71,6 +84,9 @@ public final class KotlinCompilerToolRoots {
         }
         if (plugins.contains(KotlinCompilerPlugin.JPA)) {
             pluginRoots.add(noArgRoots.getFirst());
+        }
+        if (plugins.contains(KotlinCompilerPlugin.POWER_ASSERT)) {
+            pluginRoots.add(powerAssertRoots.getFirst());
         }
         return new Selection(
                 compilerRoots.getFirst(),
@@ -114,6 +130,7 @@ public final class KotlinCompilerToolRoots {
             List<ResolvedClasspathPackage> serializationRoots,
             List<ResolvedClasspathPackage> allOpenRoots,
             List<ResolvedClasspathPackage> noArgRoots,
+            List<ResolvedClasspathPackage> powerAssertRoots,
             String version) {
         if (plugins.contains(KotlinCompilerPlugin.SERIALIZATION)
                 && serializationRoots.isEmpty()) {
@@ -131,6 +148,12 @@ public final class KotlinCompilerToolRoots {
                 && noArgRoots.isEmpty()) {
             throw invalid("zolt.lock has no direct " + NO_ARG
                     + " root in scope `tool-kotlin` for configured plugin `jpa` "
+                    + "at version `" + version + "`");
+        }
+        if (plugins.contains(KotlinCompilerPlugin.POWER_ASSERT)
+                && powerAssertRoots.isEmpty()) {
+            throw invalid("zolt.lock has no direct " + POWER_ASSERT
+                    + " root in scope `tool-kotlin` for configured plugin `power-assert` "
                     + "at version `" + version + "`");
         }
     }
@@ -158,7 +181,9 @@ public final class KotlinCompilerToolRoots {
                 || usesAllOpen(plugins)
                         && packageId.equals(ALL_OPEN)
                 || plugins.contains(KotlinCompilerPlugin.JPA)
-                        && packageId.equals(NO_ARG);
+                        && packageId.equals(NO_ARG)
+                || plugins.contains(KotlinCompilerPlugin.POWER_ASSERT)
+                        && packageId.equals(POWER_ASSERT);
     }
 
     private static boolean usesAllOpen(Set<KotlinCompilerPlugin> plugins) {

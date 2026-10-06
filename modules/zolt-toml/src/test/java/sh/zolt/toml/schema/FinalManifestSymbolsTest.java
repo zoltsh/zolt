@@ -48,7 +48,12 @@ final class FinalManifestSymbolsTest {
                 Map.entry("toolchain-feature", List.of("native-image")),
                 Map.entry(
                         "kotlin-compiler-plugin",
-                        List.of("serialization", "spring", "micronaut", "jpa")),
+                        List.of(
+                                "serialization",
+                                "spring",
+                                "micronaut",
+                                "jpa",
+                                "power-assert")),
                 Map.entry("conflict-policy", List.of("resolve", "warn", "fail")),
                 Map.entry("unknown-license-policy", List.of("allow", "warn", "fail")),
                 Map.entry("resource-filter-target", List.of("main", "test")),

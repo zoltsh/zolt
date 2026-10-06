@@ -66,7 +66,8 @@ final class EffectiveProjectConfigAdapterGroovyTest {
                         KotlinCompilerPlugin.SERIALIZATION,
                         KotlinCompilerPlugin.SPRING,
                         KotlinCompilerPlugin.MICRONAUT,
-                        KotlinCompilerPlugin.JPA)));
+                        KotlinCompilerPlugin.JPA,
+                        KotlinCompilerPlugin.POWER_ASSERT)));
         AuthoredManifest member = projectManifest("app", AuthoredToolchains.empty());
 
         ProjectConfig config = adapt(COMPOSER.composeWorkspaceMember(root, MEMBER, member));
@@ -76,7 +77,8 @@ final class EffectiveProjectConfigAdapterGroovyTest {
                         KotlinCompilerPlugin.SERIALIZATION,
                         KotlinCompilerPlugin.SPRING,
                         KotlinCompilerPlugin.MICRONAUT,
-                        KotlinCompilerPlugin.JPA),
+                        KotlinCompilerPlugin.JPA,
+                        KotlinCompilerPlugin.POWER_ASSERT),
                 config.compilerSettings().kotlinPlugins());
     }
 

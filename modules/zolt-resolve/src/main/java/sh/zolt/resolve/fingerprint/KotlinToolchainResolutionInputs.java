@@ -15,6 +15,8 @@ final class KotlinToolchainResolutionInputs {
             "org.jetbrains.kotlin:kotlin-allopen-compiler-plugin-embeddable";
     private static final String NO_ARG =
             "org.jetbrains.kotlin:kotlin-noarg-compiler-plugin-embeddable";
+    private static final String POWER_ASSERT =
+            "org.jetbrains.kotlin:kotlin-power-assert-compiler-plugin-embeddable";
 
     private KotlinToolchainResolutionInputs() {
     }
@@ -30,6 +32,9 @@ final class KotlinToolchainResolutionInputs {
         }
         if (settings.kotlinPlugins().contains(KotlinCompilerPlugin.JPA)) {
             input(inputs, NO_ARG, settings.kotlinVersion());
+        }
+        if (settings.kotlinPlugins().contains(KotlinCompilerPlugin.POWER_ASSERT)) {
+            input(inputs, POWER_ASSERT, settings.kotlinVersion());
         }
     }
 

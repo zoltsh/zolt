@@ -35,14 +35,15 @@ final class KotlinToolchainResolutionFingerprintTest {
     @Test
     void fingerprintsTheVersionAlignedCompilerPlugins() {
         ProjectConfig plain = config("2.2.0");
-        ProjectConfig plugins = config("2.2.0", true, true, true, true);
+        ProjectConfig plugins = config("2.2.0", true, true, true, true, true);
 
         assertEquals(
                 List.of(
                         "toolchain.kotlin\torg.jetbrains.kotlin:kotlin-compiler-embeddable\t2.2.0\tconflict-provenance-v1\texact-root-v1",
                         "toolchain.kotlin\torg.jetbrains.kotlin:kotlin-serialization-compiler-plugin-embeddable\t2.2.0\tconflict-provenance-v1\texact-root-v1",
                         "toolchain.kotlin\torg.jetbrains.kotlin:kotlin-allopen-compiler-plugin-embeddable\t2.2.0\tconflict-provenance-v1\texact-root-v1",
-                        "toolchain.kotlin\torg.jetbrains.kotlin:kotlin-noarg-compiler-plugin-embeddable\t2.2.0\tconflict-provenance-v1\texact-root-v1"),
+                        "toolchain.kotlin\torg.jetbrains.kotlin:kotlin-noarg-compiler-plugin-embeddable\t2.2.0\tconflict-provenance-v1\texact-root-v1",
+                        "toolchain.kotlin\torg.jetbrains.kotlin:kotlin-power-assert-compiler-plugin-embeddable\t2.2.0\tconflict-provenance-v1\texact-root-v1"),
                 ProjectResolutionFingerprint.inputs(plugins).stream()
                         .filter(input -> input.startsWith("toolchain.kotlin\t"))
                         .toList());
@@ -59,7 +60,7 @@ final class KotlinToolchainResolutionFingerprintTest {
     }
 
     private static ProjectConfig config(String kotlinVersion) {
-        return config(kotlinVersion, false, false, false, false);
+        return config(kotlinVersion, false, false, false, false, false);
     }
 
     private static ProjectConfig config(
@@ -67,7 +68,8 @@ final class KotlinToolchainResolutionFingerprintTest {
             boolean serialization,
             boolean spring,
             boolean micronaut,
-            boolean jpa) {
+            boolean jpa,
+            boolean powerAssert) {
         List<String> selectedPlugins = new ArrayList<>();
         if (serialization) {
             selectedPlugins.add("\"serialization\"");
@@ -80,6 +82,9 @@ final class KotlinToolchainResolutionFingerprintTest {
         }
         if (jpa) {
             selectedPlugins.add("\"jpa\"");
+        }
+        if (powerAssert) {
+            selectedPlugins.add("\"power-assert\"");
         }
         String plugins = selectedPlugins.isEmpty()
                 ? ""

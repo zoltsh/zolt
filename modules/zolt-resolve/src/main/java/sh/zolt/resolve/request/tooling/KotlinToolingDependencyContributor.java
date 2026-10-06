@@ -21,6 +21,8 @@ public final class KotlinToolingDependencyContributor {
             "org.jetbrains.kotlin", "kotlin-allopen-compiler-plugin-embeddable");
     private static final PackageId KOTLIN_NO_ARG = new PackageId(
             "org.jetbrains.kotlin", "kotlin-noarg-compiler-plugin-embeddable");
+    private static final PackageId KOTLIN_POWER_ASSERT = new PackageId(
+            "org.jetbrains.kotlin", "kotlin-power-assert-compiler-plugin-embeddable");
 
     public void contribute(ProjectConfig config, List<DependencyRequest> requests) {
         String version = config.compilerSettings().kotlinVersion();
@@ -55,6 +57,10 @@ public final class KotlinToolingDependencyContributor {
         if (config.compilerSettings().kotlinPlugins()
                 .contains(KotlinCompilerPlugin.JPA)) {
             contribute(version.strip(), KOTLIN_NO_ARG, requests);
+        }
+        if (config.compilerSettings().kotlinPlugins()
+                .contains(KotlinCompilerPlugin.POWER_ASSERT)) {
+            contribute(version.strip(), KOTLIN_POWER_ASSERT, requests);
         }
     }
 

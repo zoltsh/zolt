@@ -127,6 +127,12 @@ public final class KotlinCompilerToolchainResolver {
                     "preset",
                     "jpa"));
         }
+        if (plugins.contains(KotlinCompilerPlugin.POWER_ASSERT)) {
+            options.add(new KotlinCompilerPluginOption(
+                    "org.jetbrains.kotlin.powerassert",
+                    "function",
+                    "kotlin.assert"));
+        }
         return List.copyOf(options);
     }
 
