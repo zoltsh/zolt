@@ -154,7 +154,7 @@ final class KspTestCommandIntegrationTest {
                 "--no-progress");
     }
 
-    private static void writeProject(Path project, CliTestRepository repository) throws IOException {
+    static void writeProject(Path project, CliTestRepository repository) throws IOException {
         Path mainSource = project.resolve("src/main/java/com/example/Application.java");
         Path testSource = project.resolve("src/test/kotlin/com/example/KspGeneratedTest.kt");
         Files.createDirectories(mainSource.getParent());
