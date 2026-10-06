@@ -109,6 +109,7 @@ public final class KotlinCompileOptionsPolicy {
                 mappedArguments.noParamAssertions(),
                 mappedArguments.noCallAssertions(),
                 mappedArguments.noReceiverAssertions(),
+                mappedArguments.backendThreads(),
                 mappedArguments.abiStabilityMode(),
                 mappedArguments.annotationDefaultTargetMode(),
                 mappedArguments.assertionMode(),

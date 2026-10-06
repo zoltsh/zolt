@@ -27,6 +27,7 @@ final class KotlinCompilerArgumentGuidance {
                 + " `-Xuse-type-table`, `-Xjvm-enable-preview`, `-Xallow-unstable-dependencies`,"
                 + " `-Xno-param-assertions`, `-Xno-call-assertions`,"
                 + " `-Xno-receiver-assertions`,"
+                + " one `-Xbackend-threads=<0..256>`,"
                 + " `-language-version <major.minor>`, `-api-version <major.minor>`, and one"
                 + " `-jvm-default=<mode>`, plus repeatable"
                 + " `-opt-in=<qualified.annotation.Name>` arguments and one"

@@ -26,6 +26,7 @@ final class KotlinCompilerArgumentPolicy {
         String annotationDefaultTargetMode = "";
         String assertionMode = "";
         String returnValueCheckerMode = "";
+        String backendThreads = "";
         String jspecifyAnnotationsMode = "";
         String jsr305Mode = "";
         String compatqualAnnotationsMode = "";
@@ -107,6 +108,12 @@ final class KotlinCompilerArgumentPolicy {
                         }
                         returnValueCheckerMode =
                                 KotlinCompilerModeArguments.returnValueChecker(scope, argument);
+                    } else if (argument.startsWith("-Xbackend-threads=")) {
+                        if (!backendThreads.isEmpty()) {
+                            throw duplicateArgument(scope, argument);
+                        }
+                        backendThreads =
+                                KotlinCompilerNumericArguments.backendThreads(scope, argument);
                     } else if (argument.startsWith("-Xjspecify-annotations=")) {
                         if (!jspecifyAnnotationsMode.isEmpty()) {
                             throw duplicateArgument(scope, argument);
@@ -225,6 +232,7 @@ final class KotlinCompilerArgumentPolicy {
                 standaloneArguments.contains("-Xno-param-assertions"),
                 standaloneArguments.contains("-Xno-call-assertions"),
                 standaloneArguments.contains("-Xno-receiver-assertions"),
+                backendThreads,
                 abiStabilityMode,
                 annotationDefaultTargetMode,
                 assertionMode,

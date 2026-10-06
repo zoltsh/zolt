@@ -42,6 +42,7 @@ public record KotlinCompilerMappedArguments(
         boolean noParamAssertions,
         boolean noCallAssertions,
         boolean noReceiverAssertions,
+        String backendThreads,
         String abiStabilityMode,
         String annotationDefaultTargetMode,
         String assertionMode,

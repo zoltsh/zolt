@@ -50,6 +50,7 @@ public record KotlinCompilerOptions(
         boolean noParamAssertions,
         boolean noCallAssertions,
         boolean noReceiverAssertions,
+        String backendThreads,
         String abiStabilityMode,
         String annotationDefaultTargetMode,
         String assertionMode,
@@ -228,6 +229,7 @@ public record KotlinCompilerOptions(
                 "",
                 "",
                 "",
+                "",
                 List.of(),
                 List.of(),
                 List.of(),
@@ -238,6 +240,7 @@ public record KotlinCompilerOptions(
     public KotlinCompilerOptions {
         release = KotlinCompilerOptionValues.require(release, "effective Java release");
         moduleName = KotlinCompilerOptionValues.require(moduleName, "module name");
+        backendThreads = KotlinCompilerOptionValues.optional(backendThreads);
         abiStabilityMode = KotlinCompilerOptionValues.optional(abiStabilityMode);
         annotationDefaultTargetMode = KotlinCompilerOptionValues.optional(
                 annotationDefaultTargetMode);
@@ -320,6 +323,7 @@ public record KotlinCompilerOptions(
                 noParamAssertions,
                 noCallAssertions,
                 noReceiverAssertions,
+                backendThreads,
                 abiStabilityMode,
                 annotationDefaultTargetMode,
                 assertionMode,

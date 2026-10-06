@@ -161,6 +161,9 @@ final class KotlinCompilerInvocationArguments {
         if (options.noReceiverAssertions()) {
             arguments.add("-Xno-receiver-assertions");
         }
+        if (!options.backendThreads().isEmpty()) {
+            arguments.add("-Xbackend-threads=" + options.backendThreads());
+        }
         if (!options.abiStabilityMode().isEmpty()) {
             arguments.add("-Xabi-stability=" + options.abiStabilityMode());
         }
