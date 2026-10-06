@@ -20,7 +20,6 @@ import sh.zolt.build.resources.ResourceCopier;
 import sh.zolt.build.resources.ResourceCopyResult;
 import sh.zolt.build.discovery.SourceDiscoverer;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
-import sh.zolt.build.generatedsource.ExecGeneratedSourceService;
 import sh.zolt.build.generatedsource.GeneratedSourceProducerFingerprint;
 import sh.zolt.build.generatedsource.GeneratedSourceProducerFingerprintService;
 import sh.zolt.build.generatedsource.OpenApiGeneratedSourceService;
@@ -29,8 +28,6 @@ import sh.zolt.build.incremental.IncrementalCompilePlanner;
 import sh.zolt.doctor.JdkChecker;
 import sh.zolt.doctor.JdkDetector;
 import sh.zolt.doctor.JdkStatus;
-import sh.zolt.generated.GeneratedSourceException;
-import sh.zolt.generated.ProtobufGeneratedSourceService;
 import sh.zolt.lockfile.ProjectBuildContext;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveService;
@@ -45,9 +42,7 @@ public final class TestCompileService {
     private final ResourceCopier resourceCopier;
     private final BuildFingerprintService buildFingerprintService;
     private final JdkChecker jdkDetector;
-    private final OpenApiGeneratedSourceService openApiGeneratedSourceService;
-    private final ProtobufGeneratedSourceService protobufGeneratedSourceService;
-    private final ExecGeneratedSourceService execGeneratedSourceService;
+    private final TestGeneratedSourceCoordinator generatedSourceCoordinator;
     private final GeneratedSourceProducerFingerprintService
             generatedProducerFingerprintService;
     private final IncrementalCompileStateRecorder incrementalCompileStateRecorder;
@@ -100,9 +95,7 @@ public final class TestCompileService {
         this.resourceCopier = dependencies.resourceCopier();
         this.buildFingerprintService = dependencies.buildFingerprintService();
         this.jdkDetector = dependencies.jdkDetector();
-        this.openApiGeneratedSourceService = dependencies.openApiGeneratedSourceService();
-        this.protobufGeneratedSourceService = dependencies.protobufGeneratedSourceService();
-        this.execGeneratedSourceService = dependencies.execGeneratedSourceService();
+        this.generatedSourceCoordinator = dependencies.generatedSourceCoordinator();
         this.generatedProducerFingerprintService =
                 dependencies.producerFingerprintService();
         this.incrementalCompileStateRecorder = dependencies.incrementalCompileStateRecorder();
@@ -207,13 +200,12 @@ public final class TestCompileService {
             List<ResolvedClasspathPackage> classpathPackages) {
         Path projectDirectory = context.projectRoot();
         CompileOutputLayoutValidator.validateTest(projectDirectory, config);
-        openApiGeneratedSourceService.generateTest(projectDirectory, config, classpathPackages);
-        try {
-            protobufGeneratedSourceService.generateTest(projectDirectory, config);
-        } catch (GeneratedSourceException exception) {
-            throw new BuildException(exception.getMessage(), exception);
-        }
-        execGeneratedSourceService.generateTest(projectDirectory, config, classpathPackages);
+        generatedSourceCoordinator.generatePreCompile(
+                projectDirectory,
+                config,
+                classpaths,
+                classpathPackages,
+                buildResult.outputDirectory());
         SourceDiscoveryResult sources = sourceDiscoverer.discover(projectDirectory, config.build());
         sh.zolt.build.SourceLanguagePolicy.requireTestSupported(sources);
         List<GeneratedSourceProducerFingerprint>
@@ -288,7 +280,7 @@ public final class TestCompileService {
                 jdkStatus,
                 compiler.identity());
         // Post-compile exec steps run after test compilation, before test resource copy consumes them.
-        execGeneratedSourceService.generateTestPostCompile(projectDirectory, config, classpathPackages, false);
+        generatedSourceCoordinator.generatePostCompile(projectDirectory, config, classpathPackages);
         ResourceCopyResult resourceResult = resourceCopier.copyTestResources(projectDirectory, config);
         long fingerprintWriteNanos = 0L;
         if (!compileSkipped || !fingerprintCheck.reason().isBlank()) {
