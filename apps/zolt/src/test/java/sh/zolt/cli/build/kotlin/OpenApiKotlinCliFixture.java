@@ -12,14 +12,14 @@ import sh.zolt.build.compile.JavacRunner;
 import sh.zolt.classpath.Classpath;
 import sh.zolt.cli.CliTestRepository;
 
-/** Publishes a tiny OpenAPI-compatible tool that emits one configured Kotlin source. */
-final class OpenApiKotlinCliFixture {
-    static final String VERSION = "7.11.0";
+/** Publishes a tiny OpenAPI-compatible tool that emits one configured source. */
+public final class OpenApiKotlinCliFixture {
+    public static final String VERSION = "7.11.0";
 
     private OpenApiKotlinCliFixture() {
     }
 
-    static void publish(CliTestRepository repository, Path workDirectory) throws IOException {
+    public static void publish(CliTestRepository repository, Path workDirectory) throws IOException {
         repository.addArtifact(
                 "org.openapitools",
                 "openapi-generator-cli",
