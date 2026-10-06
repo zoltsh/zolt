@@ -70,8 +70,8 @@ final class BuildServiceKaptIntegrationTest {
                 cacheRoot,
                 true);
 
-        Path generatedSource = projectDir.resolve(
-                "target/generated/sources/annotations/com/example/GeneratedMessage.java");
+        Path generatedSourcesDirectory = projectDir.resolve("target/generated/sources/annotations");
+        Path generatedSource = generatedSourcesDirectory.resolve("com/example/GeneratedMessage.java");
         assertTrue(first.buildResult().resolveResult().isEmpty());
         assertEquals(2, first.buildResult().sourceCount());
         assertEquals("full", first.buildResult().mainCompilationMode());
@@ -104,8 +104,17 @@ final class BuildServiceKaptIntegrationTest {
                 true);
         assertTrue(restored.buildResult().mainCompilationRestored());
         assertEquals("restored", restored.buildResult().mainBuildCacheOutcome());
+        assertTrue(Files.isDirectory(generatedSourcesDirectory));
         assertTrue(Files.isRegularFile(classFile("GeneratedMessage.class")));
         assertEquals("generated-generated", invoke(artifacts.applicationClasspath(), "JavaApi"));
+
+        BuildResultWithClasspaths postRestoreWarm = service.buildWithClasspaths(
+                projectDir,
+                config(),
+                cacheRoot,
+                true);
+        assertTrue(postRestoreWarm.buildResult().mainCompilationSkipped());
+        assertEquals("skipped", postRestoreWarm.buildResult().mainCompilationMode());
     }
 
     private String invoke(List<Path> applicationClasspath, String simpleName) throws Exception {
