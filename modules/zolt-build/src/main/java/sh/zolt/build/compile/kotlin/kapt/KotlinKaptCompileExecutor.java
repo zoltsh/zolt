@@ -14,6 +14,7 @@ import sh.zolt.build.compile.KotlinCompilationScope;
 import sh.zolt.build.compile.KotlinCompileOptionsPolicy;
 import sh.zolt.build.compile.KotlinCompilerOptions;
 import sh.zolt.build.compile.KotlinCompilerRunner;
+import sh.zolt.build.compile.kotlin.KotlinCompilerInvocationToolchain;
 import sh.zolt.classpath.Classpath;
 import sh.zolt.doctor.JdkStatus;
 
@@ -33,10 +34,9 @@ public final class KotlinKaptCompileExecutor {
             JdkStatus jdkStatus,
             List<Path> allSources,
             List<Path> javaSources,
-            Classpath compilerLauncherClasspath,
+            KotlinCompilerInvocationToolchain compilerToolchain,
             Classpath compilationClasspath,
             Classpath processorClasspath,
-            Path kaptPluginJar,
             Path outputDirectory,
             Path generatedSourcesDirectory,
             KotlinCompilerOptions kotlinOptions,
@@ -44,7 +44,8 @@ public final class KotlinKaptCompileExecutor {
         createGeneratedSourcesDirectory(generatedSourcesDirectory, scope);
         try (KotlinKaptStubsDirectory stubs = KotlinKaptStubsDirectory.create()) {
             KotlinKaptOptions kaptOptions = new KotlinKaptOptions(
-                    kaptPluginJar,
+                    compilerToolchain.kaptPluginJar().orElseThrow(() -> new KotlinCompileException(
+                            "Kotlin annotation processing requires a verified KAPT compiler plugin.")),
                     processorClasspath,
                     generatedSourcesDirectory,
                     outputDirectory,
@@ -53,12 +54,13 @@ public final class KotlinKaptCompileExecutor {
                     jdkStatus.java().orElseThrow(),
                     jdkStatus.javaHome().orElseThrow(),
                     allSources,
-                    compilerLauncherClasspath,
+                    compilerToolchain.launcherClasspath(),
                     compilationClasspath,
                     outputDirectory,
                     kotlinOptions,
                     scope,
-                    kaptOptions);
+                    kaptOptions,
+                    compilerToolchain.compilerPluginJars());
             List<Path> generatedJavaSources = generatedJavaSources(
                     generatedSourcesDirectory,
                     scope);
@@ -66,11 +68,13 @@ public final class KotlinKaptCompileExecutor {
                     jdkStatus.java().orElseThrow(),
                     jdkStatus.javaHome().orElseThrow(),
                     combinedSources(allSources, generatedJavaSources),
-                    compilerLauncherClasspath,
+                    compilerToolchain.launcherClasspath(),
                     compilationClasspath,
                     outputDirectory,
                     kotlinOptions,
-                    scope);
+                    scope,
+                    null,
+                    compilerToolchain.compilerPluginJars());
             JavacResult java = javacRunner.compile(
                     jdkStatus.javac().orElseThrow(),
                     combinedSources(javaSources, generatedJavaSources),

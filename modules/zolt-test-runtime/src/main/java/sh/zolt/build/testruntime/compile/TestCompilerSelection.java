@@ -10,6 +10,7 @@ import sh.zolt.build.compile.KotlinCompilationScope;
 import sh.zolt.build.compile.KotlinCompilerOptions;
 import sh.zolt.build.compile.KotlinCompilerToolchain;
 import sh.zolt.build.compile.KotlinCompilerToolchainResolver;
+import sh.zolt.build.compile.kotlin.KotlinCompilerInvocationToolchain;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.classpath.Classpath;
 import sh.zolt.classpath.ClasspathSet;
@@ -21,8 +22,7 @@ import sh.zolt.project.ProjectConfig;
 record TestCompilerSelection(
         String identity,
         Classpath groovyLauncherClasspath,
-        Classpath kotlinLauncherClasspath,
-        Path kotlinKaptPluginJar,
+        KotlinCompilerInvocationToolchain kotlinToolchain,
         KotlinCompilerOptions kotlinOptions) {
     static TestCompilerSelection select(
             ProjectConfig config,
@@ -44,29 +44,29 @@ record TestCompilerSelection(
                 : new KotlinCompilerToolchainResolver().resolve(
                         classpathPackages,
                         config.compilerSettings().kotlinVersion(),
-                        KotlinCompilationScope.TEST);
+                        KotlinCompilationScope.TEST,
+                        config.compilerSettings().kotlinPlugins());
         GroovyCompilerToolchain groovy = sources.groovyTestSources().isEmpty()
                 ? null
                 : new GroovyCompilerToolchainResolver().resolve(
                         classpathPackages,
                         GroovyCompilerToolchainResolver.SourceSet.TEST,
                         config.compilerSettings().groovyVersion());
-        Path kaptPluginJar = kaptPluginJar(classpaths, kotlin);
+        requireKaptPlugin(classpaths, kotlin);
         return new TestCompilerSelection(
                 identity(jdkStatus, groovy, kotlin),
                 groovy == null ? emptyClasspath() : groovy.launcherClasspath(),
-                kotlin == null ? emptyClasspath() : kotlin.launcherClasspath(),
-                kaptPluginJar,
+                kotlin == null ? null : kotlin.invocationToolchain(),
                 kotlinOptions);
     }
 
-    private static Path kaptPluginJar(
+    private static void requireKaptPlugin(
             ClasspathSet classpaths,
             KotlinCompilerToolchain kotlin) {
         if (kotlin == null || classpaths.testProcessor().entries().isEmpty()) {
-            return null;
+            return;
         }
-        return kotlin.kaptPluginJar().orElseThrow(() -> new KotlinCompileException(
+        kotlin.kaptPluginJar().orElseThrow(() -> new KotlinCompileException(
                 "Kotlin test annotation processing requires a checksum-verified "
                         + "org.jetbrains.kotlin:kotlin-annotation-processing-embeddable tool root before "
                         + "cached output can be reused or test output can be cleaned. Run `zolt resolve` "

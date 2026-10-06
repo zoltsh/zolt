@@ -12,6 +12,7 @@ import sh.zolt.build.compile.KotlinCompilationScope;
 import sh.zolt.build.compile.KotlinCompileOptionsPolicy;
 import sh.zolt.build.compile.KotlinCompilerOptions;
 import sh.zolt.build.compile.KotlinCompilerRunner;
+import sh.zolt.build.compile.kotlin.KotlinCompilerInvocationToolchain;
 import sh.zolt.build.compile.kotlin.kapt.KotlinKaptCompileExecutor;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.classpath.Classpath;
@@ -28,13 +29,24 @@ final class KotlinTestCompileExecutor {
             KotlinCompilerRunner kotlinCompilerRunner) {
         this(
                 javacRunner::compile,
-                kotlinCompilerRunner::compile,
+                (java, jdkHome, sources, toolchain, classpath, output, options, scope) ->
+                        kotlinCompilerRunner.compile(
+                                java,
+                                jdkHome,
+                                sources,
+                                toolchain.launcherClasspath(),
+                                classpath,
+                                output,
+                                options,
+                                scope,
+                                null,
+                                toolchain.compilerPluginJars()),
                 new KotlinKaptCompileExecutor(javacRunner, kotlinCompilerRunner)::compile);
     }
 
     KotlinTestCompileExecutor(JavaPhase javaPhase, KotlinPhase kotlinPhase) {
-        this(javaPhase, kotlinPhase, (jdk, allSources, javaSources, launcher, classpath, processors,
-                plugin, output, generated, options, scope) -> {
+        this(javaPhase, kotlinPhase, (jdk, allSources, javaSources, toolchain, classpath, processors,
+                output, generated, options, scope) -> {
             throw new AssertionError("KAPT phase must not run");
         });
     }
@@ -61,9 +73,11 @@ final class KotlinTestCompileExecutor {
                 jdkStatus,
                 sources,
                 testCompileClasspath,
-                kotlinCompilerLauncherClasspath,
+                new KotlinCompilerInvocationToolchain(
+                        kotlinCompilerLauncherClasspath,
+                        null,
+                        List.of()),
                 new Classpath(List.of()),
-                null,
                 kotlinOptions,
                 outputDirectory,
                 null,
@@ -83,9 +97,36 @@ final class KotlinTestCompileExecutor {
             Path generatedSourcesDirectory,
             String fallbackReason,
             CompileDiagnostics diagnostics) {
+        return compile(
+                jdkStatus,
+                sources,
+                testCompileClasspath,
+                new KotlinCompilerInvocationToolchain(
+                        kotlinCompilerLauncherClasspath,
+                        kaptPluginJar,
+                        List.of()),
+                processorClasspath,
+                kotlinOptions,
+                outputDirectory,
+                generatedSourcesDirectory,
+                fallbackReason,
+                diagnostics);
+    }
+
+    TestCompileAttempt compile(
+            JdkStatus jdkStatus,
+            SourceDiscoveryResult sources,
+            Classpath testCompileClasspath,
+            KotlinCompilerInvocationToolchain kotlinCompilerToolchain,
+            Classpath processorClasspath,
+            KotlinCompilerOptions kotlinOptions,
+            Path outputDirectory,
+            Path generatedSourcesDirectory,
+            String fallbackReason,
+            CompileDiagnostics diagnostics) {
         List<Path> allSources = sources.allTestSources();
         if (!processorClasspath.entries().isEmpty()) {
-            if (kaptPluginJar == null) {
+            if (kotlinCompilerToolchain.kaptPluginJar().isEmpty()) {
                 throw new KotlinCompileException(
                         "Kotlin test annotation processing requires a verified KAPT compiler plugin.");
             }
@@ -93,10 +134,9 @@ final class KotlinTestCompileExecutor {
                     jdkStatus,
                     allSources,
                     sources.testSources(),
-                    kotlinCompilerLauncherClasspath,
+                    kotlinCompilerToolchain,
                     testCompileClasspath,
                     processorClasspath,
-                    kaptPluginJar,
                     outputDirectory,
                     generatedSourcesDirectory,
                     kotlinOptions,
@@ -115,7 +155,7 @@ final class KotlinTestCompileExecutor {
                 jdkStatus.java().orElseThrow(),
                 jdkStatus.javaHome().orElseThrow(),
                 allSources,
-                kotlinCompilerLauncherClasspath,
+                kotlinCompilerToolchain,
                 testCompileClasspath,
                 outputDirectory,
                 kotlinOptions,
@@ -172,7 +212,7 @@ final class KotlinTestCompileExecutor {
                 Path java,
                 Path jdkHome,
                 List<Path> sources,
-                Classpath compilerLauncherClasspath,
+                KotlinCompilerInvocationToolchain compilerToolchain,
                 Classpath compilationClasspath,
                 Path outputDirectory,
                 KotlinCompilerOptions options,
@@ -185,10 +225,9 @@ final class KotlinTestCompileExecutor {
                 JdkStatus jdkStatus,
                 List<Path> allSources,
                 List<Path> javaSources,
-                Classpath compilerLauncherClasspath,
+                KotlinCompilerInvocationToolchain compilerToolchain,
                 Classpath compilationClasspath,
                 Classpath processorClasspath,
-                Path kaptPluginJar,
                 Path outputDirectory,
                 Path generatedSourcesDirectory,
                 KotlinCompilerOptions options,

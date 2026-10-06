@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import sh.zolt.build.compile.kotlin.KotlinCompilerInvocationToolchain;
 import sh.zolt.classpath.Classpath;
 
 /** The checksum-verified, relocatably identified Kotlin compiler launcher closure. */
@@ -134,6 +135,14 @@ public final class KotlinCompilerToolchain {
     /** The ordered checksum-verified compiler plugins selected by the project. */
     public List<Path> compilerPluginJars() {
         return compilerPluginJars;
+    }
+
+    /** Verified invocation paths for compilation lanes that do not own resolution. */
+    public KotlinCompilerInvocationToolchain invocationToolchain() {
+        return new KotlinCompilerInvocationToolchain(
+                launcherClasspath,
+                kaptPluginJar,
+                compilerPluginJars);
     }
 
     private static String require(String value, String label) {

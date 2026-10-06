@@ -73,7 +73,8 @@ final class KotlinTestCompilePolicyTest {
                 "",
                 "2.4.20",
                 "maven-artifact",
-                "maven-artifact-test");
+                "maven-artifact-test",
+                Set.of());
 
         KotlinCompilerOptions options = KotlinTestCompilePolicy.options(
                 config(compiler, Map.of(), Map.of(), Map.of()),

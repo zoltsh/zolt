@@ -54,7 +54,9 @@ public final class MainCompilerToolchainResolver {
         }
         return MainCompilerToolchain.kotlin(kotlinResolver.resolve(
                 packages,
-                config.compilerSettings().kotlinVersion()));
+                config.compilerSettings().kotlinVersion(),
+                KotlinCompilationScope.MAIN,
+                config.compilerSettings().kotlinPlugins()));
     }
 
     private static BuildException missingMetadata(String language, String coordinate) {

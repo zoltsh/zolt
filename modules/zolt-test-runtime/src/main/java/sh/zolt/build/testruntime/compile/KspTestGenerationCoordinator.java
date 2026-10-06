@@ -117,7 +117,8 @@ final class KspTestGenerationCoordinator {
         return new KotlinCompilerToolchainResolver().resolve(
                 packages,
                 config.compilerSettings().kotlinVersion(),
-                KotlinCompilationScope.TEST).version();
+                KotlinCompilationScope.TEST,
+                config.compilerSettings().kotlinPlugins()).version();
     }
 
     @FunctionalInterface

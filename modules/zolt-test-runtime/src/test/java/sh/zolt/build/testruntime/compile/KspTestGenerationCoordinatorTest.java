@@ -155,7 +155,8 @@ final class KspTestGenerationCoordinatorTest {
                 "",
                 "2.2.0",
                 "",
-                "");
+                "",
+                Set.of());
         BuildSettings defaults = BuildSettings.defaults();
         BuildSettings build = new BuildSettings(
                 defaults.source(),

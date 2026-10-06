@@ -147,7 +147,10 @@ final class MainLanguageCompileExecutor {
                 plan.kotlinToolchain().launcherClasspath(),
                 classpaths.compile(),
                 outputDirectory,
-                plan.kotlinOptions());
+                plan.kotlinOptions(),
+                KotlinCompilationScope.MAIN,
+                null,
+                plan.kotlinToolchain().compilerPluginJars());
         if (sources.mainSources().isEmpty()) {
             return kotlin;
         }
@@ -176,10 +179,9 @@ final class MainLanguageCompileExecutor {
                 jdkStatus,
                 sources.allMainSources(),
                 sources.mainSources(),
-                plan.kotlinToolchain().launcherClasspath(),
+                plan.kotlinToolchain().invocationToolchain(),
                 classpaths.compile(),
                 classpaths.processor(),
-                plan.kotlinToolchain().kaptPluginJar().orElseThrow(),
                 outputDirectory,
                 generatedSourcesDirectory,
                 plan.kotlinOptions(),

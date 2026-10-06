@@ -17,6 +17,7 @@ import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.compile.JavacResult;
 import sh.zolt.build.compile.KotlinCompilationScope;
 import sh.zolt.build.compile.KotlinCompilerOptions;
+import sh.zolt.build.compile.kotlin.KotlinCompilerInvocationToolchain;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.classpath.Classpath;
 import sh.zolt.doctor.JdkStatus;
@@ -31,7 +32,11 @@ final class KotlinTestCompileExecutorTest {
         List<String> phases = new ArrayList<>();
         Classpath compileClasspath = new Classpath(List.of(
                 Path.of("target/classes"), Path.of("lib/test.jar")));
-        Classpath launcherClasspath = new Classpath(List.of(Path.of("lib/kotlin-compiler.jar")));
+        Path serialization = Path.of("lib/serialization.jar");
+        Classpath launcherClasspath = new Classpath(List.of(
+                Path.of("lib/kotlin-compiler.jar"), serialization));
+        KotlinCompilerInvocationToolchain invocationToolchain = new KotlinCompilerInvocationToolchain(
+                launcherClasspath, null, List.of(serialization));
         KotlinCompilerOptions options = new KotlinCompilerOptions(
                 "8", "demo_test", false, false, true, true, Path.of("target/classes"));
         CompileDiagnostics diagnostics = new CompileDiagnostics(1, 2, 3, 4, 5, 6, 7, 8);
@@ -51,12 +56,15 @@ final class KotlinTestCompileExecutorTest {
                     assertFalse(javacOptions.useJdkRelease());
                     return new JavacResult(1, output, "javac output");
                 },
-                (java, jdkHome, sources, launcher, classpath, output, kotlinOptions, scope) -> {
+                (java, jdkHome, sources, toolchain, classpath, output, kotlinOptions, scope) -> {
                     phases.add("kotlinc");
                     assertEquals(Path.of("/jdk/bin/java"), java);
                     assertEquals(Path.of("/jdk"), jdkHome);
                     assertEquals(List.of(JAVA_TEST, KOTLIN_TEST), sources);
-                    assertEquals(launcherClasspath, launcher);
+                    assertEquals(launcherClasspath, toolchain.launcherClasspath());
+                    assertEquals(
+                            List.of(serialization.toAbsolutePath().normalize()),
+                            toolchain.compilerPluginJars());
                     assertEquals(compileClasspath, classpath);
                     assertEquals(options, kotlinOptions);
                     assertTrue(kotlinOptions.javaParameters());
@@ -70,9 +78,11 @@ final class KotlinTestCompileExecutorTest {
                 jdkStatus(),
                 sources(List.of(JAVA_TEST), List.of(KOTLIN_TEST)),
                 compileClasspath,
-                launcherClasspath,
+                invocationToolchain,
+                new Classpath(List.of()),
                 options,
                 OUTPUT,
+                null,
                 "kotlin-test-sources",
                 diagnostics);
 
@@ -92,7 +102,7 @@ final class KotlinTestCompileExecutorTest {
                     javacCalled.set(true);
                     return new JavacResult(1, output, "");
                 },
-                (java, home, sources, launcher, classpath, output, options, scope) -> {
+                (java, home, sources, toolchain, classpath, output, options, scope) -> {
                     throw new KotlinCompileException("failed Kotlin phase");
                 });
 
@@ -120,7 +130,7 @@ final class KotlinTestCompileExecutorTest {
                     javacCalled.set(true);
                     return new JavacResult(0, output, "");
                 },
-                (java, home, sources, launcher, classpath, output, options, scope) ->
+                (java, home, sources, toolchain, classpath, output, options, scope) ->
                         new JavacResult(1, output, "kotlin output"));
 
         TestCompileAttempt attempt = executor.compile(
@@ -144,9 +154,14 @@ final class KotlinTestCompileExecutorTest {
         Classpath compileClasspath = new Classpath(List.of(
                 Path.of("target/classes"), Path.of("lib/test.jar")));
         Classpath launcherClasspath = new Classpath(List.of(
-                Path.of("lib/kotlin-compiler.jar"), Path.of("lib/kapt.jar")));
+                Path.of("lib/kotlin-compiler.jar"),
+                Path.of("lib/kapt.jar"),
+                Path.of("lib/serialization.jar")));
         Classpath processorClasspath = new Classpath(List.of(Path.of("lib/test-processor.jar")));
         Path plugin = Path.of("lib/kapt.jar");
+        Path serialization = Path.of("lib/serialization.jar");
+        KotlinCompilerInvocationToolchain invocationToolchain = new KotlinCompilerInvocationToolchain(
+                launcherClasspath, plugin, List.of(serialization));
         Path generated = Path.of("target/generated/test-sources/annotations");
         KotlinCompilerOptions options = new KotlinCompilerOptions(
                 "21", "demo_test", false).withFriendPath(Path.of("target/classes"));
@@ -155,18 +170,23 @@ final class KotlinTestCompileExecutorTest {
                 (javac, sources, classpath, output, processors, generatedDirectory, javacOptions) -> {
                     throw new AssertionError("standalone javac phase must not run");
                 },
-                (java, home, sources, launcher, classpath, output, kotlinOptions, scope) -> {
+                (java, home, sources, toolchain, classpath, output, kotlinOptions, scope) -> {
                     throw new AssertionError("standalone Kotlin phase must not run");
                 },
-                (jdk, allSources, javaSources, launcher, classpath, processors, kaptPlugin,
+                (jdk, allSources, javaSources, toolchain, classpath, processors,
                         output, generatedDirectory, kotlinOptions, scope) -> {
                     phases.add("kapt-lifecycle");
                     assertEquals(List.of(JAVA_TEST, KOTLIN_TEST), allSources);
                     assertEquals(List.of(JAVA_TEST), javaSources);
-                    assertEquals(launcherClasspath, launcher);
+                    assertEquals(launcherClasspath, toolchain.launcherClasspath());
                     assertEquals(compileClasspath, classpath);
                     assertEquals(processorClasspath, processors);
-                    assertEquals(plugin, kaptPlugin);
+                    assertEquals(
+                            plugin.toAbsolutePath().normalize(),
+                            toolchain.kaptPluginJar().orElseThrow());
+                    assertEquals(
+                            List.of(serialization.toAbsolutePath().normalize()),
+                            toolchain.compilerPluginJars());
                     assertEquals(OUTPUT, output);
                     assertEquals(generated, generatedDirectory);
                     assertEquals(options, kotlinOptions);
@@ -178,9 +198,8 @@ final class KotlinTestCompileExecutorTest {
                 jdkStatus(),
                 sources(List.of(JAVA_TEST), List.of(KOTLIN_TEST)),
                 compileClasspath,
-                launcherClasspath,
+                invocationToolchain,
                 processorClasspath,
-                plugin,
                 options,
                 OUTPUT,
                 generated,
