@@ -800,7 +800,8 @@ plus `-Xmulti-dollar-interpolation`, `-Xnon-local-break-continue`,
 `-Xjvm-expose-boxed`, `-Xconsistent-data-class-copy-visibility`, and
 `-Xemit-jvm-type-annotations`, plus `-Xno-new-java-annotation-targets`,
 `-Xno-source-debug-extension`, `-Xno-unified-null-checks`,
-`-Xno-param-assertions`, `-Xno-call-assertions`, `-Xno-optimize`,
+`-Xno-param-assertions`, `-Xno-call-assertions`,
+`-Xno-receiver-assertions`, `-Xno-optimize`,
 `-Xno-inline`, `-Xuse-inline-scopes-numbers`,
 `-Xenhanced-coroutines-debugging`,
 `-Xuse-14-inline-classes-mangling-scheme`, `-Xsanitize-parentheses`,
@@ -868,6 +869,7 @@ args = [
   "-Xno-unified-null-checks",
   "-Xno-param-assertions",
   "-Xno-call-assertions",
+  "-Xno-receiver-assertions",
   "-Xno-optimize",
   "-Xno-inline",
   "-Xuse-inline-scopes-numbers",
@@ -1098,6 +1100,19 @@ Kotlin method declared to return `String` instead of failing in
 compile-time type remain non-null, while Java can observe the unchecked `null`
 and a later dereference can still fail. The flag is sent only to kotlinc and
 does not change authored Java compilation. Prefer the default boundary check;
+use suppression only for a deliberate platform-type compatibility contract.
+Configure it independently for main and test source sets; changing it
+invalidates and cleanly recompiles the matching output.
+`-Xno-receiver-assertions` removes the generated non-null check when an
+unchecked Java platform value is passed as a non-null Kotlin extension
+receiver. In the qualified mixed Java/Kotlin case, an unannotated Java method
+returning `null` can reach an extension that does not dereference its receiver
+instead of failing in `Intrinsics.checkNotNullExpressionValue` at the call
+site. The extension receiver remains non-null in the Kotlin type system, and a
+later dereference can still fail. This option is narrower than
+`-Xno-call-assertions`, which suppresses platform-result checks generally; the
+separate `-Xno-param-assertions` option controls generated checks at
+Java-callable Kotlin method entry. Prefer the default receiver boundary check;
 use suppression only for a deliberate platform-type compatibility contract.
 Configure it independently for main and test source sets; changing it
 invalidates and cleanly recompiles the matching output.
@@ -1360,7 +1375,8 @@ annotated-lambda indy compatibility, SAM-conversion mode, boxed value-class
 exposure, data-class copy visibility, source-debug annotation emission,
 JSpecify, JSR-305, or package-specific Java nullness severity, legacy null-check
 exceptions, Java-entry parameter assertions, strict metadata-version semantics,
-platform-call result assertions, annotations in metadata, backend
+platform-call result assertions, extension-receiver assertions, annotations in
+metadata, backend
 optimization, method inlining, inline-scope debug numbering, JVM-name
 parentheses sanitization, legacy inline-class mangling, multifile-part
 inheritance, complete warning reporting, internal diagnostic-name rendering,
@@ -1381,10 +1397,11 @@ nested-type-aliases, multi-dollar-interpolation, non-local loop control,
 annotation-target, package-specific nullability, boxed value-class, and
 data-class copy visibility, source-debug annotation, and strict-metadata
 behavior, plus legacy null-check exception and Java-entry parameter-assertion
-behavior, and platform-call result-assertion behavior. Main and test annotation,
+behavior, platform-call result-assertion behavior, and extension-receiver
+assertion behavior. Main and test annotation,
 boxed-exposure, copy-visibility, source-debug, strict-metadata, and legacy
-null-check, parameter-assertion, call-assertion, and annotation-metadata settings are
-independent. Changing any of
+null-check, parameter-assertion, call-assertion, receiver-assertion, and
+annotation-metadata settings are independent. Changing any of
 them performs a cleaned full compilation of that source set so obsolete
 placement, constructors, bridges, method visibility, metadata, or null-check
 calls cannot survive. The compiler also decides whether an opt-in annotation
