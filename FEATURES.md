@@ -81,11 +81,12 @@ zolt run
   implementation may be selected explicitly per source set. Scoped
   `-Akey=value` options in
   `[compiler].args` and `[compiler.test].args` are validated and passed only to
-  the matching KAPT processor lane. Main source sets may instead declare KSP2
-  processors through an owned `kind = "ksp"` generation step. Zolt locks the
-  matching KSP engine and processor closures separately, runs them outside the
-  application classpath, and admits their generated Kotlin, Java, and resource
-  lanes before compilation. KSP test generation remains outside the preview.
+  the matching KAPT processor lane. Main and test source sets may instead
+  declare KSP2 processors through an owned `kind = "ksp"` generation step. Zolt
+  locks the matching KSP engine and processor closures separately, runs them
+  outside the application classpath, and admits their generated Kotlin, Java,
+  and resource lanes before compilation. The test lane serves both unit- and
+  integration-test source projections.
   Warnings may be expanded, enforced, suppressed, or adjusted by diagnostic per
   source set. Kotlin/JVM string concatenation may use inline `StringBuilder` or
   either invokedynamic scheme per source set; lambda generation may likewise

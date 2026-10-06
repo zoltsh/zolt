@@ -51,9 +51,9 @@ names the resolve command that refreshes the stale lock.
 
 In a Kotlin/JVM source set, `processor` and `test-processor` dependencies run
 through a version-aligned, isolated KAPT toolchain. Zolt makes generated Java
-types visible to Kotlin and Java consumers in that source set. A Kotlin main
-source set may instead run locked KSP2 processors through a required
-`[generated.main]` step:
+types visible to Kotlin and Java consumers in that source set. A Kotlin main or
+test source set may instead run locked KSP2 processors through a required
+`[generated.main]` or `[generated.test]` step:
 
 ```toml
 [generated.tools.ksp]
@@ -67,11 +67,14 @@ kind = "ksp"
 options = { "processor.mode" = "production" }
 ```
 
+Use `[generated.test.symbols]` for the matching unit- and integration-test
+source-set projection.
+
 The KSP release must match the configured Kotlin compiler. Zolt locks the KSP
 engine and processor closures separately, owns the generated Kotlin, Java, and
 resource lanes, and includes their identity and bytes in reuse decisions. KSP
-for test source sets and custom Kotlin compiler plugins are not part of the
-bounded preview.
+test generation uses the member's main output plus its ordered test compile
+classpath. Custom Kotlin compiler plugins are not part of the bounded preview.
 
 Pass processor options as scoped compiler arguments. Each option requires the
 matching processor dependency lane:
