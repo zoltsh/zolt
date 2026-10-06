@@ -45,7 +45,7 @@ final class ManifestToolchainDecoderTest {
 
                 [toolchain.kotlin]
                 version = "2.2.0"
-                plugins = ["serialization", "spring"]
+                plugins = ["serialization", "spring", "jpa"]
                 """);
 
         assertEquals("0.1.0-rc.1", toolchains.zolt().orElseThrow().value());
@@ -66,7 +66,8 @@ final class ManifestToolchainDecoderTest {
         assertEquals(
                 Set.of(
                         KotlinCompilerPlugin.SERIALIZATION,
-                        KotlinCompilerPlugin.SPRING),
+                        KotlinCompilerPlugin.SPRING,
+                        KotlinCompilerPlugin.JPA),
                 toolchains.kotlin().orElseThrow().plugins());
     }
 

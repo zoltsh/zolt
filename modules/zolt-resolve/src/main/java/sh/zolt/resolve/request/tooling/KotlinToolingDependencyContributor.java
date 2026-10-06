@@ -19,6 +19,8 @@ public final class KotlinToolingDependencyContributor {
             "org.jetbrains.kotlin", "kotlin-serialization-compiler-plugin-embeddable");
     private static final PackageId KOTLIN_ALL_OPEN = new PackageId(
             "org.jetbrains.kotlin", "kotlin-allopen-compiler-plugin-embeddable");
+    private static final PackageId KOTLIN_NO_ARG = new PackageId(
+            "org.jetbrains.kotlin", "kotlin-noarg-compiler-plugin-embeddable");
 
     public void contribute(ProjectConfig config, List<DependencyRequest> requests) {
         String version = config.compilerSettings().kotlinVersion();
@@ -47,6 +49,10 @@ public final class KotlinToolingDependencyContributor {
         if (config.compilerSettings().kotlinPlugins()
                 .contains(KotlinCompilerPlugin.SPRING)) {
             contribute(version.strip(), KOTLIN_ALL_OPEN, requests);
+        }
+        if (config.compilerSettings().kotlinPlugins()
+                .contains(KotlinCompilerPlugin.JPA)) {
+            contribute(version.strip(), KOTLIN_NO_ARG, requests);
         }
     }
 

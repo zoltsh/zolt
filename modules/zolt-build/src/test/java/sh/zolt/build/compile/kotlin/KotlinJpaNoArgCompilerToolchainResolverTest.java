@@ -25,10 +25,8 @@ import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.project.toolchain.KotlinCompilerPlugin;
 
-final class KotlinSpringCompilerToolchainResolverTest
+final class KotlinJpaNoArgCompilerToolchainResolverTest
         extends KotlinCompilerToolchainResolverTestSupport {
-    private static final PackageId ALL_OPEN = new PackageId(
-            "org.jetbrains.kotlin", "kotlin-allopen-compiler-plugin-embeddable");
     private static final PackageId NO_ARG = new PackageId(
             "org.jetbrains.kotlin", "kotlin-noarg-compiler-plugin-embeddable");
     private static final String REGISTRAR =
@@ -37,119 +35,64 @@ final class KotlinSpringCompilerToolchainResolverTest
             "META-INF/services/org.jetbrains.kotlin.compiler.plugin.CommandLineProcessor";
 
     @Test
-    void resolvesSpringAsAnExactVersionAlignedAllOpenPreset() throws IOException {
+    void resolvesJpaAsAnExactVersionAlignedNoArgPreset() throws IOException {
         VerifiedJar compiler = compilerJar("kotlin-compiler-embeddable", VERSION, true);
         VerifiedJar runtime = plainJar(STDLIB, VERSION, "stdlib");
-        VerifiedJar allOpen = pluginJar(
-                ALL_OPEN,
-                "kotlin-allopen-compiler-plugin.embeddable",
+        VerifiedJar noArg = pluginJar(
+                "kotlin-noarg-compiler-plugin.embeddable",
                 VERSION + "-release-294",
                 true,
                 true);
 
         KotlinCompilerToolchain toolchain = resolver.resolve(
-                packages(compiler, runtime, ALL_OPEN, allOpen, VERSION),
+                packages(compiler, runtime, noArg, VERSION),
                 VERSION,
                 KotlinCompilationScope.MAIN,
-                Set.of(KotlinCompilerPlugin.SPRING));
+                Set.of(KotlinCompilerPlugin.JPA));
 
         assertEquals(
-                List.of(allOpen.path().toAbsolutePath().normalize()),
+                List.of(noArg.path().toAbsolutePath().normalize()),
                 toolchain.compilerPluginJars());
         assertEquals(
                 List.of(new KotlinCompilerPluginOption(
-                        "org.jetbrains.kotlin.allopen", "preset", "spring")),
+                        "org.jetbrains.kotlin.noarg", "preset", "jpa")),
                 toolchain.compilerPluginOptions());
         assertTrue(toolchain.launcherClasspath().entries().contains(
-                allOpen.path().toAbsolutePath().normalize()));
+                noArg.path().toAbsolutePath().normalize()));
         assertFalse(toolchain.identity().contains(tempDir.toString()));
-    }
-
-    @Test
-    void keepsMultiplePluginsInOwnedDeterministicOrder() throws IOException {
-        VerifiedJar compiler = compilerJar("kotlin-compiler-embeddable", VERSION, true);
-        VerifiedJar runtime = plainJar(STDLIB, VERSION, "stdlib");
-        VerifiedJar allOpen = pluginJar(
-                ALL_OPEN,
-                "kotlin-allopen-compiler-plugin.embeddable",
-                VERSION,
-                true,
-                true);
-        VerifiedJar serialization = pluginJar(
-                SERIALIZATION_PLUGIN,
-                "kotlinx-serialization-compiler-plugin.embeddable",
-                VERSION,
-                true,
-                false);
-        VerifiedJar noArg = pluginJar(
-                NO_ARG,
-                "kotlin-noarg-compiler-plugin.embeddable",
-                VERSION,
-                true,
-                true);
-
-        KotlinCompilerToolchain toolchain = resolver.resolve(
-                validPackages(
-                        compiler,
-                        runtime,
-                        pluginDependency(ALL_OPEN, allOpen, VERSION),
-                        pluginDependency(SERIALIZATION_PLUGIN, serialization, VERSION),
-                        pluginDependency(NO_ARG, noArg, VERSION)),
-                VERSION,
-                KotlinCompilationScope.MAIN,
-                Set.of(
-                        KotlinCompilerPlugin.SPRING,
-                        KotlinCompilerPlugin.SERIALIZATION,
-                        KotlinCompilerPlugin.JPA));
-
-        assertEquals(
-                List.of(
-                        serialization.path().toAbsolutePath().normalize(),
-                        allOpen.path().toAbsolutePath().normalize(),
-                        noArg.path().toAbsolutePath().normalize()),
-                toolchain.compilerPluginJars());
-        assertEquals(
-                List.of(
-                        "plugin:org.jetbrains.kotlin.allopen:preset=spring",
-                        "plugin:org.jetbrains.kotlin.noarg:preset=jpa"),
-                toolchain.compilerPluginOptions().stream()
-                        .map(KotlinCompilerPluginOption::argument)
-                        .toList());
     }
 
     @Test
     void requiresConfigurationAndAnExactAlignedDirectRoot() throws IOException {
         VerifiedJar compiler = compilerJar("kotlin-compiler-embeddable", VERSION, true);
         VerifiedJar runtime = plainJar(STDLIB, VERSION, "stdlib");
-        VerifiedJar allOpen = pluginJar(
-                ALL_OPEN,
-                "kotlin-allopen-compiler-plugin.embeddable",
+        VerifiedJar noArg = pluginJar(
+                "kotlin-noarg-compiler-plugin.embeddable",
                 VERSION,
                 true,
                 true);
 
         assertMessageContains(
-                () -> resolver.resolve(
-                        packages(compiler, runtime, ALL_OPEN, allOpen, VERSION), VERSION),
+                () -> resolver.resolve(packages(compiler, runtime, noArg, VERSION), VERSION),
                 "extra direct roots in scope `tool-kotlin`");
         assertMessageContains(
                 () -> resolver.resolve(
                         validPackages(compiler, runtime),
                         VERSION,
                         KotlinCompilationScope.MAIN,
-                        Set.of(KotlinCompilerPlugin.SPRING)),
-                "no direct " + ALL_OPEN);
+                        Set.of(KotlinCompilerPlugin.JPA)),
+                "no direct " + NO_ARG);
         assertMessageContains(
                 () -> resolver.resolve(
-                        packages(compiler, runtime, ALL_OPEN, allOpen, "2.2.1"),
+                        packages(compiler, runtime, noArg, "2.2.1"),
                         VERSION,
                         KotlinCompilationScope.MAIN,
-                        Set.of(KotlinCompilerPlugin.SPRING)),
-                "does not match zolt.lock Spring all-open compiler plugin tool root version `2.2.1`");
+                        Set.of(KotlinCompilerPlugin.JPA)),
+                "does not match zolt.lock JPA no-arg compiler plugin tool root version `2.2.1`");
     }
 
     @Test
-    void rejectsAllOpenJarsWithoutOfficialExecutableMetadata() throws IOException {
+    void rejectsNoArgJarsWithoutOfficialExecutableMetadata() throws IOException {
         VerifiedJar compiler = compilerJar("kotlin-compiler-embeddable", VERSION, true);
         VerifiedJar runtime = plainJar(STDLIB, VERSION, "stdlib");
 
@@ -157,8 +100,7 @@ final class KotlinSpringCompilerToolchainResolverTest
                 compiler,
                 runtime,
                 pluginJar(
-                        ALL_OPEN,
-                        "kotlin-allopen-compiler-plugin.embeddable",
+                        "kotlin-noarg-compiler-plugin.embeddable",
                         VERSION,
                         false,
                         true),
@@ -167,8 +109,7 @@ final class KotlinSpringCompilerToolchainResolverTest
                 compiler,
                 runtime,
                 pluginJar(
-                        ALL_OPEN,
-                        "kotlin-allopen-compiler-plugin.embeddable",
+                        "kotlin-noarg-compiler-plugin.embeddable",
                         VERSION,
                         true,
                         false),
@@ -176,14 +117,13 @@ final class KotlinSpringCompilerToolchainResolverTest
         assertPluginFailure(
                 compiler,
                 runtime,
-                pluginJar(ALL_OPEN, "not-all-open", VERSION, true, true),
-                "Implementation-Title `not-all-open`");
+                pluginJar("not-no-arg", VERSION, true, true),
+                "Implementation-Title `not-no-arg`");
         assertPluginFailure(
                 compiler,
                 runtime,
                 pluginJar(
-                        ALL_OPEN,
-                        "kotlin-allopen-compiler-plugin.embeddable",
+                        "kotlin-noarg-compiler-plugin.embeddable",
                         "2.2.1",
                         true,
                         true),
@@ -193,35 +133,26 @@ final class KotlinSpringCompilerToolchainResolverTest
     private List<ResolvedClasspathPackage> packages(
             VerifiedJar compiler,
             VerifiedJar runtime,
-            PackageId pluginId,
-            VerifiedJar plugin,
+            VerifiedJar noArg,
             String pluginVersion) {
         return validPackages(
                 compiler,
                 runtime,
-                pluginDependency(pluginId, plugin, pluginVersion));
-    }
-
-    private static ResolvedClasspathPackage pluginDependency(
-            PackageId pluginId,
-            VerifiedJar plugin,
-            String pluginVersion) {
-        return dependency(
-                pluginId,
-                plugin,
-                pluginVersion,
-                DependencyScope.TOOL_KOTLIN,
-                true,
-                NestedArtifactIdentity.external(pluginId, pluginVersion));
+                dependency(
+                        NO_ARG,
+                        noArg,
+                        pluginVersion,
+                        DependencyScope.TOOL_KOTLIN,
+                        true,
+                        NestedArtifactIdentity.external(NO_ARG, pluginVersion)));
     }
 
     private VerifiedJar pluginJar(
-            PackageId pluginId,
             String implementationTitle,
             String implementationVersion,
             boolean includeRegistrar,
             boolean includeCommandLineProcessor) throws IOException {
-        Path jar = tempDir.resolve("artifacts/kotlin-plugin-" + jarSequence++ + ".jar");
+        Path jar = tempDir.resolve("artifacts/kotlin-noarg-" + jarSequence++ + ".jar");
         Files.createDirectories(jar.getParent());
         Manifest manifest = new Manifest();
         manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
@@ -242,7 +173,7 @@ final class KotlinSpringCompilerToolchainResolverTest
                         "processor".getBytes(StandardCharsets.UTF_8));
             }
         }
-        return verifiedArtifact(jar, pluginId, VERSION);
+        return verifiedArtifact(jar, NO_ARG, VERSION);
     }
 
     private void assertPluginFailure(
@@ -252,10 +183,10 @@ final class KotlinSpringCompilerToolchainResolverTest
             String expected) {
         assertMessageContains(
                 () -> resolver.resolve(
-                        packages(compiler, runtime, ALL_OPEN, plugin, VERSION),
+                        packages(compiler, runtime, plugin, VERSION),
                         VERSION,
                         KotlinCompilationScope.MAIN,
-                        Set.of(KotlinCompilerPlugin.SPRING)),
+                        Set.of(KotlinCompilerPlugin.JPA)),
                 expected);
     }
 

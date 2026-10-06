@@ -5,7 +5,8 @@ import java.util.Optional;
 /** Closed, version-aligned Kotlin compiler plugins owned by Zolt. */
 public enum KotlinCompilerPlugin {
     SERIALIZATION("serialization"),
-    SPRING("spring");
+    SPRING("spring"),
+    JPA("jpa");
 
     private final String id;
 

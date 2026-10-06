@@ -108,13 +108,20 @@ public final class KotlinCompilerToolchainResolver {
 
     private static List<KotlinCompilerPluginOption> compilerPluginOptions(
             Set<KotlinCompilerPlugin> plugins) {
-        if (!plugins.contains(KotlinCompilerPlugin.SPRING)) {
-            return List.of();
+        List<KotlinCompilerPluginOption> options = new ArrayList<>();
+        if (plugins.contains(KotlinCompilerPlugin.SPRING)) {
+            options.add(new KotlinCompilerPluginOption(
+                    "org.jetbrains.kotlin.allopen",
+                    "preset",
+                    "spring"));
         }
-        return List.of(new KotlinCompilerPluginOption(
-                "org.jetbrains.kotlin.allopen",
-                "preset",
-                "spring"));
+        if (plugins.contains(KotlinCompilerPlugin.JPA)) {
+            options.add(new KotlinCompilerPluginOption(
+                    "org.jetbrains.kotlin.noarg",
+                    "preset",
+                    "jpa"));
+        }
+        return List.copyOf(options);
     }
 
     private static List<VerifiedCompilerArtifact> orderedClosure(

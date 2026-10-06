@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import sh.zolt.project.ProjectConfig;
@@ -34,13 +35,14 @@ final class KotlinToolchainResolutionFingerprintTest {
     @Test
     void fingerprintsTheVersionAlignedCompilerPlugins() {
         ProjectConfig plain = config("2.2.0");
-        ProjectConfig plugins = config("2.2.0", true, true);
+        ProjectConfig plugins = config("2.2.0", true, true, true);
 
         assertEquals(
                 List.of(
                         "toolchain.kotlin\torg.jetbrains.kotlin:kotlin-compiler-embeddable\t2.2.0\tconflict-provenance-v1\texact-root-v1",
                         "toolchain.kotlin\torg.jetbrains.kotlin:kotlin-serialization-compiler-plugin-embeddable\t2.2.0\tconflict-provenance-v1\texact-root-v1",
-                        "toolchain.kotlin\torg.jetbrains.kotlin:kotlin-allopen-compiler-plugin-embeddable\t2.2.0\tconflict-provenance-v1\texact-root-v1"),
+                        "toolchain.kotlin\torg.jetbrains.kotlin:kotlin-allopen-compiler-plugin-embeddable\t2.2.0\tconflict-provenance-v1\texact-root-v1",
+                        "toolchain.kotlin\torg.jetbrains.kotlin:kotlin-noarg-compiler-plugin-embeddable\t2.2.0\tconflict-provenance-v1\texact-root-v1"),
                 ProjectResolutionFingerprint.inputs(plugins).stream()
                         .filter(input -> input.startsWith("toolchain.kotlin\t"))
                         .toList());
@@ -57,16 +59,27 @@ final class KotlinToolchainResolutionFingerprintTest {
     }
 
     private static ProjectConfig config(String kotlinVersion) {
-        return config(kotlinVersion, false, false);
+        return config(kotlinVersion, false, false, false);
     }
 
     private static ProjectConfig config(
             String kotlinVersion,
             boolean serialization,
-            boolean spring) {
-        String plugins = serialization && spring
-                ? "\nplugins = [\"serialization\", \"spring\"]"
-                : serialization ? "\nplugins = [\"serialization\"]" : "";
+            boolean spring,
+            boolean jpa) {
+        List<String> selectedPlugins = new ArrayList<>();
+        if (serialization) {
+            selectedPlugins.add("\"serialization\"");
+        }
+        if (spring) {
+            selectedPlugins.add("\"spring\"");
+        }
+        if (jpa) {
+            selectedPlugins.add("\"jpa\"");
+        }
+        String plugins = selectedPlugins.isEmpty()
+                ? ""
+                : "\nplugins = [" + String.join(", ", selectedPlugins) + "]";
         String toolchain = kotlinVersion.isBlank()
                 ? ""
                 : """

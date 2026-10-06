@@ -13,6 +13,8 @@ final class KotlinToolchainResolutionInputs {
             "org.jetbrains.kotlin:kotlin-serialization-compiler-plugin-embeddable";
     private static final String ALL_OPEN =
             "org.jetbrains.kotlin:kotlin-allopen-compiler-plugin-embeddable";
+    private static final String NO_ARG =
+            "org.jetbrains.kotlin:kotlin-noarg-compiler-plugin-embeddable";
 
     private KotlinToolchainResolutionInputs() {
     }
@@ -28,6 +30,7 @@ final class KotlinToolchainResolutionInputs {
         return switch (plugin) {
             case SERIALIZATION -> SERIALIZATION;
             case SPRING -> ALL_OPEN;
+            case JPA -> NO_ARG;
         };
     }
 

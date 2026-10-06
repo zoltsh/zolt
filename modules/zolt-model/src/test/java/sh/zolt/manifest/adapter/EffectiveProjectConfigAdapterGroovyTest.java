@@ -64,7 +64,8 @@ final class EffectiveProjectConfigAdapterGroovyTest {
                 "2.2.0",
                 Set.of(
                         KotlinCompilerPlugin.SERIALIZATION,
-                        KotlinCompilerPlugin.SPRING)));
+                        KotlinCompilerPlugin.SPRING,
+                        KotlinCompilerPlugin.JPA)));
         AuthoredManifest member = projectManifest("app", AuthoredToolchains.empty());
 
         ProjectConfig config = adapt(COMPOSER.composeWorkspaceMember(root, MEMBER, member));
@@ -72,7 +73,8 @@ final class EffectiveProjectConfigAdapterGroovyTest {
         assertEquals(
                 Set.of(
                         KotlinCompilerPlugin.SERIALIZATION,
-                        KotlinCompilerPlugin.SPRING),
+                        KotlinCompilerPlugin.SPRING,
+                        KotlinCompilerPlugin.JPA),
                 config.compilerSettings().kotlinPlugins());
     }
 

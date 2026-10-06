@@ -20,6 +20,8 @@ public final class KotlinCompilerToolRoots {
             new PackageId("org.jetbrains.kotlin", "kotlin-serialization-compiler-plugin-embeddable");
     public static final PackageId ALL_OPEN =
             new PackageId("org.jetbrains.kotlin", "kotlin-allopen-compiler-plugin-embeddable");
+    public static final PackageId NO_ARG =
+            new PackageId("org.jetbrains.kotlin", "kotlin-noarg-compiler-plugin-embeddable");
 
     private KotlinCompilerToolRoots() {
     }
@@ -36,13 +38,15 @@ public final class KotlinCompilerToolRoots {
         List<ResolvedClasspathPackage> kaptRoots = matching(roots, KAPT);
         List<ResolvedClasspathPackage> serializationRoots = matching(roots, SERIALIZATION);
         List<ResolvedClasspathPackage> allOpenRoots = matching(roots, ALL_OPEN);
+        List<ResolvedClasspathPackage> noArgRoots = matching(roots, NO_ARG);
 
         requireExactlyOneCompiler(compilerRoots, configuredVersion);
         requireAtMostOne(kaptRoots, KAPT, "KAPT");
         requireAtMostOne(serializationRoots, SERIALIZATION, "serialization compiler plugin");
         requireAtMostOne(allOpenRoots, ALL_OPEN, "Spring all-open compiler plugin");
+        requireAtMostOne(noArgRoots, NO_ARG, "JPA no-arg compiler plugin");
         requireExpectedPluginRoots(
-                plugins, serializationRoots, allOpenRoots, configuredVersion);
+                plugins, serializationRoots, allOpenRoots, noArgRoots, configuredVersion);
         rejectExtraRoots(roots, plugins);
         requireAlignedVersion(kaptRoots, configuredVersion, "KAPT tool root");
         requireAlignedVersion(
@@ -53,6 +57,10 @@ public final class KotlinCompilerToolRoots {
                 allOpenRoots,
                 configuredVersion,
                 "Spring all-open compiler plugin tool root");
+        requireAlignedVersion(
+                noArgRoots,
+                configuredVersion,
+                "JPA no-arg compiler plugin tool root");
 
         List<ResolvedClasspathPackage> pluginRoots = new ArrayList<>();
         if (plugins.contains(KotlinCompilerPlugin.SERIALIZATION)) {
@@ -60,6 +68,9 @@ public final class KotlinCompilerToolRoots {
         }
         if (plugins.contains(KotlinCompilerPlugin.SPRING)) {
             pluginRoots.add(allOpenRoots.getFirst());
+        }
+        if (plugins.contains(KotlinCompilerPlugin.JPA)) {
+            pluginRoots.add(noArgRoots.getFirst());
         }
         return new Selection(
                 compilerRoots.getFirst(),
@@ -102,6 +113,7 @@ public final class KotlinCompilerToolRoots {
             Set<KotlinCompilerPlugin> plugins,
             List<ResolvedClasspathPackage> serializationRoots,
             List<ResolvedClasspathPackage> allOpenRoots,
+            List<ResolvedClasspathPackage> noArgRoots,
             String version) {
         if (plugins.contains(KotlinCompilerPlugin.SERIALIZATION)
                 && serializationRoots.isEmpty()) {
@@ -113,6 +125,12 @@ public final class KotlinCompilerToolRoots {
                 && allOpenRoots.isEmpty()) {
             throw invalid("zolt.lock has no direct " + ALL_OPEN
                     + " root in scope `tool-kotlin` for configured plugin `spring` "
+                    + "at version `" + version + "`");
+        }
+        if (plugins.contains(KotlinCompilerPlugin.JPA)
+                && noArgRoots.isEmpty()) {
+            throw invalid("zolt.lock has no direct " + NO_ARG
+                    + " root in scope `tool-kotlin` for configured plugin `jpa` "
                     + "at version `" + version + "`");
         }
     }
@@ -138,7 +156,9 @@ public final class KotlinCompilerToolRoots {
         return plugins.contains(KotlinCompilerPlugin.SERIALIZATION)
                         && packageId.equals(SERIALIZATION)
                 || plugins.contains(KotlinCompilerPlugin.SPRING)
-                        && packageId.equals(ALL_OPEN);
+                        && packageId.equals(ALL_OPEN)
+                || plugins.contains(KotlinCompilerPlugin.JPA)
+                        && packageId.equals(NO_ARG);
     }
 
     private static void requireAlignedVersion(

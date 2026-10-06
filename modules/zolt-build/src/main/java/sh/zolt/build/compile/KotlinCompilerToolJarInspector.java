@@ -56,6 +56,15 @@ final class KotlinCompilerToolJarInspector {
                     "Spring all-open compiler plugin");
             return;
         }
+        if (packageId.equals(KotlinCompilerToolRoots.NO_ARG)) {
+            inspect(
+                    version,
+                    jar,
+                    List.of(REGISTRAR, COMMAND_LINE_PROCESSOR),
+                    "kotlin-noarg-compiler-plugin.embeddable",
+                    "JPA no-arg compiler plugin");
+            return;
+        }
         throw KotlinCompilerToolchainResolver.invalid(
                 "the selected compiler plugin root is unsupported: " + packageId);
     }

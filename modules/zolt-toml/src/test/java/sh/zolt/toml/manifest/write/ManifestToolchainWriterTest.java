@@ -61,7 +61,8 @@ final class ManifestToolchainWriterTest {
                         new KotlinToolchainVersion("2.2.0"),
                         Set.of(
                                 KotlinCompilerPlugin.SERIALIZATION,
-                                KotlinCompilerPlugin.SPRING))));
+                                KotlinCompilerPlugin.SPRING,
+                                KotlinCompilerPlugin.JPA))));
 
         String output = write(toolchains);
 
@@ -86,7 +87,7 @@ final class ManifestToolchainWriterTest {
 
                 [toolchain.kotlin]
                 version = "2.2.0"
-                plugins = ["serialization", "spring"]
+                plugins = ["serialization", "spring", "jpa"]
                 """,
                 output);
         assertFalse(Toml.parse(output).hasErrors());

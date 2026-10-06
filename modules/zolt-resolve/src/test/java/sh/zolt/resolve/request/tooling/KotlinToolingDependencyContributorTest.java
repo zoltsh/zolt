@@ -23,6 +23,8 @@ final class KotlinToolingDependencyContributorTest {
             "org.jetbrains.kotlin", "kotlin-serialization-compiler-plugin-embeddable");
     private static final PackageId KOTLIN_ALL_OPEN = new PackageId(
             "org.jetbrains.kotlin", "kotlin-allopen-compiler-plugin-embeddable");
+    private static final PackageId KOTLIN_NO_ARG = new PackageId(
+            "org.jetbrains.kotlin", "kotlin-noarg-compiler-plugin-embeddable");
 
     private final KotlinToolingDependencyContributor contributor =
             new KotlinToolingDependencyContributor();
@@ -95,11 +97,12 @@ final class KotlinToolingDependencyContributorTest {
     void contributesTheVersionAlignedCompilerPluginsOnce() {
         List<DependencyRequest> requests = new ArrayList<>();
 
-        contributor.contribute(config("2.2.0", false, true, true), requests);
-        contributor.contribute(config("2.2.0", false, true, true), requests);
+        contributor.contribute(config("2.2.0", false, true, true, true), requests);
+        contributor.contribute(config("2.2.0", false, true, true, true), requests);
 
-        assertEquals(3, requests.size());
-        for (PackageId packageId : List.of(KOTLIN_SERIALIZATION, KOTLIN_ALL_OPEN)) {
+        assertEquals(4, requests.size());
+        for (PackageId packageId : List.of(
+                KOTLIN_SERIALIZATION, KOTLIN_ALL_OPEN, KOTLIN_NO_ARG)) {
             DependencyRequest plugin = requests.stream()
                     .filter(request -> request.packageId().equals(packageId))
                     .findFirst()
@@ -133,9 +136,28 @@ final class KotlinToolingDependencyContributorTest {
             boolean processor,
             boolean serialization,
             boolean spring) {
-        String plugins = serialization && spring
-                ? "\nplugins = [\"serialization\", \"spring\"]"
-                : serialization ? "\nplugins = [\"serialization\"]" : "";
+        return config(kotlinVersion, processor, serialization, spring, false);
+    }
+
+    private static ProjectConfig config(
+            String kotlinVersion,
+            boolean processor,
+            boolean serialization,
+            boolean spring,
+            boolean jpa) {
+        List<String> selectedPlugins = new ArrayList<>();
+        if (serialization) {
+            selectedPlugins.add("\"serialization\"");
+        }
+        if (spring) {
+            selectedPlugins.add("\"spring\"");
+        }
+        if (jpa) {
+            selectedPlugins.add("\"jpa\"");
+        }
+        String plugins = selectedPlugins.isEmpty()
+                ? ""
+                : "\nplugins = [" + String.join(", ", selectedPlugins) + "]";
         String toolchain = kotlinVersion.isBlank()
                 ? ""
                 : """
