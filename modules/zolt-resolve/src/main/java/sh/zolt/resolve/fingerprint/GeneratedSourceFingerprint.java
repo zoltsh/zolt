@@ -4,6 +4,8 @@ import sh.zolt.project.ExecGenerationSettings;
 import sh.zolt.project.ExecToolCoordinate;
 import sh.zolt.project.ExecToolSettings;
 import sh.zolt.project.GeneratedSourceStep;
+import sh.zolt.project.KspGenerationSettings;
+import sh.zolt.project.KspProcessorSettings;
 import sh.zolt.project.OpenApiGenerationSettings;
 import sh.zolt.project.ProducesLane;
 import sh.zolt.project.ProtobufGenerationSettings;
@@ -48,6 +50,7 @@ final class GeneratedSourceFingerprint {
         openApi(encoder, step.openApi());
         protobuf(encoder, step.protobuf());
         exec(encoder, step.exec());
+        ksp(encoder, step.ksp());
     }
 
     private static void openApi(Encoder encoder, OpenApiGenerationSettings openApi) {
@@ -131,6 +134,26 @@ final class GeneratedSourceFingerprint {
         scoped.list("versionCommand", tool.versionCommand());
         scoped.optional("versionExpect", tool.versionExpect());
         scoped.flag("allowUnpinnedTool", tool.allowUnpinnedTool());
+    }
+
+    private static void ksp(Encoder encoder, KspGenerationSettings ksp) {
+        if (ksp.equals(KspGenerationSettings.empty())) {
+            return;
+        }
+        Encoder scoped = encoder.scope("ksp");
+        scoped.text("toolName", ksp.toolName());
+        scoped.optional("version", ksp.version());
+        scoped.optional("versionRef", ksp.versionRef());
+        List<KspProcessorSettings> processors = ksp.processors();
+        for (int index = 0; index < processors.size(); index++) {
+            KspProcessorSettings processor = processors.get(index);
+            String ordinal = Integer.toString(index);
+            scoped.emit("processors.coordinate", ordinal, processor.coordinate());
+            scoped.emit("processors.version", ordinal, processor.version());
+            processor.versionRef().ifPresent(
+                    value -> scoped.emit("processors.versionRef", ordinal, value));
+        }
+        scoped.map("options", ksp.options());
     }
 
     /** Writes {@code <category> <id> <prefix><field> ...} lines into one shared input list. */

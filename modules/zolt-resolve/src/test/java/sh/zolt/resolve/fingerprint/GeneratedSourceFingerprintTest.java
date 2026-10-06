@@ -8,6 +8,8 @@ import sh.zolt.project.ExecToolCoordinate;
 import sh.zolt.project.ExecToolSettings;
 import sh.zolt.project.GeneratedSourceKind;
 import sh.zolt.project.GeneratedSourceStep;
+import sh.zolt.project.KspGenerationSettings;
+import sh.zolt.project.KspProcessorSettings;
 import sh.zolt.project.OpenApiGenerationSettings;
 import sh.zolt.project.ProducesLane;
 import sh.zolt.project.ProjectConfig;
@@ -47,6 +49,8 @@ final class GeneratedSourceFingerprintTest {
                 "ExecGenerationSettings[",
                 "ExecToolSettings[",
                 "ExecToolCoordinate[",
+                "KspGenerationSettings[",
+                "KspProcessorSettings[",
                 "Optional[",
                 "Optional.empty")) {
             assertTrue(
@@ -73,7 +77,9 @@ final class GeneratedSourceFingerprintTest {
                 ProtobufGenerationSettings.class,
                 ExecGenerationSettings.class,
                 ExecToolSettings.class,
-                ExecToolCoordinate.class)) {
+                ExecToolCoordinate.class,
+                KspGenerationSettings.class,
+                KspProcessorSettings.class)) {
             for (RecordComponent component : settings.getRecordComponents()) {
                 String name = component.getName();
                 assertTrue(
@@ -113,7 +119,8 @@ final class GeneratedSourceFingerprintTest {
                         step.exec().secretEnv(),
                         step.exec().inheritEnv(),
                         step.exec().timeoutSeconds(),
-                        Optional.of("other-salt")));
+                        Optional.of("other-salt")),
+                step.ksp());
 
         assertNotEquals(
                 ProjectResolutionFingerprint.fingerprint(withGeneratedStep(step)),
@@ -191,6 +198,15 @@ final class GeneratedSourceFingerprintTest {
                         Map.of("CODEGEN_TOKEN", "CODEGEN_TOKEN_ENV"),
                         List.of("PATH"),
                         900,
-                        Optional.of("salt")));
+                        Optional.of("salt")),
+                new KspGenerationSettings(
+                        "ksp",
+                        Optional.of("2.2.0-2.0.2"),
+                        Optional.of("ksp-version"),
+                        List.of(new KspProcessorSettings(
+                                "com.example:symbol-processor",
+                                "1.4.0",
+                                Optional.of("processor-version"))),
+                        Map.of("room.schemaLocation", "schemas")));
     }
 }
