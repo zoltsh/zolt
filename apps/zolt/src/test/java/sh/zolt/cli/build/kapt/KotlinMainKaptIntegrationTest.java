@@ -91,13 +91,24 @@ final class KotlinMainKaptIntegrationTest {
             assertEquals(0, restoredWarm.exitCode(), restoredWarm.stderr());
             assertTiming(restoredWarm, "skipped");
 
+            replace(project.resolve("zolt.toml"), "configured-main", "updated-main");
+            CommandResult optionChanged = build(project, artifactCache);
+
+            assertEquals(0, optionChanged.exitCode(), optionChanged.stderr());
+            assertTiming(optionChanged, "full");
+
+            CommandResult optionWarm = build(project, artifactCache);
+
+            assertEquals(0, optionWarm.exitCode(), optionWarm.stderr());
+            assertTiming(optionWarm, "skipped");
+
             CommandResult run = execute(
                     "run",
                     "--cwd", project.toString(),
                     "--cache-root", artifactCache.toString());
 
             assertEquals(0, run.exitCode(), run.stderr());
-            assertTrue(run.stdout().contains("configured-main:configured-main"), run.stdout());
+            assertTrue(run.stdout().contains("updated-main:updated-main"), run.stdout());
             assertEquals(Map.of(), repository.authorizations(), "cache-only commands must not contact the repository");
         } finally {
             if (previousUserHome == null) {
@@ -146,6 +157,10 @@ final class KotlinMainKaptIntegrationTest {
         } catch (UncheckedIOException exception) {
             throw exception.getCause();
         }
+    }
+
+    private static void replace(Path path, String before, String after) throws IOException {
+        Files.writeString(path, Files.readString(path).replace(before, after));
     }
 
     private static void writeProject(Path project, CliTestRepository repository) throws IOException {
