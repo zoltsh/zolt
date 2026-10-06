@@ -15,11 +15,11 @@ import java.util.TreeMap;
 import java.util.stream.Stream;
 import sh.zolt.cli.CliTestSupport.CommandResult;
 
-final class KotlinCliBuildCacheTestSupport {
+public final class KotlinCliBuildCacheTestSupport {
     private KotlinCliBuildCacheTestSupport() {
     }
 
-    static void configure(Path userHome) throws IOException {
+    public static void configure(Path userHome) throws IOException {
         Path globalDirectory = userHome.resolve(".zolt");
         Files.createDirectories(globalDirectory);
         Files.writeString(globalDirectory.resolve("config.toml"), """
@@ -45,7 +45,7 @@ final class KotlinCliBuildCacheTestSupport {
         return Map.copyOf(snapshot);
     }
 
-    static void deleteTrees(Path... roots) throws IOException {
+    public static void deleteTrees(Path... roots) throws IOException {
         for (Path root : roots) {
             deleteTree(root);
         }

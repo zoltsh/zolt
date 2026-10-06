@@ -1,7 +1,8 @@
-package sh.zolt.cli.build;
+package sh.zolt.cli.build.kapt;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static sh.zolt.cli.CliTestSupport.execute;
 
 import java.io.IOException;
@@ -10,20 +11,31 @@ import java.nio.file.Path;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.Isolated;
 import sh.zolt.cli.CliTestRepository;
 import sh.zolt.cli.CliTestSupport.CommandResult;
+import sh.zolt.cli.build.JUnitConsoleCliFixture;
+import sh.zolt.cli.build.KaptProcessorCliFixture;
+import sh.zolt.cli.build.KotlinCliBuildCacheTestSupport;
+import sh.zolt.cli.build.KotlinCompilerCliFixture;
 
 /** End-to-end proof that Kotlin and Java tests consume KAPT-generated Java offline. */
+@Isolated("mutates user.home so the command reads an isolated build-cache config")
 final class KotlinTestKaptIntegrationTest {
     @TempDir
     private Path tempDir;
 
     @Test
     void resolvesCompilesRunsAndReusesKaptGeneratedTestsOffline() throws Exception {
+        assumeTrue(System.getenv("ZOLT_USER_HOME") == null, "test needs an isolated user.home fallback");
+        String previousUserHome = System.getProperty("user.home");
+        Path fakeUserHome = tempDir.resolve("fake-user-home");
+        System.setProperty("user.home", fakeUserHome.toString());
         try (CliTestRepository repository = CliTestRepository.start()) {
             Path project = tempDir.resolve("project");
             Path onlineCache = tempDir.resolve("online-cache");
             Path artifactCache = tempDir.resolve("artifact-cache");
+            KotlinCliBuildCacheTestSupport.configure(fakeUserHome);
             KotlinCompilerCliFixture.publish(repository);
             JUnitConsoleCliFixture.publish(repository);
             KaptProcessorCliFixture.publish(repository, tempDir.resolve("processor"));
@@ -63,14 +75,34 @@ final class KotlinTestKaptIntegrationTest {
             assertEquals(0, warm.exitCode(), warm.stderr());
             assertSuccessfulTests(warm, 2);
             assertTiming(warm, "compile test sources", "\"testCompilationMode\":\"skipped\"");
+
+            KotlinCliBuildCacheTestSupport.deleteTrees(project.resolve("target"));
+            CommandResult restored = test(project, artifactCache);
+
+            assertEquals(0, restored.exitCode(), restored.stderr());
+            assertSuccessfulTests(restored, 2);
+            assertTiming(restored, "compile test sources", "\"testCompilationMode\":\"restored\"");
+            assertTrue(Files.isDirectory(project.resolve("target/generated/test-sources/annotations")));
+            assertTrue(Files.isRegularFile(testOutput.resolve("GeneratedTestMessage.class")));
+
+            CommandResult restoredWarm = test(project, artifactCache);
+
+            assertEquals(0, restoredWarm.exitCode(), restoredWarm.stderr());
+            assertSuccessfulTests(restoredWarm, 2);
+            assertTiming(restoredWarm, "compile test sources", "\"testCompilationMode\":\"skipped\"");
             assertEquals(Map.of(), repository.authorizations(), "offline commands must not contact the repository");
+        } finally {
+            if (previousUserHome == null) {
+                System.clearProperty("user.home");
+            } else {
+                System.setProperty("user.home", previousUserHome);
+            }
         }
     }
 
     private static CommandResult test(Path project, Path artifactCache) {
         return execute(
                 "test",
-                "--no-build-cache",
                 "--no-progress",
                 "--timings",
                 "--timings-format", "json",
