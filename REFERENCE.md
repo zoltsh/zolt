@@ -745,6 +745,46 @@ Configure the mode independently in `[compiler].args` and
 `[compiler.test].args`; changing it invalidates and cleanly recompiles the
 matching source set.
 
+#### Bounded serialization compiler plugin
+
+The Kotlin preview supports the official serialization compiler plugin through
+the built-in `serialization` selector:
+
+```toml
+[toolchain.kotlin]
+version = "2.2.0"
+plugins = ["serialization"]
+
+[dependencies]
+"org.jetbrains.kotlin:kotlin-stdlib" = "2.2.0"
+"org.jetbrains.kotlinx:kotlinx-serialization-core-jvm" = "1.9.0"
+```
+
+`zolt resolve` adds
+`org.jetbrains.kotlin:kotlin-serialization-compiler-plugin-embeddable` at the
+selected Kotlin compiler version to the checksum-verified `tool-kotlin` scope.
+Zolt verifies the direct plugin root, version, manifest identity, and compiler
+plugin registrar before execution. The compiler plugin is available to the
+configured Kotlin main and test compiler lanes, including a lane that also uses
+KAPT, but it never enters an application compile, runtime, or package classpath.
+
+The `kotlinx-serialization-core-jvm` entry above is an ordinary application
+dependency, not compiler tooling. Select a runtime version compatible with the
+application and declare any additional serialization formats the application
+uses in the same way. Zolt does not add runtime libraries implicitly.
+
+Adding or removing `serialization` requires a lockfile refresh. The authored
+selector, resulting lockfile, and complete compiler-tool closure participate in
+fingerprint and output-cache identity. Removing the selector therefore cannot
+restore output containing plugin-generated serializers, while a verified cache
+entry restores those generated classes as part of the complete compiled output.
+Compiler tooling remains absent from thin and uber packages; declared
+serialization runtime libraries follow the ordinary packaging rules.
+
+`serialization` is the only supported compiler-plugin selector. Arbitrary
+plugin coordinates, compiler-plugin paths, and plugin options are rejected or
+remain outside the bounded manifest contract.
+
 #### KSP2 source-set generation preview
 
 A Kotlin-bearing main, unit-test, or integration-test source set may run KSP2 as
@@ -801,8 +841,9 @@ same owned output contract. A failed test processor leaves both the last
 published generated tree and the last compiled test output intact.
 
 This preview supports KSP under `[generated.main]` and `[generated.test]`; there
-is no separate integration-step namespace. Arbitrary Kotlin compiler plugins
-remain unsupported.
+is no separate integration-step namespace. KSP does not enable arbitrary
+Kotlin compiler plugins; only the built-in `serialization` selector documented
+above is supported.
 
 A pre-generated Java or Kotlin tree may join that main source set through a
 `[generated.main.<id>]` step whose `kind` is `"declared-root"`. Set
@@ -841,9 +882,9 @@ workspace dependency members remain inaccessible. Kotlin integration-test
 roots are admitted through `[test.integration].sources`; OpenAPI and Protobuf
 steps marked `language = "kotlin"` may also supply owned main or test sources.
 KSP test generation uses `[generated.test]` for both unit and integration-test
-projections. Custom Kotlin compiler plugins and automatic migration of Kotlin
-shapes outside the bounded Maven subset described under Migration Explain are
-not supported.
+projections. Arbitrary Kotlin compiler-plugin coordinates or options and
+automatic migration of Kotlin shapes outside the bounded Maven subset described
+under Migration Explain are not supported.
 Sources are read as UTF-8.
 The effective Java release must not exceed the selected complete JDK;
 `[compiler].jdkApi = "host"` selects host-platform API semantics instead of

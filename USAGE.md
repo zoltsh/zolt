@@ -74,7 +74,25 @@ The KSP release must match the configured Kotlin compiler. Zolt locks the KSP
 engine and processor closures separately, owns the generated Kotlin, Java, and
 resource lanes, and includes their identity and bytes in reuse decisions. KSP
 test generation uses the member's main output plus its ordered test compile
-classpath. Custom Kotlin compiler plugins are not part of the bounded preview.
+classpath.
+
+The bounded Kotlin preview also supports the official serialization compiler
+plugin through a closed selector:
+
+```toml
+[toolchain.kotlin]
+version = "2.2.0"
+plugins = ["serialization"]
+
+[dependencies]
+"org.jetbrains.kotlin:kotlin-stdlib" = "2.2.0"
+"org.jetbrains.kotlinx:kotlinx-serialization-core-jvm" = "1.9.0"
+```
+
+Zolt locks the compiler plugin at the selected Kotlin version in the isolated
+tool closure. The serialization runtime remains an ordinary application
+dependency and must be declared explicitly. Arbitrary compiler-plugin
+coordinates and plugin options are outside this preview.
 
 Pass processor options as scoped compiler arguments. Each option requires the
 matching processor dependency lane:
