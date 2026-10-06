@@ -38,6 +38,10 @@ public final class KotlinCompilerToolchainResolver {
             "org/jetbrains/kotlin/kapt/KaptCommandLineProcessor.class";
     private static final String KAPT_IMPLEMENTATION_TITLE =
             "kotlin-annotation-processing-embeddable";
+    private static final String SERIALIZATION_ENTRY =
+            "META-INF/services/org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar";
+    private static final String SERIALIZATION_IMPLEMENTATION_TITLE =
+            "kotlinx-serialization-compiler-plugin.embeddable";
 
     public KotlinCompilerToolchain resolve(
             List<ResolvedClasspathPackage> packages,
@@ -94,6 +98,9 @@ public final class KotlinCompilerToolchainResolver {
         inspectRoot(version, root.jar());
         if (kapt != null) {
             inspectKapt(version, kapt.jar());
+        }
+        if (!plugins.isEmpty()) {
+            inspectSerialization(version, plugins.getFirst().jar());
         }
         VerifiedCompilerArtifact runtime = requireRuntime(all, version, compilationScope);
         revalidate(closure);
@@ -253,6 +260,15 @@ public final class KotlinCompilerToolchainResolver {
                 KAPT_ENTRY,
                 KAPT_IMPLEMENTATION_TITLE,
                 "KAPT plugin");
+    }
+
+    private static void inspectSerialization(String configuredVersion, Path jarPath) {
+        inspectToolJar(
+                configuredVersion,
+                jarPath,
+                SERIALIZATION_ENTRY,
+                SERIALIZATION_IMPLEMENTATION_TITLE,
+                "serialization compiler plugin");
     }
 
     private static void inspectToolJar(
