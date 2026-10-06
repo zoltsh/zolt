@@ -63,7 +63,8 @@ zolt run
   entry assertions may also be suppressed per source set for interoperability
   with an existing unchecked caller, as may assertions on non-null uses of
   unchecked Java platform-call results and on platform values passed as
-  non-null Kotlin extension receivers.
+  non-null Kotlin extension receivers. Kotlin 2.2 unused-return-value checking
+  may run in checker-only or full automatic-annotation mode per source set.
   Main and test annotation-processor lanes run through an isolated,
   version-aligned KAPT toolchain; generated Java types are visible to both
   Kotlin and Java in the same source set without compile-classpath processor

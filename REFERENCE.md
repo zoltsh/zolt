@@ -823,9 +823,10 @@ may select `class` or `indy`. One `-Xsam-conversions=<mode>` argument may also
 select `class` or `indy`. One `-Xannotation-default-target=<mode>` argument may
 select `first-only`, `first-only-warn`, or `param-property`. One
 `-Xassertions=<mode>` argument may select `always-enable`, `always-disable`,
-`jvm`, or `legacy`. One `-Xjspecify-annotations=<mode>` argument may select
-`ignore`, `warn`, or `strict`, and one global `-Xjsr305=<mode>` argument may
-select `ignore`, `warn`, or `strict`. One
+`jvm`, or `legacy`. One `-Xreturn-value-checker=<mode>` argument may select
+`check`, `full`, or `disable`. One `-Xjspecify-annotations=<mode>` argument may
+select `ignore`, `warn`, or `strict`, and one global `-Xjsr305=<mode>` argument
+may select `ignore`, `warn`, or `strict`. One
 `-Xsupport-compatqual-checker-framework-annotations=<mode>` argument may select
 `enable` or `disable`. Distinct, repeatable
 `-Xnullability-annotations=@package.name:<mode>` arguments may select `ignore`,
@@ -857,6 +858,7 @@ args = [
   "-Xannotation-target-all",
   "-Xannotation-default-target=param-property",
   "-Xassertions=jvm",
+  "-Xreturn-value-checker=check",
   "-Xjspecify-annotations=strict",
   "-Xjsr305=strict",
   "-Xsupport-compatqual-checker-framework-annotations=enable",
@@ -1282,6 +1284,18 @@ the target JVM. For tests, pass `--jvm-arg=-ea` or configure
 `[test.runtime].jvmArgs = ["-ea"]` when `jvm` or `legacy` should enforce them.
 Configure the mode independently for main and test source sets; changing it
 invalidates and cleanly recompiles the matching output.
+`-Xreturn-value-checker=check` enables Kotlin 2.2's experimental unused-return
+diagnostic and admits `kotlin.MustUseReturnValue` and
+`kotlin.IgnorableReturnValue` annotations. `full` runs the same checker and also
+enables the selected compiler's automatic annotation insertion, while
+`disable` turns the checker off; Kotlin 2.2 rejects the two experimental
+annotations when the checker is disabled, which is also its behavior when the
+option is omitted. In the qualified case, discarding a non-`Unit` result inside
+a `@MustUseReturnValue` class reports `unused return value` in both `check` and
+`full` modes. Combine the mode with `-Werror` when that warning must fail the
+build. The selected compiler remains authoritative for automatic insertion and
+checker coverage. Configure the mode independently for main and test source
+sets; changing it invalidates and cleanly recompiles the matching output.
 `-Xjspecify-annotations=strict` reports Kotlin nullability mismatches inferred
 from supported `org.jspecify.annotations` on Java declarations as compilation
 errors. `warn` reports the same mismatches as warnings, so combining it with
@@ -1376,8 +1390,8 @@ exposure, data-class copy visibility, source-debug annotation emission,
 JSpecify, JSR-305, or package-specific Java nullness severity, legacy null-check
 exceptions, Java-entry parameter assertions, strict metadata-version semantics,
 platform-call result assertions, extension-receiver assertions, annotations in
-metadata, backend
-optimization, method inlining, inline-scope debug numbering, JVM-name
+metadata, return-value-checker mode, backend optimization, method inlining,
+inline-scope debug numbering, JVM-name
 parentheses sanitization, legacy inline-class mangling, multifile-part
 inheritance, complete warning reporting, internal diagnostic-name rendering,
 generated-bytecode validation, JVM preview-class generation, or opt-ins
@@ -1398,11 +1412,11 @@ annotation-target, package-specific nullability, boxed value-class, and
 data-class copy visibility, source-debug annotation, and strict-metadata
 behavior, plus legacy null-check exception and Java-entry parameter-assertion
 behavior, platform-call result-assertion behavior, and extension-receiver
-assertion behavior. Main and test annotation,
+assertion behavior, and return-value-checker behavior. Main and test annotation,
 boxed-exposure, copy-visibility, source-debug, strict-metadata, and legacy
 null-check, parameter-assertion, call-assertion, receiver-assertion, and
-annotation-metadata settings are independent. Changing any of
-them performs a cleaned full compilation of that source set so obsolete
+annotation-metadata and return-value-checker settings are independent. Changing
+any of them performs a cleaned full compilation of that source set so obsolete
 placement, constructors, bridges, method visibility, metadata, or null-check
 calls cannot survive. The compiler also decides whether an opt-in annotation
 exists and applies. Other custom compiler arguments remain unsupported for
