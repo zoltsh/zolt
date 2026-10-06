@@ -3,7 +3,6 @@ package sh.zolt.build.compile;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import sh.zolt.build.KotlinCompileException;
 import sh.zolt.build.compile.kotlin.kapt.KotlinAnnotationProcessorOptions;
 
@@ -283,68 +282,6 @@ public record KotlinCompilerOptions(
     }
 
     public KotlinCompilerOptions withFriendPath(Path path) {
-        return new KotlinCompilerOptions(
-                release,
-                moduleName,
-                hostPlatformApi,
-                useJdkRelease,
-                javaParameters,
-                warningsAsErrors,
-                suppressWarnings,
-                extraWarnings,
-                reportAllWarnings,
-                renderInternalDiagnosticNames,
-                progressiveMode,
-                contextSensitiveResolution,
-                contextParameters,
-                whenGuards,
-                multiDollarInterpolation,
-                nonLocalBreakContinue,
-                nestedTypeAliases,
-                annotationTargetAll,
-                jvmExposeBoxed,
-                consistentDataClassCopyVisibility,
-                emitJvmTypeAnnotations,
-                noNewJavaAnnotationTargets,
-                noSourceDebugExtension,
-                noUnifiedNullChecks,
-                noOptimize,
-                noInline,
-                useInlineScopesNumbers,
-                use14InlineClassesManglingScheme,
-                enhancedCoroutinesDebugging,
-                sanitizeParentheses,
-                multifilePartsInherit,
-                validateBytecode,
-                indyAllowAnnotatedLambdas,
-                generateStrictMetadataVersion,
-                annotationsInMetadata,
-                useTypeTable,
-                useOldClassFilesReading,
-                jvmPreview,
-                allowUnstableDependencies,
-                noParamAssertions,
-                noCallAssertions,
-                noReceiverAssertions,
-                backendThreads,
-                abiStabilityMode,
-                annotationDefaultTargetMode,
-                assertionMode,
-                returnValueCheckerMode,
-                jspecifyAnnotationsMode,
-                jsr305Mode,
-                compatqualAnnotationsMode,
-                stringConcatMode,
-                lambdaMode,
-                samConversionMode,
-                languageVersion,
-                apiVersion,
-                jvmDefaultMode,
-                explicitApiMode,
-                nullabilityAnnotations,
-                warningLevels,
-                optIns,
-                annotationProcessorOptions,
-                Objects.requireNonNull(path, "Kotlin friend path is required."));
+        return KotlinCompilerOptionsCopy.withFriendPath(this, path);
     }
 }
