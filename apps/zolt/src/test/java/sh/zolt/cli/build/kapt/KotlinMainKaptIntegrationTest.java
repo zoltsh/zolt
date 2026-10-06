@@ -20,14 +20,14 @@ import sh.zolt.cli.CliTestSupport.CommandResult;
 import sh.zolt.cli.build.KaptProcessorCliFixture;
 import sh.zolt.cli.build.KotlinCompilerCliFixture;
 
-/** End-to-end proof that a Kotlin application consumes KAPT-generated Java offline. */
+/** End-to-end proof that a Kotlin application consumes K2 KAPT-generated Java offline. */
 @Isolated("mutates user.home so the command reads an isolated build-cache config")
 final class KotlinMainKaptIntegrationTest {
     @TempDir
     private Path tempDir;
 
     @Test
-    void resolvesBuildsRunsAndReusesKaptGeneratedMainOffline() throws Exception {
+    void resolvesBuildsRunsAndReusesK2KaptGeneratedMainOffline() throws Exception {
         assumeTrue(System.getenv("ZOLT_USER_HOME") == null, "test needs an isolated user.home fallback");
         String previousUserHome = System.getProperty("user.home");
         Path fakeUserHome = tempDir.resolve("fake-user-home");
@@ -178,7 +178,7 @@ final class KotlinMainKaptIntegrationTest {
                 sources = ["src/main/kotlin", "src/main/java"]
 
                 [compiler]
-                args = ["-Azolt.message=configured-main"]
+                args = ["-Xuse-k2-kapt", "-Azolt.message=configured-main"]
 
                 [toolchain.kotlin]
                 version = "%s"
