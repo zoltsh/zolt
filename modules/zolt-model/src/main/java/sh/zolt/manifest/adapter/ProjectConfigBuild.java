@@ -5,6 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import sh.zolt.manifest.LocalId;
 import sh.zolt.manifest.ManifestRelativePath;
 import sh.zolt.manifest.TestClassPattern;
@@ -17,6 +18,7 @@ import sh.zolt.manifest.authored.AuthoredTests;
 import sh.zolt.project.BuildMetadataSettings;
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.CompilerSettings;
+import sh.zolt.project.toolchain.KotlinCompilerPlugin;
 import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.ResourceFilteringSettings;
 import sh.zolt.project.ResourceMissingTokenPolicy;
@@ -115,6 +117,15 @@ final class ProjectConfigBuild {
             String outputRoot,
             String groovyVersion,
             String kotlinVersion) {
+        return compiler(compiler, outputRoot, groovyVersion, kotlinVersion, Set.of());
+    }
+
+    static CompilerSettings compiler(
+            Optional<AuthoredCompiler> compiler,
+            String outputRoot,
+            String groovyVersion,
+            String kotlinVersion,
+            Set<KotlinCompilerPlugin> kotlinPlugins) {
         Optional<AuthoredCompiler.Generated> generated = compiler.flatMap(AuthoredCompiler::generated);
         Optional<AuthoredCompiler.Test> test = compiler.flatMap(AuthoredCompiler::test);
         return new CompilerSettings(
@@ -133,7 +144,8 @@ final class ProjectConfigBuild {
                 groovyVersion,
                 kotlinVersion,
                 compiler.flatMap(AuthoredCompiler::kotlinModule).orElse(""),
-                test.flatMap(AuthoredCompiler.Test::kotlinModule).orElse(""));
+                test.flatMap(AuthoredCompiler.Test::kotlinModule).orElse(""),
+                kotlinPlugins);
     }
 
     private static List<String> integrationSources(Optional<AuthoredTests> tests) {

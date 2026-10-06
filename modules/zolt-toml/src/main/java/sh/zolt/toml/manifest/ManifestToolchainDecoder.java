@@ -17,6 +17,7 @@ import sh.zolt.project.toolchain.JavaDistribution;
 import sh.zolt.project.toolchain.JavaFeature;
 import sh.zolt.project.toolchain.JavaFeatureRelease;
 import sh.zolt.project.toolchain.KotlinToolchainVersion;
+import sh.zolt.project.toolchain.KotlinCompilerPlugin;
 import sh.zolt.project.toolchain.ToolchainPolicy;
 import sh.zolt.toml.schema.FinalManifestPaths;
 import sh.zolt.toml.schema.FinalManifestToolchainFields;
@@ -98,11 +99,34 @@ final class ManifestToolchainDecoder {
     }
 
     private static Optional<AuthoredKotlinToolchain> decodeKotlin(ManifestDecodeIndex index) {
-        return index.field(FinalManifestToolchainFields.KOTLIN_VERSION)
-                .map(field -> ManifestSemanticDiagnostics.construct(
-                        field,
-                        () -> new AuthoredKotlinToolchain(new KotlinToolchainVersion(
-                                ManifestTomlValues.string(field)))));
+        Optional<ValidatedManifestField> versionField = index.field(
+                FinalManifestToolchainFields.KOTLIN_VERSION);
+        Optional<ValidatedManifestField> pluginsField = index.field(
+                FinalManifestToolchainFields.KOTLIN_PLUGINS);
+        if (versionField.isEmpty() && pluginsField.isEmpty()) {
+            return Optional.empty();
+        }
+        ValidatedManifestField anchor = versionField.orElseGet(pluginsField::orElseThrow);
+        return Optional.of(ManifestSemanticDiagnostics.construct(anchor, () -> {
+            if (versionField.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Kotlin toolchain version is required when compiler plugins are configured.");
+            }
+            LinkedHashSet<KotlinCompilerPlugin> plugins = new LinkedHashSet<>();
+            for (String value : pluginsField.map(ManifestTomlValues::strings).orElseGet(List::of)) {
+                KotlinCompilerPlugin plugin = KotlinCompilerPlugin.fromId(value)
+                        .orElseThrow(() -> new IllegalStateException(
+                                "Final manifest schema accepted unknown Kotlin compiler plugin `"
+                                        + value + "`."));
+                if (!plugins.add(plugin)) {
+                    throw new IllegalArgumentException(
+                            "Kotlin compiler plugin `" + value + "` is declared more than once.");
+                }
+            }
+            return new AuthoredKotlinToolchain(
+                    new KotlinToolchainVersion(ManifestTomlValues.string(versionField.orElseThrow())),
+                    plugins);
+        }));
     }
 
     private static Optional<JavaFeatureRelease> release(

@@ -10,6 +10,7 @@ import sh.zolt.manifest.authored.AuthoredJavaToolchain;
 import sh.zolt.manifest.authored.AuthoredKotlinToolchain;
 import sh.zolt.manifest.authored.AuthoredToolchains;
 import sh.zolt.project.toolchain.JavaFeature;
+import sh.zolt.project.toolchain.KotlinCompilerPlugin;
 import sh.zolt.toml.schema.FinalManifestPaths;
 import sh.zolt.toml.schema.FinalManifestSchema;
 import sh.zolt.toml.schema.FinalManifestToolchainFields;
@@ -90,6 +91,14 @@ final class ManifestToolchainWriter {
         emitter.field(
                 FinalManifestToolchainFields.KOTLIN_VERSION,
                 ManifestTomlValueEncoder.basicString(kotlin.version().value()));
+        if (!kotlin.plugins().isEmpty()) {
+            emitter.field(
+                    FinalManifestToolchainFields.KOTLIN_PLUGINS,
+                    ManifestTomlValueEncoder.array(kotlin.plugins().stream()
+                            .map(KotlinCompilerPlugin::id)
+                            .map(ManifestTomlValueEncoder::basicString)
+                            .toList()));
+        }
     }
 
     private static String features(Set<JavaFeature> values) {

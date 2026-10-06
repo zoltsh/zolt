@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import sh.zolt.manifest.LocalId;
 import sh.zolt.manifest.ProjectGroup;
@@ -31,6 +32,7 @@ import sh.zolt.project.CompilerSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.toolchain.GroovyToolchainVersion;
 import sh.zolt.project.toolchain.JavaFeatureRelease;
+import sh.zolt.project.toolchain.KotlinCompilerPlugin;
 import sh.zolt.project.toolchain.KotlinToolchainVersion;
 
 final class EffectiveProjectConfigAdapterGroovyTest {
@@ -53,6 +55,20 @@ final class EffectiveProjectConfigAdapterGroovyTest {
                 projectManifest("app", kotlinToolchains("2.2.0")));
 
         assertEquals("2.2.0", adapt(effective).compilerSettings().kotlinVersion());
+        assertTrue(adapt(effective).compilerSettings().kotlinPlugins().isEmpty());
+    }
+
+    @Test
+    void carriesSerializationPluginSelectionThroughWorkspaceInheritance() {
+        AuthoredManifest root = workspaceRoot(kotlinToolchains(
+                "2.2.0", Set.of(KotlinCompilerPlugin.SERIALIZATION)));
+        AuthoredManifest member = projectManifest("app", AuthoredToolchains.empty());
+
+        ProjectConfig config = adapt(COMPOSER.composeWorkspaceMember(root, MEMBER, member));
+
+        assertEquals(
+                Set.of(KotlinCompilerPlugin.SERIALIZATION),
+                config.compilerSettings().kotlinPlugins());
     }
 
     @Test
@@ -121,6 +137,7 @@ final class EffectiveProjectConfigAdapterGroovyTest {
         assertTrue(effective.project().shared().toolchains().kotlin().isEmpty());
         assertEquals("", config.compilerSettings().groovyVersion());
         assertEquals("", config.compilerSettings().kotlinVersion());
+        assertTrue(config.compilerSettings().kotlinPlugins().isEmpty());
     }
 
     private static ProjectConfig adapt(EffectiveManifest manifest) {
@@ -175,13 +192,19 @@ final class EffectiveProjectConfigAdapterGroovyTest {
     }
 
     private static AuthoredToolchains kotlinToolchains(String version) {
+        return kotlinToolchains(version, Set.of());
+    }
+
+    private static AuthoredToolchains kotlinToolchains(
+            String version,
+            Set<KotlinCompilerPlugin> plugins) {
         return new AuthoredToolchains(
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.of(new AuthoredKotlinToolchain(
-                        new KotlinToolchainVersion(version))));
+                        new KotlinToolchainVersion(version), plugins)));
     }
 
     private static AuthoredToolchains languageToolchains(

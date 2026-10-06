@@ -68,6 +68,7 @@ public final class FinalManifestSymbols {
             family("toolchain-distribution", "temurin", "graalvm-community"),
             family("toolchain-policy", "prefer-managed", "require-managed", "allow-system"),
             family("toolchain-feature", "native-image"),
+            family("kotlin-compiler-plugin", "serialization"),
             family("conflict-policy", "resolve", "warn", "fail"),
             family("unknown-license-policy", "allow", "warn", "fail"),
             family("resource-filter-target", "main", "test"),

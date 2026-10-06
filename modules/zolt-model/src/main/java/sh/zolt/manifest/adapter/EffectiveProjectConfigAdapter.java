@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import sh.zolt.dependency.DependencyLane;
 import sh.zolt.manifest.DependencyCoordinate;
 import sh.zolt.manifest.PlatformSelector;
@@ -25,6 +26,7 @@ import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectMetadata;
 import sh.zolt.project.PublicationMetadata;
+import sh.zolt.project.toolchain.KotlinCompilerPlugin;
 
 /**
  * Adapts a final-language {@link EffectiveManifest} to the legacy {@link ProjectConfig} the existing
@@ -91,9 +93,12 @@ public final class EffectiveProjectConfigAdapter {
         String kotlinVersion = shared.toolchains().kotlin()
                 .map(value -> value.value().value())
                 .orElse("");
+        Set<KotlinCompilerPlugin> kotlinPlugins = shared.toolchains().kotlinPlugins()
+                .map(EffectiveValue::value)
+                .orElse(Set.of());
         CompilerSettings compilerSettings =
                 ProjectConfigBuild.compiler(
-                        local.compiler(), outputRoot, groovyVersion, kotlinVersion);
+                        local.compiler(), outputRoot, groovyVersion, kotlinVersion, kotlinPlugins);
 
         ProjectMetadata metadata = ProjectConfigIdentity.project(project.identity(), local.metadata());
         PublicationMetadata publication =

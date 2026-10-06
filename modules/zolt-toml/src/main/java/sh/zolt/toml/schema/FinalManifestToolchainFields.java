@@ -27,6 +27,8 @@ public final class FinalManifestToolchainFields {
             FinalManifestPaths.TOOLCHAIN_GROOVY, "version", ManifestValueKind.STRING, 3_310);
     public static final ManifestField KOTLIN_VERSION = field(
             FinalManifestPaths.TOOLCHAIN_KOTLIN, "version", ManifestValueKind.STRING, 3_410);
+    public static final ManifestField KOTLIN_PLUGINS = field(
+            FinalManifestPaths.TOOLCHAIN_KOTLIN, "plugins", ManifestValueKind.STRING_ARRAY, 3_420);
 
     private FinalManifestToolchainFields() {
     }
@@ -42,7 +44,8 @@ public final class FinalManifestToolchainFields {
                 JAVA_TEST_DISTRIBUTION,
                 JAVA_TEST_POLICY,
                 GROOVY_VERSION,
-                KOTLIN_VERSION);
+                KOTLIN_VERSION,
+                KOTLIN_PLUGINS);
     }
 
     private static ManifestField field(

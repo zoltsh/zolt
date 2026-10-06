@@ -7,6 +7,7 @@ import sh.zolt.project.DependencyPolicyExclusion;
 import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
+import sh.zolt.project.toolchain.KotlinCompilerPlugin;
 import sh.zolt.project.RepositoryCredentialSettings;
 import sh.zolt.project.RepositorySettings;
 import java.nio.charset.StandardCharsets;
@@ -28,6 +29,8 @@ public final class ProjectResolutionFingerprint {
     private static final String KOTLIN_TOOLCHAIN_CATEGORY = "toolchain.kotlin";
     private static final String KOTLIN_COMPILER_COORDINATE =
             "org.jetbrains.kotlin:kotlin-compiler-embeddable";
+    private static final String KOTLIN_SERIALIZATION_COORDINATE =
+            "org.jetbrains.kotlin:kotlin-serialization-compiler-plugin-embeddable";
     private static final String COMPILER_TOOL_RESOLUTION_SEMANTICS =
             "conflict-provenance-v1";
     private static final String COMPILER_TOOL_ROOT_SEMANTICS = "exact-root-v1";
@@ -82,6 +85,14 @@ public final class ProjectResolutionFingerprint {
                 KOTLIN_TOOLCHAIN_CATEGORY,
                 KOTLIN_COMPILER_COORDINATE,
                 config.compilerSettings().kotlinVersion());
+        if (config.compilerSettings().kotlinPlugins()
+                .contains(KotlinCompilerPlugin.SERIALIZATION)) {
+            compilerToolchainInput(
+                    inputs,
+                    KOTLIN_TOOLCHAIN_CATEGORY,
+                    KOTLIN_SERIALIZATION_COORDINATE,
+                    config.compilerSettings().kotlinVersion());
+        }
         repositoryInputs(inputs, config.repositorySettings());
         credentialInputs(inputs, config.repositoryCredentials());
         mapInputs(inputs, "versions", config.versionAliases());

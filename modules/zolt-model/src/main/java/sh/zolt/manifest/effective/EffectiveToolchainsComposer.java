@@ -49,8 +49,12 @@ final class EffectiveToolchainsComposer {
                 .map(AuthoredKotlinToolchain::version)
                 .map(value -> EffectiveValue.authored(
                         value, source(manifestPath, "toolchain", "kotlin", "version")));
+        var kotlinPlugins = authored.kotlin()
+                .map(AuthoredKotlinToolchain::plugins)
+                .map(value -> EffectiveValue.authored(
+                        value, source(manifestPath, "toolchain", "kotlin", "plugins")));
         return new EffectiveToolchains(
-                zolt, Optional.of(main), Optional.of(test), groovy, kotlin);
+                zolt, Optional.of(main), Optional.of(test), groovy, kotlin, kotlinPlugins);
     }
 
     EffectiveToolchains composeWorkspaceMember(
@@ -104,8 +108,18 @@ final class EffectiveToolchainsComposer {
                         .map(value -> EffectiveValue.inherited(
                                 value,
                                 source(rootManifestPath, "toolchain", "kotlin", "version"))));
+        var kotlinPlugins = member.kotlin()
+                .map(AuthoredKotlinToolchain::plugins)
+                .map(value -> EffectiveValue.authored(
+                        value,
+                        source(memberManifestPath, "toolchain", "kotlin", "plugins")))
+                .or(() -> root.kotlin()
+                        .map(AuthoredKotlinToolchain::plugins)
+                        .map(value -> EffectiveValue.inherited(
+                                value,
+                                source(rootManifestPath, "toolchain", "kotlin", "plugins"))));
         return new EffectiveToolchains(
-                zolt, Optional.of(main), Optional.of(test), groovy, kotlin);
+                zolt, Optional.of(main), Optional.of(test), groovy, kotlin, kotlinPlugins);
     }
 
     private static EffectiveJavaRuntime.Requested requestedMain(

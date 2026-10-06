@@ -19,6 +19,8 @@ final class KotlinToolingDependencyContributorTest {
             new PackageId("org.jetbrains.kotlin", "kotlin-compiler-embeddable");
     private static final PackageId KOTLIN_KAPT =
             new PackageId("org.jetbrains.kotlin", "kotlin-annotation-processing-embeddable");
+    private static final PackageId KOTLIN_SERIALIZATION = new PackageId(
+            "org.jetbrains.kotlin", "kotlin-serialization-compiler-plugin-embeddable");
 
     private final KotlinToolingDependencyContributor contributor =
             new KotlinToolingDependencyContributor();
@@ -87,6 +89,24 @@ final class KotlinToolingDependencyContributorTest {
         assertEquals(RequestVersionOrigin.DECLARED, kapt.versionOrigin());
     }
 
+    @Test
+    void contributesTheVersionAlignedSerializationPluginOnce() {
+        List<DependencyRequest> requests = new ArrayList<>();
+
+        contributor.contribute(config("2.2.0", false, true), requests);
+        contributor.contribute(config("2.2.0", false, true), requests);
+
+        assertEquals(2, requests.size());
+        DependencyRequest plugin = requests.stream()
+                .filter(request -> request.packageId().equals(KOTLIN_SERIALIZATION))
+                .findFirst()
+                .orElseThrow();
+        assertEquals("2.2.0", plugin.requestedVersion());
+        assertEquals(DependencyScope.TOOL_KOTLIN, plugin.scope());
+        assertEquals(RequestOrigin.DIRECT, plugin.origin());
+        assertEquals(RequestVersionOrigin.DECLARED, plugin.versionOrigin());
+    }
+
     private static ProjectConfig config(String kotlinVersion) {
         return config(kotlinVersion, false);
     }
@@ -94,13 +114,21 @@ final class KotlinToolingDependencyContributorTest {
     private static ProjectConfig config(
             String kotlinVersion,
             boolean processor) {
+        return config(kotlinVersion, processor, false);
+    }
+
+    private static ProjectConfig config(
+            String kotlinVersion,
+            boolean processor,
+            boolean serialization) {
+        String plugins = serialization ? "\nplugins = [\"serialization\"]" : "";
         String toolchain = kotlinVersion.isBlank()
                 ? ""
                 : """
 
                   [toolchain.kotlin]
-                  version = "%s"
-                  """.formatted(kotlinVersion);
+                  version = "%s"%s
+                  """.formatted(kotlinVersion, plugins);
         String processors = processor
                 ? """
 

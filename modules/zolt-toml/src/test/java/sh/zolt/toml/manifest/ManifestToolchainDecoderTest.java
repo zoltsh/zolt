@@ -15,6 +15,7 @@ import sh.zolt.manifest.authored.AuthoredJavaToolchain;
 import sh.zolt.manifest.authored.AuthoredToolchains;
 import sh.zolt.project.toolchain.JavaDistribution;
 import sh.zolt.project.toolchain.JavaFeature;
+import sh.zolt.project.toolchain.KotlinCompilerPlugin;
 import sh.zolt.project.toolchain.ToolchainPolicy;
 import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.toml.schema.FinalManifestSchema;
@@ -23,7 +24,7 @@ import sh.zolt.toml.schema.ManifestField;
 
 final class ManifestToolchainDecoderTest {
     @Test
-    void decodesAllTenAuthoredToolchainFieldsWithoutApplyingDefaults() {
+    void decodesAllElevenAuthoredToolchainFieldsWithoutApplyingDefaults() {
         AuthoredToolchains toolchains = decode("""
                 [toolchain.zolt]
                 version = "0.1.0-rc.1"
@@ -44,6 +45,7 @@ final class ManifestToolchainDecoderTest {
 
                 [toolchain.kotlin]
                 version = "2.2.0"
+                plugins = ["serialization"]
                 """);
 
         assertEquals("0.1.0-rc.1", toolchains.zolt().orElseThrow().value());
@@ -61,6 +63,9 @@ final class ManifestToolchainDecoderTest {
                 toolchains.testJava().orElseThrow().policy().orElseThrow());
         assertEquals("4.0.22", toolchains.groovy().orElseThrow().version().value());
         assertEquals("2.2.0", toolchains.kotlin().orElseThrow().version().value());
+        assertEquals(
+                Set.of(KotlinCompilerPlugin.SERIALIZATION),
+                toolchains.kotlin().orElseThrow().plugins());
     }
 
     @Test
@@ -165,6 +170,15 @@ final class ManifestToolchainDecoderTest {
                 [toolchain.kotlin]
                 version = "2.2-SNAPSHOT"
                 """, "Use a fixed released version");
+        assertFailure("""
+                [toolchain.kotlin]
+                plugins = ["serialization"]
+                """, "Kotlin toolchain version is required");
+        assertFailure("""
+                [toolchain.kotlin]
+                version = "2.2.0"
+                plugins = ["serialization", "serialization"]
+                """, "Kotlin compiler plugin `serialization` is declared more than once");
     }
 
     @Test
@@ -193,6 +207,11 @@ final class ManifestToolchainDecoderTest {
                 [toolchain.kotlin]
                 distribution = "jetbrains"
                 """, "Unknown manifest field `toolchain.kotlin.distribution`");
+        assertFailure("""
+                [toolchain.kotlin]
+                version = "2.2.0"
+                plugins = ["all-open"]
+                """, "Invalid symbol `all-open` for `toolchain.kotlin.plugins`");
 
         assertModelSymbols(
                 FinalManifestToolchainFields.JAVA_DISTRIBUTION,
@@ -206,6 +225,10 @@ final class ManifestToolchainDecoderTest {
                 FinalManifestToolchainFields.JAVA_POLICY,
                 Arrays.asList(ToolchainPolicy.values()),
                 ToolchainPolicy::id);
+        assertModelSymbols(
+                FinalManifestToolchainFields.KOTLIN_PLUGINS,
+                Arrays.asList(KotlinCompilerPlugin.values()),
+                KotlinCompilerPlugin::id);
     }
 
     @Test

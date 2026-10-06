@@ -19,6 +19,7 @@ import sh.zolt.project.toolchain.JavaDistribution;
 import sh.zolt.project.toolchain.JavaFeature;
 import sh.zolt.project.toolchain.JavaFeatureRelease;
 import sh.zolt.project.toolchain.KotlinToolchainVersion;
+import sh.zolt.project.toolchain.KotlinCompilerPlugin;
 import sh.zolt.project.toolchain.ToolchainPolicy;
 
 final class ManifestToolchainWriterTest {
@@ -57,7 +58,8 @@ final class ManifestToolchainWriterTest {
                 Optional.of(new AuthoredGroovyToolchain(
                         new GroovyToolchainVersion("4.0.22"))),
                 Optional.of(new AuthoredKotlinToolchain(
-                        new KotlinToolchainVersion("2.2.0"))));
+                        new KotlinToolchainVersion("2.2.0"),
+                        Set.of(KotlinCompilerPlugin.SERIALIZATION))));
 
         String output = write(toolchains);
 
@@ -82,6 +84,7 @@ final class ManifestToolchainWriterTest {
 
                 [toolchain.kotlin]
                 version = "2.2.0"
+                plugins = ["serialization"]
                 """,
                 output);
         assertFalse(Toml.parse(output).hasErrors());

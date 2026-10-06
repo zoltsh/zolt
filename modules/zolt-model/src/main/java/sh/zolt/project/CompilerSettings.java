@@ -1,6 +1,8 @@
 package sh.zolt.project;
 
 import java.util.List;
+import java.util.Set;
+import sh.zolt.project.toolchain.KotlinCompilerPlugin;
 
 public record CompilerSettings(
         String generatedSources,
@@ -14,7 +16,8 @@ public record CompilerSettings(
         String groovyVersion,
         String kotlinVersion,
         String kotlinModule,
-        String kotlinTestModule) {
+        String kotlinTestModule,
+        Set<KotlinCompilerPlugin> kotlinPlugins) {
     private static final String KOTLIN_JVM_PREVIEW_ARGUMENT = "-Xjvm-enable-preview";
     private static final String DEFAULT_GENERATED_SOURCES = "target/generated/sources/annotations";
     private static final String DEFAULT_GENERATED_TEST_SOURCES = "target/generated/test-sources/annotations";
@@ -36,6 +39,10 @@ public record CompilerSettings(
         testPlatformApi = stringOrEmpty(testPlatformApi);
         groovyVersion = stringOrEmpty(groovyVersion);
         kotlinVersion = stringOrEmpty(kotlinVersion);
+        kotlinPlugins = kotlinPlugins == null || kotlinPlugins.isEmpty()
+                ? Set.of()
+                : java.util.Collections.unmodifiableSet(
+                        java.util.EnumSet.copyOf(kotlinPlugins));
         kotlinModule = stringOrEmpty(kotlinModule);
         kotlinTestModule = stringOrEmpty(kotlinTestModule);
     }
@@ -64,7 +71,8 @@ public record CompilerSettings(
                 groovyVersion,
                 kotlinVersion,
                 "",
-                "");
+                "",
+                Set.of());
     }
 
     /** Compatibility constructor for callers that predate explicit Kotlin compiler selection. */
@@ -90,7 +98,8 @@ public record CompilerSettings(
                 groovyVersion,
                 "",
                 "",
-                "");
+                "",
+                Set.of());
     }
 
     /** Compatibility constructor for callers that predate explicit Groovy compiler selection. */
@@ -115,7 +124,8 @@ public record CompilerSettings(
                 "",
                 "",
                 "",
-                "");
+                "",
+                Set.of());
     }
 
     public CompilerSettings(

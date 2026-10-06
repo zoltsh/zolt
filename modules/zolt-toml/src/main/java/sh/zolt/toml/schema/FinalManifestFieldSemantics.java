@@ -16,6 +16,7 @@ final class FinalManifestFieldSemantics {
             symbol("toolchain.java.policy", "toolchain-policy"),
             symbol("toolchain.java.test.distribution", "toolchain-distribution"),
             symbol("toolchain.java.test.policy", "toolchain-policy"),
+            symbol("toolchain.kotlin.plugins", "kotlin-compiler-plugin"),
             symbol("dependencies.policy.conflicts", "conflict-policy"),
             symbol("dependencies.policy.licenses.unknown", "unknown-license-policy"),
             symbol("compiler.jdkApi", "compiler-jdk-api-mode"),
