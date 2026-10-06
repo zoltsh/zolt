@@ -143,6 +143,14 @@ public final class ResourceCopier {
                 targetRelativePaths,
                 copiedResources,
                 skippedResources);
+        copyKspResources(
+                outputDirectory,
+                projectRoot,
+                kspResourceSteps(settings, testResources),
+                targetRelativePaths,
+                copiedResources,
+                skippedResources,
+                testResources ? "test" : "main");
         return new ResourceCopyResult(copiedResources, skippedResources);
     }
 
@@ -154,6 +162,17 @@ public final class ResourceCopier {
         return steps.stream()
                 .filter(step -> step.kind() == GeneratedSourceKind.EXEC)
                 .filter(step -> step.exec().produces() == lane)
+                .toList();
+    }
+
+    private static List<GeneratedSourceStep> kspResourceSteps(
+            BuildSettings settings,
+            boolean testResources) {
+        List<GeneratedSourceStep> steps = testResources
+                ? settings.generatedTestSources()
+                : settings.generatedMainSources();
+        return steps.stream()
+                .filter(step -> step.kind() == GeneratedSourceKind.KSP)
                 .toList();
     }
 
@@ -202,6 +221,58 @@ public final class ResourceCopier {
                         "Could not copy exec resources from " + output + " to " + outputDirectory
                                 + ". Check that the project directories are readable and writable.",
                         exception);
+            }
+        }
+    }
+
+    private static void copyKspResources(
+            Path outputDirectory,
+            Path projectRoot,
+            List<GeneratedSourceStep> steps,
+            Set<Path> targetRelativePaths,
+            List<Path> copiedResources,
+            List<Path> skippedResources,
+            String scope) {
+        for (GeneratedSourceStep step : steps) {
+            String subject = "[generated." + scope + "." + step.id() + "]";
+            Path base = outputPath(projectRoot, subject + ".output", step.output());
+            Path resources = base.resolve("resources");
+            if (!Files.isDirectory(resources)) {
+                continue;
+            }
+            try (Stream<Path> paths = Files.walk(resources)) {
+                List<Path> files = paths
+                        .filter(path -> ProjectPaths.isRegularFileInsideProject(
+                                projectRoot,
+                                subject + ".resources",
+                                path))
+                        .map(Path::normalize)
+                        .sorted()
+                        .toList();
+                for (Path file : files) {
+                    Path relative = resources.relativize(file).normalize();
+                    if (!targetRelativePaths.add(relative)) {
+                        throw new ResourceCopyException(
+                                "Duplicate resource path `" + relative.toString().replace('\\', '/')
+                                        + "` from KSP step " + subject
+                                        + ". Change the processor output or remove the conflicting resource.");
+                    }
+                    Path target = outputDirectory.resolve(relative).normalize();
+                    Files.createDirectories(target.getParent());
+                    if (isCurrent(file, target, Optional.empty())) {
+                        skippedResources.add(file);
+                    } else {
+                        Files.copy(file, target, StandardCopyOption.REPLACE_EXISTING);
+                        copiedResources.add(file);
+                    }
+                }
+            } catch (IOException exception) {
+                throw new ResourceCopyException(
+                        "Could not copy KSP resources from " + resources + " to " + outputDirectory
+                                + ". Check that the project directories are readable and writable.",
+                        exception);
+            } catch (ProjectPathException exception) {
+                throw new ResourceCopyException(exception.getMessage(), exception);
             }
         }
     }
