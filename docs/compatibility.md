@@ -5,6 +5,33 @@ or writes for users. Java packages in this repository are implementation details
 no module, including `zolt-framework-api`, is a supported third-party Java API or
 SPI.
 
+## Zolt 1.0 release scope
+
+The supported lifecycle is Java dependency resolution, build, run, JUnit and
+Spock/Groovy tests, integration tests, coverage, dependency-ordered workspaces,
+JAR/uber-JAR/WAR and Spring Boot JVM packaging, Maven publication, and plain
+GraalVM Native Image. Managed JDKs, locked/offline resolution, and verified
+build-output reuse support that lifecycle. Changes to Java source inputs compile
+the complete affected source set; selective Java recompilation is internal.
+
+Native CLI distributions target Linux and macOS on x64 and arm64. Windows host
+support is experimental and has no published native binary.
+
+The following features are disabled by default and require
+`ZOLT_EXPERIMENTAL=1` in the environment of each command that uses them:
+
+| Experimental feature | Boundary |
+| --- | --- |
+| Kotlin/JVM | Main/test compilation, compiler plugins, KAPT, KSP, and generated Kotlin. See the [support matrix](./kotlin-jvm-support.md). |
+| Groovy main compilation | Groovy-only and joint Java/Groovy main source sets. Existing Spock/Groovy test support remains in the stable lifecycle. |
+| Quarkus | Framework commands, augmentation, and Quarkus package mode. Quarkus native images remain unsupported. |
+| Spring Boot AOT/native | The existing Spring Boot 3.3 / Java 21 canary. Spring Boot JVM packaging remains supported. |
+
+The opt-in enables development features; it does not extend 1.0 compatibility
+promises to them. Experimental options, configuration, and output may change in
+minor releases. Micronaut native processing and arbitrary Maven/Gradle plugin
+execution remain unsupported.
+
 ## Surface promises
 
 | Surface | Compatibility promise |
@@ -19,9 +46,10 @@ SPI.
 | Generated artifact names and layouts | Public only when documented. Incidental files below `target/` are internal. |
 | Java modules and packages | Internal and unsupported unless a future document explicitly declares a module to be public API. |
 
-Preview commands and fields may change during `0.x`. A breaking change to a
-declared public surface is recorded with the old behavior, new behavior, and
-migration instructions.
+These promises apply to the supported lifecycle and explicitly stable output
+contracts. Experimental features and other preview contracts are excluded. A
+breaking change to a stable public surface requires a major version and a record
+of the old behavior, new behavior, and migration instructions.
 
 ## Stable JSON commands
 

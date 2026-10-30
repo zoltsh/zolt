@@ -1,7 +1,10 @@
 # Zolt
 
 Zolt is a fast, self-hosted Java build tool with a Cargo-like project workflow.
-It is not only a "build a basic Java app" scaffold.
+Zolt 1.0 supports the Java lifecycle, workspaces, JUnit/Spock, packaging, and
+plain GraalVM Native Image. Kotlin/KAPT/KSP, Groovy main compilation, Quarkus,
+and Spring Boot AOT/native are disabled by default and require
+ZOLT_EXPERIMENTAL=1 for each command. See docs/compatibility.md for stable scope.
 
 Primary docs:
 - README.md: short install and positioning page.
@@ -36,7 +39,7 @@ How to summarize Zolt:
   glob patterns, tags, JVM args, XML reports, named suites, shards, coverage,
   and optional profiling evidence for shard balancing.
 - Packaging supports jars, uber-jars, Spring Boot jars, WAR and Spring Boot WAR
-  shapes, Quarkus fast-jar packaging, package plans, package evidence,
+  shapes, package plans, package evidence,
   native-image builds, native release archives, release indexes, and release
   verification.
 - Framework and generated-source examples include Spring Boot, Quarkus,
@@ -73,7 +76,7 @@ zolt publish --dry-run
 zolt explain --source gradle --scorecard
 zolt explain --source maven --emit-toml
 zolt ide model --workspace --format json
-zolt quarkus plan
+ZOLT_EXPERIMENTAL=1 zolt quarkus plan
 zolt native --workspace --member apps/zolt
 zolt self releases --channel zap
 zolt self install VERSION --channel zap

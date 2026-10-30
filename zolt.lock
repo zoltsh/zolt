@@ -2,7 +2,7 @@ version = 7
 aliasFingerprint = "sha256:937a2c3042ab79d1c20871df360e244cc97d7f393add53781000797da554f688"
 projectResolutionFingerprint = "sha256:b2c72418b03e61bb362f15b51b7bef2f9062b515cf0af73de4dc034106625f95"
 projectResolutionInputFingerprints = ["dependencies.api.workspace=sha256:e278f2c880bafff02f44f9d403dd68e11930a5f8e5c1d8c49e6cb9ae74963d17", "dependencies.api=sha256:4ce39b687df3a02e2eb24d4b1b2d55903971a2cfeb8593fba3cb52c81fd3bd9c", "dependencies.compile.workspace=sha256:5fa3d40686774c104593200c7c73594199c08f78e75617df760f179128c91d86", "dependencies.compile=sha256:1fe5ba2691695db8da4e166c2015e5ba3a85d075109bcc23012709fcfcd89645", "dependencies.provided=sha256:ee9fd5151af21151e1229a58161679fb2d82e7365fd91fa9b04205c966c8416a", "dependencies.test=sha256:b064bfc2bafc1d61866dfa65fb48c16f836933bc62891b528cb566d3a2ce6750", "dependencyMetadata=sha256:2c7703a42cdce1b858cb5201e45c2ab2fdec71f2ad06548e201cb23ee409b5a3", "framework.quarkus=sha256:1a03038e3b6c11a6598e959b5526786bc942bd2d0e7cb6aec2401dcd36bafc1b", "framework.springBoot.native=sha256:cf597ee2519b656c8bdeb8a1aaaf81b8c9da20d7b82a94cb0643edd20e98e19f", "java=sha256:c822ebc7e176990dd66771c2496f47b8ee0f6451df7ddfa87c44aebff0a6edf6", "package=sha256:ba2fd61e998d4fab4a9205d2785ca9a48464a401346bebf655e28156a0a304c1", "repositories=sha256:e50e1129945e4af12f6d6b822fe1b5548c9425f8a3f0cfeadfb1fb4a646902e1", "schema=sha256:a08549d13c2f16087cfcaf4458dbe9436970632fe503bb7217f88c16428d2ddd", "versions=sha256:ca2f745d896b6ebc468c04d2ccbbbc59da0ef4c8f781764c0e43a6ec6d0f38d8"]
-workspaceResolutionInputFingerprint = "sha256:aa1a32344714e5514e04ecc8e92b061110ae2bd34b87cff7e5b68dbb29b001d9"
+workspaceResolutionInputFingerprint = "sha256:6dcefb69a4461d14da24a7d5ff286ae7ac94730fe62983a28767736bd7b71642"
 
 [[dependencyRoot]]
 member = "apps/zolt"
@@ -14,175 +14,175 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-build"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-config"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-explain"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-framework-api"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-ide"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-init"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-native-image"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-plan"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-policy"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-publish"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-quality"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-quarkus"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-release"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-repository"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-resolve"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-sbom"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-selfhost"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-test-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-test-runtime"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-toolchain"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-tree"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-update"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-workspace"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -259,21 +259,21 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "apps/zolt-junit-worker"
 id = "sh.zolt:zolt-junit-client"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt-junit-worker"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt-junit-worker"
 id = "sh.zolt:zolt-test-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -287,49 +287,49 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-build"
 id = "sh.zolt:zolt-junit-client"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-build"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-build"
 id = "sh.zolt:zolt-repository"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-build"
 id = "sh.zolt:zolt-resolve"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-build"
 id = "sh.zolt:zolt-test-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-build"
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-build"
 id = "sh.zolt:zolt-framework-api"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "api"
 resolvedScope = "compile"
 
@@ -378,7 +378,7 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "modules/zolt-config"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -399,21 +399,21 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "modules/zolt-explain"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-explain"
 id = "sh.zolt:zolt-repository"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-explain"
 id = "sh.zolt:zolt-resolve"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -427,7 +427,7 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-framework-api"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -441,42 +441,42 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-ide"
 id = "sh.zolt:zolt-build"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-ide"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-ide"
 id = "sh.zolt:zolt-repository"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-ide"
 id = "sh.zolt:zolt-resolve"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-ide"
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-ide"
 id = "sh.zolt:zolt-workspace"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -490,14 +490,14 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-init"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-init"
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -511,7 +511,7 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-junit-client"
 id = "sh.zolt:zolt-test-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -532,28 +532,28 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-native-image"
 id = "sh.zolt:zolt-build"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-native-image"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-native-image"
 id = "sh.zolt:zolt-resolve"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-native-image"
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -567,21 +567,21 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-plan"
 id = "sh.zolt:zolt-build"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-plan"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-plan"
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -595,14 +595,14 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-policy"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-policy"
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -616,28 +616,28 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-publish"
 id = "sh.zolt:zolt-build"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-publish"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-publish"
 id = "sh.zolt:zolt-repository"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-publish"
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -651,63 +651,63 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-quality"
 id = "sh.zolt:zolt-build"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-quality"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-quality"
 id = "sh.zolt:zolt-policy"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-quality"
 id = "sh.zolt:zolt-publish"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-quality"
 id = "sh.zolt:zolt-repository"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-quality"
 id = "sh.zolt:zolt-resolve"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-quality"
 id = "sh.zolt:zolt-sbom"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-quality"
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-quality"
 id = "sh.zolt:zolt-workspace"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -721,56 +721,56 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-quarkus"
 id = "sh.zolt:zolt-build"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-quarkus"
 id = "sh.zolt:zolt-framework-api"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-quarkus"
 id = "sh.zolt:zolt-ide"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-quarkus"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-quarkus"
 id = "sh.zolt:zolt-repository"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-quarkus"
 id = "sh.zolt:zolt-resolve"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-quarkus"
 id = "sh.zolt:zolt-test-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-quarkus"
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -868,7 +868,7 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-release"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -882,7 +882,7 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-repository"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -896,21 +896,21 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-resolve"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-resolve"
 id = "sh.zolt:zolt-repository"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-resolve"
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -924,21 +924,21 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-sbom"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-sbom"
 id = "sh.zolt:zolt-repository"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-sbom"
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -959,49 +959,49 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-selfhost"
 id = "sh.zolt:zolt-build"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-selfhost"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-selfhost"
 id = "sh.zolt:zolt-native-image"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-selfhost"
 id = "sh.zolt:zolt-resolve"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-selfhost"
 id = "sh.zolt:zolt-test-runtime"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-selfhost"
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-selfhost"
 id = "sh.zolt:zolt-workspace"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -1015,7 +1015,7 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-test-model"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -1029,49 +1029,49 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-test-runtime"
 id = "sh.zolt:zolt-build"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-test-runtime"
 id = "sh.zolt:zolt-framework-api"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-test-runtime"
 id = "sh.zolt:zolt-junit-client"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-test-runtime"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-test-runtime"
 id = "sh.zolt:zolt-resolve"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-test-runtime"
 id = "sh.zolt:zolt-test-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-test-runtime"
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -1085,7 +1085,7 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-toml"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -1113,14 +1113,14 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "modules/zolt-toolchain"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-toolchain"
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -1134,7 +1134,7 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-tree"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -1148,21 +1148,21 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-update"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-update"
 id = "sh.zolt:zolt-repository"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-update"
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -1176,70 +1176,70 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-workspace"
 id = "sh.zolt:zolt-build"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-workspace"
 id = "sh.zolt:zolt-framework-api"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-workspace"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-workspace"
 id = "sh.zolt:zolt-native-image"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-workspace"
 id = "sh.zolt:zolt-publish"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-workspace"
 id = "sh.zolt:zolt-repository"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-workspace"
 id = "sh.zolt:zolt-resolve"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-workspace"
 id = "sh.zolt:zolt-test-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-workspace"
 id = "sh.zolt:zolt-test-runtime"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-workspace"
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -2410,7 +2410,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-build"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2421,7 +2421,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-config"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2432,7 +2432,7 @@ dependencies = ["org.tomlj:tomlj:1.1.1:jar:compile"]
 
 [[package]]
 id = "sh.zolt:zolt-explain"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2443,7 +2443,7 @@ dependencies = ["org.tomlj:tomlj:1.1.1:jar:compile"]
 
 [[package]]
 id = "sh.zolt:zolt-framework-api"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2455,7 +2455,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-ide"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2466,7 +2466,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-init"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2477,7 +2477,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-junit-client"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2488,7 +2488,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2499,7 +2499,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-native-image"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2510,7 +2510,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-plan"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2521,7 +2521,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-policy"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2532,7 +2532,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-publish"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2543,7 +2543,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-quality"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2554,7 +2554,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-quarkus"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2565,7 +2565,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-release"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2576,7 +2576,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-repository"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2587,7 +2587,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-resolve"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2598,7 +2598,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-sbom"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2609,7 +2609,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-selfhost"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2620,7 +2620,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-test-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2631,7 +2631,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-test-runtime"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2642,7 +2642,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2653,7 +2653,7 @@ dependencies = ["org.tomlj:tomlj:1.1.1:jar:compile"]
 
 [[package]]
 id = "sh.zolt:zolt-toolchain"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2664,7 +2664,7 @@ dependencies = ["com.fasterxml.jackson.core:jackson-core:2.22.2:jar:compile"]
 
 [[package]]
 id = "sh.zolt:zolt-tree"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2675,7 +2675,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-update"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2686,7 +2686,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-workspace"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true

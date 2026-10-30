@@ -1,5 +1,9 @@
 # Kotlin/JVM preview support
 
+Kotlin support is disabled by default in Zolt 1.0. Set `ZOLT_EXPERIMENTAL=1` for
+each command using Kotlin, KAPT, KSP, or Kotlin compiler plugins. The workflows
+below remain outside the stable Java release contract.
+
 This matrix defines the Kotlin/JVM workflows Zolt currently qualifies. Kotlin
 support is a bounded preview: a row marked **qualified** has repository
 integration or smoke coverage, while a compiler version being **accepted** does

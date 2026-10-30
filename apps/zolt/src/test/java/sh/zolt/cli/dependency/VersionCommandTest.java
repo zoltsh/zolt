@@ -21,7 +21,7 @@ final class VersionCommandTest {
         CommandResult result = execute("--version");
 
         assertEquals(0, result.exitCode(), result.stderr());
-        assertEquals("0.1.0-SNAPSHOT\n", result.stdout());
+        assertEquals("1.0.0\n", result.stdout());
     }
 
     @Test
@@ -29,7 +29,7 @@ final class VersionCommandTest {
         CommandResult result = execute("version");
 
         assertEquals(0, result.exitCode(), result.stderr());
-        assertEquals("0.1.0-SNAPSHOT\n", result.stdout());
+        assertEquals("1.0.0\n", result.stdout());
     }
 
     @Test

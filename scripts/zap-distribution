@@ -35,13 +35,13 @@ usage() {
   cat <<'USAGE'
 Usage: scripts/zap-distribution [--target <target>]
 
-Build and verify one zap or preview native Zolt candidate. The trusted
+Build and verify one zap, preview, or stable native Zolt candidate. The trusted
 zoltsh/releases controller publishes immutable GitHub Release assets and signed
 moving metadata after it independently validates all target candidates.
 
 Environment:
-  ZOLT_RELEASE_CHANNEL        zap or preview. Default: zap.
-  ZOLT_RELEASE_VERSION        Override computed version; required for preview.
+  ZOLT_RELEASE_CHANNEL        zap, preview, or stable. Default: zap.
+  ZOLT_RELEASE_VERSION        Override computed version; required for preview and stable.
   ZOLT_RELEASE_TARGET         Release target. Default: current host target.
   ZOLT_RELEASE_INDEX_LIMIT    Maximum versions to keep in releases/<channel>.json. Default: 200.
 USAGE
@@ -134,8 +134,20 @@ case "$CHANNEL" in
     fi
     RELEASE_TAG="zolt-preview-v${VERSION}"
     ;;
+  stable)
+    VERSION="${ZOLT_RELEASE_VERSION:-}"
+    if [[ ! "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+      printf 'error: stable requires ZOLT_RELEASE_VERSION in a form like 1.0.0\n' >&2
+      exit 2
+    fi
+    if [[ "$VERSION" != "$BASE_VERSION" ]]; then
+      printf 'error: stable version %s does not match workspace version %s\n' "$VERSION" "$BASE_VERSION" >&2
+      exit 2
+    fi
+    RELEASE_TAG="zolt-v${VERSION}"
+    ;;
   *)
-    printf 'error: unsupported release channel %s; expected zap or preview\n' "$CHANNEL" >&2
+    printf 'error: unsupported release channel %s; expected zap, preview, or stable\n' "$CHANNEL" >&2
     exit 2
     ;;
 esac

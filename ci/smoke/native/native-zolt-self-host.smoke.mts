@@ -16,7 +16,7 @@ smoke.suite("native Zolt self-host smoke", { tags: ["native", "self-host", "cli"
   await t.step("builds the current Zolt CLI with real Native Image", async () => {
     zolt = await buildNativeZolt(t, bootstrap);
     const version = await runZolt(t, zolt, ["--version"], { timeout: "30s" });
-    expect.value(version.stdout).toContain("0.1.0");
+    expect.value(version.stdout.trim()).toBe(process.env.ZOLT_VERSION_OVERRIDE ?? "1.0.0");
   });
 
   await t.step("initializes a Kotlin project through native Zolt", async () => {

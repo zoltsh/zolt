@@ -10,6 +10,11 @@ on:
 permissions:
   contents: read
 
+# Keep development coverage for preview features. The stable lifecycle job below
+# overrides this so release qualification also exercises the installed defaults.
+env:
+  ZOLT_EXPERIMENTAL: "1"
+
 jobs:
   test:
     name: test ${{ matrix.name }}
@@ -274,6 +279,76 @@ jobs:
         env:
           ZOLT_SMOKE_PREBUILT: "1"
         run: scripts/smoke-smoque ${{ matrix.suite }}
+
+  stable-lifecycle:
+    name: stable Java lifecycle
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      ZOLT_EXPERIMENTAL: "0"
+      ZOLT_SMOKE_PREBUILT: "1"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@5298d94fb55a4f185c602eeac5de1b553882abe2
+        with:
+          distribution: graalvm
+          java-version: "21"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "22"
+
+      - name: Cache Zolt artifacts
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: .zolt/cache
+          key: zolt-cache-${{ runner.os }}-${{ hashFiles('zolt.lock') }}
+          restore-keys: |
+            zolt-cache-${{ runner.os }}-
+
+      - name: Cache Zolt managed toolchains
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: ~/.zolt/toolchains
+          key: zolt-toolchains-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('zolt.lock') }}
+          restore-keys: |
+            zolt-toolchains-${{ runner.os }}-${{ runner.arch }}-
+            zolt-toolchains-${{ runner.os }}-
+
+      - name: Cache stable smoke packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: .zolt/npm-cache
+          key: npm-cache-${{ runner.os }}-stable-smoque-0.1.0
+          restore-keys: |
+            npm-cache-${{ runner.os }}-stable-
+
+      - name: Bootstrap sync Zolt-managed Java
+        run: scripts/bootstrap-zolt-jvm --no-progress toolchain sync
+
+      - name: Package stage-0 Zolt
+        run: scripts/bootstrap-zolt-jvm --no-progress package --workspace --member apps/zolt --cache-root .zolt/cache
+
+      - name: Sync Zolt-managed Java
+        run: scripts/run-zolt-built toolchain sync
+
+      - name: Package CLI and workers with managed Java
+        run: |
+          scripts/run-zolt-built package --workspace --member apps/zolt --no-progress --cache-root .zolt/cache
+          scripts/run-zolt-built package --workspace --member apps/zolt-junit-worker --no-progress --cache-root .zolt/cache
+          scripts/run-zolt-built package --workspace --member apps/zolt-javac-worker --no-progress --cache-root .zolt/cache
+
+      - name: Verify experimental feature boundaries with stable defaults
+        run: scripts/run-zolt-built test --workspace --member apps/zolt --test sh.zolt.cli.ExperimentalFeaturesTest --no-progress --cache-root .zolt/cache
+
+      - name: Smoke Java, Spring Boot JVM, and real native workflows
+        run: scripts/smoke-stable
 
   managed-toolchain:
     name: managed Java toolchain dogfood ${{ matrix.name }}

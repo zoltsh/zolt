@@ -1,7 +1,8 @@
 # Usage
 
-Common Zolt workflows. See [FEATURES.md](./FEATURES.md) for the complete feature
-set and [REFERENCE.md](./REFERENCE.md) for configuration and contracts.
+Common workflows for the supported Java lifecycle in Zolt 1.0. See
+[Features](./FEATURES.md) for release scope and [Reference](./REFERENCE.md) for
+configuration and contracts.
 
 ## Start
 
@@ -13,10 +14,6 @@ zolt package
 ```
 
 `init` includes JUnit and a passing test. Use `--no-tests` for a bare project.
-Pass `--language kotlin` to generate a Kotlin/JVM application with an aligned
-compiler, standard library, and explicit Kotlin main root. The default template
-also includes a Kotlin test root and passing JUnit test; `--no-tests` omits them.
-Java is the default language.
 
 ## Build
 
@@ -48,62 +45,6 @@ are `implementation` (default), `api`, `runtime`, `provided`, `dev`, `test`,
 `processor`, and `test-processor`. Every mutation refreshes `zolt.lock` unless
 `--no-resolve` is given, which commits only the source-safe manifest edit and
 names the resolve command that refreshes the stale lock.
-
-In a Kotlin/JVM source set, `processor` and `test-processor` dependencies run
-through a version-aligned, isolated KAPT toolchain. Zolt makes generated Java
-types visible to Kotlin and Java consumers in that source set. A Kotlin main or
-test source set may instead run locked KSP2 processors through a required
-`[generated.main]` or `[generated.test]` step:
-
-```toml
-[generated.tools.ksp]
-version = "2.2.0-2.0.2"
-coordinates = [
-    { coordinate = "com.example:my-ksp-processor", version = "1.0.0" },
-]
-
-[generated.main.symbols]
-kind = "ksp"
-options = { "processor.mode" = "production" }
-```
-
-Use `[generated.test.symbols]` for the matching unit- and integration-test
-source-set projection.
-
-The KSP release must match the configured Kotlin compiler. Zolt locks the KSP
-engine and processor closures separately, owns the generated Kotlin, Java, and
-resource lanes, and includes their identity and bytes in reuse decisions. KSP
-test generation uses the member's main output plus its ordered test compile
-classpath.
-
-The bounded Kotlin preview also supports official compiler plugins through
-closed selectors:
-
-```toml
-[toolchain.kotlin]
-version = "2.2.0"
-plugins = ["serialization", "spring", "micronaut", "jpa", "power-assert"]
-
-[dependencies]
-"org.jetbrains.kotlin:kotlin-stdlib" = "2.2.0"
-"org.jetbrains.kotlinx:kotlinx-serialization-core-jvm" = "1.9.0"
-```
-
-Zolt locks each selected compiler plugin at the Kotlin compiler version in the
-isolated tool closure. `serialization` generates serializers; its runtime
-remains an ordinary application dependency and must be declared explicitly.
-`spring` invokes Kotlin's all-open Spring preset so recognized Spring-annotated
-types can be proxied without manually writing `open`; it does not add Spring
-libraries. `micronaut` invokes the all-open Micronaut preset, including through
-recognized AOP meta-annotations; it does not add Micronaut libraries. `jpa`
-invokes Kotlin's no-arg JPA preset, generating reflection-callable
-zero-parameter constructors for recognized `javax.persistence` and
-`jakarta.persistence` types. It does not make those types open or add a
-persistence API or provider. `power-assert` enriches failures from
-`kotlin.assert`; run tests with `zolt test --jvm-arg=-ea` so JVM assertions are
-enabled. Select any subset of the five built-ins and declare application
-libraries normally. Arbitrary compiler-plugin coordinates and plugin options
-are outside this preview.
 
 Pass processor options as scoped compiler arguments. Each option requires the
 matching processor dependency lane:
@@ -195,15 +136,12 @@ See [Toolchains](./REFERENCE.md#java-toolchains).
 
 ## Frameworks
 
-Zolt includes packaging or generated-source paths for Spring Boot, Quarkus,
-OpenAPI, and Protobuf, with documented Micronaut and Vert.x examples.
+Zolt supports Spring Boot JVM packaging and generated Java from OpenAPI and
+Protobuf, with documented Micronaut and Vert.x examples.
 
 ```sh
 zolt resolve
 zolt package
-zolt package --mode quarkus
-zolt quarkus plan
-zolt quarkus test-plan
 ```
 
 Spring Boot archive modes are resolution inputs because they add locked loader
@@ -221,13 +159,12 @@ zolt package --plan
 zolt package --mode jar
 zolt package --mode uber-jar
 zolt package --mode war
-zolt package --mode quarkus
 zolt native
 ```
 
 Packages support sources, Javadoc, manifests, Maven metadata, and evidence.
 `--mode` is a one-command standalone override only when the configured and
-requested modes use the same resolution tooling. Jar, uber-jar, WAR, and Quarkus
+requested modes use the same resolution tooling. Jar, uber-jar, and WAR
 layouts are in one resolution family; Spring Boot jar and Spring Boot WAR are
 another. Crossing between those families fails closed: persist `[package].mode`, run
 `zolt resolve`, and retry without `--mode`. Native builds validate that same
@@ -266,8 +203,8 @@ zolt licenses
 zolt sbom
 ```
 
-Human-readable output is the default. Commands that feed tools expose stable
-JSON. The manifest configuration view shows only locally authored values; the
+Human-readable output is the default. The stable JSON contracts are listed in
+[Compatibility](./docs/compatibility.md); other structured output remains preview. The manifest configuration view shows only locally authored values; the
 effective view composes workspace inheritance and built-in defaults. For a
 project it labels each value's origin; at a virtual workspace root it reports
 shared values once as root-authored, plus selected members. Neither view reads
@@ -332,6 +269,24 @@ zolt self update
 
 Installer-managed versions support channels, switching, pruning, updates, and
 rollback.
+
+## Experimental features
+
+Kotlin/JVM (including KAPT, KSP, and compiler plugins), Groovy main sources,
+Quarkus workflows, and Spring Boot AOT/native builds require an explicit opt-in
+for each command:
+
+```sh
+ZOLT_EXPERIMENTAL=1 zolt init hello-kotlin --language kotlin
+ZOLT_EXPERIMENTAL=1 zolt test --cwd hello-kotlin
+ZOLT_EXPERIMENTAL=1 zolt package --mode quarkus
+```
+
+Java builds, Spock/Groovy tests, Spring Boot JVM packaging, and plain GraalVM
+native images do not require this flag. Experimental features are outside the
+stable 1.0 contract. The [Reference](./REFERENCE.md) retains their configuration
+and the [Kotlin/JVM matrix](./docs/kotlin-jvm-support.md) records current compiler
+and workflow boundaries.
 
 ## More
 

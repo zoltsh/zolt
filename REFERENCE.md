@@ -4,6 +4,11 @@ Zolt covers dependency editing, reproducible resolution, workspaces, framework
 packaging, generated sources, migration audits, quality gates, publishing, and
 native release workflows.
 
+The [1.0 compatibility contract](./docs/compatibility.md) defines supported scope.
+Kotlin/KAPT/KSP, Groovy main compilation, Quarkus, and Spring Boot AOT/native
+sections describe experimental features disabled by default; run their commands
+with `ZOLT_EXPERIMENTAL=1`.
+
 ## Start a Project
 
 ```sh
