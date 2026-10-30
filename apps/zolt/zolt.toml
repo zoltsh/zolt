@@ -52,7 +52,7 @@ classes = [
 
 [test.suites.arch-guardrails]
 classes = [
-    "sh.zolt.arch.*",
+    "sh.zolt.arch.*Test",
     "sh.zolt.cli.nativeimage.CliNativeReflectionConfigTest",
     "sh.zolt.cli.nativeimage.ReflectionInventoryTest",
 ]
