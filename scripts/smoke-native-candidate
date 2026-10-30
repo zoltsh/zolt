@@ -1,0 +1,146 @@
+#!/usr/bin/env bash
+# Qualify the exact native archive after release-verify has validated its layout.
+set -euo pipefail
+
+if [[ "$#" -ne 2 || ! -f "$1" ]]; then
+    printf 'usage: scripts/smoke-native-candidate <verified-native-archive.tar.gz> <version>\n' >&2
+    exit 2
+fi
+archive="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
+version="$2"
+work="$(mktemp -d "${TMPDIR:-/tmp}/zolt-candidate-smoke.XXXXXX")"
+trap 'rm -rf "$work"' EXIT
+export ZOLT_EXPERIMENTAL=0
+export ZOLT_USER_HOME="$work/user-home"
+# An explicit artifact cache may be reused, but no developer configuration is loaded.
+cache_root="${ZOLT_CANDIDATE_CACHE_ROOT:-$work/cache}"
+mkdir -p "$cache_root"
+cache_root="$(cd "$cache_root" && pwd)"
+# Exercise installed worker discovery, independent of developer overrides.
+unset ZOLT_JUNIT_WORKER_CLASSPATH ZOLT_JAVAC_WORKER_CLASSPATH
+unset ZOLT_JUNIT_WORKER_JAR ZOLT_JAVAC_WORKER_JAR
+
+sha256_file() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$1" | awk '{ print $1 }'
+    else
+        shasum -a 256 "$1" | awk '{ print $1 }'
+    fi
+}
+
+fail() {
+    printf 'error: native candidate smoke: %s\n' "$1" >&2
+    exit 1
+}
+
+[[ -f "$archive.sha256" ]] || fail 'archive checksum sidecar is missing'
+[[ "$(sha256_file "$archive")" == "$(awk '{ print $1; exit }' "$archive.sha256")" ]] \
+    || fail 'archive checksum does not match'
+tar -xzf "$archive" -C "$work"
+layout="$work/$(basename "$archive" .tar.gz)"
+zolt="$layout/bin/zolt"
+[[ -x "$zolt" ]] || fail 'archive does not contain the expected executable'
+[[ -f "$layout/libexec/zolt-junit-worker.jar" ]] || fail 'bundled JUnit worker is missing'
+[[ -f "$layout/libexec/zolt-javac-worker.jar" ]] || fail 'bundled javac worker is missing'
+[[ "$("$zolt" --version)" == "$version" ]] || fail 'native CLI version does not match'
+
+# A path containing spaces catches launcher/worker argument quoting regressions.
+project="$work/project with spaces/smoke"
+"$zolt" init --cwd "$(dirname "$project")" --group release.smoke smoke
+main="$project/src/main/java/release/smoke/Main.java"
+test_source="$project/src/test/java/release/smoke/MainTest.java"
+cat >"$main" <<'JAVA'
+package release.smoke;
+public final class Main {
+    public static void main(String[] args) { System.out.println(greeting()); }
+    static String greeting() { return "candidate-v1"; }
+}
+JAVA
+cat >"$test_source" <<'JAVA'
+package release.smoke;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
+final class MainTest {
+    @Test void greetingMatches() { assertEquals("candidate-v1", Main.greeting()); }
+}
+JAVA
+
+run_zolt() {
+    "$zolt" --no-progress --color never "$@" --cwd "$project" --cache-root "$cache_root"
+}
+
+verify_tests() {
+    run_zolt test >"$work/tests.log" 2>&1 || { cat "$work/tests.log"; return 1; }
+    cat "$work/tests.log"
+    grep -Eq '^Tests found: 1$' "$work/tests.log" || fail 'JUnit did not discover the fixture test'
+    grep -Eq '^Tests succeeded: 1$' "$work/tests.log" || fail 'JUnit did not pass the fixture test'
+}
+
+verify_compiled_output() {
+    local expected="$1"
+    local output
+    # Observe this build's output before another Zolt command can rebuild it.
+    output="$(java -cp "$project/target/classes" release.smoke.Main)"
+    [[ "$output" == "$expected" ]] || fail "explicit build produced stale output: $output"
+}
+
+verify_execution() {
+    local expected="$1"
+    local output
+    output="$(run_zolt run --quiet)"
+    [[ "$output" == "$expected" ]] || fail "run produced stale or unexpected output: $output"
+    run_zolt package
+    local jars=("$project"/target/*.jar)
+    [[ "${#jars[@]}" -eq 1 && -f "${jars[0]}" ]] || fail 'expected one packaged application JAR'
+    [[ "$(java -jar "${jars[0]}")" == "$expected" ]] || fail 'packaged JAR produced stale output'
+}
+
+run_zolt resolve
+run_zolt build --offline
+verify_compiled_output candidate-v1
+verify_tests
+verify_execution candidate-v1
+# Repeat without edits, then force a same-size edit with the original timestamp.
+run_zolt build --offline
+verify_compiled_output candidate-v1
+touch -r "$main" "$work/source-timestamp"
+sed 's/candidate-v1/candidate-v2/' "$main" >"$work/next-source"
+cat "$work/next-source" >"$main"
+touch -r "$work/source-timestamp" "$main"
+sed 's/candidate-v1/candidate-v2/' "$test_source" >"$work/next-test"
+cat "$work/next-test" >"$test_source"
+run_zolt build --offline
+verify_compiled_output candidate-v2
+verify_tests
+verify_execution candidate-v2
+
+cp "$main" "$work/good-source"
+jar=("$project"/target/*.jar)
+packaged_digest="$(sha256_file "${jar[0]}")"
+printf '\nthis is not valid Java;\n' >>"$main"
+if run_zolt build --offline >"$work/rejected-build.log" 2>&1; then
+    fail 'invalid Java unexpectedly compiled'
+fi
+grep -F 'javac failed' "$work/rejected-build.log" >/dev/null || {
+    cat "$work/rejected-build.log"
+    fail 'invalid-source check failed for an unrelated reason'
+}
+[[ "$(sha256_file "${jar[0]}")" == "$packaged_digest" ]] || fail 'failed build replaced the packaged application'
+cp "$work/good-source" "$main"
+run_zolt build --offline
+verify_compiled_output candidate-v2
+verify_tests
+verify_execution candidate-v2
+# Build a real application native image with bounded memory/parallelism.
+mkdir -p "$work/native-tmp"
+native_tmp="${work//\\/\\\\}/native-tmp"
+native_tmp="${native_tmp//\"/\\\"}"
+cat >>"$project/zolt.toml" <<NATIVE_CONFIG
+
+[native]
+args = ["-J-Xmx2g", "--parallelism=2", "-J-Djava.io.tmpdir=$native_tmp"]
+NATIVE_CONFIG
+run_zolt native
+[[ -x "$project/target/native/smoke" ]] || fail 'application native executable is missing'
+[[ "$("$project/target/native/smoke")" == candidate-v2 ]] || fail 'application native executable produced stale output'
+printf 'Native candidate lifecycle passed for %s: bundled workers, package/run, recompile, failure recovery, native image.\n' "$(basename "$archive")"

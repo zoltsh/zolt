@@ -14,8 +14,11 @@ GraalVM Native Image. Managed JDKs, locked/offline resolution, and verified
 build-output reuse support that lifecycle. Changes to Java source inputs compile
 the complete affected source set; selective Java recompilation is internal.
 
-Native CLI distributions target Linux and macOS on x64 and arm64. Windows host
-support is experimental and has no published native binary.
+Native CLI distributions target Linux and macOS on x64 and arm64. The 1.0
+release qualification baselines are Ubuntu 24.04 with glibc and macOS 15 on both
+architectures. Older OS versions and Linux musl distributions are outside the
+qualified matrix. Windows host support is experimental and has no published
+native binary.
 
 The following features are disabled by default and require
 `ZOLT_EXPERIMENTAL=1` in the environment of each command that uses them:

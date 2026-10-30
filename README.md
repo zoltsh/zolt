@@ -39,7 +39,9 @@ curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL \
 
 The installer verifies the release archive against its pinned SHA-256 and records
 the release channel used by `zolt self update`. Linux and macOS native binaries
-are available for x64 and arm64.
+are available for x64 and arm64. The 1.0 release qualification baselines are
+Ubuntu 24.04 (glibc) and macOS 15 on both architectures. Older operating systems
+and Linux musl distributions are outside the qualified platform matrix.
 
 ## Start
 

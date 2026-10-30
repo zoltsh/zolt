@@ -3466,13 +3466,18 @@ The `examples/` directory is deliberately broad. It includes:
 
 ## Platforms
 
-Zolt ships only through the automatic `zap` channel, which publishes native
-binaries for:
+Zolt native release channels target:
 
 - `linux-x64`
 - `linux-arm64`
 - `macos-arm64`
 - `macos-x64`
+
+The 1.0 release qualification baselines are Ubuntu 24.04 with glibc and macOS 15,
+on both architectures. Each stable candidate must pass the native CLI lifecycle
+and build and execute a plain GraalVM native application on its target runner.
+Older OS versions and Linux musl distributions are outside this qualification
+matrix; the target names alone do not promise compatibility with them.
 
 Windows (`windows-x64`) is **experimental and not yet supported as a host**. CI
 runs a non-blocking `windows-smoke` discovery lane that builds the workspace and

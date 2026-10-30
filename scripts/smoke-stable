@@ -12,6 +12,7 @@ export NPM_CONFIG_CACHE="${NPM_CONFIG_CACHE:-$ROOT/.zolt/npm-cache}"
 suites=(
   smoke/startup.smoke.mts
   smoke/hello-zolt.smoke.mts
+  smoke/rebuild.smoke.mts
   smoke/junit-worker.smoke.mts
   smoke/junit-vintage.smoke.mts
   smoke/spock.smoke.mts
