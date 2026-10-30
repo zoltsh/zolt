@@ -123,17 +123,20 @@ final class CompiledTestRunInvoker {
             String suiteName,
             TestShardSpec shard,
             TestProfileSettings profileSettings) {
-        return compiledTestExecutionRunner.run(
-                projectDirectory,
-                config,
-                classpaths,
-                compileResult,
-                selection,
-                jvmArguments,
-                reportSettings,
-                cliEvents,
-                suiteName,
-                shard,
-                profileSettings);
+        try (sh.zolt.build.ProjectMutationLock ignored =
+                sh.zolt.build.ProjectMutationLock.acquire(projectDirectory)) {
+            return compiledTestExecutionRunner.run(
+                    projectDirectory,
+                    config,
+                    classpaths,
+                    compileResult,
+                    selection,
+                    jvmArguments,
+                    reportSettings,
+                    cliEvents,
+                    suiteName,
+                    shard,
+                    profileSettings);
+        }
     }
 }

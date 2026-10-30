@@ -74,6 +74,20 @@ final class WorkspaceMutationLockTest {
         }
     }
 
+    @Test
+    void rootMemberCanAcquireItsOutputLeaseOnAWorkspaceWorker() throws Exception {
+        try (var executor = java.util.concurrent.Executors.newSingleThreadExecutor();
+                WorkspaceMutationLock ignored = WorkspaceMutationLock.acquire(tempDir)) {
+            var member = executor.submit(() -> {
+                try (sh.zolt.build.ProjectMutationLock lease =
+                        sh.zolt.build.ProjectMutationLock.acquire(tempDir)) {
+                    return true;
+                }
+            });
+            assertEquals(true, member.get(5, TimeUnit.SECONDS));
+        }
+    }
+
     private Process startProbe() throws IOException, URISyntaxException {
         Path java = Path.of(
                 System.getProperty("java.home"),

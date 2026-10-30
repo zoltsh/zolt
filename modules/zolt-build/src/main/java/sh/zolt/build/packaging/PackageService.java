@@ -147,34 +147,36 @@ public final class PackageService {
         return packageJar(projectDirectory, config, config, cacheRoot, artifactIndex);
     }
 
-    /**
-     * Builds with the declared project semantics, then packages into an explicitly separate output
-     * configuration. Native compilation uses this to keep its JVM input private without hiding the
-     * configured Spring Boot mode from AOT generation.
-     */
+    /** Builds with declared semantics, then packages separately for native JVM inputs without hiding AOT configuration. */
     public PackageResult packageJar(
             Path projectDirectory,
             ProjectConfig buildConfig,
             ProjectConfig packageConfig,
             Path cacheRoot,
             VerifiedArtifactIndex artifactIndex) {
-        Path projectRoot = projectRoot(projectDirectory);
-        PackageMode mode = packageConfig.packageSettings().mode();
-        PackageModeValidator.ensureSupported(mode);
-        preparePackageToolingIfNeeded(projectRoot, packageConfig, cacheRoot);
-        BuildResultWithClasspaths buildResult = buildService.buildWithClasspaths(
-                projectRoot,
-                buildConfig,
-                cacheRoot,
-                false,
-                artifactIndex);
-        return packageJar(projectRoot, packageConfig, buildResult, cacheRoot);
+        try (sh.zolt.build.ProjectMutationLock ignored =
+                sh.zolt.build.ProjectMutationLock.acquire(projectDirectory)) {
+            Path projectRoot = projectRoot(projectDirectory);
+            PackageMode mode = packageConfig.packageSettings().mode();
+            PackageModeValidator.ensureSupported(mode);
+            preparePackageToolingIfNeeded(projectRoot, packageConfig, cacheRoot);
+            BuildResultWithClasspaths buildResult = buildService.buildWithClasspaths(
+                    projectRoot,
+                    buildConfig,
+                    cacheRoot,
+                    false,
+                    artifactIndex);
+            return packageJar(projectRoot, packageConfig, buildResult, cacheRoot);
+        }
     }
 
     /** Standalone lane: the project directory is the lock root, so it may declare itself one. */
     public void preparePackageToolingIfNeeded(Path projectDirectory, ProjectConfig config, Path cacheRoot) {
-        ProjectBuildContext context = ProjectBuildContext.standalone(projectDirectory);
-        packageToolingPreparer.prepareIfNeeded(context.projectRoot(), context.lockfilePath(), config, cacheRoot);
+        try (sh.zolt.build.ProjectMutationLock ignored =
+                sh.zolt.build.ProjectMutationLock.acquire(projectDirectory)) {
+            ProjectBuildContext context = ProjectBuildContext.standalone(projectDirectory);
+            packageToolingPreparer.prepareIfNeeded(context.projectRoot(), context.lockfilePath(), config, cacheRoot);
+        }
     }
 
     public PackageResult packageJar(
@@ -267,11 +269,7 @@ public final class PackageService {
                 new PackageOutputFingerprintIndex());
     }
 
-    /**
-     * Packages one workspace member against that command's shared package input index, using the
-     * authoritative lockfile the context names. Design §4.5: the tests-JAR evidence gate fingerprints
-     * against that lock and, on the reconstruct path, reads it.
-     */
+    /** Packages a workspace member using its authoritative lockfile and the command's shared input index. */
     public PackageResult packageJar(
             ProjectBuildContext context,
             ProjectConfig config,
@@ -307,39 +305,42 @@ public final class PackageService {
             Optional<ClasspathSet> classpaths,
             Optional<PackagePlan> suppliedPlan,
             PackageOutputFingerprintIndex inputs) {
-        Path projectDirectory = context.projectRoot();
-        PackageJavadocPolicy.requireSupported(projectDirectory, config);
-        testCompileGate.requireCurrent(
-                context, config, buildResult, cacheRoot, classpathPackages, classpaths);
-        PackagePlan plan = suppliedPlan.orElseGet(() ->
-                packagePlanResolver.plan(context, config, cacheRoot, inputs));
-        try {
-            Optional<PackageResult> reused =
-                    reuseService.reuse(projectDirectory, config, buildResult, plan);
-            if (reused.isPresent()) {
-                return reused.orElseThrow();
+        try (sh.zolt.build.ProjectMutationLock ignored =
+                sh.zolt.build.ProjectMutationLock.acquire(context.projectRoot())) {
+            Path projectDirectory = context.projectRoot();
+            PackageJavadocPolicy.requireSupported(projectDirectory, config);
+            testCompileGate.requireCurrent(
+                    context, config, buildResult, cacheRoot, classpathPackages, classpaths);
+            PackagePlan plan = suppliedPlan.orElseGet(() ->
+                    packagePlanResolver.plan(context, config, cacheRoot, inputs));
+            try {
+                Optional<PackageResult> reused =
+                        reuseService.reuse(projectDirectory, config, buildResult, plan);
+                if (reused.isPresent()) {
+                    return reused.orElseThrow();
+                }
+                PackageArchiveDigests digests = new PackageArchiveDigests();
+                PackageResult result = primaryArtifactAssembler.assemble(
+                        context,
+                        config,
+                        buildResult,
+                        cacheRoot,
+                        classpathPackages,
+                        classpaths,
+                        inputs.snapshot(plan.applicationOutput()),
+                        digests);
+                List<PackageArtifact> artifacts = supplementalArtifactAssembler.assemble(
+                        projectDirectory,
+                        config,
+                        buildResult,
+                        classpathPackages,
+                        classpaths);
+                Path evidenceManifest = evidenceManifestWriter.write(
+                        projectDirectory, config, plan, result, artifacts, digests);
+                return result.withArtifactsAndEvidence(artifacts, Optional.of(evidenceManifest));
+            } finally {
+                inputs.releaseBytes(plan.applicationOutput());
             }
-            PackageArchiveDigests digests = new PackageArchiveDigests();
-            PackageResult result = primaryArtifactAssembler.assemble(
-                    context,
-                    config,
-                    buildResult,
-                    cacheRoot,
-                    classpathPackages,
-                    classpaths,
-                    inputs.snapshot(plan.applicationOutput()),
-                    digests);
-            List<PackageArtifact> artifacts = supplementalArtifactAssembler.assemble(
-                    projectDirectory,
-                    config,
-                    buildResult,
-                    classpathPackages,
-                    classpaths);
-            Path evidenceManifest = evidenceManifestWriter.write(
-                    projectDirectory, config, plan, result, artifacts, digests);
-            return result.withArtifactsAndEvidence(artifacts, Optional.of(evidenceManifest));
-        } finally {
-            inputs.releaseBytes(plan.applicationOutput());
         }
     }
 

@@ -193,6 +193,7 @@ public final class ProjectInitializer {
                 target/
                 build/
                 out/
+                .zolt/
 
                 .DS_Store
                 """;

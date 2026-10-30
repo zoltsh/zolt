@@ -151,13 +151,7 @@ public final class CompileOutputLayoutValidator {
         }
     }
 
-    /**
-     * A project-root input such as {@code [build].sources = ["."]} is intentionally broad. The declared
-     * build output root carves an owned subtree out of that catch-all input, so conventional
-     * {@code target/...} outputs remain valid. Narrower source/resource roots do not confer that ownership:
-     * placing an output below one would make discovery hide files that cleanup can then erase. Neither a
-     * source-root alias back to the project root nor an output-root alias into an authored tree can create ownership.
-     */
+    /** A literal project-root input permits its declared output subtree; narrower or aliased roots do not. */
     private static boolean isOwnedProjectRootSubtree(
             Path root,
             ConfiguredPath outputRoot,
@@ -193,6 +187,10 @@ public final class CompileOutputLayoutValidator {
                 ProjectLockfile.NAME,
                 root.resolve(ProjectLockfile.NAME),
                 false));
+        for (String lock : List.of(".zolt/project-mutation.lock", ".zolt/workspace-mutation.lock")) {
+            paths.add(new ConfiguredPath("mutation lock", lock, root.resolve(lock), false));
+        }
+        paths.add(new ConfiguredPath("runtime snapshots", ".zolt/run", root.resolve(".zolt/run"), false));
         addInputs(paths, root, "[build].sources", build.sourceRoots());
         addInputs(paths, root, "[test.sources].java", build.testSources());
         addInputs(paths, root, "[test.sources].groovy", build.groovyTestSources());

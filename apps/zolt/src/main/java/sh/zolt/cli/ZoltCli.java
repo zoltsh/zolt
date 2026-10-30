@@ -149,7 +149,10 @@ public final class ZoltCli implements Runnable {
             CommandLine commandLine, ZoltCli rootCommand, boolean experimentalFeatures) {
         commandLine.setExecutionStrategy(parseResult -> {
             ExperimentalFeatures.check(parseResult, experimentalFeatures);
-            int exitCode = new CommandLine.RunLast().execute(parseResult);
+            int exitCode = CommandMutationExecution.execute(parseResult, () -> {
+                ExperimentalFeatures.check(parseResult, experimentalFeatures);
+                return new CommandLine.RunLast().execute(parseResult);
+            });
             if (exitCode == 0) {
                 rootCommand.updateNoticeHook.printAfterSuccess(commandLine, parseResult, rootCommand.quiet);
                 rootCommand.toolchainNoticeHook.printAfterSuccess(commandLine, parseResult, rootCommand.quiet);

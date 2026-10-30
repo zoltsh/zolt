@@ -143,15 +143,18 @@ public final class TestCompileService {
             Path projectDirectory,
             ProjectConfig config,
             Path cacheRoot) {
-        BuildResultWithClasspaths buildResult = buildTestInputs(projectDirectory, config, cacheRoot);
-        return new TestCompileResultWithClasspaths(
-                compileTests(
-                        projectDirectory,
-                        config,
-                        buildResult.classpaths(),
-                        buildResult.buildResult(),
-                        buildResult.classpathPackages()),
-                buildResult.classpaths());
+        try (sh.zolt.build.ProjectMutationLock ignored =
+                sh.zolt.build.ProjectMutationLock.acquire(projectDirectory)) {
+            BuildResultWithClasspaths buildResult = buildTestInputs(projectDirectory, config, cacheRoot);
+            return new TestCompileResultWithClasspaths(
+                    compileTests(
+                            projectDirectory,
+                            config,
+                            buildResult.classpaths(),
+                            buildResult.buildResult(),
+                            buildResult.classpathPackages()),
+                    buildResult.classpaths());
+        }
     }
 
     public BuildResultWithClasspaths buildTestInputs(Path projectDirectory, ProjectConfig config, Path cacheRoot) {
@@ -188,155 +191,153 @@ public final class TestCompileService {
                 classpathPackages);
     }
 
-    /**
-     * Compiles a member's tests against the authoritative lockfile its context names.
-     *
-     * <p>Design §4.5: the lock's content hash feeds test freshness and the test build-cache key, so a
-     * member lane handed only its own directory would fingerprint a member-local {@code zolt.lock}.
-     */
+    /** Compiles tests using the authoritative lockfile named by the member context. */
     public TestCompileResult compileTests(
             ProjectBuildContext context,
             ProjectConfig config,
             ClasspathSet classpaths,
             BuildResult buildResult,
             List<ResolvedClasspathPackage> classpathPackages) {
-        Path projectDirectory = context.projectRoot();
-        KotlinCompilerCompatibilityPolicy.requireConfiguredOptionsSupported(
-                config, KotlinCompilationScope.TEST);
-        CompileOutputLayoutValidator.validateTest(projectDirectory, config);
-        generatedSourceCoordinator.generatePreCompile(
-                projectDirectory,
-                config,
-                classpaths,
-                classpathPackages,
-                buildResult.outputDirectory());
-        SourceDiscoveryResult sources = sourceDiscoverer.discover(projectDirectory, config.build());
-        sh.zolt.build.SourceLanguagePolicy.requireTestSupported(sources);
-        List<GeneratedSourceProducerFingerprint>
-                generatedProducerFingerprints =
-                        generatedProducerFingerprintService
-                                .fingerprintsTest(
-                                        projectDirectory,
-                                        config,
-                                        classpathPackages);
-        JdkStatus jdkStatus = jdkDetector.detect(config.project().java());
-        if (!jdkStatus.ok()) {
-            throw new BuildException("JDK check failed. " + String.join(" ", jdkStatus.problems()));
-        }
-        TestCompilerSelection compiler = TestCompilerSelection.select(
-                config, sources, classpaths, classpathPackages, jdkStatus, buildResult.outputDirectory());
+        try (sh.zolt.build.ProjectMutationLock ignored =
+                sh.zolt.build.ProjectMutationLock.acquire(context.projectRoot())) {
+            Path projectDirectory = context.projectRoot();
+            KotlinCompilerCompatibilityPolicy.requireConfiguredOptionsSupported(
+                    config, KotlinCompilationScope.TEST);
+            CompileOutputLayoutValidator.validateTest(projectDirectory, config);
+            generatedSourceCoordinator.generatePreCompile(
+                    projectDirectory,
+                    config,
+                    classpaths,
+                    classpathPackages,
+                    buildResult.outputDirectory());
+            SourceDiscoveryResult sources = sourceDiscoverer.discover(projectDirectory, config.build());
+            sh.zolt.build.SourceLanguagePolicy.requireTestSupported(sources);
+            List<GeneratedSourceProducerFingerprint>
+                    generatedProducerFingerprints =
+                            generatedProducerFingerprintService
+                                    .fingerprintsTest(
+                                            projectDirectory,
+                                            config,
+                                            classpathPackages);
+            JdkStatus jdkStatus = jdkDetector.detect(config.project().java());
+            if (!jdkStatus.ok()) {
+                throw new BuildException("JDK check failed. " + String.join(" ", jdkStatus.problems()));
+            }
+            TestCompilerSelection compiler = TestCompilerSelection.select(
+                    config, sources, classpaths, classpathPackages, jdkStatus, buildResult.outputDirectory());
 
-        List<Path> testCompileEntries = new ArrayList<>();
-        testCompileEntries.add(buildResult.outputDirectory());
-        testCompileEntries.addAll(classpaths.testCompile().entries());
-        Path outputDirectory = projectDirectory.resolve(config.build().testOutput());
-        Classpath testCompileClasspath = new Classpath(testCompileEntries);
-        List<Path> groovyCompileEntries = new ArrayList<>();
-        groovyCompileEntries.add(outputDirectory);
-        groovyCompileEntries.addAll(testCompileEntries);
-        Classpath groovyCompileClasspath = new Classpath(groovyCompileEntries);
-        Path generatedSourcesDirectory = GeneratedSourcesDirectory.test(
-                projectDirectory, config.compilerSettings().generatedTestSources());
-        Path lockfilePath = context.lockfilePath();
-        long fingerprintCheckStarted = System.nanoTime();
-        BuildFingerprintCheck fingerprintCheck = buildFingerprintService.checkTestCompileCurrent(
-                projectDirectory,
-                config,
-                compiler.identity(),
-                lockfilePath,
-                sources,
-                generatedProducerFingerprints,
-                testCompileClasspath,
-                classpaths.testProcessor(),
-                outputDirectory,
-                generatedSourcesDirectory);
-        boolean compileSkipped = fingerprintCheck.current();
-        long fingerprintCheckNanos = elapsedSince(fingerprintCheckStarted);
-
-        // On a fingerprint miss, restore test classes from the build cache instead of recompiling. Same
-        // discipline as the main scope: cold builds only, hermetic modules only, no incremental state
-        // left behind (the next edit does one full recompile that re-stores).
-        BuildCacheKey cacheKey = cacheGate.key(
-                compileSkipped, projectDirectory, config, lockfilePath, sources,
-                generatedProducerFingerprints, testCompileClasspath, classpaths.testProcessor(),
-                outputDirectory, generatedSourcesDirectory, compiler.identity());
-        boolean restored = false;
-        if (cacheKey != null) {
-            restored = cacheGate.restore(
-                    cacheKey, outputDirectory, classpaths.testProcessor(), generatedSourcesDirectory);
-        }
-        boolean runCompile = !compileSkipped && !restored;
-
-        TestCompileAttempt compileAttempt = sourceExecutor.compile(
-                !runCompile,
-                projectDirectory,
-                config,
-                sources,
-                classpaths,
-                testCompileClasspath,
-                compiler.groovyLauncherClasspath(),
-                groovyCompileClasspath,
-                compiler.kotlinToolchain(),
-                compiler.kotlinOptions(),
-                outputDirectory,
-                generatedSourcesDirectory,
-                jdkStatus,
-                compiler.identity());
-        // Post-compile exec steps run after test compilation, before test resource copy consumes them.
-        generatedSourceCoordinator.generatePostCompile(projectDirectory, config, classpathPackages);
-        ResourceCopyResult resourceResult = resourceCopier.copyTestResources(projectDirectory, config);
-        long fingerprintWriteNanos = 0L;
-        if (!compileSkipped || !fingerprintCheck.reason().isBlank()) {
-            long fingerprintWriteStarted = System.nanoTime();
-            buildFingerprintService.writeTestCompileFingerprint(
+            List<Path> testCompileEntries = new ArrayList<>();
+            testCompileEntries.add(buildResult.outputDirectory());
+            testCompileEntries.addAll(classpaths.testCompile().entries());
+            Path outputDirectory = projectDirectory.resolve(config.build().testOutput());
+            Classpath testCompileClasspath = new Classpath(testCompileEntries);
+            List<Path> groovyCompileEntries = new ArrayList<>();
+            groovyCompileEntries.add(outputDirectory);
+            groovyCompileEntries.addAll(testCompileEntries);
+            Classpath groovyCompileClasspath = new Classpath(groovyCompileEntries);
+            Path generatedSourcesDirectory = GeneratedSourcesDirectory.test(
+                    projectDirectory, config.compilerSettings().generatedTestSources());
+            Path lockfilePath = context.lockfilePath();
+            long fingerprintCheckStarted = System.nanoTime();
+            BuildFingerprintCheck fingerprintCheck = buildFingerprintService.checkTestCompileCurrent(
                     projectDirectory,
                     config,
                     compiler.identity(),
                     lockfilePath,
                     sources,
-                    generatedProducerFingerprintService
-                            .fingerprintsTest(
-                                    projectDirectory,
-                                    config,
-                                    classpathPackages),
+                    generatedProducerFingerprints,
                     testCompileClasspath,
                     classpaths.testProcessor(),
                     outputDirectory,
                     generatedSourcesDirectory);
-            fingerprintWriteNanos = elapsedSince(fingerprintWriteStarted);
-            if (!compileSkipped) {
-                if (restored) {
-                    incrementalCompileStateRecorder.deleteTestState(outputDirectory);
-                } else {
-                    incrementalCompileStateRecorder.recordTest(
-                            projectDirectory,
-                            config,
-                            sources,
-                            testCompileClasspath,
-                            classpaths.testProcessor(),
-                            outputDirectory,
-                            generatedSourcesDirectory,
-                            compiler.identity(),
-                            compileAttempt.attribution(),
-                            compileAttempt.compiledSources());
-                    if (cacheKey != null) {
-                        buildCacheService.store(cacheKey, outputDirectory);
+            boolean compileSkipped = fingerprintCheck.current();
+            long fingerprintCheckNanos = elapsedSince(fingerprintCheckStarted);
+
+            // On a fingerprint miss, restore test classes from the build cache instead of recompiling. Same
+            // discipline as the main scope: cold builds only, hermetic modules only, no incremental state
+            // left behind (the next edit does one full recompile that re-stores).
+            BuildCacheKey cacheKey = cacheGate.key(
+                    compileSkipped, projectDirectory, config, lockfilePath, sources,
+                    generatedProducerFingerprints, testCompileClasspath, classpaths.testProcessor(),
+                    outputDirectory, generatedSourcesDirectory, compiler.identity());
+            boolean restored = false;
+            if (cacheKey != null) {
+                restored = cacheGate.restore(
+                        cacheKey, outputDirectory, classpaths.testProcessor(), generatedSourcesDirectory);
+            }
+            boolean runCompile = !compileSkipped && !restored;
+
+            TestCompileAttempt compileAttempt = sourceExecutor.compile(
+                    !runCompile,
+                    projectDirectory,
+                    config,
+                    sources,
+                    classpaths,
+                    testCompileClasspath,
+                    compiler.groovyLauncherClasspath(),
+                    groovyCompileClasspath,
+                    compiler.kotlinToolchain(),
+                    compiler.kotlinOptions(),
+                    outputDirectory,
+                    generatedSourcesDirectory,
+                    jdkStatus,
+                    compiler.identity());
+            // Post-compile exec steps run after test compilation, before test resource copy consumes them.
+            generatedSourceCoordinator.generatePostCompile(projectDirectory, config, classpathPackages);
+            ResourceCopyResult resourceResult = resourceCopier.copyTestResources(projectDirectory, config);
+            long fingerprintWriteNanos = 0L;
+            if (!compileSkipped || !fingerprintCheck.reason().isBlank()) {
+                long fingerprintWriteStarted = System.nanoTime();
+                buildFingerprintService.writeTestCompileFingerprint(
+                        projectDirectory,
+                        config,
+                        compiler.identity(),
+                        lockfilePath,
+                        sources,
+                        generatedProducerFingerprintService
+                                .fingerprintsTest(
+                                        projectDirectory,
+                                        config,
+                                        classpathPackages),
+                        testCompileClasspath,
+                        classpaths.testProcessor(),
+                        outputDirectory,
+                        generatedSourcesDirectory);
+                fingerprintWriteNanos = elapsedSince(fingerprintWriteStarted);
+                if (!compileSkipped) {
+                    if (restored) {
+                        incrementalCompileStateRecorder.deleteTestState(outputDirectory);
+                    } else {
+                        incrementalCompileStateRecorder.recordTest(
+                                projectDirectory,
+                                config,
+                                sources,
+                                testCompileClasspath,
+                                classpaths.testProcessor(),
+                                outputDirectory,
+                                generatedSourcesDirectory,
+                                compiler.identity(),
+                                compileAttempt.attribution(),
+                                compileAttempt.compiledSources());
+                        if (cacheKey != null) {
+                            buildCacheService.store(cacheKey, outputDirectory);
+                        }
                     }
                 }
             }
+            return new TestCompileResult(
+                    buildResult,
+                    compileAttempt.sourceCount(),
+                    resourceResult.resourceCount(),
+                    compileAttempt.outputDirectory(),
+                    compileAttempt.output(),
+                    compileSkipped,
+                    compileSkipped ? "skipped" : (restored ? "restored" : compileAttempt.mode()),
+                    runCompile ? compileAttempt.fallbackReason() : "",
+                    compileAttempt.diagnostics(),
+                    fingerprintCheckNanos,
+                    fingerprintWriteNanos);
         }
-        return new TestCompileResult(
-                buildResult,
-                compileAttempt.sourceCount(),
-                resourceResult.resourceCount(),
-                compileAttempt.outputDirectory(),
-                compileAttempt.output(),
-                compileSkipped,
-                compileSkipped ? "skipped" : (restored ? "restored" : compileAttempt.mode()),
-                runCompile ? compileAttempt.fallbackReason() : "",
-                compileAttempt.diagnostics(),
-                fingerprintCheckNanos,
-                fingerprintWriteNanos);
     }
 
     private static long elapsedSince(long started) {

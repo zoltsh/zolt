@@ -2,6 +2,7 @@ package sh.zolt.build.run;
 
 import sh.zolt.build.BuildResultWithClasspaths;
 import sh.zolt.build.BuildService;
+import sh.zolt.build.ProjectMutationLock;
 import sh.zolt.build.compile.kotlin.KotlinJvmPreviewPolicy;
 import sh.zolt.build.packageplan.PackagePlanService;
 import sh.zolt.build.packaging.PackageResult;
@@ -124,6 +125,22 @@ public final class RunPackageService {
             Path cacheRoot,
             List<String> arguments,
             VerifiedArtifactIndex artifactIndex) {
+        try (RunFiles files = RunFiles.create(projectDirectory)) {
+            Launch launch = ProjectMutationLock.withLock(projectDirectory,
+                    () -> prepareRun(projectDirectory, config, cacheRoot, artifactIndex, files));
+            JavaRunResult result = applicationLauncher.launch(
+                    launch.java(), launch.captured(), launch.runtimeEntries(), launch.mainClass(),
+                    KotlinJvmPreviewPolicy.mainJvmArguments(config), arguments);
+            return new RunPackageResult(launch.original(), result);
+        }
+    }
+
+    private Launch prepareRun(
+            Path projectDirectory,
+            ProjectConfig config,
+            Path cacheRoot,
+            VerifiedArtifactIndex artifactIndex,
+            RunFiles files) {
         PackageLaunchPolicy.Decision launchPolicy =
                 PackageLaunchPolicy.forMode(config.packageSettings().mode());
         if (launchPolicy.strategy() == PackageLaunchPolicy.Strategy.REJECT) {
@@ -147,13 +164,19 @@ public final class RunPackageService {
         ClasspathSet classpaths = classpathBuilder.build(buildResult.classpathPackages().stream()
                 .filter(dependency -> dependency.scope().packagedByDefault())
                 .toList());
-        JavaRunResult javaRunResult = applicationLauncher.launch(
-                jdkStatus.java().orElseThrow(),
-                packageResult,
-                classpaths.runtime().entries(),
-                mainClass,
-                KotlinJvmPreviewPolicy.mainJvmArguments(config),
-                arguments);
-        return new RunPackageResult(packageResult, javaRunResult);
+        Path snapshotJar = files.capture(packageResult.jarPath());
+        files.captureProjectEntries(projectDirectory, classpaths.runtime().entries());
+        PackageResult captured = new PackageResult(
+                packageResult.buildResult(), packageResult.mode(), snapshotJar,
+                packageResult.runtimeClasspathPath(), packageResult.evidenceManifestPath(),
+                packageResult.entryCount(), packageResult.hasMainClass(), packageResult.applicationLayout(),
+                packageResult.artifacts(), packageResult.mergeDecisions(), packageResult.materializedInputs(),
+                packageResult.packagingReused());
+        return new Launch(packageResult, captured, jdkStatus.java().orElseThrow(),
+                files.remap(classpaths.runtime().entries()), mainClass);
     }
+
+    private record Launch(
+            PackageResult original, PackageResult captured, Path java,
+            List<Path> runtimeEntries, String mainClass) {}
 }

@@ -29,13 +29,13 @@ final class ProjectInitializerTest {
     private Path tempDir;
 
     @Test
-    void createsProjectFiles() {
+    void createsProjectFiles() throws IOException {
         ProjectInitResult result = initializer.init(tempDir, "hello", "com.example", "21");
 
         assertTrue(Files.exists(result.configFile()));
         assertTrue(Files.exists(result.mainSource()));
         assertTrue(Files.exists(result.testSource()));
-        assertTrue(Files.exists(result.projectDirectory().resolve(".gitignore")));
+        assertTrue(Files.readString(result.projectDirectory().resolve(".gitignore")).contains(".zolt/"));
     }
 
     @Test

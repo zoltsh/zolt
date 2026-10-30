@@ -1,6 +1,7 @@
 package sh.zolt.cli.command.build;
 
 import sh.zolt.build.CleanException;
+import sh.zolt.build.BuildException;
 import sh.zolt.build.clean.CleanResult;
 import sh.zolt.build.clean.CleanService;
 import sh.zolt.cli.CommandHumanOutput;
@@ -13,6 +14,7 @@ import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.workspace.clean.WorkspaceCleanResult;
 import sh.zolt.workspace.clean.WorkspaceCleanService;
 import sh.zolt.workspace.WorkspaceConfigException;
+import sh.zolt.workspace.service.WorkspaceMutationLock;
 import java.nio.file.Path;
 import java.util.List;
 import picocli.CommandLine.Command;
@@ -69,8 +71,10 @@ public final class CleanCommand implements Runnable {
                 printWorkspaceResult(result);
                 return;
             }
-            ProjectConfig config = projectLoader.load(projectRoot);
-            CleanResult result = cleanService.clean(projectRoot, config);
+            CleanResult result = WorkspaceMutationLock.withLockIfWorkspace(projectRoot, () -> {
+                ProjectConfig config = projectLoader.load(projectRoot);
+                return cleanService.clean(projectRoot, config);
+            });
             CommandHumanOutput output = CommandHumanOutput.of(spec);
             if (result.deletedPaths().isEmpty()) {
                 output.detail("Nothing to clean");
@@ -80,7 +84,7 @@ public final class CleanCommand implements Runnable {
             for (Path path : result.deletedPaths()) {
                 output.success("Deleted " + path);
             }
-        } catch (CleanException | WorkspaceConfigException | ZoltConfigException exception) {
+        } catch (CleanException | BuildException | WorkspaceConfigException | ZoltConfigException exception) {
             throw CommandFailures.user(spec, exception);
         }
     }
