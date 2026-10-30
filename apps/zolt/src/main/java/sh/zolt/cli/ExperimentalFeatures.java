@@ -138,16 +138,25 @@ final class ExperimentalFeatures {
         if (config.frameworkSettings().springBoot().nativeEnabled()) {
             reject("Spring Boot AOT/native images");
         }
+        Path root = directory.toAbsolutePath().normalize();
+        Path mainOutput = ProjectPaths.output(root, "main output", config.build().output());
+        Path testOutput = ProjectPaths.output(root, "test output", config.build().testOutput());
+        Path integrationOutput = ProjectPaths.output(root, "integration output", config.build().integrationTestOutput());
+        List<Path> outputs = List.of(mainOutput, testOutput);
         for (String source : config.build().sourceRoots()) {
-            checkSources(directory, source, true);
+            checkSources(directory, source, true, outputs);
         }
-        for (String source : Stream.of(config.build().testSources(), config.build().groovyTestSources(),
-                config.build().integrationTestSources()).flatMap(Collection::stream).toList()) {
-            checkSources(directory, source, false);
+        for (String source : Stream.concat(config.build().testSources().stream(),
+                config.build().groovyTestSources().stream()).toList()) {
+            checkSources(directory, source, false, outputs);
+        }
+        for (String source : config.build().integrationTestSources()) {
+            checkSources(directory, source, false, List.of(mainOutput, integrationOutput));
         }
     }
 
-    private static void checkSources(Path directory, String configuredRoot, boolean main) {
+    private static void checkSources(
+            Path directory, String configuredRoot, boolean main, List<Path> outputs) {
         Path root = directory.toAbsolutePath().normalize();
         Path source = ProjectPaths.existingRoot(root,
                 main ? "[build].sources" : "[test.integration].sources", configuredRoot);
@@ -156,8 +165,11 @@ final class ExperimentalFeatures {
         }
         try (Stream<Path> files = Files.walk(source)) {
             files.filter(Files::isRegularFile)
-                    .filter(path -> !path.startsWith(root.resolve("target")))
-                    .filter(path -> !path.startsWith(root.resolve("build")))
+                    .filter(path -> outputs.stream().noneMatch(path::startsWith))
+                    .filter(path -> {
+                        String firstSegment = source.relativize(path).getName(0).toString();
+                        return !firstSegment.equals("target") && !firstSegment.equals("build");
+                    })
                     .filter(path -> ProjectPaths.isRegularFileInsideProject(root, "source root", path))
                     .map(path -> path.getFileName().toString())
                     .filter(filename -> filename.endsWith(".kt") || (main && filename.endsWith(".groovy")))

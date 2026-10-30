@@ -108,6 +108,37 @@ final class ExperimentalFeaturesTest {
     }
 
     @Test
+    void explicitlyDeclaredRootsInsideTargetAndBuildCannotBypassTheGate() throws IOException {
+        for (String root : new String[] {"target/generated/main", "build/generated/main"}) {
+            Path project = project(root.startsWith("target") ? "target-root" : "build-root", """
+                    [build]
+                    sources = ["%s"]
+                    """.formatted(root));
+            source(project, root + "/Main.groovy");
+            assertBlocked(project, "build", "Groovy main");
+            Files.delete(project.resolve(root + "/Main.groovy"));
+            source(project, root + "/Main.kt");
+            assertBlocked(project, "build", "Kotlin/JVM");
+        }
+    }
+
+    @Test
+    void ignoredAndConfiguredOutputsStayOutsideSourceAdmission() throws IOException {
+        Path project = project("outputs", """
+                [build]
+                sources = ["sources"]
+                [build.output]
+                root = "sources/out"
+                """);
+        source(project, "sources/target/fixture/Main.groovy");
+        source(project, "sources/build/fixture/Main.kt");
+        source(project, "sources/out/classes/Generated.groovy");
+        assertDoesNotThrow(() -> projectCheck(project, "build"));
+        source(project, "sources/out/integration-test-classes/Main.groovy");
+        assertBlocked(project, "build", "Groovy main");
+    }
+
+    @Test
     void generatedKotlinIsGatedBeforeRunningGenerators() throws IOException {
         Path project = project("generated", """
                 [generated.main.model]
