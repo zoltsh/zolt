@@ -88,6 +88,9 @@ public final class NativeUpdateService {
                 throw new NativeUpdateException("Downloaded native Zolt archive does not contain executable bin/" + artifact.binaryName() + ".");
             }
 
+            // Reject unusable candidates before touching any installed version or rollback target.
+            NativeUpdateVerifier.smokeCandidate(candidateBinary, manifest.version());
+
             Path installDirectory = NativeInstallPaths.resolveUnderRoot(versionsRoot, manifest.version(), "native install directory");
             Path tempInstallDirectory = NativeInstallPaths.resolveUnderRoot(versionsRoot, manifest.version() + ".tmp", "native temporary install directory");
             NativeInstallPaths.deleteIfExists(versionsRoot, tempInstallDirectory, "native temporary install directory");
@@ -96,7 +99,6 @@ public final class NativeUpdateService {
             Files.move(tempInstallDirectory, installDirectory);
             Path installedBinary = installDirectory.resolve("bin").resolve(artifact.binaryName());
             NativeInstallPaths.assertUnderRoot(installDirectory, installedBinary, "native installed binary");
-            NativeUpdateVerifier.smokeCandidate(installedBinary, manifest.version());
             Path nextTarget = Path.of("../versions", manifest.version(), "bin", artifact.binaryName());
             NativeInstallPaths.assertUnderRoot(versionsRoot, binRoot.resolve(nextTarget), "native update symlink target");
             // binRoot is realpath-resolved (ownedDirectory), so derive the bin symlink in the same canonical

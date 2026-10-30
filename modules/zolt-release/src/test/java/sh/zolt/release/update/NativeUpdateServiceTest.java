@@ -2,6 +2,7 @@ package sh.zolt.release.update;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.release.ReleaseTarget;
@@ -25,6 +26,25 @@ final class NativeUpdateServiceTest extends NativeUpdateServiceTestCase {
         assertEquals("../versions/0.1.1/bin/zolt", Files.readSymbolicLink(installed.binLink()).toString());
         assertTrue(Files.isExecutable(installed.installRoot().resolve("versions/0.1.1/bin/zolt")));
         assertEquals("0.1.0", Files.readString(installed.installRoot().resolve("previous-version")).strip());
+    }
+
+    @Test
+    void rejectedCandidatePreservesPreviouslyInstalledTargetAndRollbackState() throws IOException {
+        InstalledFixture installed = install("0.1.0");
+        Path existingBinary = installed.installRoot().resolve("versions/0.1.1/bin/zolt");
+        writeFakeZolt(existingBinary, "0.1.1");
+        String original = Files.readString(existingBinary);
+        Path previousVersion = installed.installRoot().resolve("previous-version");
+        Files.writeString(previousVersion, "0.1.1\n");
+        Path archive = archive("0.1.1", "linux-x64", "wrong-version");
+        Path channel = writeChannel("stable", "0.1.1", "linux-x64", archive, archive.getFileName().toString(), "sidecar");
+
+        assertThrows(NativeUpdateException.class,
+                () -> service.update(request(installed, channel, tempDir.resolve("update-work"))));
+
+        assertEquals(original, Files.readString(existingBinary));
+        assertEquals("../versions/0.1.0/bin/zolt", Files.readSymbolicLink(installed.binLink()).toString());
+        assertEquals("0.1.1\n", Files.readString(previousVersion));
     }
 
     @Test

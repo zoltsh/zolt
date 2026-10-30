@@ -487,16 +487,18 @@ require_under_root "$versions_dir" "$install_dir" "native install directory"
 require_under_root "$versions_dir" "$install_tmp_dir" "native temporary install directory"
 require_under_root "$versions_dir" "$install_dir/bin/zolt" "native installed binary path"
 
-safe_rm_rf "$versions_dir" "$install_tmp_dir" "native temporary install directory"
-safe_rm_rf "$versions_dir" "$install_dir" "native install directory"
-mv "$top_dir" "$install_tmp_dir"
-mv "$install_tmp_dir" "$install_dir"
-installed_version="$("$install_dir/bin/zolt" --version)"
+# Validate the complete extracted layout before replacing an existing install.
+# In particular, a failed reinstall must leave the active version runnable.
+installed_version="$("$top_dir/bin/zolt" --version)"
 if [ "$installed_version" != "$version" ]; then
-  fail "installed native Zolt failed version smoke. Expected $version but got $installed_version."
+  fail "downloaded native Zolt failed version smoke. Expected $version but got $installed_version."
 fi
 smoke_dir="$work_dir/smoke"
-"$install_dir/bin/zolt" init --cwd "$smoke_dir" smoke >/dev/null
+"$top_dir/bin/zolt" init --cwd "$smoke_dir" smoke >/dev/null
+safe_rm_rf "$versions_dir" "$install_tmp_dir" "native temporary install directory"
+mv "$top_dir" "$install_tmp_dir"
+safe_rm_rf "$versions_dir" "$install_dir" "native install directory"
+mv "$install_tmp_dir" "$install_dir"
 require_under_root "$bin_dir" "$bin_dir/zolt" "native bin symlink"
 safe_rm_rf "$bin_dir" "$bin_dir/zolt" "native bin symlink"
 ln -s "../versions/$version/bin/zolt" "$bin_dir/zolt"

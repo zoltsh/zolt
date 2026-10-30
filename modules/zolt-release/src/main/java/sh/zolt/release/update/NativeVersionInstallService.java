@@ -64,6 +64,9 @@ public final class NativeVersionInstallService {
                 throw new NativeUpdateException("Downloaded native Zolt archive does not contain executable bin/" + artifact.binaryName() + ".");
             }
 
+            // Reject unusable candidates before touching any installed version or rollback target.
+            NativeUpdateVerifier.smokeCandidate(candidateBinary, version);
+
             Path tempInstallDirectory = NativeInstallPaths.resolveUnderRoot(versionsRoot, version + ".tmp", "native temporary install directory");
             NativeInstallPaths.deleteIfExists(versionsRoot, tempInstallDirectory, "native temporary install directory");
             Files.move(candidateRoot, tempInstallDirectory);
@@ -71,7 +74,6 @@ public final class NativeVersionInstallService {
             Files.move(tempInstallDirectory, installDirectory);
             Path finalBinary = installDirectory.resolve("bin").resolve(artifact.binaryName());
             NativeInstallPaths.assertUnderRoot(installDirectory, finalBinary, "native installed binary");
-            NativeUpdateVerifier.smokeCandidate(finalBinary, version);
             return new NativeVersionInstallResult(index.channel(), version, request.target(), true, finalBinary);
         } catch (IOException exception) {
             throw new NativeUpdateException("Could not install native Zolt version: " + exception.getMessage(), exception);
