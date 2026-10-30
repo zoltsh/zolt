@@ -5,6 +5,9 @@ modules/*/src/main/java|75|6500
 modules/*/src/test/java|70|7500
 apps/zolt/src/test/java|sh.zolt.cli.build|65|6845
 modules/zolt-build/src/main/java|sh.zolt.build.compile|75|6922
-modules/zolt-build/src/test/java|sh.zolt.build.compile|70|7773
+# Bounded regression coverage for empty and module-only javac classpath isolation.
+modules/zolt-build/src/test/java|sh.zolt.build.compile|70|7830
+# Real rebuild regressions for processor resources/runtime helpers and timestamp/output integrity.
+modules/zolt-workspace/src/test/java|sh.zolt.workspace.service|70|7719
 modules/zolt-toml/src/main/java|sh.zolt.toml.manifest|75|9300
 modules/zolt-toml/src/test/java|sh.zolt.toml.manifest|70|11800

@@ -6,24 +6,26 @@ import java.nio.file.LinkOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Stream;
 
 final class BuildFingerprintExpectedClasses {
     List<String> entries(
             Path projectRoot,
-            List<String> sourceRoots,
-            List<Path> sources,
             Path outputDirectory) {
-        List<Path> outputs = hasKotlinSource(sources)
-                ? compilerOutputs(outputDirectory)
-                : files(projectRoot, sourceRoots, sources, outputDirectory);
+        // Java also emits nested, anonymous, package-private, and processor-generated classes.
+        // Source filenames cannot enumerate those outputs (or even predict the declared package).
+        List<Path> outputs = compilerOutputs(outputDirectory);
         return outputs.stream()
-                .filter(path -> !isPackageInfo(path) || Files.isRegularFile(path))
                 .sorted()
                 .map(path -> relative(projectRoot, path))
+                .toList();
+    }
+
+    List<String> hashes(Path projectRoot, Path outputDirectory) {
+        BuildFingerprintFileHasher hasher = new BuildFingerprintFileHasher();
+        return compilerOutputs(outputDirectory).stream()
+                .map(path -> relative(projectRoot, path) + "|" + hasher.fileHash(path, null, null))
                 .toList();
     }
 
@@ -48,25 +50,26 @@ final class BuildFingerprintExpectedClasses {
         return List.copyOf(missing);
     }
 
-    boolean recordedOutputsCurrent(Path projectRoot, String fingerprint) {
+    boolean recordedOutputsCurrent(Path projectRoot, Path outputDirectory, String fingerprint) {
         return fingerprint.lines().anyMatch("[expectedClasses]"::equals)
-                && missing(projectRoot, fingerprint).isEmpty();
+                && fingerprint.lines().anyMatch("[compilerOutputHashes]"::equals)
+                && recordedSection(fingerprint, "expectedClasses")
+                        .equals(new java.util.TreeSet<>(entries(projectRoot, outputDirectory)))
+                && recordedSection(fingerprint, "compilerOutputHashes")
+                        .equals(new java.util.TreeSet<>(hashes(projectRoot, outputDirectory)));
     }
 
-    List<Path> files(
-            Path projectRoot,
-            List<String> sourceRoots,
-            List<Path> sources,
-            Path outputDirectory) {
-        List<Path> roots = sourceRoots.stream()
-                .map(root -> projectRoot.resolve(root).normalize())
-                .toList();
-        return sources.stream()
-                .map(path -> path.toAbsolutePath().normalize())
-                .map(path -> classFile(sourceRootFor(roots, path), path, outputDirectory))
-                .flatMap(Optional::stream)
-                .sorted()
-                .toList();
+    private static java.util.Set<String> recordedSection(String fingerprint, String name) {
+        var recorded = new java.util.TreeSet<String>();
+        boolean included = false;
+        for (String line : fingerprint.lines().toList()) {
+            if (line.startsWith("[") && line.endsWith("]")) {
+                included = ("[" + name + "]").equals(line);
+            } else if (included && !line.isBlank()) {
+                recorded.add(line);
+            }
+        }
+        return recorded;
     }
 
     private static List<Path> compilerOutputs(Path outputDirectory) {
@@ -89,10 +92,6 @@ final class BuildFingerprintExpectedClasses {
         }
     }
 
-    private static boolean hasKotlinSource(List<Path> sources) {
-        return sources.stream().anyMatch(path -> path.getFileName().toString().endsWith(".kt"));
-    }
-
     private static boolean isClassFile(Path path) {
         return path.getFileName().toString().endsWith(".class");
     }
@@ -102,37 +101,6 @@ final class BuildFingerprintExpectedClasses {
         return relative.getNameCount() == 2
                 && "META-INF".equals(relative.getName(0).toString())
                 && relative.getFileName().toString().endsWith(".kotlin_module");
-    }
-
-    private static Optional<Path> classFile(Optional<Path> sourceRoot, Path source, Path outputDirectory) {
-        if (sourceRoot.isEmpty()) {
-            return Optional.empty();
-        }
-        Path relative = sourceRoot.orElseThrow().relativize(source);
-        String fileName = relative.getFileName().toString();
-        String extension;
-        if (fileName.endsWith(".java")) {
-            extension = ".java";
-        } else if (fileName.endsWith(".groovy")) {
-            extension = ".groovy";
-        } else {
-            return Optional.empty();
-        }
-        Path classRelative = relative.getParent() == null
-                ? Path.of(fileName.substring(0, fileName.length() - extension.length()) + ".class")
-                : relative.getParent().resolve(fileName.substring(0, fileName.length() - extension.length()) + ".class");
-        return Optional.of(outputDirectory.resolve(classRelative).normalize());
-    }
-
-    private static boolean isPackageInfo(Path classFile) {
-        Path fileName = classFile.getFileName();
-        return fileName != null && "package-info.class".equals(fileName.toString());
-    }
-
-    private static Optional<Path> sourceRootFor(List<Path> sourceRoots, Path source) {
-        return sourceRoots.stream()
-                .filter(source::startsWith)
-                .max(Comparator.comparingInt(Path::getNameCount));
     }
 
     private static String relative(Path projectRoot, Path path) {

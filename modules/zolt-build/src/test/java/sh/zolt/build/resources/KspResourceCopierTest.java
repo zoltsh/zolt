@@ -78,9 +78,8 @@ final class KspResourceCopierTest extends ResourceCopierTestSupport {
 
         assertTrue(failure.getMessage().contains("Duplicate resource path `application.properties`"));
         assertTrue(failure.getMessage().contains("KSP step [generated.main.main]"));
-        assertEquals(
-                "authored=true\n",
-                Files.readString(projectDir.resolve("target/classes/application.properties")));
+        assertFalse(Files.exists(projectDir.resolve("target/classes/application.properties")),
+                "conflicting plans must fail before copying any resource");
     }
 
     @Test

@@ -78,6 +78,9 @@ final class WorkspaceKotlinTestOutputValidationTest {
         Path fingerprint = memberDirectory.resolve(
                 "target/test-classes/.zolt-build-test.fingerprint");
         String recorded = memberDirectory.relativize(output).toString().replace('\\', '/');
-        Files.writeString(fingerprint, Files.readString(fingerprint) + recorded + "\n");
+        String hash = sh.zolt.workspace.state.WorkspaceHash.bytes(Files.readAllBytes(output));
+        Files.writeString(fingerprint, Files.readString(fingerprint)
+                .replace("[expectedClasses]\n", "[expectedClasses]\n" + recorded + "\n")
+                .replace("[compilerOutputHashes]\n", "[compilerOutputHashes]\n" + recorded + "|" + hash + "\n"));
     }
 }

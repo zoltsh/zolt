@@ -119,6 +119,17 @@ final class WorkspaceKotlinMetadataAbiPropagationTest {
                 prior.compilerIdentity(),
                 GeneratedOutputAttribution.absent(),
                 sources.allMainSources());
+        // Model a completed compiler run: output ownership and content evidence must agree.
+        // Updating only the incremental summary would describe an unverified output mutation.
+        new sh.zolt.build.fingerprint.BuildFingerprintService().writeMainCompileFingerprint(
+                provider.directory(),
+                provider.config(),
+                prior.compilerIdentity(),
+                tempDir.resolve("zolt.lock"),
+                sources,
+                emptyClasspaths(),
+                output,
+                provider.directory().resolve(provider.config().compilerSettings().generatedSources()));
         return providerAbi();
     }
 

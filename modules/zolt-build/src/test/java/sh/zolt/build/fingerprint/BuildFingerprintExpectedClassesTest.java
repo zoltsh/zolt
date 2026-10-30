@@ -1,6 +1,7 @@
 package sh.zolt.build.fingerprint;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -17,48 +18,26 @@ final class BuildFingerprintExpectedClassesTest {
     private final BuildFingerprintExpectedClasses expectedClasses = new BuildFingerprintExpectedClasses();
 
     @Test
-    void mapsJavaAndGroovySourcesToClassFiles() throws IOException {
-        Path output = projectDir.resolve("target/test-classes");
-        List<Path> files = expectedClasses.files(
-                projectDir,
-                List.of("src/test/java", "src/test/groovy"),
-                List.of(
-                        projectDir.resolve("src/test/java/com/example/ExampleTest.java"),
-                        projectDir.resolve("src/test/groovy/com/example/ExampleSpec.groovy")),
-                output);
+    void inventoriesEveryCompilerOutputAndExcludesResources() throws IOException {
+        Path output = projectDir.resolve("target/classes");
+        for (String name : List.of("p/Main.class", "p/Main$Nested.class", "p/Main$1.class",
+                "p/Additional.class", "META-INF/app.kotlin_module", "application.properties")) {
+            Path file = output.resolve(name);
+            Files.createDirectories(file.getParent());
+            Files.writeString(file, "compiled");
+        }
 
-        Files.createDirectories(output.resolve("com/example"));
-        Files.writeString(output.resolve("com/example/ExampleSpec.class"), "compiled");
-        Files.writeString(output.resolve("com/example/ExampleTest.class"), "compiled");
         assertEquals(List.of(
-                output.resolve("com/example/ExampleSpec.class"),
-                output.resolve("com/example/ExampleTest.class")), files);
-        assertEquals(List.of(
-                "target/test-classes/com/example/ExampleSpec.class",
-                "target/test-classes/com/example/ExampleTest.class"), expectedClasses.entries(
-                        projectDir,
-                        List.of("src/test/java", "src/test/groovy"),
-                        List.of(
-                                projectDir.resolve("src/test/java/com/example/ExampleTest.java"),
-                                projectDir.resolve("src/test/groovy/com/example/ExampleSpec.groovy")),
-                        output));
+                "target/classes/META-INF/app.kotlin_module",
+                "target/classes/p/Additional.class",
+                "target/classes/p/Main$1.class",
+                "target/classes/p/Main$Nested.class",
+                "target/classes/p/Main.class"), expectedClasses.entries(projectDir, output));
     }
 
     @Test
-    void usesLongestMatchingSourceRootAndIgnoresNonSources() {
-        Path output = projectDir.resolve("target/classes");
-
-        List<Path> files = expectedClasses.files(
-                projectDir,
-                List.of("src/main", "src/main/java"),
-                List.of(
-                        projectDir.resolve("src/main/java/com/example/Main.java"),
-                        projectDir.resolve("src/main/java/com/example/KotlinMain.kt"),
-                        projectDir.resolve("src/main/java/com/example/readme.txt"),
-                        projectDir.resolve("generated/Outside.java")),
-                output);
-
-        assertEquals(List.of(output.resolve("com/example/Main.class")), files);
+    void missingOutputDirectoryHasNoInventedCompilerOutputs() {
+        assertTrue(expectedClasses.entries(projectDir, projectDir.resolve("target/classes")).isEmpty());
     }
 
     @Test
@@ -66,40 +45,30 @@ final class BuildFingerprintExpectedClassesTest {
         Path output = projectDir.resolve("target/classes");
         Path expectedClass = output.resolve("com/example/Main.class");
         String fingerprint = "[expectedClasses]\ntarget/classes/com/example/Main.class\n";
-
         assertEquals(List.of(expectedClass), expectedClasses.missing(projectDir, fingerprint));
-
         Files.createDirectories(expectedClass.getParent());
         Files.writeString(expectedClass, "compiled");
-
         assertTrue(expectedClasses.missing(projectDir, fingerprint).isEmpty());
     }
 
     @Test
-    void recordsOnlyClassFilesThatJavacActuallyEmitted() throws IOException {
+    void rejectsChangedOrAdditionalClassOutputs() throws IOException {
         Path output = projectDir.resolve("target/classes");
-        Path regularSource = projectDir.resolve("src/main/java/com/example/Main.java");
-        Path packageInfo = projectDir.resolve("src/main/java/com/example/package-info.java");
-        Files.createDirectories(output.resolve("com/example"));
-        Files.writeString(output.resolve("com/example/Main.class"), "compiled");
-        Files.writeString(output.resolve("com/example/Unrelated.class"), "stale");
-        Files.createDirectories(output.resolve("META-INF"));
-        Files.writeString(output.resolve("META-INF/ignored.kotlin_module"), "unrelated");
-
-        assertEquals(List.of("target/classes/com/example/Main.class"), expectedClasses.entries(
-                projectDir,
-                List.of("src/main/java"),
-                List.of(regularSource, packageInfo),
-                output));
-
-        Files.writeString(output.resolve("com/example/package-info.class"), "compiled");
-
-        assertEquals(List.of(
-                "target/classes/com/example/Main.class",
-                "target/classes/com/example/package-info.class"), expectedClasses.entries(
-                        projectDir,
-                        List.of("src/main/java"),
-                        List.of(regularSource, packageInfo),
-                        output));
+        Files.createDirectories(output);
+        Path main = output.resolve("Main.class");
+        Files.writeString(main, "compiled");
+        String fingerprint = "[expectedClasses]\n"
+                + String.join("\n", expectedClasses.entries(projectDir, output))
+                + "\n[compilerOutputHashes]\n"
+                + String.join("\n", expectedClasses.hashes(projectDir, output)) + "\n";
+        assertTrue(expectedClasses.recordedOutputsCurrent(projectDir, output, fingerprint));
+        String incomplete = fingerprint.substring(0, fingerprint.indexOf("[compilerOutputHashes]"))
+                + "[compilerOutputHashes]\n";
+        assertFalse(expectedClasses.recordedOutputsCurrent(projectDir, output, incomplete));
+        Files.writeString(output.resolve("Unexpected.class"), "extra");
+        assertFalse(expectedClasses.recordedOutputsCurrent(projectDir, output, fingerprint));
+        Files.delete(output.resolve("Unexpected.class"));
+        Files.writeString(main, "tampered");
+        assertFalse(expectedClasses.recordedOutputsCurrent(projectDir, output, fingerprint));
     }
 }

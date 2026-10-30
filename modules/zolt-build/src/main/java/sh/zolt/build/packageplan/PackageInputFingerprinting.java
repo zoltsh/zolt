@@ -20,6 +20,7 @@ public final class PackageInputFingerprinting {
     static final String CONTENT_SCHEMA = "zolt.package-content.v1";
 
     private static final Set<String> LOCAL_BUILD_STATE = Set.of(
+            ".zolt-resources.state",
             ".zolt-build-main.fingerprint",
             ".zolt-build-main.fingerprint.state",
             ".zolt-build-test.fingerprint",

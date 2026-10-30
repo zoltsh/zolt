@@ -367,10 +367,10 @@ final class WorkspaceDirtyPlannerReasonTest extends WorkspaceBuildServiceTestSup
     private void recordMainFingerprintOutput(String memberPath, Path output) throws IOException {
         Path memberDirectory = tempDir.resolve(memberPath);
         Path fingerprint = memberDirectory.resolve("target/classes/.zolt-build-main.fingerprint");
-        Files.writeString(
-                fingerprint,
-                Files.readString(fingerprint)
-                        + memberDirectory.relativize(output).toString().replace('\\', '/')
-                        + "\n");
+        String recorded = memberDirectory.relativize(output).toString().replace('\\', '/');
+        String hash = sh.zolt.workspace.state.WorkspaceHash.bytes(Files.readAllBytes(output));
+        Files.writeString(fingerprint, Files.readString(fingerprint)
+                .replace("[expectedClasses]\n", "[expectedClasses]\n" + recorded + "\n")
+                .replace("[compilerOutputHashes]\n", "[compilerOutputHashes]\n" + recorded + "|" + hash + "\n"));
     }
 }

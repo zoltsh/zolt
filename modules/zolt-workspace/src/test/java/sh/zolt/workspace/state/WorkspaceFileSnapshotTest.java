@@ -17,8 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * The fence rules, stated as behaviour: what must be re-read, what may be trusted, and the fact that
- * a reused hash and a fresh one produce the same digest.
+ * Mutable content is verified on each command, including edits that preserve filesystem metadata.
  */
 final class WorkspaceFileSnapshotTest {
     private static final String MEMBER = "modules/core";
@@ -35,7 +34,7 @@ final class WorkspaceFileSnapshotTest {
     }
 
     @Test
-    void anUnchangedFileBehindTheFenceIsStattedButNotRead() throws IOException {
+    void anUnchangedFileIsVerifiedAgainWithoutMovingItsDigest() throws IOException {
         WorkspaceFileSnapshot first = snapshot(WorkspaceFileState.empty(), false);
         String digest = sources(first);
         assertEquals(1, first.filesHashed());
@@ -43,10 +42,12 @@ final class WorkspaceFileSnapshotTest {
         WorkspaceFileSnapshot second = snapshot(settled(first), false);
 
         assertEquals(digest, sources(second));
-        assertEquals(0, second.filesHashed());
-        assertEquals(0L, second.bytesHashed());
+        assertEquals(1, second.filesHashed());
+        assertEquals(Files.size(source), second.bytesHashed());
         assertEquals(1, second.filesStatted());
-        assertEquals(1, second.filesReused());
+        assertEquals(0, second.filesReused());
+        assertEquals(digest, sources(second));
+        assertEquals(1, second.filesHashed(), "the same command reuses its verified hash");
     }
 
     @Test
@@ -90,7 +91,7 @@ final class WorkspaceFileSnapshotTest {
         WorkspaceFileSnapshot second = snapshot(previous, false);
 
         assertNotEquals(digest, mainSources(second, List.of("src/main/java", "src/main/groovy")));
-        assertEquals(1, second.filesHashed());
+        assertEquals(2, second.filesHashed());
     }
 
     @Test
@@ -107,7 +108,7 @@ final class WorkspaceFileSnapshotTest {
         WorkspaceFileSnapshot second = snapshot(previous, false);
 
         assertNotEquals(digest, mainSources(second, List.of("src/main/java", "src/main/shared")));
-        assertEquals(1, second.filesHashed());
+        assertEquals(2, second.filesHashed());
     }
 
     @Test
@@ -194,12 +195,11 @@ final class WorkspaceFileSnapshotTest {
     }
 
     /**
-     * The negative control for the rule above, and the residual this design carries: an edit that
-     * keeps the size and back-dates the timestamp behind the fence leaves nothing for a metadata
-     * comparison to see. Paranoid mode is the answer, and this pins that it is the only one.
+     * A cache restore may preserve size, inode, and modification time. Content still has to move
+     * the digest in the default mode, even when the old file was behind the state-file fence.
      */
     @Test
-    void aBackDatedSameSizeEditIsInvisibleUntilParanoidMode() throws IOException {
+    void aBackDatedSameSizeEditIsDetectedByDefault() throws IOException {
         WorkspaceFileSnapshot first = snapshot(WorkspaceFileState.empty(), false);
         String digest = sources(first);
         WorkspaceFileState previous = settled(first);
@@ -209,7 +209,7 @@ final class WorkspaceFileSnapshotTest {
                 FileTime.from(previous.files().values().iterator().next().modifiedNanos(),
                         TimeUnit.NANOSECONDS));
 
-        assertEquals(digest, sources(snapshot(previous, false)));
+        assertNotEquals(digest, sources(snapshot(previous, false)));
         assertNotEquals(digest, sources(snapshot(previous, true)));
     }
 
@@ -223,14 +223,14 @@ final class WorkspaceFileSnapshotTest {
         WorkspaceFileSnapshot second = snapshot(settled(first), false);
         String withAdded = sources(second);
         assertNotEquals(digest, withAdded);
-        assertEquals(1, second.filesHashed());
+        assertEquals(2, second.filesHashed());
         assertEquals(2, second.state().files().size());
 
         Files.delete(added);
         WorkspaceFileSnapshot third = snapshot(settled(second), false);
 
         assertEquals(digest, sources(third));
-        assertEquals(0, third.filesHashed());
+        assertEquals(1, third.filesHashed());
         assertEquals(1, third.state().files().size());
     }
 

@@ -9,8 +9,8 @@ package sh.zolt.build;
  * earlier version unsafe to reuse.
  */
 public final class CompilationSemantics {
-    /** Version 10 invalidates Kotlin test output compiled without its own main module as a friend. */
-    public static final String VERSION = "10";
+    /** Version 11 inventories all compiler outputs and reconciles copied resources after edits. */
+    public static final String VERSION = "11";
 
     private CompilationSemantics() {}
 }

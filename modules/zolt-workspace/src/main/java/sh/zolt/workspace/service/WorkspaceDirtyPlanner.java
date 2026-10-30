@@ -93,6 +93,10 @@ final class WorkspaceDirtyPlanner {
                 new LinkedHashMap<>(plan.previousState().members());
         WorkspaceMemberStateObserver observer =
                 new WorkspaceMemberStateObserver(context, membersByPath);
+        for (String executed : executedMembers) {
+            context.fileSnapshot().forget(executed, WorkspaceFileKind.PROCESSOR_OUTPUT);
+            context.fileSnapshot().forget(executed, WorkspaceFileKind.OUTPUT_RESOURCE);
+        }
         for (String memberPath : selection.includedMembers()) {
             WorkspaceMember member = membersByPath.get(memberPath);
             WorkspaceBuildRequirements requirements = requirementsByMember.getOrDefault(

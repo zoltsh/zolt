@@ -13,7 +13,6 @@ import sh.zolt.project.ResourceFilteringSettings;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -85,6 +84,7 @@ public final class ResourceCopier {
                 ResourceFilteringProcessor.create(filteringEnabled, filtering, project);
         List<Path> copiedResources = new ArrayList<>();
         List<Path> skippedResources = new ArrayList<>();
+        List<ResourceCopyPlan.Entry> entries = new ArrayList<>();
         Set<Path> targetRelativePaths = new HashSet<>();
         for (String configuredRoot : configuredRoots) {
             Path resourceRoot = resourceRoot(projectRoot, resourceRootKey, configuredRoot);
@@ -111,18 +111,8 @@ public final class ResourceCopier {
                                         + relativePath.toString().replace('\\', '/')
                                         + "` from configured resource roots. Remove one copy or choose a distinct output path.");
                     }
-                    Path target = outputDirectory.resolve(relativePath).normalize();
-                    Files.createDirectories(target.getParent());
-                    Optional<byte[]> filtered = filteringProcessor.filteredBytes(resource, relativePath);
-                    if (isCurrent(resource, target, filtered)) {
-                        skippedResources.add(resource);
-                    } else if (filtered.isPresent()) {
-                        Files.write(target, filtered.orElseThrow());
-                        copiedResources.add(resource);
-                    } else {
-                        Files.copy(resource, target, StandardCopyOption.REPLACE_EXISTING);
-                        copiedResources.add(resource);
-                    }
+                    entries.add(new ResourceCopyPlan.Entry(
+                            resource, relativePath, filteringProcessor.filteredBytes(resource, relativePath)));
                 }
             } catch (IOException exception) {
                 throw new ResourceCopyException(
@@ -141,16 +131,15 @@ public final class ResourceCopier {
                 projectRoot,
                 execResourceSteps(settings, testResources),
                 targetRelativePaths,
-                copiedResources,
-                skippedResources);
+                entries);
         copyKspResources(
                 outputDirectory,
                 projectRoot,
                 kspResourceSteps(settings, testResources),
                 targetRelativePaths,
-                copiedResources,
-                skippedResources,
+                entries,
                 testResources ? "test" : "main");
+        ResourceCopyPlan.copy(outputDirectory, entries, copiedResources, skippedResources);
         return new ResourceCopyResult(copiedResources, skippedResources);
     }
 
@@ -188,8 +177,7 @@ public final class ResourceCopier {
             Path projectRoot,
             List<GeneratedSourceStep> steps,
             Set<Path> targetRelativePaths,
-            List<Path> copiedResources,
-            List<Path> skippedResources) {
+            List<ResourceCopyPlan.Entry> entries) {
         for (GeneratedSourceStep step : steps) {
             Path output = outputPath(projectRoot, "[generated." + step.id() + "].output", step.output());
             if (!Files.isDirectory(output)) {
@@ -207,14 +195,7 @@ public final class ResourceCopier {
                                         + "` from exec step [generated." + step.id()
                                         + "]. Choose a distinct into subtree or output path.");
                     }
-                    Path target = outputDirectory.resolve(targetRelativePath).normalize();
-                    Files.createDirectories(target.getParent());
-                    if (isCurrent(file, target, Optional.empty())) {
-                        skippedResources.add(file);
-                    } else {
-                        Files.copy(file, target, StandardCopyOption.REPLACE_EXISTING);
-                        copiedResources.add(file);
-                    }
+                    entries.add(new ResourceCopyPlan.Entry(file, targetRelativePath, Optional.empty()));
                 }
             } catch (IOException exception) {
                 throw new ResourceCopyException(
@@ -230,8 +211,7 @@ public final class ResourceCopier {
             Path projectRoot,
             List<GeneratedSourceStep> steps,
             Set<Path> targetRelativePaths,
-            List<Path> copiedResources,
-            List<Path> skippedResources,
+            List<ResourceCopyPlan.Entry> entries,
             String scope) {
         for (GeneratedSourceStep step : steps) {
             String subject = "[generated." + scope + "." + step.id() + "]";
@@ -257,14 +237,7 @@ public final class ResourceCopier {
                                         + "` from KSP step " + subject
                                         + ". Change the processor output or remove the conflicting resource.");
                     }
-                    Path target = outputDirectory.resolve(relative).normalize();
-                    Files.createDirectories(target.getParent());
-                    if (isCurrent(file, target, Optional.empty())) {
-                        skippedResources.add(file);
-                    } else {
-                        Files.copy(file, target, StandardCopyOption.REPLACE_EXISTING);
-                        copiedResources.add(file);
-                    }
+                    entries.add(new ResourceCopyPlan.Entry(file, relative, Optional.empty()));
                 }
             } catch (IOException exception) {
                 throw new ResourceCopyException(
@@ -275,18 +248,6 @@ public final class ResourceCopier {
                 throw new ResourceCopyException(exception.getMessage(), exception);
             }
         }
-    }
-
-    private static boolean isCurrent(Path source, Path target, Optional<byte[]> filteredContent) throws IOException {
-        if (filteredContent.isPresent()) {
-            byte[] content = filteredContent.orElseThrow();
-            return Files.isRegularFile(target)
-                    && Files.size(target) == content.length
-                    && java.util.Arrays.equals(Files.readAllBytes(target), content);
-        }
-        return Files.isRegularFile(target)
-                && Files.size(source) == Files.size(target)
-                && Files.mismatch(source, target) == -1L;
     }
 
     private static Path outputDirectory(Path projectDirectory, String key, String configuredPath) {

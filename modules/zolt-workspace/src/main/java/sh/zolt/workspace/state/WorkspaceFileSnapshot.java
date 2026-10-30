@@ -11,11 +11,12 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Predicate;
 
 /**
- * The workspace's view of its own input files: one stat per file per command, and a content read
- * only for the files whose stat no longer matches what {@link WorkspaceFileHasher} recorded.
+ * The workspace's view of its own input files: one stat and content read per file per command.
+ * Persisted timestamps are observations, not proof that mutable content is unchanged.
  *
  * <p>Directory walks carry each file's {@link BasicFileAttributes} straight from the walk into the
  * hasher, so the size, modification time, and file key the comparison needs cost nothing beyond the
@@ -24,6 +25,15 @@ import java.util.function.Predicate;
  * keys to one that re-reads every file.
  */
 public final class WorkspaceFileSnapshot {
+    private static final Set<String> COMPILER_STATE_FILES = Set.of(
+            ".zolt-build-main.fingerprint",
+            ".zolt-build-main.fingerprint.state",
+            ".zolt-build-test.fingerprint",
+            ".zolt-build-test.fingerprint.state",
+            ".zolt-incremental-main.state",
+            ".zolt-incremental-test.state",
+            ".zolt-resources.state");
+
     private final WorkspaceFileHasher hasher;
 
     public WorkspaceFileSnapshot(Path workspaceRoot, WorkspaceFileState previous, boolean paranoid) {
@@ -84,6 +94,15 @@ public final class WorkspaceFileSnapshot {
         Path normalized = root.toAbsolutePath().normalize();
         hasher.sweep(member, kind);
         return digest(member, kind, normalized, walk(normalized, ignored -> true));
+    }
+
+    /** Processor classes and resources are executable inputs; exclude only local compiler state. */
+    public TreeDigest processorOutput(String member, Path output) {
+        Path root = output.toAbsolutePath().normalize();
+        WorkspaceFileKind kind = WorkspaceFileKind.PROCESSOR_OUTPUT;
+        hasher.sweep(member, kind);
+        return digest(member, kind, root, walk(root,
+                path -> !COMPILER_STATE_FILES.contains(root.relativize(path).toString())));
     }
 
     public TreeDigest paths(

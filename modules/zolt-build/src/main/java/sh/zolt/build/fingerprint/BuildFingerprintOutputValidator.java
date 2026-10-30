@@ -13,12 +13,12 @@ public final class BuildFingerprintOutputValidator {
     private final BuildFingerprintExpectedClasses expectedOutputs =
             new BuildFingerprintExpectedClasses();
 
-    /** Whether the main fingerprint exists and every output recorded in it still exists. */
+    /** Whether the main fingerprint exists and the complete compiler output inventory and content still match. */
     public boolean mainOutputsCurrent(Path projectDirectory, Path outputDirectory) {
         return outputsCurrent(projectDirectory, outputDirectory, MAIN_FILE_NAME);
     }
 
-    /** Whether the test fingerprint exists and every output recorded in it still exists. */
+    /** Whether the test fingerprint exists and the complete compiler output inventory and content still match. */
     public boolean testOutputsCurrent(Path projectDirectory, Path outputDirectory) {
         return outputsCurrent(projectDirectory, outputDirectory, TEST_FILE_NAME);
     }
@@ -34,6 +34,7 @@ public final class BuildFingerprintOutputValidator {
         try {
             return expectedOutputs.recordedOutputsCurrent(
                     projectDirectory.toAbsolutePath().normalize(),
+                    outputDirectory,
                     Files.readString(fingerprint, StandardCharsets.UTF_8));
         } catch (IOException exception) {
             return false;

@@ -95,8 +95,11 @@ final class BuildFingerprintContent {
         line(content, "outputDirectory", normalize(outputDirectoryName));
         line(content, "generatedSourcesDirectory", fileHasher.relative(projectRoot, generatedSourcesDirectory));
         line(content, "compilerSettings", config.compilerSettings().toString());
-        orderedSection(content, "compileClasspath", classpathEntries(
-                compileClasspath, cachedState, collectedState, cacheKeyMode));
+        // javac also appends compile dependencies to the processor path. A processor can run
+        // their implementations, so ABI-only freshness is insufficient while processing is enabled.
+        orderedSection(content, "compileClasspath", processorClasspath.entries().isEmpty()
+                ? classpathEntries(compileClasspath, cachedState, collectedState, cacheKeyMode)
+                : processorClasspathEntries(compileClasspath, cachedState, collectedState, cacheKeyMode));
         orderedSection(content, "processorClasspath", processorClasspathEntries(
                 processorClasspath, cachedState, collectedState, cacheKeyMode));
         section(content, "sources", fileEntries(projectRoot, sources, cachedState, collectedState));
@@ -111,7 +114,10 @@ final class BuildFingerprintContent {
                 config.build(),
                 cachedState,
                 collectedState));
-        section(content, "expectedClasses", expectedClasses.entries(projectRoot, sourceRoots, sources, outputDirectory));
+        section(content, "expectedClasses", expectedClasses.entries(projectRoot, outputDirectory));
+        if (!cacheKeyMode) {
+            section(content, "compilerOutputHashes", expectedClasses.hashes(projectRoot, outputDirectory));
+        }
         return content.toString();
     }
 
@@ -147,15 +153,7 @@ final class BuildFingerprintContent {
                 .toList();
     }
 
-    /**
-     * The processor path is hashed by content, never by ABI.
-     *
-     * <p>A compile classpath entry that is a workspace output is summarised by its ABI, because javac
-     * reads only signatures from a dependency and an unchanged ABI cannot change what it compiles. A
-     * processor is not read, it is <em>run</em>: an edit confined to a method body leaves the ABI
-     * identical and changes every source the processor emits. Hashing the compiled bytes is what makes
-     * a processor edit reach the members whose sources it generates.
-     */
+    /** Processor-visible dependencies are executable inputs: hash content, including method bodies. */
     private List<String> processorClasspathEntries(
             Classpath classpath,
             BuildFingerprintState cachedState,

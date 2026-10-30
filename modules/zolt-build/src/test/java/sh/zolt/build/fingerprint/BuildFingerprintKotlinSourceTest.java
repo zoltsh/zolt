@@ -139,6 +139,8 @@ final class BuildFingerprintKotlinSourceTest {
                 projectDir.resolve("target/generated/sources/annotations")));
 
         BuildFingerprintOutputValidator validator = new BuildFingerprintOutputValidator();
+        assertFalse(validator.mainOutputsCurrent(projectDir, output), "unrecorded compiler output must invalidate reuse");
+        Files.delete(output.resolve("com/example/Additional.class"));
         assertTrue(validator.mainOutputsCurrent(projectDir, output));
         Files.delete(module);
         assertFalse(validator.mainOutputsCurrent(projectDir, output));

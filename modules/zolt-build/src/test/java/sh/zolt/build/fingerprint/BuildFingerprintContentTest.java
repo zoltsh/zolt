@@ -207,6 +207,28 @@ final class BuildFingerprintContentTest {
         assertTrue(ordinaryTestWarnings.contains("testArgs=[-Werror]"), ordinaryTestWarnings);
     }
 
+    @Test
+    void processorsTrackImplementationBytesOfOrdinaryCompileDependencies() throws IOException {
+        Path helper = projectDir.resolve("helper/target/classes");
+        Files.createDirectories(helper);
+        Files.writeString(helper.resolve("Helper.class"), "first implementation");
+        String encodedOutput = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(
+                helper.toAbsolutePath().toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        Files.writeString(helper.resolve(".zolt-incremental-main.state"),
+                "version=8\noutputDirectory=" + encodedOutput
+                        + "\npublicAbiDigest=same\npackagePrivateAbiDigest=same\noutputManifestDigest=before\n");
+        Classpath compile = new Classpath(List.of(helper));
+        Classpath processors = new Classpath(List.of(write("processor.jar", "processor")));
+        Classpath empty = new Classpath(List.of());
+        String withoutProcessing = fingerprint(config(List.of()), List.of(), compile, empty, false);
+        String withProcessing = fingerprint(config(List.of()), List.of(), compile, processors, false);
+
+        Files.writeString(helper.resolve("Helper.class"), "other implementation");
+
+        assertEquals(withoutProcessing, fingerprint(config(List.of()), List.of(), compile, empty, false));
+        assertNotEquals(withProcessing, fingerprint(config(List.of()), List.of(), compile, processors, false));
+    }
+
     private String fingerprint(ProjectConfig config, List<Path> sources) {
         return fingerprint(config, sources, "test-compiler");
     }

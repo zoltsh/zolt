@@ -2634,54 +2634,27 @@ are attributed to `"."`. Workspace `package-contents` quality also uses each
 member's actual package/runtime closure and supports BOM POM plans; it does not
 inspect unrelated sibling JARs from the aggregate lock.
 
-### Workspace state and the file-state fence
+### Workspace state and input verification
 
-Every workspace command begins by deciding which members need work. It decides
-from `.zolt/workspace-state-v1`, which records two things: a row of digests per
-member (its sources, resources, configuration, toolchain, resolution inputs, and
-compiled output) and a row per tracked input file.
+Every workspace command decides which members need work using
+`.zolt/workspace-state-v1`. It records member digests for sources, resources,
+configuration, toolchains, resolution inputs, and compiled output, alongside
+observations of individual files.
 
-A file row holds the file's workspace-relative path, its source set, the member
-that owns it, and — captured in the same breath as the content hash beside them —
-its size, its modification time at the filesystem's own resolution, and its file
-key (inode identity) where the platform reports one. A command stats every input
-and re-reads only the files whose size, modification time, or file key no longer
-matches the row. On a warm no-op that is zero bytes read. `--timings` publishes
-the split as `workspaceFilesStatted`, `workspaceFilesReused`,
-`workspaceFilesHashed`, and `workspaceBytesHashed`.
+Mutable input content is read and hashed once per command, even when size,
+modification time, and file identity match the previous observation. This detects
+edits and cache restores that preserve timestamps. Repeated requests for the same
+file within one command reuse its verified hash. An unchanged member still skips
+compilation; verification does not mean recompilation.
 
-**The fence.** Comparing metadata has one race: a file read at the same instant it
-is being edited can end up recorded with a timestamp that never moves again. Zolt
-closes it the way git's index does. The state file's own modification time is the
-fence, and any input whose modification time is *not strictly older* than it is
-re-read regardless of what its row says. Both timestamps come from the same
-filesystem clock, so no clock skew enters the decision, and with nanosecond
-timestamps the set of files inside the window is normally empty.
+`--timings` reports `workspaceFilesStatted`, `workspaceFilesHashed`, and
+`workspaceBytesHashed`. `workspaceFilesReused` remains available for compatibility
+and reports zero persisted-hash reuse. `ZOLT_WORKSPACE_PARANOID` is accepted for
+compatibility; content verification is always enabled.
 
-A command that changes nothing does not rewrite the state file. Rewriting
-identical bytes would teach the next command nothing and would drag the fence
-forward over every input edited since — so the file is left alone, and its
-timestamp keeps meaning what it says.
-
-**The residual, and the switch that removes it.** Comparison demands an input's
-modification time *equal* the one recorded, so it cannot see an edit that keeps the
-file's size, keeps its file key (editing in place reuses the inode), *and* forges the
-modification time back to exactly the recorded value; an older or a newer time is
-caught. That does not arise from editing; it takes a deliberate timestamp rewrite or a
-cache restore that reproduces the recorded timestamp exactly. It is the same residual
-git's index carries. Set `ZOLT_WORKSPACE_PARANOID=1` to remove it: every tracked input is read
-and hashed, and recorded metadata is refreshed but never believed. CI runners that
-restore caches with rewritten timestamps are the intended user.
-
-Zolt has no file-watching daemon, so nothing is assumed about what happened
-between commands — the fence is the whole guarantee, and it holds whether the last
-command ran a second or a month ago.
-
-**Upgrades.** The state file is versioned. A version 2 state (member rows only)
-is read as-is: its member digests carry across untouched, so nothing recompiles,
-and the first command after the upgrade reads every input once and writes a
-version 3 state. Anything older, corrupt, or unrecognised is discarded and the
-workspace is observed from scratch.
+A command that changes nothing does not rewrite identical state bytes. Older
+supported state files are read and upgraded as needed; corrupt or unrecognised
+state is discarded and the workspace is observed from scratch.
 
 ### Annotation processors and dirtiness
 
@@ -2695,9 +2668,10 @@ from the compile classpath. A compile dependency is summarised by its ABI, becau
 javac reads only signatures from one and an unchanged ABI cannot change what it
 compiles. A processor is not read, it is run: an edit confined to a method body
 leaves its signatures identical and can change every source it emits. So processor
-jars and workspace processor members are hashed by their compiled bytes, and a
-member whose workspace processor is being rebuilt in the same command is rebuilt
-with it.
+jars and workspace processor members are hashed by their classes and resources,
+with the processor's runtime dependency closure included. Changes are detected
+even when the processor was built in a separate command. A member whose workspace
+processor is being rebuilt in the same command is rebuilt with it.
 
 Generated sources are part of the member's observed state rather than a reason to
 distrust it. Editing or deleting an owned exec output invalidates the producer

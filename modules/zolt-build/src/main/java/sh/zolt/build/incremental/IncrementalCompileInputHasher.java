@@ -21,6 +21,7 @@ import java.util.function.Function;
 
 final class IncrementalCompileInputHasher {
     private static final Set<String> LOCAL_COMPILE_METADATA = Set.of(
+            ".zolt-resources.state",
             ".zolt-build-main.fingerprint",
             ".zolt-build-main.fingerprint.state",
             ".zolt-build-test.fingerprint",

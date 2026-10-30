@@ -25,11 +25,18 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 public final class NativeBuildService {
-    private static final List<String> SERIOUS_WARNING_TERMS = List.of("warning", "unsupported", "error");
+    private static final Pattern DIAGNOSTIC_PREFIX = Pattern.compile(
+            "^\\s*(?:\\[(?:warning|error|unsupported)\\]"
+                    + "|(?:\\[[^\\]]+\\]\\s*)?(?:warning|error|unsupported)(?:\\s|:|\\]|$))",
+            Pattern.CASE_INSENSITIVE);
+    private static final Pattern UNSUPPORTED_FEATURE_DIAGNOSTIC = Pattern.compile(
+            "^\\s*(?:(?:Caused by:|Exception in thread \"[^\"]*\")\\s*)?"
+                    + "(?:[\\w$]+\\.)*UnsupportedFeature(?:Exception|Error)(?=[:\\s]|$)");
+    private static final Pattern ANSI_ESCAPE = Pattern.compile("\\x1B\\[[0-9;]*m");
 
     private final PackageService packageService;
     private final BuildService buildService;
@@ -300,7 +307,10 @@ public final class NativeBuildService {
     }
 
     private static boolean containsSeriousWarningTerm(String line) {
-        String lower = line.toLowerCase(Locale.ROOT);
-        return SERIOUS_WARNING_TERMS.stream().anyMatch(lower::contains);
+        // GraalVM prints the image name and paths in successful progress/artifact lines. Names
+        // such as "error-handler" are not diagnostics and must not discard a completed image.
+        String plainLine = ANSI_ESCAPE.matcher(line).replaceAll("");
+        return DIAGNOSTIC_PREFIX.matcher(plainLine).find()
+                || UNSUPPORTED_FEATURE_DIAGNOSTIC.matcher(plainLine).find();
     }
 }

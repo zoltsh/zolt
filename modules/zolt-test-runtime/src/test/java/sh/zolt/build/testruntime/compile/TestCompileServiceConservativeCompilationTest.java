@@ -59,6 +59,37 @@ final class TestCompileServiceConservativeCompilationTest {
         assertEquals(2, result.testCompileDiagnostics().sourcesRecompiled());
     }
 
+    @Test
+    void preservedTimestampTestEditAndMissingNestedOutputRecompile() throws Exception {
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
+        source("src/main/java/p/Main.java", "package p; public class Main {}\n");
+        Path test = source("src/test/java/p/ChangedTest.java", """
+                package p;
+                public class ChangedTest {
+                    public static int value() { return 1; }
+                    static class Nested {}
+                }
+                """);
+        testCompileService.compileTests(projectDir, config(), projectDir.resolve("cache"));
+        var originalTime = Files.getLastModifiedTime(test);
+        Files.writeString(test, Files.readString(test).replace("return 1", "return 2"));
+        Files.setLastModifiedTime(test, originalTime);
+
+        TestCompileResult edited = testCompileService.compileTests(projectDir, config(), projectDir.resolve("cache"));
+
+        assertTrue(edited.buildResult().mainCompilationSkipped());
+        assertFalse(edited.testCompilationSkipped());
+        try (var classes = new java.net.URLClassLoader(
+                new java.net.URL[] {projectDir.resolve("target/test-classes").toUri().toURL()}, null)) {
+            assertEquals(2, classes.loadClass("p.ChangedTest").getMethod("value").invoke(null));
+        }
+        Path nested = projectDir.resolve("target/test-classes/p/ChangedTest$Nested.class");
+        Files.delete(nested);
+        TestCompileResult repaired = testCompileService.compileTests(projectDir, config(), projectDir.resolve("cache"));
+        assertFalse(repaired.testCompilationSkipped());
+        assertTrue(Files.isRegularFile(nested));
+    }
+
     private Path source(String relative, String content) throws IOException {
         Path source = projectDir.resolve(relative);
         Files.createDirectories(source.getParent());

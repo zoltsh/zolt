@@ -93,7 +93,7 @@ public final class WorkspaceExecutionContext {
 
     /**
      * The one file snapshot this command hashes through, built behind the previous command's file
-     * table so an unchanged input is statted rather than read.
+     * table while verifying mutable input content anew for this command.
      */
     public synchronized WorkspaceFileSnapshot fileSnapshot() {
         if (fileSnapshot == null) {
