@@ -18,7 +18,10 @@ Native CLI distributions target Linux and macOS on x64 and arm64. The 1.0
 release qualification baselines are Ubuntu 24.04 with glibc and macOS 15 on both
 architectures. Older OS versions and Linux musl distributions are outside the
 qualified matrix. Windows host support is experimental and has no published
-native binary.
+native binary. The distributed CLI uses GraalVM's `-march=compatibility`
+CPU baseline: x86-64 on x64 and ARMv8-A on arm64, without requiring x86-64-v3
+or the build runner's CPU extensions. These CPU settings do not lower the OS
+baselines above or change the native-image options for users' own projects.
 
 The following features are disabled by default and require
 `ZOLT_EXPERIMENTAL=1` in the environment of each command that uses them:

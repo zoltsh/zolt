@@ -221,7 +221,20 @@ fi
 mkdir -p apps/zolt/target/libexec
 cp "${WORKER_JARS[0]}" apps/zolt/target/libexec/zolt-junit-worker.jar
 cp "${JAVAC_WORKER_JARS[0]}" apps/zolt/target/libexec/zolt-javac-worker.jar
+NATIVE_BUILD_LOG="$APP_DIR/target/native/native-image.log"
+rm -f "$NATIVE_BUILD_LOG"
 scripts/bootstrap-zolt-jvm --no-progress native --workspace --member apps/zolt --cache-root .zolt/cache
+# GraalVM 21 reports the selected -march value, including the compatibility alias.
+# Require fresh build evidence before an archive can become a release candidate.
+if [[ ! -f "$NATIVE_BUILD_LOG" ]]; then
+  printf 'error: native build did not produce CPU target evidence in %s\n' "$NATIVE_BUILD_LOG" >&2
+  exit 1
+fi
+NATIVE_CPU_TARGET="$(sed -n 's/^ Graal compiler:.*target machine: \([^ ,]*\).*$/\1/p' "$NATIVE_BUILD_LOG")"
+if [[ "$NATIVE_CPU_TARGET" != "compatibility" ]]; then
+  printf 'error: native CLI must target compatibility; build reported %s\n' "${NATIVE_CPU_TARGET:-no CPU target}" >&2
+  exit 1
+fi
 scripts/bootstrap-zolt-jvm --no-progress release-archive \
   --directory "$APP_DIR" \
   --target "$TARGET" \

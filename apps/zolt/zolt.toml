@@ -71,6 +71,7 @@ workers = 2
 
 [native]
 args = [
+    "-march=compatibility",
     "--initialize-at-build-time=sh.zolt.cli.ZoltBuildVersion",
     "--enable-url-protocols=https",
     "--no-fallback",

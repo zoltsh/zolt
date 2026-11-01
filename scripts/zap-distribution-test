@@ -159,6 +159,80 @@ if missing_stable:
     raise SystemExit("error: stable dispatch handoff is missing: " + ", ".join(missing_stable))
 PY
 
+python3 - <<'NATIVE_TEST_PY'
+import os
+import pathlib
+import re
+import shutil
+import subprocess
+
+# Exercise the real candidate script through its archive boundary, replacing only
+# the expensive bootstrap commands. Even a pre-existing good log must not qualify
+# a build that fails to supply fresh CPU target evidence.
+root = pathlib.Path.cwd()
+manifest = (root / "apps/zolt/zolt.toml").read_text(encoding="utf-8")
+native_args = re.search(r"(?ms)^\[native\]\nargs = \[(.*?)^\]", manifest).group(1)
+march_args = [value for value in re.findall(r'"([^"]+)"', native_args) if value.startswith("-march")]
+if march_args != ["-march=compatibility"]:
+    raise SystemExit(f"error: distributed CLI must explicitly select the portable CPU baseline: {march_args}")
+
+bootstrap = '''#!/usr/bin/env python3
+import pathlib
+import sys
+
+command = sys.argv[2]
+if command == "package":
+    member = pathlib.Path(sys.argv[sys.argv.index("--member") + 1])
+    output = member / "target" / f"{member.name}-1.0.0.jar"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text("worker")
+elif command == "native":
+    source = pathlib.Path("mock-native.log")
+    if source.exists():
+        pathlib.Path("apps/zolt/target/native/native-image.log").write_bytes(source.read_bytes())
+elif command == "release-archive":
+    pathlib.Path("archive-entered").touch()
+    sys.exit(73)  # Stop after proving the archive boundary was reached.
+else:
+    raise SystemExit(f"unexpected bootstrap command: {sys.argv}")
+'''
+portable = " Graal compiler: optimization level: 2, target machine: compatibility\n"
+cases = [(target, portable, True) for target in (
+    "linux-x64", "linux-arm64", "macos-x64", "macos-arm64"
+)]
+for target in ("x86-64-v3", "native", "armv8-a", "compatibility+avx"):
+    cases.append(("linux-x64", portable.replace("compatibility", target), False))
+cases.extend((
+    ("linux-x64", None, False),
+    ("linux-x64", "", False),
+    ("linux-x64", portable + portable.replace("compatibility", "x86-64-v3"), False),
+))
+for index, (target, log, accepted) in enumerate(cases):
+    fixture = root / "target/zap-distribution-test" / f"cpu-{index}"
+    (fixture / "scripts").mkdir(parents=True)
+    shutil.copy2(root / "scripts/zap-distribution", fixture / "scripts/zap-distribution")
+    (fixture / "zolt.toml").write_text('[workspace.project]\nversion = "1.0.0"\n')
+    mock = fixture / "scripts/bootstrap-zolt-jvm"
+    mock.write_text(bootstrap)
+    mock.chmod(0o755)
+    stale = fixture / "apps/zolt/target/native/native-image.log"
+    stale.parent.mkdir(parents=True)
+    stale.write_text(portable)
+    if log is not None:
+        (fixture / "mock-native.log").write_text(log)
+    result = subprocess.run(
+        [str(fixture / "scripts/zap-distribution"), "--target", target], cwd=fixture,
+        env={**os.environ, "ZOLT_RELEASE_CHANNEL": "stable", "ZOLT_RELEASE_VERSION": "1.0.0"},
+        text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+    )
+    (fixture / "result.log").write_text(result.stdout)
+    if result.returncode != (73 if accepted else 1) or (fixture / "archive-entered").exists() != accepted:
+        raise SystemExit(f"error: CPU target qualification case {index} failed: {result.stdout}")
+    if not accepted and "error: native" not in result.stdout:
+        raise SystemExit(f"error: CPU target rejection did not explain its failure: {result.stdout}")
+print(f"native CLI CPU qualification boundary passed ({len(cases)} cases)")
+NATIVE_TEST_PY
+
 python3 - <<'PY'
 import pathlib
 import re
