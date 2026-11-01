@@ -41,6 +41,10 @@ main = "sh.zolt.cli.ZoltCli"
 "org.jetbrains.kotlinx:kotlinx-serialization-core-jvm" = { versionRef = "kotlinx-serialization" }
 "org.junit.platform:junit-platform-console-standalone" = { versionRef = "junit-platform" }
 
+[test.runtime]
+# KSP's fixture JAR advertises an absent Aalto provider; use the JDK writer for JUnit reports.
+jvmArgs = ["-Djavax.xml.stream.XMLOutputFactory=com.sun.xml.internal.stream.XMLOutputFactoryImpl"]
+
 [test.suites.worker-failure-diagnostic]
 classes = ["sh.zolt.error.WorkerFailureDiagnosticTest"]
 

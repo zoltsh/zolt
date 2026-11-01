@@ -19,6 +19,10 @@ name = "zolt-build"
 "org.jetbrains.kotlin:kotlin-compiler-embeddable" = { versionRef = "kotlin" }
 "org.junit.platform:junit-platform-console-standalone" = { versionRef = "junit-platform" }
 
+[test.runtime]
+# KSP's fixture JAR advertises an absent Aalto provider; use the JDK writer for JUnit reports.
+jvmArgs = ["-Djavax.xml.stream.XMLOutputFactory=com.sun.xml.internal.stream.XMLOutputFactoryImpl"]
+
 [test.suites.test-execution]
 classes = [
     "sh.zolt.build.profile.TestProfileMergerTest",
