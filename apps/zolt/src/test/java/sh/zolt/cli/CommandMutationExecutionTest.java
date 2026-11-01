@@ -35,6 +35,47 @@ final class CommandMutationExecutionTest {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"build", "clean", "package", "native", "resolve", "test", "integration-test", "coverage"})
+    void invalidManifestPreflightUsesCommandDiagnostics(String command) throws Exception {
+        Files.writeString(project.resolve("zolt.toml"),
+                CliTestSupport.memberConfig("invalid") + "packaging = \"jar\"\n");
+
+        var result = CliTestSupport.execute(command, "--cwd", project.toString());
+
+        assertEquals(1, result.exitCode());
+        assertTrue(result.stderr().startsWith("error: "), result.stderr());
+        assertTrue(result.stderr().contains("Field: project.packaging"), result.stderr());
+        assertTrue(result.stderr().contains("Next: Remove it or check the spelling."), result.stderr());
+        assertFalse(result.stderr().contains("\tat "), result.stderr());
+    }
+
+    @Test
+    void invalidManifestPreflightPreservesTheSelectedCommandsJsonEnvelope() throws Exception {
+        Files.writeString(project.resolve("zolt.toml"),
+                CliTestSupport.memberConfig("invalid") + "\n[bogusSection]\n");
+
+        var result = CliTestSupport.execute("update", "--cwd", project.toString(), "--format", "json");
+
+        assertEquals(1, result.exitCode());
+        assertTrue(result.stdout().contains("\"command\": \"update\""), result.stdout());
+        assertTrue(result.stdout().contains("\"status\": \"failed\""), result.stdout());
+        assertTrue(result.stdout().contains("Remove it or check the spelling."), result.stdout());
+        assertEquals("", result.stderr());
+    }
+
+    @Test
+    void lockAcquisitionFailureUsesCommandDiagnostics() throws Exception {
+        Files.writeString(project.resolve("zolt.toml"), CliTestSupport.memberConfig("lease"));
+        Files.writeString(project.resolve(".zolt"), "blocks the lock directory");
+
+        var result = CliTestSupport.execute("build", "--cwd", project.toString());
+
+        assertEquals(1, result.exitCode());
+        assertTrue(result.stderr().startsWith("error: Could not acquire project mutation lock"), result.stderr());
+        assertFalse(result.stderr().contains("\tat "), result.stderr());
+    }
+
     @Test
     void dependencyEditWaitsForTheStandaloneBuildLease() throws Exception {
         Files.writeString(project.resolve("zolt.toml"), CliTestSupport.memberConfig("lease"));

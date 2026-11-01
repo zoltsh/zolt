@@ -4,6 +4,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
 import java.util.function.IntSupplier;
+import picocli.CommandLine;
 import picocli.CommandLine.ParseResult;
 import sh.zolt.cli.command.ProjectCommandMutationLock;
 
@@ -30,7 +31,17 @@ final class CommandMutationExecution {
         if (!Files.isDirectory(directory)) {
             return action.getAsInt();
         }
-        return ProjectCommandMutationLock.withLock(directory, ignored -> action.getAsInt());
+        try {
+            return ProjectCommandMutationLock.withLock(directory, ignored -> action.getAsInt());
+        } catch (CommandLine.ExecutionException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            // This phase runs before RunLast, which normally wraps command failures for Picocli.
+            // Preserve the selected command and cause so its standard human/JSON handler renders
+            // discovery and lock failures just like failures raised inside the command itself.
+            throw new CommandLine.ExecutionException(
+                    command.commandSpec().commandLine(), exception.getMessage(), exception);
+        }
     }
 
     private static boolean helpRequested(ParseResult result) {
