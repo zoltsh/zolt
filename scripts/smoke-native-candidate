@@ -8,6 +8,7 @@ if [[ "$#" -ne 2 || ! -f "$1" ]]; then
 fi
 archive="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 version="$2"
+repository="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 work="$(mktemp -d "${TMPDIR:-/tmp}/zolt-candidate-smoke.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
 export ZOLT_EXPERIMENTAL=0
@@ -143,4 +144,23 @@ NATIVE_CONFIG
 run_zolt native
 [[ -x "$project/target/native/smoke" ]] || fail 'application native executable is missing'
 [[ "$("$project/target/native/smoke")" == candidate-v2 ]] || fail 'application native executable produced stale output'
-printf 'Native candidate lifecycle passed for %s: bundled workers, package/run, recompile, failure recovery, native image.\n' "$(basename "$archive")"
+# Exercise Spring Boot JVM packaging and snapshot launch through this exact native CLI.
+spring_project="$work/project with spaces/spring-boot"
+mkdir -p "$spring_project"
+cp "$repository/examples/spring-boot-webmvc/zolt.toml" "$spring_project/zolt.toml"
+cp -R "$repository/examples/spring-boot-webmvc/src" "$spring_project/src"
+for launch in cold warm; do
+    spring_log="$work/spring-$launch.log"
+    "$zolt" --no-progress --color never run-package \
+        --cwd "$spring_project" --cache-root "$cache_root" \
+        -- --spring.main.web-application-type=none >"$spring_log" 2>&1 \
+        || { cat "$spring_log"; fail "Spring Boot $launch launch failed"; }
+    cat "$spring_log"
+    grep -F 'Started DemoApplication' "$spring_log" >/dev/null \
+        || fail "Spring Boot $launch launch did not start the application"
+    shopt -s nullglob
+    snapshots=("$spring_project"/.zolt/run/*)
+    shopt -u nullglob
+    [[ "${#snapshots[@]}" -eq 0 ]] || fail "Spring Boot $launch launch left runtime snapshots"
+done
+printf 'Native candidate lifecycle passed for %s: bundled workers, package/run, recompile, failure recovery, native image, Spring Boot JVM.\n' "$(basename "$archive")"

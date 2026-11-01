@@ -6,6 +6,12 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      qualify_native:
+        description: Build and qualify all four native archives without publishing
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -349,6 +355,159 @@ jobs:
 
       - name: Smoke Java, Spring Boot JVM, and real native workflows
         run: scripts/smoke-stable
+
+  native-qualification:
+    # Manual qualification can find platform defects before an immutable final tag
+    # is created. Standard CI still runs; the controller's publication gates remain separate.
+    name: qualify native ${{ matrix.target }}
+    if: github.event_name == 'workflow_dispatch' && inputs.qualify_native
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x64
+            runner: ubuntu-24.04
+          - target: linux-arm64
+            runner: ubuntu-24.04-arm
+          - target: macos-arm64
+            runner: macos-15
+          - target: macos-x64
+            runner: macos-15-intel
+    env:
+      ZOLT_EXPERIMENTAL: "0"
+      ZOLT_RELEASE_CHANNEL: stable
+      ZOLT_RELEASE_TARGET: ${{ matrix.target }}
+
+    steps:
+      - name: Check out exact qualification commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Derive and validate stable version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          version="$(awk -F '"' '
+            /^\[/ { section = $0 }
+            section == "[workspace.project]" && /^version = / { print $2; exit }
+          ' zolt.toml)"
+          version="${version%-SNAPSHOT}"
+          [[ "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+          printf 'ZOLT_RELEASE_VERSION=%s\n' "$version" >> "$GITHUB_ENV"
+          mkdir -p build/native-qualification
+
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@5298d94fb55a4f185c602eeac5de1b553882abe2
+        with:
+          distribution: graalvm
+          java-version: "21"
+          github-token: ${{ github.token }}
+
+      - name: Cache qualification artifacts
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: .zolt/cache
+          key: zolt-qualification-cache-${{ matrix.target }}-${{ hashFiles('zolt.lock') }}
+          restore-keys: |
+            zolt-qualification-cache-${{ matrix.target }}-
+
+      - name: Cache qualification toolchains
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: ~/.zolt/toolchains
+          key: zolt-qualification-toolchains-${{ matrix.target }}-${{ hashFiles('zolt.lock') }}
+          restore-keys: |
+            zolt-qualification-toolchains-${{ matrix.target }}-
+
+      - name: Sync source-managed Java
+        id: toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          scripts/bootstrap-zolt-jvm --no-progress toolchain sync \
+            2>&1 | tee build/native-qualification/toolchain.log
+
+      - name: Build and verify exact native archive
+        id: distribution
+        shell: bash
+        run: |
+          set -euo pipefail
+          scripts/zap-distribution --target "$ZOLT_RELEASE_TARGET" \
+            2>&1 | tee build/native-qualification/distribution.log
+          archive="zolt-$ZOLT_RELEASE_VERSION-$ZOLT_RELEASE_TARGET.tar.gz"
+          cd "apps/zolt/target/release/stable/$ZOLT_RELEASE_VERSION"
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum -c "$archive.sha256"
+          else
+            shasum -a 256 -c "$archive.sha256"
+          fi
+
+      - name: Exercise exact native candidate lifecycle
+        id: lifecycle
+        timeout-minutes: 15
+        shell: bash
+        run: |
+          set -euo pipefail
+          scripts/smoke-native-candidate \
+            "apps/zolt/target/release/stable/$ZOLT_RELEASE_VERSION/zolt-$ZOLT_RELEASE_VERSION-$ZOLT_RELEASE_TARGET.tar.gz" \
+            "$ZOLT_RELEASE_VERSION" 2>&1 | tee build/native-qualification/lifecycle.log
+
+      - name: Record qualification outcome
+        if: always()
+        shell: bash
+        env:
+          QUALIFICATION_VERSION: ${{ steps.version.outputs.version }}
+          TOOLCHAIN_OUTCOME: ${{ steps.toolchain.outcome }}
+          DISTRIBUTION_OUTCOME: ${{ steps.distribution.outcome }}
+          LIFECYCLE_OUTCOME: ${{ steps.lifecycle.outcome }}
+        run: |
+          set -euo pipefail
+          mkdir -p build/native-qualification
+          jq -n \
+            --arg sourceRepository "$GITHUB_REPOSITORY" \
+            --arg sourceSha "$GITHUB_SHA" \
+            --arg workflowRef "$GITHUB_WORKFLOW_REF" \
+            --arg runId "$GITHUB_RUN_ID" \
+            --arg runAttempt "$GITHUB_RUN_ATTEMPT" \
+            --arg version "$QUALIFICATION_VERSION" \
+            --arg target "$ZOLT_RELEASE_TARGET" \
+            --arg toolchain "$TOOLCHAIN_OUTCOME" \
+            --arg distribution "$DISTRIBUTION_OUTCOME" \
+            --arg lifecycle "$LIFECYCLE_OUTCOME" \
+            '{sourceRepository: $sourceRepository, sourceSha: $sourceSha,
+              workflowRef: $workflowRef, runId: $runId, runAttempt: $runAttempt,
+              version: $version, target: $target, toolchain: $toolchain,
+              distribution: $distribution, lifecycle: $lifecycle,
+              qualified: ($toolchain == "success" and $distribution == "success" and $lifecycle == "success"),
+              publicationApproved: false}' > build/native-qualification/result.json
+          {
+            printf '### Native qualification: %s\n\n' "$ZOLT_RELEASE_TARGET"
+            printf 'Source: %s; version: %s\n\n' "$GITHUB_SHA" "$QUALIFICATION_VERSION"
+            printf 'Toolchain: %s; archive: %s; lifecycle: %s.\n\n' \
+              "$TOOLCHAIN_OUTCOME" "$DISTRIBUTION_OUTCOME" "$LIFECYCLE_OUTCOME"
+            printf 'Qualification artifacts only; final publication requires the protected controller flow.\n'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Preserve exact archives, checksums, and qualification evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: zolt-qualification-${{ github.sha }}-${{ matrix.target }}-attempt-${{ github.run_attempt }}
+          path: |
+            build/native-qualification/**
+            apps/zolt/target/release/stable/${{ steps.version.outputs.version }}/**
+            apps/zolt/target/native/native-image.log
+          if-no-files-found: error
+          retention-days: 30
 
   managed-toolchain:
     name: managed Java toolchain dogfood ${{ matrix.name }}
