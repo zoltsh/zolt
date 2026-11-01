@@ -53,13 +53,91 @@ public final class PublishSigner {
             throw new PublishException("Could not remove stale signature at " + signature + ".", exception);
         }
         Optional<String> passphrase = passphrase();
-        run(command(file, signature, passphrase.isPresent(), fakedTime), passphrase, file);
+        if (fakedTime.isPresent()) {
+            signDeterministically(file, signature, passphrase, fakedTime.orElseThrow());
+        } else {
+            run(command(file, signature, passphrase.isPresent(), Optional.empty(), null), passphrase, file);
+        }
         if (!Files.isRegularFile(signature)) {
             throw new PublishException(
                     "gpg did not produce a signature for " + file
                             + ". Next: verify the signing key and gpg configuration.");
         }
         return signature;
+    }
+
+    private void signDeterministically(Path file, Path signature, Optional<String> passphrase, long epoch) {
+        Path status;
+        try {
+            status = Files.createTempFile("zolt-signing-status", ".txt");
+        } catch (IOException exception) {
+            throw new PublishException("Could not prepare gpg signing status. Check the temporary directory.", exception);
+        }
+        RuntimeException failure = null;
+        try {
+            for (int attempt = 0; attempt < 2; attempt++) {
+                Files.writeString(status, "");
+                run(command(file, signature, passphrase.isPresent(), Optional.of(epoch), status), passphrase, file);
+                if (signatureTimestamp(status) == epoch) {
+                    return;
+                }
+                Files.deleteIfExists(signature);
+                // GnuPG ignores '!' when the epoch equals its startup second (T6222).
+                // Once signing has advanced past that second, one retry can freeze it.
+            }
+            throw new PublishException("gpg signature time did not match SOURCE_DATE_EPOCH after two attempts. "
+                    + "Next: check the system clock and GnuPG version; no signature was accepted.");
+        } catch (IOException exception) {
+            failure = new PublishException("Could not read or reset gpg signing status.", exception);
+            throw failure;
+        } catch (RuntimeException exception) {
+            failure = exception;
+            throw exception;
+        } finally {
+            if (failure != null) {
+                cleanSigningFile(signature, failure);
+            }
+            cleanSigningFile(status, failure);
+        }
+    }
+
+    private static long signatureTimestamp(Path status) throws IOException {
+        Long timestamp = null;
+        for (String line : Files.readAllLines(status, StandardCharsets.UTF_8)) {
+            String[] fields = line.split("\\s+");
+            if (fields.length < 2 || !fields[0].equals("[GNUPG:]") || !fields[1].equals("SIG_CREATED")) {
+                continue;
+            }
+            if (timestamp != null || fields.length < 8 || !fields[2].equals("D")
+                    || !fields[3].matches("[0-9]+") || !fields[4].matches("[0-9]+")
+                    || !fields[5].matches("[0-9a-fA-F]{2}") || !fields[6].matches("[0-9]+")
+                    || !fields[7].matches("[0-9a-fA-F]+")) {
+                throw new PublishException("gpg returned malformed or ambiguous SIG_CREATED status. "
+                        + "Next: check the GnuPG version; no signature was accepted.");
+            }
+            try {
+                timestamp = Long.parseLong(fields[6]);
+            } catch (NumberFormatException exception) {
+                throw new PublishException("gpg returned an invalid signature timestamp.", exception);
+            }
+        }
+        if (timestamp == null) {
+            throw new PublishException("gpg did not report a detached SIG_CREATED status. "
+                    + "Next: check the GnuPG version; no signature was accepted.");
+        }
+        return timestamp;
+    }
+
+    private static void cleanSigningFile(Path path, RuntimeException failure) {
+        try {
+            Files.deleteIfExists(path);
+        } catch (IOException exception) {
+            if (failure != null) {
+                failure.addSuppressed(exception);
+            } else {
+                throw new PublishException("Could not remove signing status file " + path + ".", exception);
+            }
+        }
     }
 
     /**
@@ -122,12 +200,17 @@ public final class PublishSigner {
         }
     }
 
-    private List<String> command(Path file, Path signature, boolean loopbackPassphrase, Optional<Long> fakedTime) {
+    private List<String> command(
+            Path file, Path signature, boolean loopbackPassphrase, Optional<Long> fakedTime, Path statusFile) {
         List<String> command = new ArrayList<>();
         command.add(gpgExecutable);
         command.add("--batch");
         command.add("--yes");
         command.add("--armor");
+        if (statusFile != null) {
+            command.add("--status-file");
+            command.add(statusFile.toString());
+        }
         // Freeze gpg's clock so the detached signature's creation time is deterministic. The trailing
         // '!' pins the faked time instead of letting it advance with the real clock, so repeated
         // signings of identical bytes stay byte-for-byte identical. Only added in the reproducible
