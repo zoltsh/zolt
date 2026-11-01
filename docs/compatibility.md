@@ -17,11 +17,22 @@ the complete affected source set; selective Java recompilation is internal.
 Native CLI distributions target Linux and macOS on x64 and arm64. The 1.0
 release qualification baselines are Ubuntu 24.04 with glibc and macOS 15 on both
 architectures. Older OS versions and Linux musl distributions are outside the
-qualified matrix. Windows host support is experimental and has no published
-native binary. The distributed CLI uses GraalVM's `-march=compatibility`
+qualified matrix. Windows host support is experimental, unqualified for 1.0,
+and has no published native binary. The distributed CLI uses GraalVM's `-march=compatibility`
 CPU baseline: x86-64 on x64 and ARMv8-A on arm64, without requiring x86-64-v3
 or the build runner's CPU extensions. These CPU settings do not lower the OS
 baselines above or change the native-image options for users' own projects.
+
+Windows discovery is disabled in default CI. Maintainers can explicitly enable
+`discover_windows` when manually dispatching `ci.yml`; the non-blocking job
+preserves failures and uploads its log. The 2026-11-01 discovery run at commit
+`83c73e2` failed with `Could not run javac`. A known blocker is the external javac
+backend's direct argument list: at that commit, the 343 `zolt-build` source paths
+under `D:\a\zolt\zolt\` occupied 34,605 characters before compiler options or
+classpath entries. This already exceeds [Windows' 32,767-character command-line
+limit](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessw).
+Windows requires argument-file support and separate qualification before it can
+join the supported matrix.
 
 The following features are disabled by default and require
 `ZOLT_EXPERIMENTAL=1` in the environment of each command that uses them:

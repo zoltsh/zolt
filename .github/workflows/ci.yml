@@ -12,6 +12,11 @@ on:
         type: boolean
         required: false
         default: false
+      discover_windows:
+        description: Run unsupported Windows JVM discovery (non-blocking; known command-length blocker)
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -573,13 +578,11 @@ jobs:
         run: scripts/run-zolt-built native --workspace --member apps/zolt --no-progress --cache-root .zolt/cache
 
   windows-smoke:
-    # Discovery lane only, and intentionally non-blocking (continue-on-error).
-    # Zolt has never been compiled or tested on Windows; this runs the bash
-    # bootstrap under the runner's Git Bash to see how far a JVM build plus a
-    # couple of small module test suites get, then uploads the log for triage.
-    # It MUST NOT gate CI: it never builds a Windows native binary and never
-    # publishes to the zap channel. Gate or remove it freely.
+    # Explicit discovery only: Windows is outside the qualified 1.0 matrix.
+    # External javac can exceed Windows' command-line limit; see compatibility.md.
+    # Keep failures and their logs visible without gating supported platforms.
     name: windows smoke (discovery, non-blocking)
+    if: github.event_name == 'workflow_dispatch' && inputs.discover_windows
     needs: test
     runs-on: windows-latest
     continue-on-error: true
