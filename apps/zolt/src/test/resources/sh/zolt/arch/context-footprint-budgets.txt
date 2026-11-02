@@ -6,8 +6,8 @@ modules/*/src/test/java|70|7500
 # Real processor-output integrity and launched-project directory regressions.
 apps/zolt/src/test/java|sh.zolt.cli.build|65|7318
 modules/zolt-build/src/main/java|sh.zolt.build.compile|75|6922
-# Regression coverage for javac isolation and protected mutation-lock/run-snapshot paths.
-modules/zolt-build/src/test/java|sh.zolt.build.compile|70|7897
+# Regression coverage for javac isolation, installed worker discovery, and protected snapshots.
+modules/zolt-build/src/test/java|sh.zolt.build.compile|70|7978
 # Real rebuild regressions plus workspace-root/member lock ordering coverage.
 modules/zolt-workspace/src/test/java|sh.zolt.workspace.service|70|7733
 modules/zolt-toml/src/main/java|sh.zolt.toml.manifest|75|9300

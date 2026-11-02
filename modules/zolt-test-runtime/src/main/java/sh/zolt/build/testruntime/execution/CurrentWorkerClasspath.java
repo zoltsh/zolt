@@ -1,12 +1,12 @@
 package sh.zolt.build.testruntime.execution;
 
 import sh.zolt.test.runtime.TestRunException;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Supplier;
 
 public final class CurrentWorkerClasspath {
@@ -78,25 +78,26 @@ public final class CurrentWorkerClasspath {
     }
 
     private List<Path> bundledWorkerClasspath() {
-        Optional<Path> executable = ProcessHandle.current().info().command().map(Path::of);
-        if (executable.isEmpty()) {
-            return List.of();
-        }
-        Path command = executable.orElseThrow().toAbsolutePath().normalize();
-        List<Path> candidates = new ArrayList<>();
-        Path parent = command.getParent();
-        if (parent != null) {
+        return ProcessHandle.current().info().command().map(Path::of)
+                .map(this::bundledWorkerClasspath).orElseGet(List::of);
+    }
+
+    List<Path> bundledWorkerClasspath(Path executable) {
+        try {
+            // Resolve installed launcher links before looking beside the versioned executable.
+            Path command = executable.toRealPath();
+            Path parent = command.getParent();
+            if (parent == null || !Files.isRegularFile(command)) return List.of();
+            List<Path> candidates = new ArrayList<>();
             candidates.add(parent.resolve("libexec").resolve(BUNDLED_WORKER_JAR));
             Path installRoot = parent.getParent();
             if (installRoot != null && "bin".equals(parent.getFileName().toString())) {
                 candidates.add(installRoot.resolve("libexec").resolve(BUNDLED_WORKER_JAR));
             }
+            return candidates.stream().filter(Files::isRegularFile).distinct().toList();
+        } catch (IOException exception) {
+            return List.of(); // Missing/unreadable executable metadata must leave discovery graceful.
         }
-        return candidates.stream()
-                .map(path -> path.toAbsolutePath().normalize())
-                .filter(Files::isRegularFile)
-                .distinct()
-                .toList();
     }
 
     private static List<Path> classpathEntries(String classpath, String pathSeparator) {
