@@ -25,11 +25,18 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 public final class NativeBuildService {
-    private static final List<String> SERIOUS_WARNING_TERMS = List.of("warning", "unsupported", "error");
+    private static final Pattern DIAGNOSTIC_PREFIX = Pattern.compile(
+            "^\\s*(?:\\[(?:warning|error|unsupported)\\]"
+                    + "|(?:\\[[^\\]]+\\]\\s*)?(?:warning|error|unsupported)(?:\\s|:|\\]|$))",
+            Pattern.CASE_INSENSITIVE);
+    private static final Pattern UNSUPPORTED_FEATURE_DIAGNOSTIC = Pattern.compile(
+            "^\\s*(?:(?:Caused by:|Exception in thread \"[^\"]*\")\\s*)?"
+                    + "(?:[\\w$]+\\.)*UnsupportedFeature(?:Exception|Error)(?=[:\\s]|$)");
+    private static final Pattern ANSI_ESCAPE = Pattern.compile("\\x1B\\[[0-9;]*m");
 
     private final PackageService packageService;
     private final BuildService buildService;
@@ -73,7 +80,7 @@ public final class NativeBuildService {
 
     public NativeBuildService withJdkChecker(JdkChecker jdkChecker) {
         return new NativeBuildService(
-                packageService,
+                packageService.withJdkChecker(jdkChecker),
                 buildService.withJdkChecker(jdkChecker),
                 lockfileReader,
                 classpathBuilder,
@@ -117,41 +124,45 @@ public final class NativeBuildService {
             Path nativeImageExecutable,
             Runnable progress,
             VerifiedArtifactIndex artifactIndex) {
-        NativeFrameworkPolicy.rejectUnsupported(config);
-        nativeMainClass(config);
-        preflightNativeImageExecutable(projectDirectory, nativeImageExecutable);
-        NativeOutputPlan outputPlan = NativeOutputPlan.plan(
-                projectDirectory,
-                config,
-                cacheRoot,
-                nativeImageExecutable);
-        ProjectConfig packageConfig = NativePackagePolicy.packageConfig(config);
-        var packageFilter = NativePackagePolicy.classpathFilter(config);
-        packageService.preparePackageToolingIfNeeded(projectDirectory, packageConfig, cacheRoot);
-        BuildResultWithClasspaths buildResult = buildService.buildWithClasspaths(
-                projectDirectory,
-                config,
-                cacheRoot,
-                false,
-                artifactIndex);
-        PackageResult packageResult = packageService.packageJar(
-                projectDirectory, packageConfig, buildResult, cacheRoot);
-        ZoltLockfile lockfile = lockfileReader.read(ProjectLockfile.in(projectDirectory));
-        ClasspathSet classpaths = classpathBuilder.build(LockfileClasspathPackageConverter.classpathPackages(
-                        lockfile,
-                        cacheRoot,
-                        artifactIndex).stream()
-                .filter(packageFilter)
-                .filter(dependency -> dependency.scope().packagedByDefault())
-                .toList());
-        return buildNativeImage(
-                projectDirectory,
-                config,
-                packageResult,
-                classpaths.runtime().entries(),
-                nativeImageExecutable,
-                progress,
-                outputPlan);
+        try (sh.zolt.build.ProjectMutationLock ignored =
+                sh.zolt.build.ProjectMutationLock.acquire(projectDirectory)) {
+            NativeFrameworkPolicy.rejectUnsupported(config);
+            nativeMainClass(config);
+            preflightNativeImageExecutable(projectDirectory, nativeImageExecutable);
+            NativeOutputPlan outputPlan = NativeOutputPlan.plan(
+                    projectDirectory,
+                    config,
+                    cacheRoot,
+                    nativeImageExecutable);
+            ProjectConfig packageConfig = NativePackagePolicy.packageConfig(config);
+            var packageFilter = NativePackagePolicy.classpathFilter(config);
+            packageService.preflightSupplementalTools(packageConfig);
+            packageService.preparePackageToolingIfNeeded(projectDirectory, packageConfig, cacheRoot);
+            BuildResultWithClasspaths buildResult = buildService.buildWithClasspaths(
+                    projectDirectory,
+                    config,
+                    cacheRoot,
+                    false,
+                    artifactIndex);
+            PackageResult packageResult = packageService.packageJar(
+                    projectDirectory, packageConfig, buildResult, cacheRoot);
+            ZoltLockfile lockfile = lockfileReader.read(ProjectLockfile.in(projectDirectory));
+            ClasspathSet classpaths = classpathBuilder.build(LockfileClasspathPackageConverter.classpathPackages(
+                            lockfile,
+                            cacheRoot,
+                            artifactIndex).stream()
+                    .filter(packageFilter)
+                    .filter(dependency -> dependency.scope().packagedByDefault())
+                    .toList());
+            return buildNativeImage(
+                    projectDirectory,
+                    config,
+                    packageResult,
+                    classpaths.runtime().entries(),
+                    nativeImageExecutable,
+                    progress,
+                    outputPlan);
+        }
     }
 
     public NativeBuildResult buildNativeImage(
@@ -195,43 +206,46 @@ public final class NativeBuildService {
             Path nativeImageExecutable,
             Runnable progress,
             NativeOutputPlan outputPlan) {
-        NativeFrameworkPolicy.rejectUnsupported(config);
-        String mainClass = nativeMainClass(config);
-        preflightNativeImageExecutable(projectDirectory, nativeImageExecutable);
-        NativeSettings nativeSettings = config.nativeSettings().withDefaultImageName(config.project().name());
-        Path projectRoot = ProjectPaths.root(projectDirectory);
-        List<Path> declaredNativeInputs = new ArrayList<>(runtimeClasspath);
-        declaredNativeInputs.add(packageResult.jarPath());
-        outputPlan.validateReadInputs(declaredNativeInputs);
-        Optional<Path> springBootAotEvidencePath = Optional.empty();
-        List<Path> springBootAotClasspath = config.frameworkSettings().springBoot().nativeEnabled()
-                ? new SpringBootAotNativeInputs(
-                                projectRoot,
-                                config.build().outputRoot(),
-                                List.of(projectRoot.resolve("zolt.toml"), projectRoot.resolve(config.build().output())))
-                        .classpathEntries()
-                : List.of();
-        if (config.frameworkSettings().springBoot().nativeEnabled()) {
-            springBootAotEvidencePath = Optional.of(new SpringBootAotOutputEvidenceService().write(
-                    projectRoot,
-                    config.build().outputRoot(),
-                    outputPlan.evidence()));
+        try (sh.zolt.build.ProjectMutationLock ignored =
+                sh.zolt.build.ProjectMutationLock.acquire(projectDirectory)) {
+            NativeFrameworkPolicy.rejectUnsupported(config);
+            String mainClass = nativeMainClass(config);
+            preflightNativeImageExecutable(projectDirectory, nativeImageExecutable);
+            NativeSettings nativeSettings = config.nativeSettings().withDefaultImageName(config.project().name());
+            Path projectRoot = ProjectPaths.root(projectDirectory);
+            List<Path> declaredNativeInputs = new ArrayList<>(runtimeClasspath);
+            declaredNativeInputs.add(packageResult.jarPath());
+            outputPlan.validateReadInputs(declaredNativeInputs);
+            Optional<Path> springBootAotEvidencePath = Optional.empty();
+            List<Path> springBootAotClasspath = config.frameworkSettings().springBoot().nativeEnabled()
+                    ? new SpringBootAotNativeInputs(
+                                    projectRoot,
+                                    config.build().outputRoot(),
+                                    List.of(projectRoot.resolve("zolt.toml"), projectRoot.resolve(config.build().output())))
+                            .classpathEntries()
+                    : List.of();
+            if (config.frameworkSettings().springBoot().nativeEnabled()) {
+                springBootAotEvidencePath = Optional.of(new SpringBootAotOutputEvidenceService().write(
+                        projectRoot,
+                        config.build().outputRoot(),
+                        outputPlan.evidence()));
+            }
+            List<Path> nativeRuntimeClasspath =
+                    new ArrayList<>(NativePackagePolicy.runtimeClasspath(packageResult, runtimeClasspath));
+            nativeRuntimeClasspath.addAll(0, springBootAotClasspath);
+            NativeImageResult nativeImageResult = nativeImageRunner.build(
+                    new NativeImageRequest(
+                            resolvedNativeImageExecutable(projectRoot, nativeImageExecutable),
+                            packageResult.jarPath(),
+                            nativeRuntimeClasspath,
+                            mainClass,
+                            outputPlan.binary(),
+                            outputPlan.log(),
+                            nativeImageArguments(config, nativeSettings)),
+                    progress,
+                    NativeBuildService::reportSeriousWarnings);
+            return new NativeBuildResult(packageResult, nativeImageResult, springBootAotEvidencePath);
         }
-        List<Path> nativeRuntimeClasspath =
-                new ArrayList<>(NativePackagePolicy.runtimeClasspath(packageResult, runtimeClasspath));
-        nativeRuntimeClasspath.addAll(0, springBootAotClasspath);
-        NativeImageResult nativeImageResult = nativeImageRunner.build(
-                new NativeImageRequest(
-                        resolvedNativeImageExecutable(projectRoot, nativeImageExecutable),
-                        packageResult.jarPath(),
-                        nativeRuntimeClasspath,
-                        mainClass,
-                        outputPlan.binary(),
-                        outputPlan.log(),
-                        nativeImageArguments(config, nativeSettings)),
-                progress,
-                NativeBuildService::reportSeriousWarnings);
-        return new NativeBuildResult(packageResult, nativeImageResult, springBootAotEvidencePath);
     }
 
     private static List<String> nativeImageArguments(ProjectConfig config, NativeSettings nativeSettings) {
@@ -300,7 +314,10 @@ public final class NativeBuildService {
     }
 
     private static boolean containsSeriousWarningTerm(String line) {
-        String lower = line.toLowerCase(Locale.ROOT);
-        return SERIOUS_WARNING_TERMS.stream().anyMatch(lower::contains);
+        // GraalVM prints the image name and paths in successful progress/artifact lines. Names
+        // such as "error-handler" are not diagnostics and must not discard a completed image.
+        String plainLine = ANSI_ESCAPE.matcher(line).replaceAll("");
+        return DIAGNOSTIC_PREFIX.matcher(plainLine).find()
+                || UNSUPPORTED_FEATURE_DIAGNOSTIC.matcher(plainLine).find();
     }
 }

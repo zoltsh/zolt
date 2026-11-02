@@ -22,6 +22,8 @@ final class RunServiceTest extends RunServiceTestSupport {
         Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         ProjectConfig config = config(true, Optional.empty());
         Path runnerJar = projectDir.resolve("target/quarkus-app/quarkus-run.jar");
+        Files.createDirectories(runnerJar.getParent());
+        Files.writeString(runnerJar, "runner jar placeholder");
         FrameworkRunResult runResult = new FrameworkRunResult(runnerJar, "Quarkus runner " + runnerJar);
         List<String> command = new ArrayList<>();
         RunService service = service(
@@ -36,7 +38,9 @@ final class RunServiceTest extends RunServiceTestSupport {
         });
 
         assertTrue(command.contains("-jar"));
-        assertTrue(command.contains(runnerJar.toString()));
+        assertTrue(Path.of(command.get(command.indexOf("-jar") + 1))
+                .startsWith(projectDir.resolve(".zolt/run")));
+        assertTrue(command.get(command.indexOf("-jar") + 1).endsWith("quarkus-run.jar"));
         assertEquals("one", command.get(command.size() - 2));
         assertEquals("two", command.get(command.size() - 1));
         assertTrue(result.javaRunResult().mainClass().startsWith("Quarkus runner "));

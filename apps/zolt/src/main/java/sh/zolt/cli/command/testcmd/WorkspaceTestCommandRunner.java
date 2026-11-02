@@ -29,6 +29,7 @@ final class WorkspaceTestCommandRunner {
     private final TestRunServiceFactory testRunServiceFactory;
     private final CommandLockfiles lockfiles;
     private final CommandToolchainOptions toolchainOptions;
+    private final CommandTestBuildCacheSupport buildCache;
     private final CommandSpec spec;
 
     WorkspaceTestCommandRunner(
@@ -36,11 +37,13 @@ final class WorkspaceTestCommandRunner {
             TestRunServiceFactory testRunServiceFactory,
             CommandLockfiles lockfiles,
             CommandToolchainOptions toolchainOptions,
+            CommandTestBuildCacheSupport buildCache,
             CommandSpec spec) {
         this.workspaceTestService = workspaceTestService;
         this.testRunServiceFactory = testRunServiceFactory;
         this.lockfiles = lockfiles;
         this.toolchainOptions = toolchainOptions;
+        this.buildCache = buildCache;
         this.spec = spec;
     }
 
@@ -52,9 +55,10 @@ final class WorkspaceTestCommandRunner {
             ProgressWriter progress,
             TestCommandRequest request) {
         var workspaceToolchains = toolchainOptions.workspaceTestToolchains(testRunServiceFactory, "test");
-        WorkspaceTestService projectWorkspaceTestService = workspaceTestService.withMemberServices(
-                workspaceToolchains.mainCheckers(),
-                workspaceToolchains.testRunServices());
+        WorkspaceTestService projectWorkspaceTestService = buildCache.applyTo(
+                workspaceTestService.withMemberServices(
+                        workspaceToolchains.mainCheckers(),
+                        workspaceToolchains.testRunServices()));
         CommandHumanOutput output = CommandHumanOutput.of(spec);
         WorkspaceTestResult result = WorkspaceMutationLock.withWorkspaceLock(
                 workspaceRoot,

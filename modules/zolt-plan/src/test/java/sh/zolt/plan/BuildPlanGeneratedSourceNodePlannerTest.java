@@ -32,7 +32,7 @@ final class BuildPlanGeneratedSourceNodePlannerTest {
                 new GeneratedSourceStep(
                         "api",
                         GeneratedSourceKind.DECLARED_ROOT,
-                        "java",
+                        "kotlin",
                         "target/generated/sources/api",
                         List.of("src/main/openapi/api.yaml"),
                         true,
@@ -67,6 +67,7 @@ final class BuildPlanGeneratedSourceNodePlannerTest {
         assertTrue(node.details().contains("scope: main"));
         assertTrue(node.details().contains("compileLane: main"));
         assertTrue(node.details().contains("kind: declared-root"));
+        assertTrue(node.details().contains("language: kotlin"));
         assertTrue(node.details().contains("freshness: fresh"));
         assertTrue(node.details().contains("toolFingerprint: tool"));
         assertTrue(node.blockers().isEmpty());
@@ -97,11 +98,11 @@ final class BuildPlanGeneratedSourceNodePlannerTest {
     }
 
     @Test
-    void blocksIncompleteOpenApiSettingsAndUnsupportedLanguage() {
+    void blocksIncompleteOpenApiSettingsAndUnknownLanguage() {
         GeneratedSourceStep step = new GeneratedSourceStep(
                 "openapi",
                 GeneratedSourceKind.OPENAPI,
-                "kotlin",
+                "scala",
                 "target/generated/sources/openapi",
                 List.of(),
                 true,
@@ -152,6 +153,28 @@ final class BuildPlanGeneratedSourceNodePlannerTest {
     }
 
     @Test
+    void plansKotlinProtobufOutput() {
+        GeneratedSourceStep step = new GeneratedSourceStep(
+                "protocol",
+                GeneratedSourceKind.PROTOBUF,
+                "kotlin",
+                "target/generated/sources/protobuf",
+                List.of(),
+                true,
+                true);
+
+        PlanNode node = planner.nodes(
+                        tempDir,
+                        List.of(evidence("main", step, true, true, "fresh")),
+                        "main")
+                .getFirst();
+
+        assertEquals(PlanNodeStatus.READY, node.status());
+        assertTrue(node.details().contains("language: kotlin"));
+        assertTrue(node.blockers().isEmpty());
+    }
+
+    @Test
     void skipsOptionalDeclaredRootWhenOutputIsMissing() {
         GeneratedSourceStep step = new GeneratedSourceStep(
                 "optional",
@@ -169,7 +192,7 @@ final class BuildPlanGeneratedSourceNodePlannerTest {
                 .getFirst();
 
         assertEquals(PlanNodeStatus.SKIPPED, node.status());
-        assertEquals("Use declared generated Java source root.", node.description());
+        assertEquals("Use declared generated source root.", node.description());
         assertTrue(node.blockers().isEmpty());
     }
 
@@ -227,7 +250,7 @@ final class BuildPlanGeneratedSourceNodePlannerTest {
                 Optional.of("7.12.0"),
                 Optional.of("openapi-generator"),
                 Optional.empty(),
-                Optional.of("java"),
+                Optional.of("kotlin"),
                 Optional.empty(),
                 Optional.of("com.example.api"),
                 Optional.of("com.example.model"),
@@ -244,7 +267,7 @@ final class BuildPlanGeneratedSourceNodePlannerTest {
         GeneratedSourceStep step = new GeneratedSourceStep(
                 "client",
                 GeneratedSourceKind.OPENAPI,
-                "java",
+                "kotlin",
                 "target/generated/sources/client",
                 List.of("src/main/openapi/api.yaml"),
                 true,

@@ -99,25 +99,75 @@ final class InspectionToManifestRootsTest {
 
         DraftZoltToml draft = mapper.fromMaven(new MavenStaticProjectInspector().inspect(tempDir));
 
-        // §10.1 rejects Kotlin roots, so drafting one would emit a manifest Zolt cannot parse. The
-        // audited reality survives as review data instead.
+        // Kotlin migration readiness remains conservative even though a manually authored main root
+        // is legal. The audited reality survives as review data instead.
         assertTrue(
                 draft.manifest().build().build().isEmpty(),
                 () -> "expected no authored [build] roots: " + draft.manifest().build().build());
         assertTrue(
                 draft.notes().stream().anyMatch(note ->
                         note.contains("a main source root at `src/main/kotlin`")
-                                && note.contains("Kotlin is not supported in the public beta")),
+                                && note.contains("cannot migrate automatically")
+                                && note.contains("explicitly authored main roots")),
                 () -> "expected the audited Kotlin main root as review data: " + draft.notes());
         assertTrue(
                 draft.notes().stream().anyMatch(note ->
                         note.contains("a test source root at `src/test/kotlin`")
-                                && note.contains("Kotlin is not supported in the public beta")),
+                                && note.contains("cannot migrate automatically")
+                                && note.contains("unit-test roots in [test.sources].kotlin")
+                                && note.contains("Automatic migration")),
                 () -> "expected the audited Kotlin test root as review data: " + draft.notes());
         assertTrue(
                 draft.notes().stream().anyMatch(note ->
-                        note.contains("names a language Zolt cannot build")),
+                        note.contains("requires manual migration review")),
                 () -> "expected the convention fallback note: " + draft.notes());
+    }
+
+    @Test
+    void mavenDraftKeepsDiscoveredKotlinConventionRootsAsReviewData() throws IOException {
+        Files.createDirectories(tempDir.resolve("src/main/kotlin/com/example"));
+        Files.createDirectories(tempDir.resolve("src/test/kotlin/com/example"));
+        Files.writeString(tempDir.resolve("pom.xml"), """
+                <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>com.example</groupId>
+                  <artifactId>kotlin-conventions</artifactId>
+                  <version>1.0.0</version>
+                  <build>
+                    <plugins>
+                      <plugin>
+                        <groupId>org.jetbrains.kotlin</groupId>
+                        <artifactId>kotlin-maven-plugin</artifactId>
+                        <version>2.2.20</version>
+                        <executions>
+                          <execution>
+                            <goals>
+                              <goal>compile</goal>
+                              <goal>test-compile</goal>
+                            </goals>
+                          </execution>
+                        </executions>
+                      </plugin>
+                    </plugins>
+                  </build>
+                </project>
+                """);
+
+        DraftZoltToml draft = mapper.fromMaven(new MavenStaticProjectInspector().inspect(tempDir));
+
+        assertTrue(draft.manifest().build().build().isEmpty());
+        assertTrue(draft.manifest().toolchains().kotlin().isEmpty());
+        assertTrue(draft.manifest().build().tests().isEmpty());
+        assertTrue(
+                draft.notes().stream().anyMatch(note ->
+                        note.contains("a main source root at `src/main/kotlin`")
+                                && note.contains("cannot migrate automatically")),
+                () -> "expected the audited Kotlin main convention as review data: " + draft.notes());
+        assertTrue(
+                draft.notes().stream().anyMatch(note ->
+                        note.contains("a test source root at `src/test/kotlin`")
+                                && note.contains("[test.sources].kotlin")),
+                () -> "expected the audited Kotlin test convention as review data: " + draft.notes());
     }
 
     @Test
@@ -154,6 +204,65 @@ final class InspectionToManifestRootsTest {
                                 && note.contains("src/tests")
                                 && note.contains("src/fixtures")),
                 () -> "expected the non-conventional test root review note: " + draft.notes());
+    }
+
+    @Test
+    void gradleDraftKeepsDiscoveredKotlinRootsAsAuditedReviewData() throws IOException {
+        Files.createDirectories(tempDir.resolve("src/main/kotlin/com/example"));
+        Files.createDirectories(tempDir.resolve("src/test/kotlin/com/example"));
+        Files.writeString(tempDir.resolve("settings.gradle"), "rootProject.name = 'kotlin-roots'\n");
+        Files.writeString(tempDir.resolve("build.gradle"), """
+                plugins {
+                    id 'org.jetbrains.kotlin.jvm' version '2.2.20'
+                }
+                group = 'com.example'
+                version = '1.0.0'
+                dependencies {
+                    implementation 'org.jetbrains.kotlin:kotlin-stdlib:2.2.20'
+                }
+                """);
+
+        DraftZoltToml draft = mapper.fromGradle(new GradleStaticProjectInspector().inspect(tempDir));
+
+        assertTrue(
+                draft.manifest().build().build().isEmpty(),
+                () -> "Kotlin roots must not be authored before bounded emission: "
+                        + draft.manifest().build().build());
+        assertTrue(draft.manifest().toolchains().kotlin().isEmpty());
+        assertTrue(draft.manifest().build().tests().isEmpty());
+        assertTrue(
+                draft.notes().stream().anyMatch(note ->
+                        note.contains("a main source root at `src/main/kotlin`")
+                                && note.contains("cannot migrate automatically")),
+                () -> "expected the audited Kotlin main root as review data: " + draft.notes());
+        assertTrue(
+                draft.notes().stream().anyMatch(note ->
+                        note.contains("a test source root at `src/test/kotlin`")
+                                && note.contains("[test.sources].kotlin")),
+                () -> "expected the audited Kotlin test root as review data: " + draft.notes());
+    }
+
+    @Test
+    void gradleDraftCarriesConventionalGroovyMainRootIntoBuildSources() throws IOException {
+        Files.createDirectories(tempDir.resolve("src/main/java/com/example"));
+        Files.createDirectories(tempDir.resolve("src/main/groovy/com/example"));
+        Files.writeString(tempDir.resolve("settings.gradle"), "rootProject.name = 'groovy-main'\n");
+        Files.writeString(tempDir.resolve("build.gradle"), """
+                plugins {
+                    id 'java'
+                    id 'groovy'
+                }
+                group = 'com.example'
+                version = '1.0.0'
+                dependencies {
+                    implementation 'org.apache.groovy:groovy:4.0.22'
+                }
+                """);
+
+        DraftZoltToml draft = mapper.fromGradle(new GradleStaticProjectInspector().inspect(tempDir));
+
+        AuthoredBuild build = draft.manifest().build().build().orElseThrow();
+        assertEquals(List.of("src/main/java", "src/main/groovy"), paths(build.sources()));
     }
 
     /** {@code [build].sources} is a sorted, distinct path list in the authored model. */

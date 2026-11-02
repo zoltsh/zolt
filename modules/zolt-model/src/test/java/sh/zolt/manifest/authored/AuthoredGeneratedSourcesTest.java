@@ -67,6 +67,31 @@ final class AuthoredGeneratedSourcesTest {
     }
 
     @Test
+    void requiresKspStepsToReferenceDeclaredKspTools() {
+        AuthoredGeneratedTool.Ksp tool = new AuthoredGeneratedTool.Ksp(
+                new DependencySelector.FixedVersion("2.2.0-2.0.2"),
+                List.of(new GeneratedArtifactRequest(
+                        new DependencyCoordinate("com.example:symbol-processor"),
+                        new DependencySelector.FixedVersion("1.0.0"))));
+        AuthoredGeneratedSources generated = new AuthoredGeneratedSources(
+                new AuthoredGeneratedTools(Map.of(new LocalId("ksp"), tool)),
+                AuthoredGeneratedPresets.empty(),
+                Map.of(new LocalId("symbols"), new AuthoredKspStep(
+                        GeneratedStepSettings.defaultsOmitted(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Map.of())),
+                Map.of());
+
+        assertEquals(1, generated.main().size());
+        assertThrows(IllegalArgumentException.class, () -> new AuthoredGeneratedSources(
+                AuthoredGeneratedTools.empty(),
+                AuthoredGeneratedPresets.empty(),
+                generated.main(),
+                Map.of()));
+    }
+
+    @Test
     void projectPseudoToolNeedsNoDeclarationButStillRequiresMainClass() {
         AuthoredGeneratedSources generated = new AuthoredGeneratedSources(
                 AuthoredGeneratedTools.empty(),

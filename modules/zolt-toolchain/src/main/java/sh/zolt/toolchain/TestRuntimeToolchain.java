@@ -1,6 +1,7 @@
 package sh.zolt.toolchain;
 
 import sh.zolt.error.ActionableException;
+import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.toolchain.JavaToolchainRequest;
 import java.nio.file.Path;
 import java.util.Optional;
@@ -8,23 +9,54 @@ import java.util.Optional;
 /**
  * The resolved {@code [toolchain.java.test]} runtime toolchain: the JDK Zolt uses to <em>run</em>
  * tests, while compilation stays on the main {@code [toolchain.java]}. Carries the parsed request,
- * its resolution {@link JavaToolchainStatus}, and the compiled {@code [project].java} release so
- * callers (execution, {@code zolt plan --target test}, {@code zolt doctor}) can validate and surface
- * it uniformly.
+ * its resolution {@link JavaToolchainStatus}, the compiled {@code [project].java} release, and
+ * whether Kotlin compilation emits preview-marked class files so callers (execution, {@code zolt
+ * plan --target test}, {@code zolt doctor}) can validate and surface it uniformly.
  */
 public record TestRuntimeToolchain(
         JavaToolchainRequest request,
         JavaToolchainStatus status,
-        String projectRelease) {
+        String projectRelease,
+        boolean previewRequired) {
+
+    /** Compatibility constructor for callers without composed compiler settings. */
+    public TestRuntimeToolchain(
+            JavaToolchainRequest request,
+            JavaToolchainStatus status,
+            String projectRelease) {
+        this(request, status, projectRelease, false);
+    }
+
+    /** Creates the runtime contract for one fully composed project configuration. */
+    public static TestRuntimeToolchain forProject(
+            JavaToolchainRequest request,
+            JavaToolchainStatus status,
+            ProjectConfig config) {
+        return new TestRuntimeToolchain(
+                request,
+                status,
+                config.project().java(),
+                config.compilerSettings().testKotlinJvmPreview());
+    }
 
     /**
-     * The version-floor problem when the requested runtime is older than the compiled bytecode
-     * target. Running newer bytecode on an older JVM throws {@code UnsupportedClassVersionError}, so
-     * this is a hard configuration error.
+     * The release compatibility problem for the requested runtime. Ordinary class files require a
+     * runtime at least as new as their target. JVM preview class files additionally require the exact
+     * feature release that produced them.
      */
     public Optional<String> releaseProblem() {
         Optional<Integer> testFeature = featureNumber(request.version());
         Optional<Integer> projectFeature = featureNumber(projectRelease);
+        if (previewRequired
+                && testFeature.isPresent()
+                && projectFeature.isPresent()
+                && !testFeature.orElseThrow().equals(projectFeature.orElseThrow())) {
+            return Optional.of(
+                    "Test runtime Java " + request.version()
+                            + " does not match the compiled [project].java release " + projectRelease
+                            + " while Kotlin JVM preview is enabled; JVM preview class files require "
+                            + "the same Java feature release.");
+        }
         if (testFeature.isPresent()
                 && projectFeature.isPresent()
                 && testFeature.orElseThrow() < projectFeature.orElseThrow()) {
@@ -50,7 +82,7 @@ public record TestRuntimeToolchain(
                 && resolved.orElseThrow().equals(requested.orElseThrow());
     }
 
-    /** True when the runtime toolchain is installed, usable, version-exact, and floor-valid. */
+    /** True when the runtime toolchain is installed, usable, version-exact, and release-compatible. */
     public boolean ready() {
         return releaseProblem().isEmpty()
                 && status.ok()
@@ -79,6 +111,10 @@ public record TestRuntimeToolchain(
     /** The remediation matching {@link #problem()}; empty when ready. */
     public Optional<String> remediation() {
         if (releaseProblem().isPresent()) {
+            if (previewRequired) {
+                return Optional.of("Set [toolchain.java.test].version to " + projectRelease
+                        + ", or remove -Xjvm-enable-preview from [compiler] and [compiler.test].");
+            }
             return Optional.of("Set [toolchain.java.test].version to " + projectRelease
                     + " or newer, or lower [project].java.");
         }

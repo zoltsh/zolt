@@ -7,6 +7,7 @@ import sh.zolt.maven.CoordinateParser;
 import sh.zolt.project.ExecToolCoordinate;
 import sh.zolt.project.GeneratedSourceKind;
 import sh.zolt.project.GeneratedSourceStep;
+import sh.zolt.project.KspGenerationSettings;
 import sh.zolt.project.OpenApiGenerationSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProtobufGenerationSettings;
@@ -30,13 +31,14 @@ public final class GeneratedSourceToolingDependencyContributor {
         addOpenApiToolRequests(config, requests);
         addProtobufToolRequests(config, requests);
         addExecToolRequests(config, requests);
+        addKspToolRequests(config, requests);
     }
 
     /**
-     * Per-tool direct requests for every jvm-runner exec tool, grouped by tool name. Each named tool is
-     * its own isolated resolution unit so versions mediate <em>within</em> a tool and never across tools
-     * (two tools may pin incompatible versions of the same GA). The returned map is sorted by tool name
-     * for deterministic lock assembly; process/project runners contribute nothing (no locked closure).
+     * Per-tool direct requests for every JVM exec tool and each KSP engine/processor lane. Every
+     * group is an isolated resolution unit so versions mediate <em>within</em> a tool and never across
+     * tools (two tools may pin incompatible versions of the same GA). The returned map is sorted by
+     * group name for deterministic lock assembly; process/project runners contribute nothing.
      */
     public Map<String, List<DependencyRequest>> execToolRequestGroups(ProjectConfig config) {
         Map<String, List<DependencyRequest>> groups = new TreeMap<>();
@@ -67,7 +69,32 @@ public final class GeneratedSourceToolingDependencyContributor {
                         RequestOrigin.DIRECT));
             }
         }
+        new KspToolingDependencyPlanner(coordinateParser)
+                .groups(kspSettings(config))
+                .forEach((group, requests) -> {
+                    if (groups.putIfAbsent(group, new ArrayList<>(requests)) != null) {
+                        throw new ResolveException("Duplicate tool-exec group `" + group + "`.");
+                    }
+                });
         return groups;
+    }
+
+    private void addKspToolRequests(
+            ProjectConfig config,
+            List<DependencyRequest> requests) {
+        new KspToolingDependencyPlanner(coordinateParser)
+                .groups(kspSettings(config))
+                .values()
+                .stream()
+                .flatMap(List::stream)
+                .forEach(request -> {
+                    boolean alreadyRequested = requests.stream()
+                            .anyMatch(existing -> existing.packageId().equals(request.packageId())
+                                    && existing.scope() == request.scope());
+                    if (!alreadyRequested) {
+                        requests.add(request);
+                    }
+                });
     }
 
     private void addExecToolRequests(
@@ -206,5 +233,18 @@ public final class GeneratedSourceToolingDependencyContributor {
                 .filter(step -> step.kind() == GeneratedSourceKind.EXEC)
                 .forEach(steps::add);
         return steps;
+    }
+
+    private static List<KspGenerationSettings> kspSettings(ProjectConfig config) {
+        List<KspGenerationSettings> settings = new ArrayList<>();
+        config.build().generatedMainSources().stream()
+                .filter(step -> step.kind() == GeneratedSourceKind.KSP)
+                .map(GeneratedSourceStep::ksp)
+                .forEach(settings::add);
+        config.build().generatedTestSources().stream()
+                .filter(step -> step.kind() == GeneratedSourceKind.KSP)
+                .map(GeneratedSourceStep::ksp)
+                .forEach(settings::add);
+        return List.copyOf(settings);
     }
 }

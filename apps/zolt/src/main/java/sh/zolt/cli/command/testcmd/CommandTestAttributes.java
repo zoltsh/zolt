@@ -92,10 +92,7 @@ public final class CommandTestAttributes {
         attributes.put(CommandAttributeKeys.DEPENDENCY_MEMBERS, Integer.toString(result.dependencyMemberCount()));
         attributes.put(CommandAttributeKeys.MAIN_SOURCE_FILES, Integer.toString(result.mainSourceCount()));
         attributes.put(CommandAttributeKeys.TEST_SOURCE_FILES, Integer.toString(result.testSourceCount()));
-        attributes.put(CommandAttributeKeys.MAIN_COMPILATIONS_SKIPPED, Integer.toString(result.mainCompilationSkippedCount()));
-        attributes.put(CommandAttributeKeys.MAIN_COMPILATIONS_EXECUTED, Integer.toString(result.mainCompilationExecutedCount()));
-        attributes.put(CommandAttributeKeys.TEST_COMPILATIONS_SKIPPED, Integer.toString(result.testCompilationSkippedCount()));
-        attributes.put(CommandAttributeKeys.TEST_COMPILATIONS_EXECUTED, Integer.toString(result.testCompilationExecutedCount()));
+        CommandWorkspaceTestCompilationAttributes.add(attributes, result);
         attributes.put(CommandAttributeKeys.TEST_RUNTIME_CLASSPATH_ENTRIES, Integer.toString(result.testRuntimeClasspathEntryCount()));
         attributes.put(CommandAttributeKeys.TEST_LAUNCHER_CLASSPATH_ENTRIES, Integer.toString(result.testLauncherClasspathEntryCount()));
         attributes.put(CommandAttributeKeys.TEST_DISCOVERY_SCAN_ROOTS, Integer.toString(result.testDiscoveryScanRootCount()));
@@ -132,18 +129,7 @@ public final class CommandTestAttributes {
         attributes.put(CommandAttributeKeys.DEPENDENCY_MEMBERS, Integer.toString(result.dependencyMemberCount()));
         attributes.put(CommandAttributeKeys.MAIN_SOURCE_FILES, Integer.toString(result.mainSourceCount()));
         attributes.put(CommandAttributeKeys.TEST_SOURCE_FILES, Integer.toString(result.testSourceCount()));
-        attributes.put(
-                CommandAttributeKeys.MAIN_COMPILATIONS_SKIPPED,
-                Integer.toString(result.mainCompilationSkippedCount()));
-        attributes.put(
-                CommandAttributeKeys.MAIN_COMPILATIONS_EXECUTED,
-                Integer.toString(result.mainCompilationExecutedCount()));
-        attributes.put(
-                CommandAttributeKeys.TEST_COMPILATIONS_SKIPPED,
-                Integer.toString(result.testCompilationSkippedCount()));
-        attributes.put(
-                CommandAttributeKeys.TEST_COMPILATIONS_EXECUTED,
-                Integer.toString(result.testCompilationExecutedCount()));
+        CommandWorkspaceTestCompilationAttributes.add(attributes, result);
         attributes.put(
                 CommandAttributeKeys.WORKSPACE_BUILD_MAX_WORKERS,
                 Integer.toString(result.maxWorkers()));

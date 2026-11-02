@@ -133,7 +133,15 @@ final class IncrementalCompileStateCodecTest {
 
     @Test
     void rejectsUnsupportedOrCorruptState() {
-        assertTrue(codec.parse("version=6\n").isEmpty());
+        Path project = Path.of("/workspace/demo");
+        String previousVersion = codec.format(stateWithClassHashes(
+                        project,
+                        "class-v1",
+                        "public-v1",
+                        "package-v1"))
+                .replaceFirst("version=8", "version=7");
+
+        assertTrue(codec.parse(previousVersion).isEmpty());
         assertTrue(codec.parse("version=999\n").isEmpty());
         assertTrue(codec.parse("""
                 version=1

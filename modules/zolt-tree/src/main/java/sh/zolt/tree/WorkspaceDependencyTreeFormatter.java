@@ -23,7 +23,7 @@ public final class WorkspaceDependencyTreeFormatter {
             output.append(member).append('\n');
             new DependencyTreeLines(
                     projection.index(),
-                    DependencyTreeLines.conflictsByPackage(lockfile),
+                    new DependencyConflictIndex(lockfile, member),
                     projection.viewFor(member),
                     WorkspaceTreeProjection.REGENERATE_COMMAND)
                     .writeRoots(output, projection.rootsFor(member));

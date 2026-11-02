@@ -256,8 +256,39 @@ final class InspectionToManifestGradleTest {
                         note.contains("Test sources live outside") && note.contains("src/test/groovy")),
                 () -> "expected the Groovy test root review note: " + draft.notes());
         assertEquals("4.0.22", subject.fixed(DependencyLane.TEST).get("org.apache.groovy:groovy"));
+        assertEquals(
+                "4.0.22",
+                draft.manifest().toolchains().groovy().orElseThrow().version().value());
         assertEquals("2.3-groovy-4.0", subject.fixed(DependencyLane.TEST).get("org.spockframework:spock-core"));
         assertEquals("1.11.4",
                 subject.fixed(DependencyLane.TEST).get("org.junit.platform:junit-platform-console-standalone"));
+    }
+
+    @Test
+    void gradleDraftDoesNotChooseBetweenConflictingGroovyRuntimeVersions() throws IOException {
+        Files.createDirectories(tempDir.resolve("src/test/groovy/com/example"));
+        Files.writeString(tempDir.resolve("settings.gradle"), "rootProject.name = 'spock-gradle'\n");
+        Files.writeString(tempDir.resolve("build.gradle"), """
+                plugins {
+                    id 'java'
+                    id 'groovy'
+                }
+                group = 'com.example'
+                version = '1.0.0'
+
+                dependencies {
+                    implementation 'org.apache.groovy:groovy:4.0.21'
+                    testImplementation 'org.apache.groovy:groovy:4.0.22'
+                }
+                """);
+
+        DraftZoltToml draft = mapper.fromGradle(new GradleStaticProjectInspector().inspect(tempDir));
+
+        assertTrue(draft.manifest().toolchains().groovy().isEmpty());
+        assertTrue(
+                draft.notes().stream().anyMatch(note ->
+                        note.contains("org.apache.groovy:groovy")
+                                && note.contains("both the implementation and test lanes")),
+                () -> "expected the existing cross-lane review note: " + draft.notes());
     }
 }

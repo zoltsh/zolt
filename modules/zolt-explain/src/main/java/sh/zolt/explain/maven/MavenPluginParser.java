@@ -7,8 +7,11 @@ import static sh.zolt.explain.maven.MavenXml.texts;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import org.w3c.dom.Element;
 
 final class MavenPluginParser {
@@ -49,17 +52,28 @@ final class MavenPluginParser {
                     .orElseGet(List::of);
             plugins.add(new MavenPluginInspection(
                     coordinate,
-                    phases(artifactId, executions, properties),
+                    phases(groupId, artifactId, executions, properties),
                     goals(executions, properties),
                     disabledExecutions(executions, properties),
                     pluginManagement,
                     MavenExecConfigParser.invocations(artifactId, plugin, executions, properties),
-                    MavenExecConfigParser.databaseBacked(artifactId, plugin, executions)));
+                    MavenExecConfigParser.databaseBacked(artifactId, plugin, executions),
+                    conventionalKotlinJvmExecutions(groupId, artifactId, executions, properties),
+                    configurationPresent(plugin, executions),
+                    activeConfiguredExecutionsPresent(plugin, executions, properties),
+                    text(plugin, "extensions")
+                            .map(properties::interpolate)
+                            .map(String::strip)
+                            .orElse(""),
+                    child(plugin, "dependencies").isPresent(),
+                    kotlinPluginProperties(groupId, artifactId, properties),
+                    kaptIncludeCompileClasspath(groupId, artifactId, properties)));
         }
         return plugins;
     }
 
     private static List<String> phases(
+            String groupId,
             String artifactId,
             List<Element> executions,
             MavenPomProperties properties) {
@@ -76,7 +90,7 @@ final class MavenPluginParser {
                 continue;
             }
             for (String goal : goals(execution, properties)) {
-                defaultPhase(artifactId, goal).ifPresent(phases::add);
+                defaultPhase(groupId, artifactId, goal).ifPresent(phases::add);
             }
         }
         return phases.stream().distinct().sorted().toList();
@@ -126,9 +140,17 @@ final class MavenPluginParser {
         return goals.isEmpty() ? "execution" : String.join(",", goals);
     }
 
-    private static Optional<String> defaultPhase(String artifactId, String goal) {
+    private static Optional<String> defaultPhase(String groupId, String artifactId, String goal) {
         String plugin = artifactId.toLowerCase();
         String normalizedGoal = goal.toLowerCase();
+        if (groupId.equalsIgnoreCase("org.codehaus.gmavenplus") && plugin.equals("gmavenplus-plugin")) {
+            if (normalizedGoal.equals("compile")) {
+                return Optional.of("compile");
+            }
+            if (normalizedGoal.equals("compiletests")) {
+                return Optional.of("test-compile");
+            }
+        }
         if (plugin.equals("maven-surefire-plugin") && normalizedGoal.equals("test")) {
             return Optional.of("test");
         }
@@ -148,6 +170,15 @@ final class MavenPluginParser {
                 return Optional.of("test-compile");
             }
         }
+        if (groupId.equalsIgnoreCase("org.jetbrains.kotlin")
+                && plugin.equals("kotlin-maven-plugin")) {
+            if (normalizedGoal.equals("compile")) {
+                return Optional.of("compile");
+            }
+            if (normalizedGoal.equals("test-compile")) {
+                return Optional.of("test-compile");
+            }
+        }
         if (plugin.equals("spring-boot-maven-plugin") && normalizedGoal.equals("repackage")) {
             return Optional.of("package");
         }
@@ -155,6 +186,97 @@ final class MavenPluginParser {
             return Optional.of("generate-sources");
         }
         return Optional.empty();
+    }
+
+    private static boolean conventionalKotlinJvmExecutions(
+            String groupId,
+            String artifactId,
+            List<Element> executions,
+            MavenPomProperties properties) {
+        if (!groupId.equalsIgnoreCase("org.jetbrains.kotlin")
+                || !artifactId.equalsIgnoreCase("kotlin-maven-plugin")
+                || executions.isEmpty()) {
+            return false;
+        }
+        Set<String> seenGoals = new LinkedHashSet<>();
+        for (Element execution : executions) {
+            List<String> goals = goals(execution, properties).stream()
+                    .map(goal -> goal.toLowerCase(Locale.ROOT))
+                    .toList();
+            if (goals.isEmpty()) {
+                return false;
+            }
+            Optional<String> declaredPhase = text(execution, "phase")
+                    .map(properties::interpolate)
+                    .map(String::strip)
+                    .filter(value -> !value.isBlank())
+                    .map(value -> value.toLowerCase(Locale.ROOT));
+            if (declaredPhase.filter("none"::equals).isPresent()) {
+                return false;
+            }
+            for (String goal : goals) {
+                String expectedPhase = switch (goal) {
+                    case "compile" -> "compile";
+                    case "test-compile" -> "test-compile";
+                    default -> null;
+                };
+                if (expectedPhase == null
+                        || !expectedPhase.equals(declaredPhase.orElse(expectedPhase))
+                        || !seenGoals.add(goal)) {
+                    return false;
+                }
+            }
+        }
+        return !seenGoals.isEmpty();
+    }
+
+    private static List<String> kotlinPluginProperties(
+            String groupId,
+            String artifactId,
+            MavenPomProperties properties) {
+        if (!groupId.equalsIgnoreCase("org.jetbrains.kotlin")
+                || !artifactId.equalsIgnoreCase("kotlin-maven-plugin")) {
+            return List.of();
+        }
+        return properties.values().keySet().stream()
+                .map(String::strip)
+                .filter(name -> name.startsWith("kotlin."))
+                .filter(name -> !name.equals("kotlin.version"))
+                .distinct()
+                .sorted()
+                .toList();
+    }
+
+    private static String kaptIncludeCompileClasspath(
+            String groupId,
+            String artifactId,
+            MavenPomProperties properties) {
+        if (!groupId.equals("org.jetbrains.kotlin")
+                || !artifactId.equals("kotlin-maven-plugin")) {
+            return "";
+        }
+        return properties.interpolate(properties.values().get("kapt.include.compile.classpath")).strip();
+    }
+
+    private static boolean configurationPresent(Element plugin, List<Element> executions) {
+        return child(plugin, "configuration").isPresent()
+                || executions.stream().anyMatch(execution ->
+                        child(execution, "configuration").isPresent());
+    }
+
+    private static boolean activeConfiguredExecutionsPresent(
+            Element plugin,
+            List<Element> executions,
+            MavenPomProperties properties) {
+        boolean pluginConfiguration = child(plugin, "configuration").isPresent();
+        return executions.stream()
+                .filter(execution -> text(execution, "phase")
+                        .map(properties::interpolate)
+                        .map(String::strip)
+                        .filter("none"::equalsIgnoreCase)
+                        .isEmpty())
+                .anyMatch(execution -> pluginConfiguration
+                        || child(execution, "configuration").isPresent());
     }
 
     private static boolean codeGenerationPlugin(String plugin, String goal) {

@@ -31,6 +31,7 @@ final class SelfHostingCheckServiceTest {
 
                 [test.sources]
                 groovy = ["src/test/groovy"]
+                kotlin = ["src/test/kotlin"]
 
                 [dependencies.test]
                 "org.junit.platform:junit-platform-console-standalone" = "1.11.4"
@@ -40,7 +41,7 @@ final class SelfHostingCheckServiceTest {
                 """);
         write("zolt.lock", "version = 7\n");
         Files.createDirectories(projectDir.resolve("src/main/java"));
-        Files.createDirectories(projectDir.resolve("src/test/groovy"));
+        Files.createDirectories(projectDir.resolve("src/test/kotlin"));
 
         SelfHostingCheckResult result = new SelfHostingCheckService().check(projectDir);
 

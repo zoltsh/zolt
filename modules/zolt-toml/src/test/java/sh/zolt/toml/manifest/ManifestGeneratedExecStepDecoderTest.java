@@ -59,6 +59,27 @@ final class ManifestGeneratedExecStepDecoderTest {
         assertThrows(UnsupportedOperationException.class, () -> step.inputs().clear());
     }
 
+    @ParameterizedTest
+    @MethodSource("lanes")
+    void acceptsKotlinForSourceProducingExecSteps(Lane lane) {
+        AuthoredExecStep step = exec(
+                lane,
+                "kind = \"exec\"\nlanguage = \"kotlin\"\ntool = \"tool\"\n"
+                        + requiredTail(lane == Lane.MAIN ? "java-sources" : "test-sources"));
+
+        assertEquals(Optional.of(GeneratedLanguage.KOTLIN), step.settings().language());
+    }
+
+    @ParameterizedTest
+    @MethodSource("lanes")
+    void rejectsKotlinForNonSourceExecOutputsAtLanguage(Lane lane) {
+        assertFailure(
+                lane.source("kind = \"exec\"\nlanguage = \"kotlin\"\ntool = \"tool\"\n"
+                        + requiredTail("intermediate")),
+                lane.path("language"),
+                "may use language `kotlin` only with produces = `java-sources` or `test-sources`");
+    }
+
     @ParameterizedTest(name = "{0} accepts {1}")
     @MethodSource("outputKinds")
     void acceptsEveryOutputKindInEitherLane(

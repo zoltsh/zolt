@@ -5,6 +5,7 @@ import sh.zolt.generated.GeneratedSourceEvidenceService;
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.GeneratedSourceKind;
 import sh.zolt.project.GeneratedSourceStep;
+import sh.zolt.project.ProducesLane;
 import sh.zolt.project.ProjectConfig;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -183,13 +184,14 @@ final class GeneratedSourceQualityCheck {
                 return invalidExec;
             }
         }
-        if (!"java".equals(step.language())) {
+        if (!supportedLanguage(step)) {
             return Optional.of(QualityCheckResult.failed(
                     QualityCheckService.GENERATED_SOURCES,
                     member,
                     subject,
                     "Unsupported generated source language `" + step.language() + "`.",
-                    "Use language = \"java\" for MVP generated-source steps."));
+                    "Use language = \"java\", or use language = \"kotlin\" with kind = \"openapi\","
+                            + " kind = \"protobuf\", kind = \"declared-root\", or a source-producing exec step."));
         }
         Optional<QualityCheckResult> invalidOutput = invalidGeneratedPath(
                 member,
@@ -212,6 +214,17 @@ final class GeneratedSourceQualityCheck {
             }
         }
         return Optional.empty();
+    }
+
+    private static boolean supportedLanguage(GeneratedSourceStep step) {
+        return "java".equals(step.language())
+                || ("kotlin".equals(step.language())
+                        && (step.kind() == GeneratedSourceKind.OPENAPI
+                                || step.kind() == GeneratedSourceKind.PROTOBUF
+                                || step.kind() == GeneratedSourceKind.DECLARED_ROOT
+                                || (step.kind() == GeneratedSourceKind.EXEC
+                                        && (step.exec().produces() == ProducesLane.JAVA_SOURCES
+                                                || step.exec().produces() == ProducesLane.TEST_SOURCES))));
     }
 
     private static Optional<QualityCheckResult> invalidGeneratedPath(

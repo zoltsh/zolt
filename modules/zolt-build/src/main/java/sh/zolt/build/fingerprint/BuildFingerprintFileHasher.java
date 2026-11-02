@@ -18,6 +18,8 @@ import java.util.stream.Stream;
 
 final class BuildFingerprintFileHasher {
     private static final List<String> LOCAL_FINGERPRINT_FILES = List.of(
+            ".zolt-compiler-outputs.state",
+            ".zolt-resources.state",
             ".zolt-build-main.fingerprint",
             ".zolt-build-test.fingerprint",
             ".zolt-build-main.fingerprint.state",
@@ -29,6 +31,8 @@ final class BuildFingerprintFileHasher {
      * incremental state) or restored (has none), and portable across machines (no absolute paths).
      */
     private static final List<String> LOCAL_METADATA_FILES = List.of(
+            ".zolt-compiler-outputs.state",
+            ".zolt-resources.state",
             ".zolt-build-main.fingerprint",
             ".zolt-build-test.fingerprint",
             ".zolt-build-main.fingerprint.state",
@@ -91,15 +95,9 @@ final class BuildFingerprintFileHasher {
         if (!Files.isRegularFile(normalized)) {
             return "missing";
         }
-        if (cachedState != null) {
-            Optional<BuildFingerprintCachedFileHash> cached = cachedState.fileIfCurrent(normalized);
-            if (cached.isPresent()) {
-                if (collectedState != null) {
-                    collectedState.put(normalized, cached.orElseThrow());
-                }
-                return cached.orElseThrow().hash();
-            }
-        }
+        // Persisted size/mtime pairs cannot prove content freshness: checkout, extraction, and
+        // generator tools can preserve both while changing bytes. Reuse only hashes verified
+        // against the lockfile during this invocation; mutable project files are always read.
         Optional<String> verified = verifiedArtifactHash.apply(normalized);
         if (verified.isPresent()) {
             recordCollectedState(normalized, verified.orElseThrow(), collectedState);

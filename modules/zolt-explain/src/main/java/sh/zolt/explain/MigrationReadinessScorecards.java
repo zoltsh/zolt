@@ -44,6 +44,8 @@ public final class MigrationReadinessScorecards {
     private static final Set<String> GRADLE_COVERAGE_GAP_SIGNALS = Set.of(
             "gradle.project.missing-build-file",
             "gradle.project.build-file-name-unresolved",
+            "gradle.plugin-alias.unresolved",
+            "gradle.kotlin.plugin-unresolved",
             "gradle.plugin.convention",
             "gradle.script-plugin.apply-from",
             "gradle.plugin.conditional-apply",

@@ -49,6 +49,28 @@ public record WorkspaceMemberState(
         return WorkspaceHash.text(publicAbiDigest + "|" + packagePrivateAbiDigest);
     }
 
+    /** Returns this member state with only the successfully compiled test lane replaced. */
+    public WorkspaceMemberState withTestCompilation(
+            String testCompileKey,
+            String testResourceTreeDigest,
+            String testOutputManifestDigest) {
+        return new WorkspaceMemberState(
+                configDigest,
+                toolchainDigest,
+                mainSourceTreeDigest,
+                resourceTreeDigest(),
+                generatedInputDigest,
+                mainCompileKey,
+                mainOutputManifestDigest,
+                publicAbiDigest,
+                packagePrivateAbiDigest,
+                testCompileKey,
+                testResourceTreeDigest,
+                testOutputManifestDigest,
+                processorInputDigest,
+                generatedOutputDigest);
+    }
+
     /** The digest fields in declaration order, which is the order a state row writes them. */
     List<String> digests() {
         return List.of(

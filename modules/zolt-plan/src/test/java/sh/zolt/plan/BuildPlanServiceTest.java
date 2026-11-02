@@ -18,6 +18,7 @@ import sh.zolt.project.ResourceFilteringSettings;
 import sh.zolt.project.ResourceMissingTokenPolicy;
 import sh.zolt.project.ResourceTokenSettings;
 import sh.zolt.project.TestRuntimeSettings;
+import sh.zolt.project.TestSourceRoots;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Files;
@@ -36,12 +37,7 @@ final class BuildPlanServiceTest {
 
     @Test
     void blocksMissingLockfileWithResolveNextStep() {
-        ProjectConfig config = ProjectConfigs.withDirectDependencies(
-                new ProjectMetadata("demo", "1.0.0", "com.example", "21", Optional.empty()),
-                Map.of(),
-                Map.of(),
-                Map.of(),
-                BuildSettings.defaults());
+        ProjectConfig config = config(BuildSettings.defaults());
 
         BuildPlan plan = service.plan(projectDir, config, PlanTarget.BUILD, Optional.empty());
 
@@ -56,18 +52,41 @@ final class BuildPlanServiceTest {
     @Test
     void blocksPreV7LockfilesBeforeInferringAnyExecToolState() throws IOException {
         Files.writeString(projectDir.resolve("zolt.lock"), "version = 6\n");
-        ProjectConfig config = ProjectConfigs.withDirectDependencies(
-                new ProjectMetadata("demo", "1.0.0", "com.example", "21", Optional.empty()),
-                Map.of(),
-                Map.of(),
-                Map.of(),
-                BuildSettings.defaults());
+        ProjectConfig config = config(BuildSettings.defaults());
 
         BuildPlan plan = service.plan(projectDir, config, PlanTarget.BUILD, Optional.empty());
 
         assertEquals(List.of("lockfile"), plan.nodes().stream().map(PlanNode::id).toList());
         PlanBlocker blocker = blocker(node(plan, "lockfile"), "invalid-lockfile");
         assertTrue(blocker.message().contains("version 6 is older than this Zolt supports (current 7)"));
+    }
+
+    @Test
+    void plansConfiguredGroovyMainSourcesWithCompilerNeutralWording() throws IOException {
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
+        BuildSettings defaults = BuildSettings.defaults();
+        BuildSettings build = new BuildSettings(
+                "src/main/groovy",
+                List.of("src/main/groovy"),
+                defaults.test(),
+                defaults.outputRoot(),
+                defaults.output(),
+                defaults.testOutput(),
+                defaults.testSources(),
+                defaults.groovyTestSources(),
+                defaults.resourceRoots(),
+                defaults.testResourceRoots(),
+                defaults.metadata());
+        ProjectConfig config = config(build);
+
+        BuildPlan plan = service.plan(projectDir, config, PlanTarget.BUILD, Optional.empty());
+
+        PlanNode compile = node(plan, "compile-main");
+        assertEquals(
+                "Compile configured main sources with Zolt-owned compiler inputs.",
+                compile.description());
+        assertEquals(List.of("src/main/groovy"), compile.inputs());
+        assertEquals(List.of("sources: [src/main/groovy]"), compile.details());
     }
 
     @Test
@@ -96,8 +115,10 @@ final class BuildPlanServiceTest {
                 "target",
                 "target/classes",
                 "target/test-classes",
-                List.of("src/test/java", "src/testSupport/java"),
-                List.of("src/test/groovy"),
+                new TestSourceRoots(
+                        List.of("src/test/java", "src/testSupport/java"),
+                        List.of("src/test/groovy"),
+                        List.of("src/test/kotlin")),
                 null,
                 null,
                 null,
@@ -109,12 +130,7 @@ final class BuildPlanServiceTest {
                 BuildMetadataSettings.defaults(),
                 List.of(),
                 List.of());
-        ProjectConfig config = ProjectConfigs.withDirectDependencies(
-                new ProjectMetadata("demo", "1.0.0", "com.example", "21", Optional.empty()),
-                Map.of(),
-                Map.of(),
-                Map.of(),
-                build);
+        ProjectConfig config = config(build);
         Path reports = projectDir.resolve("reports/tests");
 
         BuildPlan plan = service.plan(projectDir, config, PlanTarget.TEST, Optional.of(reports));
@@ -138,13 +154,22 @@ final class BuildPlanServiceTest {
                 List.of("src/main/java", "src/generated/main"),
                 node(plan, "compile-main").inputs());
         assertEquals(
-                List.of("target/classes", "src/test/java", "src/testSupport/java", "src/test/groovy"),
+                List.of(
+                        "target/classes",
+                        "src/test/java",
+                        "src/testSupport/java",
+                        "src/test/groovy",
+                        "src/test/kotlin"),
                 node(plan, "compile-tests").inputs());
         assertEquals(
                 List.of(
                         "javaTestRoots: [src/test/java, src/testSupport/java]",
-                        "groovyTestRoots: [src/test/groovy]"),
+                        "groovyTestRoots: [src/test/groovy]",
+                        "kotlinTestRoots: [src/test/kotlin]"),
                 node(plan, "compile-tests").details());
+        assertEquals(
+                "Compile configured Java, Groovy, and Kotlin test sources.",
+                node(plan, "compile-tests").description());
         assertEquals(List.of(reports.toString()), node(plan, "run-tests").outputs());
         assertEquals(
                 List.of(
@@ -182,12 +207,7 @@ final class BuildPlanServiceTest {
     @Test
     void blocksTestRuntimeToolchainThatIsNotReady() throws IOException {
         Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
-        ProjectConfig config = ProjectConfigs.withDirectDependencies(
-                new ProjectMetadata("demo", "1.0.0", "com.example", "21", Optional.empty()),
-                Map.of(),
-                Map.of(),
-                Map.of(),
-                BuildSettings.defaults());
+        ProjectConfig config = config(BuildSettings.defaults());
 
         BuildPlan plan = service.plan(
                 projectDir,
@@ -319,8 +339,7 @@ final class BuildPlanServiceTest {
                 " ",
                 "build/classes",
                 "build/test-classes",
-                List.of("src/test/java"),
-                List.of(),
+                new TestSourceRoots(List.of("src/test/java"), List.of(), List.of()),
                 null,
                 null,
                 null,
@@ -413,6 +432,15 @@ final class BuildPlanServiceTest {
                 .filter(node -> node.id().equals(id))
                 .findFirst()
                 .orElseThrow();
+    }
+
+    private static ProjectConfig config(BuildSettings build) {
+        return ProjectConfigs.withDirectDependencies(
+                new ProjectMetadata("demo", "1.0.0", "com.example", "21", Optional.empty()),
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                build);
     }
 
     private static PlanBlocker blocker(PlanNode node, String code) {

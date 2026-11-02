@@ -65,6 +65,8 @@ final class SelfHostingParityServiceTest {
         Path workspaceClasses = tempDir.resolve("modules/core/target/classes");
         Path runtimeClasspath = tempDir.resolve("target/demo-0.1.0.runtime-classpath");
         writeClass(workspaceClasses.resolve("com/example/Core.class"));
+        writeClass(workspaceClasses.resolve(".zolt-compiler-outputs.state"));
+        writeClass(workspaceClasses.resolve(".zolt-resources.state"));
         writeClass(workspaceClasses.resolve("META-INF/services/io.quarkus.test.junit.buildchain.TestBuildChainCustomizerProducer"));
         Files.createDirectories(runtimeClasspath.getParent());
         Files.writeString(runtimeClasspath, workspaceClasses + "\n" + tempDir.resolve("cache/external.jar") + "\n");

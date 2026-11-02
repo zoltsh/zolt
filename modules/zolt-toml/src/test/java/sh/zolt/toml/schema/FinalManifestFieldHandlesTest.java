@@ -55,7 +55,10 @@ final class FinalManifestFieldHandlesTest {
                         field("toolchain.java.policy", 3_140),
                         field("toolchain.java.test.version", 3_210),
                         field("toolchain.java.test.distribution", 3_220),
-                        field("toolchain.java.test.policy", 3_230)));
+                        field("toolchain.java.test.policy", 3_230),
+                        field("toolchain.groovy.version", 3_310),
+                        field("toolchain.kotlin.version", 3_410),
+                        field("toolchain.kotlin.plugins", 3_420)));
     }
 
     @Test
@@ -121,8 +124,10 @@ final class FinalManifestFieldHandlesTest {
                         field("compiler.encoding", 6_101),
                         field("compiler.jdkApi", 6_102),
                         field("compiler.args", 6_103),
+                        field("compiler.kotlinModule", 6_104),
                         field("compiler.test.jdkApi", 6_111),
                         field("compiler.test.args", 6_112),
+                        field("compiler.test.kotlinModule", 6_113),
                         field("compiler.generated.main", 6_121),
                         field("compiler.generated.test", 6_122)));
     }
@@ -286,6 +291,7 @@ final class FinalManifestFieldHandlesTest {
                 List.of(
                         field("test.sources.java", 6_701),
                         field("test.sources.groovy", 6_702),
+                        field("test.sources.kotlin", 6_703),
                         field("test.runtime.jvmArgs", 6_711),
                         field("test.runtime.properties", 6_712),
                         field("test.runtime.env", 6_713),
@@ -367,9 +373,9 @@ final class FinalManifestFieldHandlesTest {
         List<ManifestField> handles = handles();
         List<ManifestField> registered = registry.fields();
 
-        assertEquals(229, handles.size());
-        assertEquals(229, handles.stream().map(ManifestField::path).distinct().count());
-        assertEquals(229, handles.stream().map(ManifestField::canonicalOrder).distinct().count());
+        assertEquals(235, handles.size());
+        assertEquals(235, handles.stream().map(ManifestField::path).distinct().count());
+        assertEquals(235, handles.stream().map(ManifestField::canonicalOrder).distinct().count());
         assertEquals(handles, registered);
         for (int index = 0; index < handles.size(); index++) {
             assertSame(handles.get(index), registered.get(index));

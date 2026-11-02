@@ -19,15 +19,21 @@ import org.w3c.dom.Element;
  * signal. The two must be distinguishable, which is why the old collapsing of release/target/source into
  * one anonymous string is no longer sufficient.
  */
-record MavenCompilerJavaVersions(String mainVersion, String testVersion, MavenJavaVersionProvenance mainProvenance) {
+record MavenCompilerJavaVersions(
+        String mainVersion,
+        String testVersion,
+        MavenJavaVersionProvenance mainProvenance,
+        MavenJavaVersionProvenance testProvenance) {
     static MavenCompilerJavaVersions inspect(Element project, MavenPomProperties properties) {
         Optional<Element> configuration = compilerPluginConfiguration(project);
         ResolvedVersion main = javaVersion(properties, configuration);
-        String testVersion = testJavaVersion(properties, configuration);
-        if (testVersion.equals(main.version())) {
+        ResolvedVersion test = testJavaVersion(properties, configuration);
+        String testVersion = test.version();
+        if (test.version().equals(main.version())) {
             testVersion = "";
         }
-        return new MavenCompilerJavaVersions(main.version(), testVersion, main.provenance());
+        return new MavenCompilerJavaVersions(
+                main.version(), testVersion, main.provenance(), test.provenance());
     }
 
     private record ResolvedVersion(String version, MavenJavaVersionProvenance provenance) {
@@ -56,23 +62,29 @@ record MavenCompilerJavaVersions(String mainVersion, String testVersion, MavenJa
         return new ResolvedVersion("unknown", MavenJavaVersionProvenance.UNKNOWN);
     }
 
-    private static String testJavaVersion(MavenPomProperties properties, Optional<Element> configuration) {
+    private static ResolvedVersion testJavaVersion(
+            MavenPomProperties properties,
+            Optional<Element> configuration) {
         Optional<ResolvedVersion> propertyVersion = compilerProperty(properties, List.of(
                 new KeyedProvenance("maven.compiler.testRelease", MavenJavaVersionProvenance.RELEASE),
                 new KeyedProvenance("maven.compiler.testTarget", MavenJavaVersionProvenance.SOURCE_TARGET),
                 new KeyedProvenance("maven.compiler.testSource", MavenJavaVersionProvenance.SOURCE_TARGET)));
         if (propertyVersion.isPresent()) {
-            return propertyVersion.orElseThrow().version();
+            return propertyVersion.orElseThrow();
         }
         if (configuration.isPresent()) {
-            for (String key : List.of("testRelease", "testTarget", "testSource")) {
-                Optional<String> value = text(configuration.orElseThrow(), key);
+            for (KeyedProvenance keyed : List.of(
+                    new KeyedProvenance("testRelease", MavenJavaVersionProvenance.RELEASE),
+                    new KeyedProvenance("testTarget", MavenJavaVersionProvenance.SOURCE_TARGET),
+                    new KeyedProvenance("testSource", MavenJavaVersionProvenance.SOURCE_TARGET))) {
+                Optional<String> value = text(configuration.orElseThrow(), keyed.key());
                 if (value.isPresent()) {
-                    return properties.interpolate(value.orElseThrow());
+                    return new ResolvedVersion(
+                            properties.interpolate(value.orElseThrow()), keyed.provenance());
                 }
             }
         }
-        return "";
+        return new ResolvedVersion("", MavenJavaVersionProvenance.UNKNOWN);
     }
 
     private record KeyedProvenance(String key, MavenJavaVersionProvenance provenance) {

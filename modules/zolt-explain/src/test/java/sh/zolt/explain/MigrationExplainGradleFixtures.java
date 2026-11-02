@@ -87,8 +87,8 @@ final class MigrationExplainGradleFixtures {
                       "dependencies": [
                         {
                           "configuration": "implementation",
-                          "notation": "com.google.guava:guava:33.4.8-jre",
-                          "resolvedCoordinate": "com.google.guava:guava:33.4.8-jre",
+                          "notation": "com.google.guava:guava:33.7.2-jre",
+                          "resolvedCoordinate": "com.google.guava:guava:33.7.2-jre",
                           "versionCatalogAlias": ""
                         },
                         {

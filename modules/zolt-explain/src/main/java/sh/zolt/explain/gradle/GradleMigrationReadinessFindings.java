@@ -51,6 +51,22 @@ public final class GradleMigrationReadinessFindings {
                     "workspace members",
                     "",
                     signal.nextStep());
+            case "gradle.plugin-alias.unresolved" -> MigrationReadinessFindings.finding(
+                    "ci",
+                    MigrationReadinessCategory.UNKNOWN,
+                    signal,
+                    "unresolved Gradle version-catalog plugin alias",
+                    "explicit plugin identity before Zolt migration",
+                    "",
+                    signal.nextStep());
+            case "gradle.kotlin.plugin-unresolved" -> MigrationReadinessFindings.finding(
+                    "ci",
+                    MigrationReadinessCategory.UNKNOWN,
+                    signal,
+                    "computed Gradle Kotlin plugin selector",
+                    "literal Kotlin/JVM plugin identity and [toolchain.kotlin]",
+                    "",
+                    signal.nextStep());
             case "gradle.plugin.convention" -> MigrationReadinessFindings.finding(
                     "ci",
                     MigrationReadinessCategory.BLOCKED,
@@ -236,12 +252,20 @@ public final class GradleMigrationReadinessFindings {
                     "[publish] and zolt publish --dry-run",
                     "",
                     signal.nextStep());
+            case "gradle.kotlin.manual-migration" -> MigrationReadinessFindings.finding(
+                    "ci",
+                    MigrationReadinessCategory.PLANNED,
+                    signal,
+                    "Gradle Kotlin/JVM plugin with conditional draft emission",
+                    "qualified [toolchain.kotlin], Kotlin roots, runtime, and compiler modules",
+                    "",
+                    signal.nextStep());
             case "gradle.language.unsupported" -> MigrationReadinessFindings.finding(
                     "ci",
                     MigrationReadinessCategory.UNSUPPORTED,
                     signal,
-                    "Gradle unsupported language plugin or main sources",
-                    "normal Java application modules",
+                    "Gradle unsupported language or Kotlin build plugin",
+                    "supported Java, Groovy, or bounded Kotlin/JVM modules",
                     "",
                     signal.nextStep());
             case "gradle.android.unsupported" -> MigrationReadinessFindings.finding(

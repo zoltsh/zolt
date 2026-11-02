@@ -1,12 +1,12 @@
 package sh.zolt.release.update;
 
 import java.io.IOException;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Comparator;
+import java.util.UUID;
 
 final class NativeInstallPaths {
     private NativeInstallPaths() {
@@ -47,25 +47,15 @@ final class NativeInstallPaths {
         }
     }
 
-    static void switchCurrent(Path binRoot, Path binLink, Path previousTarget, Path nextTarget) throws IOException {
-        Path tempLink = binLink.resolveSibling(binLink.getFileName() + ".update");
-        deleteIfExists(binRoot, tempLink, "native update temporary symlink");
+    static void switchCurrent(Path binRoot, Path binLink, Path nextTarget) throws IOException {
+        assertUnderRoot(binRoot, binLink, "native current symlink");
+        Path tempLink = binRoot.resolve(".zolt-link-" + UUID.randomUUID());
         try {
             Files.createSymbolicLink(tempLink, nextTarget);
-            try {
-                Files.move(tempLink, binLink, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-            } catch (AtomicMoveNotSupportedException exception) {
-                Files.move(tempLink, binLink, StandardCopyOption.REPLACE_EXISTING);
-            }
-        } catch (IOException exception) {
-            deleteIfExists(binRoot, tempLink, "native update temporary symlink");
-            restoreLink(binRoot, binLink, previousTarget);
-            throw exception;
+            // If atomic replacement is unavailable, fail with the old launcher untouched.
+            Files.move(tempLink, binLink, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        } finally {
+            Files.deleteIfExists(tempLink);
         }
-    }
-
-    private static void restoreLink(Path binRoot, Path binLink, Path previousTarget) throws IOException {
-        deleteIfExists(binRoot, binLink, "native current symlink");
-        Files.createSymbolicLink(binLink, previousTarget);
     }
 }

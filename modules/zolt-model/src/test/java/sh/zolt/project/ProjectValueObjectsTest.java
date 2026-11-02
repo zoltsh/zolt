@@ -235,8 +235,9 @@ final class ProjectValueObjectsTest {
                 null,
                 "target/classes",
                 "target/test-classes",
-                null,
-                List.of("src/test/groovy"),
+                TestSourceRoots.from("src/test/java", null,
+                        List.of("src/test/groovy"),
+                        List.of("src/test/kotlin")),
                 null,
                 null,
                 null,
@@ -259,11 +260,14 @@ final class ProjectValueObjectsTest {
         assertEquals(TestSuiteSettings.empty(), settings.testSuites().get("unit"));
         assertEquals(List.of(generated), settings.generatedMainSources());
         assertEquals(List.of(), settings.generatedTestSources());
+        assertEquals(List.of("src/test/kotlin"), settings.kotlinTestSources());
         assertThrows(UnsupportedOperationException.class, () -> settings.generatedMainSources().add(generated));
-
         BuildSettings integration = settings.asIntegrationTestBuild();
         assertEquals("src/integration-test/java", integration.test());
         assertEquals("target/integration-test-classes", integration.testOutput());
+        assertEquals(List.of("src/integration-test/java"), integration.testSources());
+        assertEquals(List.of(), integration.groovyTestSources());
+        assertEquals(List.of("src/integration-test/java"), integration.kotlinTestSources());
         assertEquals(List.of("src/integration-test/resources"), integration.testResourceRoots());
     }
 
@@ -321,7 +325,7 @@ final class ProjectValueObjectsTest {
     void enumConfigValuesStayStable() {
         assertEquals(Optional.of(GeneratedSourceKind.OPENAPI), GeneratedSourceKind.fromConfigValue("openapi"));
         assertEquals(Optional.empty(), GeneratedSourceKind.fromConfigValue("OpenAPI"));
-        assertEquals("declared-root, openapi, protobuf, exec", GeneratedSourceKind.supportedValues());
+        assertEquals("declared-root, openapi, protobuf, exec, ksp", GeneratedSourceKind.supportedValues());
 
         assertEquals(Optional.of(ProducesLane.RESOURCES), ProducesLane.fromConfigValue("resources"));
         assertEquals(Optional.of(ProducesLane.INTERMEDIATE), ProducesLane.fromConfigValue("intermediate"));

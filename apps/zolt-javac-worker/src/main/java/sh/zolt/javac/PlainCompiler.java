@@ -4,27 +4,22 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
-import java.util.stream.StreamSupport;
 import javax.tools.JavaCompiler;
 import javax.tools.JavaFileObject;
 import javax.tools.StandardJavaFileManager;
-import javax.tools.StandardLocation;
 import javax.tools.ToolProvider;
 
 /**
- * Compiles ordinary requests while retaining javac's standard file manager on each worker thread.
- *
- * <p>{@link StandardJavaFileManager} explicitly supports reuse across sequential compilation tasks
- * and keeps JAR indexes warm. A thread-local instance preserves that benefit without sharing the
- * non-thread-safe manager between concurrent workspace compilation requests.
+ * Keeps the compiler and worker JVM warm while opening a fresh file manager for each request.
+ * Javac retains canonical source paths and JAR handles in a reused manager, even after flush;
+ * a fresh manager observes retargeted symlinks and replaced dependencies on every compilation.
  */
 final class PlainCompiler {
     private final JavaCompiler compiler;
-    private final ThreadLocal<ReusableFileManager> fileManagers;
+    private final Supplier<StandardJavaFileManager> fileManagerFactory;
 
     PlainCompiler() {
         this(ToolProvider.getSystemJavaCompiler());
@@ -43,8 +38,7 @@ final class PlainCompiler {
             JavaCompiler compiler,
             Supplier<StandardJavaFileManager> fileManagerFactory) {
         this.compiler = compiler;
-        this.fileManagers = ThreadLocal.withInitial(
-                () -> ReusableFileManager.create(fileManagerFactory.get()));
+        this.fileManagerFactory = fileManagerFactory;
     }
 
     Result compile(List<String> arguments) {
@@ -55,13 +49,9 @@ final class PlainCompiler {
         }
         StringWriter diagnostics = new StringWriter();
         PrintWriter diagnosticsWriter = new PrintWriter(diagnostics);
-        ReusableFileManager reusable = null;
-        try {
+        try (StandardJavaFileManager fileManager = fileManagerFactory.get()) {
             List<String> sourceFiles = new ArrayList<>();
             List<String> options = partition(arguments, sourceFiles);
-            reusable = fileManagers.get();
-            reusable.resetInputLocations();
-            StandardJavaFileManager fileManager = reusable.fileManager();
             Iterable<? extends JavaFileObject> units =
                     fileManager.getJavaFileObjectsFromStrings(sourceFiles);
             boolean success = compiler
@@ -70,22 +60,10 @@ final class PlainCompiler {
             diagnosticsWriter.flush();
             return new Result(success ? 0 : 1, diagnostics.toString());
         } catch (RuntimeException | Error | IOException exception) {
-            discard(reusable);
             diagnosticsWriter.flush();
             return new Result(
                     1,
                     diagnostics + "javac worker failed: " + exception + System.lineSeparator());
-        }
-    }
-
-    private void discard(ReusableFileManager reusable) {
-        fileManagers.remove();
-        if (reusable != null) {
-            try {
-                reusable.fileManager().close();
-            } catch (IOException ignored) {
-                // The failed manager is already detached from the worker thread.
-            }
         }
     }
 
@@ -106,27 +84,4 @@ final class PlainCompiler {
     record Result(int exitCode, String diagnostics) {
     }
 
-    private record ReusableFileManager(
-            StandardJavaFileManager fileManager,
-            List<Path> defaultClassPath) {
-        private static ReusableFileManager create(StandardJavaFileManager fileManager) {
-            Iterable<? extends Path> paths =
-                    fileManager.getLocationAsPaths(StandardLocation.CLASS_PATH);
-            List<Path> defaultClassPath = paths == null
-                    ? List.of()
-                    : StreamSupport.stream(paths.spliterator(), false)
-                            .map(path -> (Path) path)
-                            .toList();
-            return new ReusableFileManager(fileManager, defaultClassPath);
-        }
-
-        private void resetInputLocations() throws IOException {
-            fileManager.setLocationFromPaths(
-                    StandardLocation.CLASS_PATH,
-                    defaultClassPath);
-            fileManager.setLocationFromPaths(
-                    StandardLocation.MODULE_PATH,
-                    List.of());
-        }
-    }
 }

@@ -120,6 +120,15 @@ final class StandaloneManifestIntegrityValidator {
                 protobuf.grpcVersion().ifPresent(selector -> requireVersionAlias(
                         selector, versions, subject + " gRPC request"));
             }
+            case AuthoredGeneratedTool.Ksp ksp -> {
+                requireVersionAlias(ksp.version(), versions, subject + " engine request");
+                for (GeneratedArtifactRequest request : ksp.processors()) {
+                    requireVersionAlias(
+                            request.selector(),
+                            versions,
+                            subject + " processor `" + request.coordinate() + "`");
+                }
+            }
             case AuthoredGeneratedTool.Jvm jvm -> {
                 for (GeneratedArtifactRequest request : jvm.coordinates()) {
                     requireVersionAlias(

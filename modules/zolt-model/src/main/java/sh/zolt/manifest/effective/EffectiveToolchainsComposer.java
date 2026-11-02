@@ -5,12 +5,16 @@ import java.util.Optional;
 import java.util.Set;
 import sh.zolt.manifest.ManifestSource;
 import sh.zolt.manifest.ZoltVersionPin;
+import sh.zolt.manifest.authored.AuthoredGroovyToolchain;
 import sh.zolt.manifest.authored.AuthoredJavaTestToolchain;
 import sh.zolt.manifest.authored.AuthoredJavaToolchain;
+import sh.zolt.manifest.authored.AuthoredKotlinToolchain;
 import sh.zolt.manifest.authored.AuthoredToolchains;
+import sh.zolt.project.toolchain.GroovyToolchainVersion;
 import sh.zolt.project.toolchain.JavaDistribution;
 import sh.zolt.project.toolchain.JavaFeature;
 import sh.zolt.project.toolchain.JavaFeatureRelease;
+import sh.zolt.project.toolchain.KotlinToolchainVersion;
 import sh.zolt.project.toolchain.ToolchainPolicy;
 
 /** Applies project-derived and built-in defaults to standalone toolchain requests. */
@@ -37,7 +41,20 @@ final class EffectiveToolchainsComposer {
                 .<EffectiveTestJavaRuntime>map(value -> requestedTest(
                         value, main, projectRelease, manifestPath))
                 .orElseGet(() -> new EffectiveTestJavaRuntime.SameAsMain(main));
-        return new EffectiveToolchains(zolt, Optional.of(main), Optional.of(test));
+        Optional<EffectiveValue<GroovyToolchainVersion>> groovy = authored.groovy()
+                .map(AuthoredGroovyToolchain::version)
+                .map(value -> EffectiveValue.authored(
+                        value, source(manifestPath, "toolchain", "groovy", "version")));
+        Optional<EffectiveValue<KotlinToolchainVersion>> kotlin = authored.kotlin()
+                .map(AuthoredKotlinToolchain::version)
+                .map(value -> EffectiveValue.authored(
+                        value, source(manifestPath, "toolchain", "kotlin", "version")));
+        var kotlinPlugins = authored.kotlin()
+                .map(AuthoredKotlinToolchain::plugins)
+                .map(value -> EffectiveValue.authored(
+                        value, source(manifestPath, "toolchain", "kotlin", "plugins")));
+        return new EffectiveToolchains(
+                zolt, Optional.of(main), Optional.of(test), groovy, kotlin, kotlinPlugins);
     }
 
     EffectiveToolchains composeWorkspaceMember(
@@ -73,7 +90,36 @@ final class EffectiveToolchainsComposer {
                         .<EffectiveTestJavaRuntime>map(value -> requestedTest(
                                 value, main, projectRelease, rootManifestPath, true))
                         .orElseGet(() -> new EffectiveTestJavaRuntime.SameAsMain(main)));
-        return new EffectiveToolchains(zolt, Optional.of(main), Optional.of(test));
+        Optional<EffectiveValue<GroovyToolchainVersion>> groovy = member.groovy()
+                .map(AuthoredGroovyToolchain::version)
+                .map(value -> EffectiveValue.authored(
+                        value, source(memberManifestPath, "toolchain", "groovy", "version")))
+                .or(() -> root.groovy()
+                        .map(AuthoredGroovyToolchain::version)
+                        .map(value -> EffectiveValue.inherited(
+                                value,
+                                source(rootManifestPath, "toolchain", "groovy", "version"))));
+        Optional<EffectiveValue<KotlinToolchainVersion>> kotlin = member.kotlin()
+                .map(AuthoredKotlinToolchain::version)
+                .map(value -> EffectiveValue.authored(
+                        value, source(memberManifestPath, "toolchain", "kotlin", "version")))
+                .or(() -> root.kotlin()
+                        .map(AuthoredKotlinToolchain::version)
+                        .map(value -> EffectiveValue.inherited(
+                                value,
+                                source(rootManifestPath, "toolchain", "kotlin", "version"))));
+        var kotlinPlugins = member.kotlin()
+                .map(AuthoredKotlinToolchain::plugins)
+                .map(value -> EffectiveValue.authored(
+                        value,
+                        source(memberManifestPath, "toolchain", "kotlin", "plugins")))
+                .or(() -> root.kotlin()
+                        .map(AuthoredKotlinToolchain::plugins)
+                        .map(value -> EffectiveValue.inherited(
+                                value,
+                                source(rootManifestPath, "toolchain", "kotlin", "plugins"))));
+        return new EffectiveToolchains(
+                zolt, Optional.of(main), Optional.of(test), groovy, kotlin, kotlinPlugins);
     }
 
     private static EffectiveJavaRuntime.Requested requestedMain(

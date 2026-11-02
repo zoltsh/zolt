@@ -35,6 +35,7 @@ final class ManifestTestsPresenceObserverTest {
                 jvmArgs = ["-ea"]
 
                 [test.sources]
+                kotlin = ["src/test/kotlin"]
                 groovy = ["src/test/groovy"]
                 java = ["src/test/java"]
                 """;
@@ -56,6 +57,7 @@ final class ManifestTestsPresenceObserverTest {
         for (Fixture fixture : List.of(
                 new Fixture("test.sources.java = []\n", "`test.sources.java`"),
                 new Fixture("test.sources.groovy = []\n", "`test.sources.groovy`"),
+                new Fixture("test.sources.kotlin = []\n", "`test.sources.kotlin`"),
                 new Fixture("test.runtime.jvmArgs = []\n", "`test.runtime.jvmArgs`"),
                 new Fixture("test.runtime.properties = {}\n", "`test.runtime.properties`"),
                 new Fixture("test.runtime.env = {}\n", "`test.runtime.env`"),

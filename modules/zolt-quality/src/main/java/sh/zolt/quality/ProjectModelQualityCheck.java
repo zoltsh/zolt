@@ -127,6 +127,7 @@ final class ProjectModelQualityCheck {
         fields.add(new PathField("[build.output].test", build.testOutput()));
         addPathFields(fields, "[test.sources].java", build.testSources());
         addPathFields(fields, "[test.sources].groovy", build.groovyTestSources());
+        addPathFields(fields, "[test.sources].kotlin", build.kotlinTestSources());
         addPathFields(fields, "[resources].main", build.resourceRoots());
         addPathFields(fields, "[resources].test", build.testResourceRoots());
         fields.add(new PathField("[compiler.generated].main", config.compilerSettings().generatedSources()));

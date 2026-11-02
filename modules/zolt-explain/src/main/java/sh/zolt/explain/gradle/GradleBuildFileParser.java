@@ -10,36 +10,20 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 final class GradleBuildFileParser {
-    private static final Pattern ID_PLUGIN_PATTERN = Pattern.compile("\\bid\\s*(?:\\(\\s*)?['\"]([^'\"]+)['\"]\\s*\\)?(?:\\s*version\\s*['\"]([^'\"]+)['\"])?");
-    private static final Pattern GROOVY_PLUGIN_PATTERN = Pattern.compile("(?m)^\\s*([A-Za-z][A-Za-z0-9_-]*)\\s*$");
-    // Kotlin-DSL backtick accessor form, e.g. `java-library`, `application`, `java`.
-    private static final Pattern BACKTICK_PLUGIN_PATTERN = Pattern.compile("`([A-Za-z][A-Za-z0-9_.-]*)`");
     private static final Pattern REPOSITORY_URL_PATTERN = Pattern.compile("\\burl\\s*(?:=\\s*)?(?:uri\\s*\\(\\s*)?['\"]([^'\"]+)['\"]");
     private static final Pattern QUOTED_PATTERN = Pattern.compile("['\"]([^'\"]+)['\"]");
+    private final GradlePluginBlockParser pluginBlockParser = new GradlePluginBlockParser();
 
     List<GradlePluginInspection> plugins(String content) {
-        String block = GradleScriptBlocks.topLevelBlock(content, "plugins").orElse("");
-        List<GradlePluginInspection> plugins = new ArrayList<>();
-        Matcher idMatcher = ID_PLUGIN_PATTERN.matcher(block);
-        while (idMatcher.find()) {
-            plugins.add(new GradlePluginInspection(idMatcher.group(1), nullToEmpty(idMatcher.group(2))));
-        }
-        Matcher backtickMatcher = BACKTICK_PLUGIN_PATTERN.matcher(block);
-        while (backtickMatcher.find()) {
-            String id = backtickMatcher.group(1);
-            if (plugins.stream().noneMatch(plugin -> plugin.id().equals(id))) {
-                plugins.add(new GradlePluginInspection(id, ""));
-            }
-        }
-        Matcher groovyMatcher = GROOVY_PLUGIN_PATTERN.matcher(block);
-        while (groovyMatcher.find()) {
-            String id = groovyMatcher.group(1);
-            if (!"id".equals(id) && plugins.stream().noneMatch(plugin -> plugin.id().equals(id))) {
-                plugins.add(new GradlePluginInspection(id, ""));
-            }
-        }
-        plugins.sort(Comparator.comparing(GradlePluginInspection::id).thenComparing(GradlePluginInspection::version));
-        return plugins;
+        return pluginBlockParser.plugins(content, Map.of(), ".", new ArrayList<>());
+    }
+
+    List<GradlePluginInspection> plugins(
+            String content,
+            Map<String, GradlePluginInspection> catalogPlugins,
+            String project,
+            List<ExplainSignal> signals) {
+        return pluginBlockParser.plugins(content, catalogPlugins, project, signals);
     }
 
     List<GradleRepositoryInspection> repositories(String content) {
@@ -121,7 +105,8 @@ final class GradleBuildFileParser {
 
     String javaVersion(String content) {
         for (Pattern pattern : List.of(
-                Pattern.compile("\\blanguageVersion\\s*=\\s*JavaLanguageVersion\\.of\\((\\d+)\\)"),
+                Pattern.compile("\\blanguageVersion\\s*(?:=\\s*|\\.set\\s*\\(\\s*)"
+                        + "JavaLanguageVersion\\.of\\s*\\(\\s*(\\d+)\\s*\\)"),
                 Pattern.compile("\\bsourceCompatibility\\s*=\\s*JavaVersion\\.VERSION_([0-9_]+)"),
                 Pattern.compile("\\btargetCompatibility\\s*=\\s*JavaVersion\\.VERSION_([0-9_]+)"),
                 Pattern.compile("\\bsourceCompatibility\\s*=\\s*['\"]([^'\"]+)['\"]"),

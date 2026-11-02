@@ -4,9 +4,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.project.BuildSettings;
 import sh.zolt.project.GeneratedSourceKind;
 import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.ProjectConfig;
+import sh.zolt.project.TestSourceRoots;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -45,6 +47,46 @@ final class ProjectModelQualityCheckTest extends QualityCheckServiceTestSupport 
         assertEquals(
                 "Edit zolt.toml to use a relative path such as `src/main/java` or `target/classes`.",
                 result.nextStep());
+    }
+
+    @Test
+    void rejectsParentEscapingKotlinTestRootBeforeFilesystemChecks() throws IOException {
+        ProjectConfig parsed = parseProject(tempDir.resolve("escaping-kotlin-test-root"), "");
+        BuildSettings defaults = parsed.build();
+        BuildSettings build = new BuildSettings(
+                defaults.source(),
+                defaults.sourceRoots(),
+                defaults.test(),
+                defaults.outputRoot(),
+                defaults.output(),
+                defaults.testOutput(),
+                new TestSourceRoots(
+                        defaults.testSources(),
+                        defaults.groovyTestSources(),
+                        List.of("../shared-kotlin-tests")),
+                defaults.integrationTestOutput(),
+                defaults.integrationTestSources(),
+                defaults.integrationTestResourceRoots(),
+                defaults.resourceRoots(),
+                defaults.testResourceRoots(),
+                defaults.resourceFiltering(),
+                defaults.testRuntime(),
+                defaults.testSuites(),
+                defaults.metadata(),
+                defaults.generatedMainSources(),
+                defaults.generatedTestSources());
+
+        QualityCheckResult result = check.check(
+                        Optional.empty(),
+                        tempDir.resolve("escaping-kotlin-test-root"),
+                        parsed.withBuildSettings(build))
+                .getFirst();
+
+        assertEquals(QualityCheckStatus.FAILED, result.status());
+        assertEquals("[test.sources].kotlin[0]", result.subject());
+        assertEquals(
+                "Path `../shared-kotlin-tests` must be project-relative and stay inside the project.",
+                result.message());
     }
 
     @Test

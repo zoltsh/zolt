@@ -135,7 +135,7 @@ final class PackageCommandDiagnosticsTest extends PackageCommandTestSupport {
         assertTrue(result.stdout().contains("\u001B[32m✔\u001B[0m Packaged 1 compiled files as jar"));
         assertTrue(result.stdout().contains("\u001B[32mIncluded\u001B[0m Main-Class manifest entry"));
         assertTrue(result.stdout().contains("\u001B[36m→\u001B[0m wrote \u001B[36m" + jarPath + "\u001B[0m"));
-        assertTrue(result.stdout().contains("Run with: "));
+        assertFalse(result.stdout().contains("Run with: java -jar " + jarPath));
         assertTrue(result.stdout().contains("Run with dependencies: "));
         assertFalse(result.stdout().contains("\u001B[32mPackaged 1 compiled files as jar\u001B[0m"));
         assertFalse(result.stdout().contains("\u001B[32mIncluded Main-Class manifest entry"));

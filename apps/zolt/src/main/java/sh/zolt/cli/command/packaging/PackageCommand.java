@@ -3,8 +3,7 @@ package sh.zolt.cli.command.packaging;
 import sh.zolt.build.BuildException;
 import sh.zolt.build.BuildResultWithClasspaths;
 import sh.zolt.build.BuildService;
-import sh.zolt.build.GroovyCompileException;
-import sh.zolt.build.JavacException;
+import sh.zolt.build.SourceCompileException;
 import sh.zolt.build.ManifestGenerationException;
 import sh.zolt.build.PackageException;
 import sh.zolt.build.packageplan.PackagePlan;
@@ -203,8 +202,7 @@ public final class PackageCommand implements Runnable {
             }
             runSingleProjectPackage(context, timings, packageModeOverride, planOutputFormat);
         } catch (BuildException
-                | JavacException
-                | GroovyCompileException
+                | SourceCompileException
                 | ManifestGenerationException
                 | PackageException
                 | ResourceCopyException
@@ -267,6 +265,9 @@ public final class PackageCommand implements Runnable {
             }
             return;
         }
+        var selectedJdk = toolchainOptions.jdkChecker(context, config, "package");
+        PackageService selectedPackageService = packageService.withJdkChecker(selectedJdk);
+        selectedPackageService.preflightSupplementalTools(config);
         ProgressWriter progress = CommandProgress.human(spec);
         progress.start("Packaging project");
         var result = timings.measure(
@@ -274,8 +275,7 @@ public final class PackageCommand implements Runnable {
                 () -> {
                     BuildResultWithClasspaths buildResult = timings.measure(
                             "build package inputs",
-                            () -> buildService.withJdkChecker(
-                                            toolchainOptions.jdkChecker(context, config, "package"))
+                            () -> buildService.withJdkChecker(selectedJdk)
                                     .withBuildCache(CommandBuildCache.service(noBuildCache, false))
                                     .buildWithClasspaths(
                                     projectRoot,
@@ -286,7 +286,7 @@ public final class PackageCommand implements Runnable {
                             resultWithClasspaths -> CommandBuildAttributes.build(resultWithClasspaths.buildResult()));
                     return timings.measure(
                             "assemble package",
-                            () -> packageService.packageJar(projectRoot, config, buildResult, cacheRoot),
+                            () -> selectedPackageService.packageJar(projectRoot, config, buildResult, cacheRoot),
                             CommandPackageAttributes::packageResult);
                 },
                 CommandPackageAttributes::packageResult);

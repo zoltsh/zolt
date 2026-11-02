@@ -17,7 +17,7 @@ import picocli.CommandLine.Spec;
         versionProvider = ZoltCli.ZoltVersionProvider.class,
         description = "The modern Java build toolkit.")
 public final class ZoltCli implements Runnable {
-    public static final String VERSION = "0.1.0-SNAPSHOT";
+    public static final String VERSION = "1.0.0";
 
     /**
      * Effective {@code zolt --version} string: the validated {@code ZOLT_VERSION_OVERRIDE} when set,
@@ -125,13 +125,17 @@ public final class ZoltCli implements Runnable {
     }
 
     static CommandLine newCommandLine() {
+        return newCommandLine(ExperimentalFeatures.enabled(System.getenv()));
+    }
+
+    static CommandLine newCommandLine(boolean experimentalFeatures) {
         ZoltCli rootCommand = new ZoltCli();
         CommandLine commandLine = new CommandLine(rootCommand);
         ZoltSubcommands.addTo(commandLine);
         commandLine.setCaseInsensitiveEnumValuesAllowed(true);
         configureUniversalHelp(commandLine);
         CliUsageConfiguration.apply(commandLine, rootCommand::consoleStyle);
-        configureExecutionHandling(commandLine, rootCommand);
+        configureExecutionHandling(commandLine, rootCommand, experimentalFeatures);
         commandLine.setParameterExceptionHandler(new sh.zolt.cli.command.task.CommandAliasExpansionHandler());
         return commandLine;
     }
@@ -141,9 +145,14 @@ public final class ZoltCli implements Runnable {
         commandLine.getSubcommands().values().forEach(ZoltCli::configureUniversalHelp);
     }
 
-    private static void configureExecutionHandling(CommandLine commandLine, ZoltCli rootCommand) {
+    private static void configureExecutionHandling(
+            CommandLine commandLine, ZoltCli rootCommand, boolean experimentalFeatures) {
         commandLine.setExecutionStrategy(parseResult -> {
-            int exitCode = new CommandLine.RunLast().execute(parseResult);
+            ExperimentalFeatures.check(parseResult, experimentalFeatures);
+            int exitCode = CommandMutationExecution.execute(parseResult, () -> {
+                ExperimentalFeatures.check(parseResult, experimentalFeatures);
+                return new CommandLine.RunLast().execute(parseResult);
+            });
             if (exitCode == 0) {
                 rootCommand.updateNoticeHook.printAfterSuccess(commandLine, parseResult, rootCommand.quiet);
                 rootCommand.toolchainNoticeHook.printAfterSuccess(commandLine, parseResult, rootCommand.quiet);

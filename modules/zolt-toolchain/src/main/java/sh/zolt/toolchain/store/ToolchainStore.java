@@ -10,7 +10,7 @@ public final class ToolchainStore {
     private final Path root;
 
     public ToolchainStore(Path root) {
-        this.root = root == null ? UserGlobalDirectory.toolchains() : root;
+        this.root = ToolchainStorePaths.canonical(root == null ? UserGlobalDirectory.toolchains() : root);
     }
 
     public static ToolchainStore defaults() {
@@ -22,44 +22,52 @@ public final class ToolchainStore {
     }
 
     public Path installRoot(LockedJavaToolchain locked) {
-        return root.resolve("java")
+        return checked(root.resolve("java")
                 .resolve(locked.resolvedDistribution().id())
                 .resolve(locked.resolvedVersion())
                 .resolve(locked.platform().id())
-                .resolve("jdk")
-                .normalize();
+                .resolve("jdk"));
     }
 
     public Path downloadArchive(LockedJavaToolchain locked, String extension) {
         String cleanExtension = extension == null || extension.isBlank() ? "archive" : extension.strip();
-        return root.resolve("downloads")
-                .resolve(locked.id() + "-" + locked.platform().id() + "." + cleanExtension)
-                .normalize();
+        if (!cleanExtension.matches("[A-Za-z0-9][A-Za-z0-9.]*")) {
+            throw new IllegalArgumentException("Invalid Java toolchain archive extension.");
+        }
+        return checked(root.resolve("downloads")
+                .resolve(locked.id() + "-" + locked.platform().id() + "." + cleanExtension));
     }
 
     public Path javaHome(LockedJavaToolchain locked) {
-        return installRoot(locked)
-                .resolve(locked.layout().javaHome())
-                .normalize();
+        Path installation = installRoot(locked);
+        return ToolchainStorePaths.within(installation, installation.resolve(locked.layout().javaHome()), true);
     }
 
     public Path java(LockedJavaToolchain locked) {
-        return javaHome(locked).resolve(locked.layout().java()).normalize();
+        return tool(locked, locked.layout().java());
     }
 
     public Path javac(LockedJavaToolchain locked) {
-        return javaHome(locked).resolve(locked.layout().javac()).normalize();
+        return tool(locked, locked.layout().javac());
     }
 
     public Path jar(LockedJavaToolchain locked) {
-        return javaHome(locked).resolve(locked.layout().jar()).normalize();
+        return tool(locked, locked.layout().jar());
     }
 
     public Optional<Path> nativeImage(LockedJavaToolchain locked) {
         if (locked.layout().nativeImage().isBlank()) {
             return Optional.empty();
         }
-        return Optional.of(javaHome(locked).resolve(locked.layout().nativeImage()).normalize());
+        return Optional.of(tool(locked, locked.layout().nativeImage()));
+    }
+
+    public Path checked(Path path) {
+        return ToolchainStorePaths.within(root, path, false);
+    }
+
+    private Path tool(LockedJavaToolchain locked, String relative) {
+        return ToolchainStorePaths.within(installRoot(locked), javaHome(locked).resolve(relative), false);
     }
 
     public boolean installed(LockedJavaToolchain locked) {

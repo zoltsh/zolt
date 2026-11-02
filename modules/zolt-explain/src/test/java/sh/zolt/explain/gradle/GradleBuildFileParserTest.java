@@ -4,6 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.explain.ExplainSignal;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
@@ -48,6 +51,8 @@ final class GradleBuildFileParserTest {
 
     @Test
     void parsesLegacyJavaVersionNotationBeforeEmitNormalization() {
+        assertEquals("21", parser.javaVersion(
+                "languageVersion.set(JavaLanguageVersion.of(21))"));
         assertEquals("1.8", parser.javaVersion("sourceCompatibility = 1.8"));
         assertEquals("1.8", parser.javaVersion("targetCompatibility = 1.8"));
         assertEquals("1.8", parser.javaVersion("sourceCompatibility = JavaVersion.VERSION_1_8"));
@@ -71,6 +76,63 @@ final class GradleBuildFileParserTest {
         assertTrue(plugins.stream().anyMatch(plugin -> plugin.id().equals("application")),
                 () -> "backtick `application` should be detected: " + plugins);
         assertTrue(plugins.stream().anyMatch(plugin -> plugin.id().equals("org.springframework.boot")));
+    }
+
+    @Test
+    void parsesKotlinDslPluginAccessorsAsCanonicalPluginIds() {
+        String content = """
+                plugins {
+                    kotlin("jvm") version "2.2.0"
+                    kotlin("multiplatform") version "2.1.21"
+                    kotlin("plugin.serialization")
+                }
+                """;
+
+        assertEquals(
+                List.of(
+                        new GradlePluginInspection("org.jetbrains.kotlin.jvm", "2.2.0"),
+                        new GradlePluginInspection("org.jetbrains.kotlin.multiplatform", "2.1.21"),
+                        new GradlePluginInspection("org.jetbrains.kotlin.plugin.serialization", "")),
+                parser.plugins(content));
+    }
+
+    @Test
+    void tracksWhetherEachPluginDeclarationIsApplied() {
+        String content = """
+                plugins {
+                    id 'org.jetbrains.kotlin.jvm' version '2.2.20' apply false
+                    id("com.android.application") version "8.13.0" apply(false)
+                    kotlin("plugin.serialization") version "2.2.20" apply true
+                    id 'java'
+                }
+                """;
+
+        assertEquals(
+                List.of(
+                        new GradlePluginInspection("com.android.application", "8.13.0", false),
+                        new GradlePluginInspection("java", "", true),
+                        new GradlePluginInspection("org.jetbrains.kotlin.jvm", "2.2.20", false),
+                        new GradlePluginInspection("org.jetbrains.kotlin.plugin.serialization", "2.2.20", true)),
+                parser.plugins(content));
+    }
+
+    @Test
+    void doesNotTreatKotlinCallsOutsidePluginsAsPluginAccessors() {
+        String content = """
+                plugins { java }
+                dependencies {
+                    implementation(kotlin("stdlib"))
+                }
+                kotlin {
+                    jvmToolchain(21)
+                }
+                """;
+
+        List<ExplainSignal> signals = new ArrayList<>();
+        assertEquals(
+                List.of(new GradlePluginInspection("java", "")),
+                parser.plugins(content, Map.of(), ".", signals));
+        assertTrue(signals.isEmpty(), () -> "non-plugin Kotlin calls must not emit signals: " + signals);
     }
 
     @Test
@@ -357,19 +419,19 @@ final class GradleBuildFileParserTest {
                 """;
 
         assertEquals(
-                java.util.List.of("src/main/java", "build/generated/sources/openapi"),
+                List.of("src/main/java", "build/generated/sources/openapi"),
                 parser.sourceRoots(content, "main", "src/main/java"));
         assertEquals(
-                java.util.List.of("src/test/java", "src/integrationTest/java"),
+                List.of("src/test/java", "src/integrationTest/java"),
                 parser.sourceRoots(content, "test", "src/test/java"));
         assertEquals(
-                java.util.List.of("src/fixtures/java"),
+                List.of("src/fixtures/java"),
                 parser.sourceRoots(content, "fixtures", "src/fixtures/java"));
         assertEquals(
-                java.util.List.of("src/integrationTest/java"),
+                List.of("src/integrationTest/java"),
                 parser.sourceRoots(content, "test", "src/test/java", false));
         assertEquals(
-                java.util.List.of(),
+                List.of(),
                 parser.sourceRoots(content, "fixtures", "src/fixtures/java", false));
     }
 }

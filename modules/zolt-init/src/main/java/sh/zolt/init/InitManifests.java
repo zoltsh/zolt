@@ -1,31 +1,38 @@
 package sh.zolt.init;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import sh.zolt.dependency.DependencyLane;
 import sh.zolt.manifest.DependencyCoordinate;
 import sh.zolt.manifest.DependencySelector;
 import sh.zolt.manifest.JavaBinaryClassName;
 import sh.zolt.manifest.LocalId;
+import sh.zolt.manifest.ManifestRelativePath;
 import sh.zolt.manifest.ProjectGroup;
 import sh.zolt.manifest.ProjectName;
 import sh.zolt.manifest.ProjectVersion;
 import sh.zolt.manifest.WorkspaceMemberPath;
 import sh.zolt.manifest.WorkspaceMemberPattern;
+import sh.zolt.manifest.authored.AuthoredBuild;
 import sh.zolt.manifest.authored.AuthoredBuildConfiguration;
 import sh.zolt.manifest.authored.AuthoredDependencies;
 import sh.zolt.manifest.authored.AuthoredDependency;
 import sh.zolt.manifest.authored.AuthoredDependencyMetadata;
 import sh.zolt.manifest.authored.AuthoredManifest;
+import sh.zolt.manifest.authored.AuthoredKotlinToolchain;
 import sh.zolt.manifest.authored.AuthoredPackaging;
 import sh.zolt.manifest.authored.AuthoredProject;
 import sh.zolt.manifest.authored.AuthoredProjectIdentity;
 import sh.zolt.manifest.authored.AuthoredProjectMetadata;
 import sh.zolt.manifest.authored.AuthoredToolchains;
+import sh.zolt.manifest.authored.AuthoredTests;
 import sh.zolt.manifest.authored.AuthoredWorkspace;
 import sh.zolt.manifest.authored.AuthoredWorkspaceMembers;
 import sh.zolt.manifest.authored.AuthoredWorkspaceProjectDefaults;
 import sh.zolt.project.toolchain.JavaFeatureRelease;
+import sh.zolt.project.toolchain.KotlinToolchainVersion;
 
 /**
  * The authored manifests {@code zolt init} emits.
@@ -39,6 +46,8 @@ final class InitManifests {
     private static final String INITIAL_VERSION = "0.1.0";
     private static final String TEST_FRAMEWORK = "org.junit.jupiter:junit-jupiter";
     private static final String TEST_FRAMEWORK_VERSION = "5.14.4";
+    private static final String KOTLIN_STDLIB = "org.jetbrains.kotlin:kotlin-stdlib";
+    private static final String KOTLIN_VERSION = "2.2.0";
 
     private InitManifests() {
     }
@@ -49,7 +58,8 @@ final class InitManifests {
             String group,
             int javaRelease,
             String mainClass,
-            boolean includeTests) {
+            boolean includeTests,
+            ProjectInitLanguage language) {
         return manifest(
                 Optional.empty(),
                 Optional.of(new AuthoredProject(
@@ -60,11 +70,17 @@ final class InitManifests {
                                 Optional.of(new JavaFeatureRelease(javaRelease)),
                                 Optional.empty()),
                         metadata(mainClass))),
-                testDependencies(includeTests));
+                toolchains(language),
+                dependencies(language, includeTests),
+                build(language, includeTests));
     }
 
     /** A workspace member: only the name is authored, the rest inherits (design §4.3). */
-    static AuthoredManifest member(String name, String mainClass, boolean includeTests) {
+    static AuthoredManifest member(
+            String name,
+            String mainClass,
+            boolean includeTests,
+            ProjectInitLanguage language) {
         return manifest(
                 Optional.empty(),
                 Optional.of(new AuthoredProject(
@@ -75,7 +91,9 @@ final class InitManifests {
                                 Optional.empty(),
                                 Optional.empty()),
                         metadata(mainClass))),
-                testDependencies(includeTests));
+                AuthoredToolchains.empty(),
+                dependencies(language, includeTests),
+                build(language, includeTests));
     }
 
     /**
@@ -87,7 +105,8 @@ final class InitManifests {
             String group,
             int javaRelease,
             String memberPath,
-            boolean allMembers) {
+            boolean allMembers,
+            ProjectInitLanguage language) {
         return manifest(
                 Optional.of(new AuthoredWorkspace(
                         new LocalId(name),
@@ -103,17 +122,21 @@ final class InitManifests {
                                 Optional.of(new JavaFeatureRelease(javaRelease)),
                                 Optional.empty())))),
                 Optional.empty(),
-                Optional.empty());
+                toolchains(language),
+                Optional.empty(),
+                AuthoredBuildConfiguration.empty());
     }
 
     private static AuthoredManifest manifest(
             Optional<AuthoredWorkspace> workspace,
             Optional<AuthoredProject> project,
-            Optional<AuthoredDependencies> dependencies) {
+            AuthoredToolchains toolchains,
+            Optional<AuthoredDependencies> dependencies,
+            AuthoredBuildConfiguration build) {
         return new AuthoredManifest(
                 workspace,
                 project,
-                AuthoredToolchains.empty(),
+                toolchains,
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -121,7 +144,7 @@ final class InitManifests {
                 dependencies,
                 Optional.empty(),
                 Optional.empty(),
-                AuthoredBuildConfiguration.empty(),
+                build,
                 Optional.empty(),
                 AuthoredPackaging.empty(),
                 Optional.empty(),
@@ -135,17 +158,74 @@ final class InitManifests {
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                java.util.Map.of());
+                Map.of());
     }
 
-    private static Optional<AuthoredDependencies> testDependencies(boolean includeTests) {
-        if (!includeTests) {
-            return Optional.empty();
+    private static AuthoredToolchains toolchains(ProjectInitLanguage language) {
+        return switch (language) {
+            case JAVA -> AuthoredToolchains.empty();
+            case KOTLIN -> new AuthoredToolchains(
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.of(new AuthoredKotlinToolchain(
+                            new KotlinToolchainVersion(KOTLIN_VERSION))));
+        };
+    }
+
+    private static Optional<AuthoredDependencies> dependencies(
+            ProjectInitLanguage language, boolean includeTests) {
+        List<AuthoredDependency> declarations = new ArrayList<>();
+        if (language == ProjectInitLanguage.KOTLIN) {
+            declarations.add(dependency(
+                    DependencyLane.IMPLEMENTATION, KOTLIN_STDLIB, KOTLIN_VERSION));
         }
-        return Optional.of(new AuthoredDependencies(List.of(new AuthoredDependency(
-                DependencyLane.TEST,
-                new DependencyCoordinate(TEST_FRAMEWORK),
-                new DependencySelector.FixedVersion(TEST_FRAMEWORK_VERSION),
-                AuthoredDependencyMetadata.none()))));
+        if (includeTests) {
+            declarations.add(dependency(
+                    DependencyLane.TEST, TEST_FRAMEWORK, TEST_FRAMEWORK_VERSION));
+        }
+        return declarations.isEmpty()
+                ? Optional.empty()
+                : Optional.of(new AuthoredDependencies(declarations));
+    }
+
+    private static AuthoredDependency dependency(
+            DependencyLane lane, String coordinate, String version) {
+        return new AuthoredDependency(
+                lane,
+                new DependencyCoordinate(coordinate),
+                new DependencySelector.FixedVersion(version),
+                AuthoredDependencyMetadata.none());
+    }
+
+    private static AuthoredBuildConfiguration build(
+            ProjectInitLanguage language, boolean includeTests) {
+        if (language == ProjectInitLanguage.JAVA) {
+            return AuthoredBuildConfiguration.empty();
+        }
+        Optional<AuthoredTests> tests = includeTests
+                ? Optional.of(new AuthoredTests(
+                        Optional.of(new AuthoredTests.Sources(
+                                List.of(),
+                                List.of(),
+                                List.of(path("src/test/kotlin")))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Map.of()))
+                : Optional.empty();
+        return new AuthoredBuildConfiguration(
+                Optional.of(new AuthoredBuild(
+                        List.of(path("src/main/kotlin")),
+                        Optional.empty(),
+                        Optional.empty())),
+                Optional.empty(),
+                Optional.empty(),
+                tests,
+                Optional.empty());
+    }
+
+    private static ManifestRelativePath path(String value) {
+        return new ManifestRelativePath(value);
     }
 }
