@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+# Exercise the installed defaults even when the caller opted into development
+# features. Reuse the ordinary suites so stable and development paths cannot drift.
+export ZOLT_EXPERIMENTAL=0
+export NPM_CONFIG_CACHE="${NPM_CONFIG_CACHE:-$ROOT/.zolt/npm-cache}"
+
+suites=(
+  smoke/startup.smoke.mts
+  smoke/hello-zolt.smoke.mts
+  smoke/rebuild.smoke.mts
+  smoke/junit-worker.smoke.mts
+  smoke/junit-vintage.smoke.mts
+  smoke/spock.smoke.mts
+  smoke/workspace.smoke.mts
+  smoke/build-cache.smoke.mts
+  smoke/cache-integrity.smoke.mts
+  smoke/release.smoke.mts
+  smoke/spring-boot.smoke.mts
+  ci/smoke/native/workspace-native.smoke.mts
+)
+
+for suite in "${suites[@]}"; do
+  scripts/smoke-smoque "$suite" "$@"
+done

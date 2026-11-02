@@ -2,8 +2,8 @@
 
 ## Supported Versions
 
-Zolt is pre-1.0. Security fixes are handled on the latest published release and
-the current `main` branch.
+Security fixes are handled on the latest published stable release and the current
+`main` branch.
 
 Published GitHub Releases are immutable and are never replaced. Unsupported older
 releases remain available as exact historical artifacts; security fixes ship in a new

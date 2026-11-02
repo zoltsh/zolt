@@ -3,7 +3,6 @@ package sh.zolt.toml.manifest;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Supplier;
 import sh.zolt.manifest.ManifestRelativePath;
 import sh.zolt.manifest.authored.AuthoredCompiler;
 import sh.zolt.toml.schema.FinalManifestCompilerFields;
@@ -22,10 +21,14 @@ final class ManifestCompilerDecoder {
                 FinalManifestCompilerFields.COMPILER_JDK_API);
         Optional<ValidatedManifestField> argsField = index.field(
                 FinalManifestCompilerFields.COMPILER_ARGS);
+        Optional<ValidatedManifestField> kotlinModuleField = index.field(
+                FinalManifestCompilerFields.COMPILER_KOTLIN_MODULE);
         Optional<ValidatedManifestField> testJdkApiField = index.field(
                 FinalManifestCompilerFields.COMPILER_TEST_JDK_API);
         Optional<ValidatedManifestField> testArgsField = index.field(
                 FinalManifestCompilerFields.COMPILER_TEST_ARGS);
+        Optional<ValidatedManifestField> testKotlinModuleField = index.field(
+                FinalManifestCompilerFields.COMPILER_TEST_KOTLIN_MODULE);
         Optional<ValidatedManifestField> generatedMainField = index.field(
                 FinalManifestCompilerFields.COMPILER_GENERATED_MAIN);
         Optional<ValidatedManifestField> generatedTestField = index.field(
@@ -38,38 +41,47 @@ final class ManifestCompilerDecoder {
             return Optional.empty();
         }
 
-        Presence presence = new Presence(argsField, observer);
+        ManifestCompilerPresence presence = new ManifestCompilerPresence(argsField, observer);
         Optional<String> encoding = encodingField.map(ManifestTomlValues::string);
         encodingField.ifPresent(field -> presence.direct(
                 field,
                 () -> compiler(
-                        encoding, Optional.empty(), List.of(), Optional.empty(), Optional.empty())));
+                        encoding, Optional.empty(), List.of(), Optional.empty(), Optional.empty(), Optional.empty())));
         Optional<AuthoredCompiler.JdkApiMode> jdkApi = jdkApiField.map(
                 ManifestCompilerDecoder::jdkApi);
         jdkApiField.ifPresent(field -> presence.direct(
                 field,
                 () -> compiler(
-                        encoding, jdkApi, List.of(), Optional.empty(), Optional.empty())));
+                        encoding, jdkApi, List.of(), Optional.empty(), Optional.empty(), Optional.empty())));
         List<String> args = argsField
                 .map(field -> mainArguments(field, encoding, jdkApi, presence))
                 .orElseGet(List::of);
+        Optional<String> kotlinModule = kotlinModuleField.map(ManifestTomlValues::string);
+        kotlinModuleField.ifPresent(field -> presence.afterMainArgs(
+                field,
+                () -> compiler(
+                        encoding, jdkApi, args, kotlinModule, Optional.empty(), Optional.empty())));
         boolean deferEmptyTest = shouldDeferEmptyTest(
                 encoding,
                 jdkApi,
                 argsField,
                 args,
+                kotlinModule,
                 testJdkApiField,
                 testArgsField,
+                testKotlinModuleField,
                 generatedMainField,
                 generatedTestField);
         Optional<AuthoredCompiler.Test> test = test(
                 index,
                 testJdkApiField,
                 testArgsField,
+                testKotlinModuleField,
                 deferEmptyTest,
                 encoding,
                 jdkApi,
                 args,
+                kotlinModule,
                 presence);
         Optional<AuthoredCompiler.Generated> generated = generated(
                 index,
@@ -78,6 +90,7 @@ final class ManifestCompilerDecoder {
                 encoding,
                 jdkApi,
                 args,
+                kotlinModule,
                 test,
                 presence);
         ValidatedManifestField anchor = firstField.orElseThrow(() ->
@@ -85,7 +98,7 @@ final class ManifestCompilerDecoder {
                         "Authored compiler aggregate has no direct field evidence."));
         return Optional.of(ManifestSemanticDiagnostics.construct(
                 anchor,
-                () -> new AuthoredCompiler(encoding, jdkApi, args, test, generated)));
+                () -> new AuthoredCompiler(encoding, jdkApi, args, kotlinModule, test, generated)));
     }
 
     private static AuthoredCompiler.JdkApiMode jdkApi(ValidatedManifestField field) {
@@ -100,7 +113,7 @@ final class ManifestCompilerDecoder {
             ValidatedManifestField field,
             Optional<String> encoding,
             Optional<AuthoredCompiler.JdkApiMode> jdkApi,
-            Presence presence) {
+            ManifestCompilerPresence presence) {
         List<String> values = ManifestTomlValues.strings(field);
         for (int index = 0; index < values.size(); index++) {
             List<String> prefix = values.subList(0, index + 1);
@@ -109,7 +122,7 @@ final class ManifestCompilerDecoder {
                     field,
                     diagnosticIndex,
                     () -> compiler(
-                            encoding, jdkApi, prefix, Optional.empty(), Optional.empty()));
+                            encoding, jdkApi, prefix, Optional.empty(), Optional.empty(), Optional.empty()));
         }
         return values;
     }
@@ -118,12 +131,14 @@ final class ManifestCompilerDecoder {
             ManifestDecodeIndex decodeIndex,
             Optional<ValidatedManifestField> jdkApiField,
             Optional<ValidatedManifestField> argsField,
+            Optional<ValidatedManifestField> kotlinModuleField,
             boolean deferEmptyTest,
             Optional<String> encoding,
             Optional<AuthoredCompiler.JdkApiMode> mainJdkApi,
             List<String> mainArgs,
-            Presence presence) {
-        if (jdkApiField.isEmpty() && argsField.isEmpty()) {
+            Optional<String> mainKotlinModule,
+            ManifestCompilerPresence presence) {
+        if (jdkApiField.isEmpty() && argsField.isEmpty() && kotlinModuleField.isEmpty()) {
             return Optional.empty();
         }
         Optional<AuthoredCompiler.JdkApiMode> jdkApi = jdkApiField.map(
@@ -138,6 +153,7 @@ final class ManifestCompilerDecoder {
                             encoding,
                             mainJdkApi,
                             mainArgs,
+                            mainKotlinModule,
                             Optional.of(partial),
                             Optional.empty()));
         }
@@ -156,6 +172,24 @@ final class ManifestCompilerDecoder {
                             encoding,
                             mainJdkApi,
                             mainArgs,
+                            mainKotlinModule,
+                            Optional.of(partial),
+                            Optional.empty()));
+        }
+        Optional<String> kotlinModule = kotlinModuleField.map(ManifestTomlValues::string);
+        if (kotlinModuleField.isPresent()) {
+            ValidatedManifestField field = kotlinModuleField.orElseThrow();
+            AuthoredCompiler.Test partial = ManifestSemanticDiagnostics.construct(
+                    field,
+                    () -> new AuthoredCompiler.Test(jdkApi, args, kotlinModule));
+            presence.afterArguments(
+                    argsField,
+                    field,
+                    () -> compiler(
+                            encoding,
+                            mainJdkApi,
+                            mainArgs,
+                            mainKotlinModule,
                             Optional.of(partial),
                             Optional.empty()));
         }
@@ -165,7 +199,7 @@ final class ManifestCompilerDecoder {
         return Optional.of(ManifestSemanticDiagnostics.construct(
                 decodeIndex.firstDirectField(FinalManifestPaths.COMPILER_TEST)
                         .orElseThrow(),
-                () -> new AuthoredCompiler.Test(jdkApi, args)));
+                () -> new AuthoredCompiler.Test(jdkApi, args, kotlinModule)));
     }
 
     private static boolean shouldDeferEmptyTest(
@@ -173,17 +207,21 @@ final class ManifestCompilerDecoder {
             Optional<AuthoredCompiler.JdkApiMode> jdkApi,
             Optional<ValidatedManifestField> argsField,
             List<String> args,
+            Optional<String> kotlinModule,
             Optional<ValidatedManifestField> testJdkApiField,
             Optional<ValidatedManifestField> testArgsField,
+            Optional<ValidatedManifestField> testKotlinModuleField,
             Optional<ValidatedManifestField> generatedMainField,
             Optional<ValidatedManifestField> generatedTestField) {
         return encoding.isEmpty()
                 && jdkApi.isEmpty()
                 && argsField.isPresent()
                 && args.isEmpty()
+                && kotlinModule.isEmpty()
                 && testJdkApiField.isEmpty()
                 && testArgsField.isPresent()
                 && ManifestTomlValues.strings(testArgsField.orElseThrow()).isEmpty()
+                && testKotlinModuleField.isEmpty()
                 && generatedMainField.isEmpty()
                 && generatedTestField.isEmpty();
     }
@@ -195,8 +233,9 @@ final class ManifestCompilerDecoder {
             Optional<String> encoding,
             Optional<AuthoredCompiler.JdkApiMode> jdkApi,
             List<String> args,
+            Optional<String> kotlinModule,
             Optional<AuthoredCompiler.Test> testSettings,
-            Presence presence) {
+            ManifestCompilerPresence presence) {
         if (mainField.isEmpty() && testField.isEmpty()) {
             return Optional.empty();
         }
@@ -209,7 +248,7 @@ final class ManifestCompilerDecoder {
             presence.afterMainArgs(
                     field,
                     () -> compiler(
-                            encoding, jdkApi, args, testSettings, Optional.of(partial)));
+                            encoding, jdkApi, args, kotlinModule, testSettings, Optional.of(partial)));
         }
         Optional<ManifestRelativePath> testPath = testField.map(ManifestCompilerDecoder::path);
         if (testField.isPresent()) {
@@ -219,7 +258,7 @@ final class ManifestCompilerDecoder {
             presence.afterMainArgs(
                     field,
                     () -> compiler(
-                            encoding, jdkApi, args, testSettings, Optional.of(partial)));
+                            encoding, jdkApi, args, kotlinModule, testSettings, Optional.of(partial)));
         }
         return Optional.of(ManifestSemanticDiagnostics.construct(
                 decodeIndex.firstDirectField(FinalManifestPaths.COMPILER_GENERATED)
@@ -236,64 +275,10 @@ final class ManifestCompilerDecoder {
             Optional<String> encoding,
             Optional<AuthoredCompiler.JdkApiMode> jdkApi,
             List<String> args,
+            Optional<String> kotlinModule,
             Optional<AuthoredCompiler.Test> test,
             Optional<AuthoredCompiler.Generated> generated) {
-        return new AuthoredCompiler(encoding, jdkApi, args, test, generated);
-    }
-
-    private static final class Presence {
-        private final Optional<ValidatedManifestField> argsField;
-        private final CompilerPresenceObserver observer;
-        private boolean observed;
-
-        private Presence(
-                Optional<ValidatedManifestField> argsField,
-                CompilerPresenceObserver observer) {
-            this.argsField = argsField;
-            this.observer = observer;
-        }
-
-        private void direct(ValidatedManifestField field, Supplier<AuthoredCompiler> factory) {
-            ManifestSemanticDiagnostics.construct(
-                    field, () -> observe(factory.get()));
-        }
-
-        private void indexed(
-                ValidatedManifestField field,
-                int index,
-                Supplier<AuthoredCompiler> factory) {
-            ManifestSemanticDiagnostics.construct(
-                    field, index, () -> observe(factory.get()));
-        }
-
-        private void afterMainArgs(
-                ValidatedManifestField field,
-                Supplier<AuthoredCompiler> factory) {
-            if (!observed && argsField.isPresent()) {
-                direct(argsField.orElseThrow(), factory);
-            } else {
-                direct(field, factory);
-            }
-        }
-
-        private void afterMainArgs(
-                ValidatedManifestField field,
-                int index,
-                Supplier<AuthoredCompiler> factory) {
-            if (!observed && argsField.isPresent()) {
-                direct(argsField.orElseThrow(), factory);
-            } else {
-                indexed(field, index, factory);
-            }
-        }
-
-        private AuthoredCompiler observe(AuthoredCompiler compiler) {
-            if (!observed) {
-                observer.present(compiler);
-                observed = true;
-            }
-            return compiler;
-        }
+        return new AuthoredCompiler(encoding, jdkApi, args, kotlinModule, test, generated);
     }
 
     @FunctionalInterface

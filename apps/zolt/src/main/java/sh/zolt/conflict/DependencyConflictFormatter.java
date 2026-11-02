@@ -21,7 +21,7 @@ public final class DependencyConflictFormatter {
             output.append("- ").append(conflict.packageId()).append('\n');
             conflict.variant().ifPresent(variant ->
                     output.append("  variant: ").append(variant.key()).append('\n'));
-            // Names the isolated exec-tool closure that mediated this conflict; absent for the main graph.
+            // Names the isolated exec or compiler closure; absent for the main graph.
             conflict.toolGroup().ifPresent(tool -> output.append("  tool: ").append(tool).append('\n'));
             if (!conflict.members().isEmpty()) {
                 output.append("  members: ")

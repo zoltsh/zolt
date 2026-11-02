@@ -31,7 +31,19 @@ main = "sh.zolt.cli.ZoltCli"
 "sh.zolt:zolt-workspace" = { workspace = true }
 
 [dependencies.test]
+"com.google.devtools.ksp:symbol-processing-aa" = { versionRef = "ksp" }
+"org.jetbrains.kotlin:kotlin-allopen-compiler-plugin-embeddable" = { versionRef = "kotlin" }
+"org.jetbrains.kotlin:kotlin-annotation-processing-embeddable" = { versionRef = "kotlin" }
+"org.jetbrains.kotlin:kotlin-compiler-embeddable" = { versionRef = "kotlin" }
+"org.jetbrains.kotlin:kotlin-noarg-compiler-plugin-embeddable" = { versionRef = "kotlin" }
+"org.jetbrains.kotlin:kotlin-power-assert-compiler-plugin-embeddable" = { versionRef = "kotlin" }
+"org.jetbrains.kotlin:kotlin-serialization-compiler-plugin-embeddable" = { versionRef = "kotlin" }
+"org.jetbrains.kotlinx:kotlinx-serialization-core-jvm" = { versionRef = "kotlinx-serialization" }
 "org.junit.platform:junit-platform-console-standalone" = { versionRef = "junit-platform" }
+
+[test.runtime]
+# KSP's fixture JAR advertises an absent Aalto provider; use the JDK writer for JUnit reports.
+jvmArgs = ["-Djavax.xml.stream.XMLOutputFactory=com.sun.xml.internal.stream.XMLOutputFactoryImpl"]
 
 [test.suites.worker-failure-diagnostic]
 classes = ["sh.zolt.error.WorkerFailureDiagnosticTest"]
@@ -44,7 +56,7 @@ classes = [
 
 [test.suites.arch-guardrails]
 classes = [
-    "sh.zolt.arch.*",
+    "sh.zolt.arch.*Test",
     "sh.zolt.cli.nativeimage.CliNativeReflectionConfigTest",
     "sh.zolt.cli.nativeimage.ReflectionInventoryTest",
 ]
@@ -59,6 +71,7 @@ workers = 2
 
 [native]
 args = [
+    "-march=compatibility",
     "--initialize-at-build-time=sh.zolt.cli.ZoltBuildVersion",
     "--enable-url-protocols=https",
     "--no-fallback",

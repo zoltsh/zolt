@@ -3,6 +3,7 @@ package sh.zolt.workspace.test;
 import sh.zolt.test.runtime.TestJvmArguments;
 import sh.zolt.build.testruntime.TestReportSettings;
 import sh.zolt.build.testruntime.TestRunService;
+import sh.zolt.build.cache.BuildCacheService;
 import sh.zolt.build.profile.TestProfileSettings;
 import sh.zolt.doctor.JdkChecker;
 import sh.zolt.doctor.JdkDetector;
@@ -18,13 +19,18 @@ import sh.zolt.workspace.service.WorkspaceJdkCheckerResolver;
 import sh.zolt.workspace.service.WorkspaceMutationLock;
 import sh.zolt.workspace.service.WorkspacePlanTarget;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
+import sh.zolt.workspace.service.WorkspaceTestStateCommitter;
 import sh.zolt.workspace.testpool.WorkspaceTestConcurrency;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 public final class WorkspaceTestService {
     private final WorkspaceBuildService workspaceBuildService;
     private final WorkspaceTestRunServiceResolver testRunServices;
+    private final Optional<BuildCacheService> buildCacheService;
+    private final WorkspaceTestStateCommitter testStateCommitter = new WorkspaceTestStateCommitter();
 
     public WorkspaceTestService() {
         this(new JdkDetector());
@@ -50,15 +56,19 @@ public final class WorkspaceTestService {
     WorkspaceTestService(
             WorkspaceBuildService workspaceBuildService,
             TestRunService testRunService) {
-        this.workspaceBuildService = workspaceBuildService;
-        this.testRunServices = WorkspaceTestRunServiceResolver.fixed(testRunService);
+        this(
+                workspaceBuildService,
+                WorkspaceTestRunServiceResolver.fixed(testRunService),
+                Optional.empty());
     }
 
     private WorkspaceTestService(
             WorkspaceBuildService workspaceBuildService,
-            WorkspaceTestRunServiceResolver testRunServices) {
+            WorkspaceTestRunServiceResolver testRunServices,
+            Optional<BuildCacheService> buildCacheService) {
         this.workspaceBuildService = workspaceBuildService;
         this.testRunServices = testRunServices;
+        this.buildCacheService = buildCacheService;
     }
 
     public WorkspaceTestService withMemberServices(
@@ -66,7 +76,17 @@ public final class WorkspaceTestService {
             WorkspaceTestRunServiceResolver testRunServices) {
         return new WorkspaceTestService(
                 workspaceBuildService.withJdkCheckers(jdkCheckers),
-                testRunServices);
+                testRunServices,
+                buildCacheService);
+    }
+
+    /** Uses one shared output cache for workspace main and selected test compilations. */
+    public WorkspaceTestService withBuildCache(BuildCacheService buildCacheService) {
+        Objects.requireNonNull(buildCacheService, "buildCacheService");
+        return new WorkspaceTestService(
+                workspaceBuildService.withBuildCache(buildCacheService),
+                testRunServices,
+                Optional.of(buildCacheService));
     }
 
     public WorkspaceTestResult test(Path startDirectory, Path cacheRoot) {
@@ -127,8 +147,10 @@ public final class WorkspaceTestService {
             WorkspaceBuildResult buildResult) {
         try (WorkspaceMutationLock ignored =
                 WorkspaceMutationLock.acquire(plan.workspace().root())) {
-            return new WorkspaceTestCompileExecutor(testRunServices)
+            WorkspaceTestCompileResult result = new WorkspaceTestCompileExecutor(cacheAwareTestRunServices())
                     .compile(plan.requireInputsCurrent(), buildResult);
+            commitTestState(plan, buildResult);
+            return result;
         }
     }
 
@@ -256,16 +278,19 @@ public final class WorkspaceTestService {
             WorkspaceTestConcurrency concurrency) {
         try (WorkspaceMutationLock ignored =
                 WorkspaceMutationLock.acquire(plan.workspace().root())) {
-            return new WorkspaceTestRunner(testRunServices, concurrency).runUnit(
-                    plan,
-                    buildResult,
-                    testSelection,
-                    jvmArguments,
-                    reportSettings,
-                    cliEvents,
-                    suiteName,
-                    shard,
-                    profileSettings);
+            WorkspaceTestResult result = new WorkspaceTestRunner(cacheAwareTestRunServices(), concurrency)
+                    .runUnit(
+                            plan,
+                            buildResult,
+                            testSelection,
+                            jvmArguments,
+                            reportSettings,
+                            cliEvents,
+                            suiteName,
+                            shard,
+                            profileSettings);
+            commitTestState(plan, buildResult);
+            return result;
         }
     }
 
@@ -299,13 +324,24 @@ public final class WorkspaceTestService {
             WorkspaceTestConcurrency concurrency) {
         try (WorkspaceMutationLock ignored =
                 WorkspaceMutationLock.acquire(plan.workspace().root())) {
-            return new WorkspaceTestRunner(testRunServices, concurrency).runIntegration(
-                    plan,
-                    buildResult,
-                    testSelection,
-                    jvmArguments,
-                    reportSettings,
-                    cliEvents);
+            return new WorkspaceTestRunner(cacheAwareTestRunServices(), concurrency)
+                    .runIntegration(
+                            plan,
+                            buildResult,
+                            testSelection,
+                            jvmArguments,
+                            reportSettings,
+                            cliEvents);
         }
+    }
+
+    private void commitTestState(WorkspaceBuildPlan plan, WorkspaceBuildResult buildResult) {
+        testStateCommitter.commitSelected(
+                plan,
+                buildResult.membersRequiringTestCompile());
+    }
+
+    private WorkspaceTestRunServiceResolver cacheAwareTestRunServices() {
+        return buildCacheService.map(testRunServices::withBuildCache).orElse(testRunServices);
     }
 }

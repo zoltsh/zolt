@@ -41,6 +41,28 @@ final class JavacRunnerPlatformApiTest {
     }
 
     @Test
+    void selectedJdkEightModeUsesSourceAndTargetWithoutClaimingHostApi() throws IOException {
+        JavacOptions options = new JavacOptions(
+                "8", "", List.of(), List.of(), false, false);
+
+        List<String> command = captureCommand(options).getFirst();
+
+        assertFalse(options.hostPlatformApi());
+        assertFalse(command.contains("--release"), command.toString());
+        assertEquals("8", command.get(command.indexOf("-source") + 1));
+        assertEquals("8", command.get(command.indexOf("-target") + 1));
+    }
+
+    @Test
+    void rejectsContradictoryHostAndReleaseModes() {
+        JavacException exception = assertThrows(
+                JavacException.class,
+                () -> new JavacOptions("8", "", List.of(), List.of(), true, true));
+
+        assertTrue(exception.getMessage().contains("cannot be combined"));
+    }
+
+    @Test
     void releaseEightRejectsPost8PlatformApi() throws IOException {
         Path source = source("src/main/java/com/example/Main.java", post8ApiSource());
 

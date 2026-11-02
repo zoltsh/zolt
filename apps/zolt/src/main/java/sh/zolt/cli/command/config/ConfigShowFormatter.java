@@ -165,6 +165,10 @@ final class ConfigShowFormatter {
                 }
             }
         });
+        toolchains.groovy().ifPresent(
+                value -> origin(out, "groovy", value, version -> "version " + version.value()));
+        toolchains.kotlin().ifPresent(
+                value -> origin(out, "kotlin", value, version -> "version " + version.value()));
     }
 
     private static void effectiveRepositories(

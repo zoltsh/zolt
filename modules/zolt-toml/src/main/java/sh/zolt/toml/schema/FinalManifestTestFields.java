@@ -8,6 +8,8 @@ public final class FinalManifestTestFields {
             FinalManifestPaths.TEST_SOURCES, "java", ManifestValueKind.STRING_ARRAY, 6_701);
     public static final ManifestField TEST_SOURCES_GROOVY = field(
             FinalManifestPaths.TEST_SOURCES, "groovy", ManifestValueKind.STRING_ARRAY, 6_702);
+    public static final ManifestField TEST_SOURCES_KOTLIN = field(
+            FinalManifestPaths.TEST_SOURCES, "kotlin", ManifestValueKind.STRING_ARRAY, 6_703);
     public static final ManifestField TEST_RUNTIME_JVM_ARGS = field(
             FinalManifestPaths.TEST_RUNTIME, "jvmArgs", ManifestValueKind.STRING_ARRAY, 6_711);
     public static final ManifestField TEST_RUNTIME_PROPERTIES = field(
@@ -44,6 +46,7 @@ public final class FinalManifestTestFields {
         return List.of(
                 TEST_SOURCES_JAVA,
                 TEST_SOURCES_GROOVY,
+                TEST_SOURCES_KOTLIN,
                 TEST_RUNTIME_JVM_ARGS,
                 TEST_RUNTIME_PROPERTIES,
                 TEST_RUNTIME_ENV,

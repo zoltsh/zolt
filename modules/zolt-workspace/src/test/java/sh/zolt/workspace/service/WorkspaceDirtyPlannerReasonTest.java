@@ -10,6 +10,7 @@ import sh.zolt.workspace.state.WorkspaceState;
 import sh.zolt.workspace.state.WorkspaceStateStore;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -46,6 +47,11 @@ final class WorkspaceDirtyPlannerReasonTest extends WorkspaceBuildServiceTestSup
 
                 [dependencies]
                 "com.acme:core" = { workspace = true }
+
+                [test.sources]
+                java = ["src/test/java"]
+                groovy = ["src/test/groovy"]
+                kotlin = ["src/test/kotlin"]
                 """);
         source("apps/api/src/main/java/com/acme/api/Api.java", """
                 package com.acme.api;
@@ -89,6 +95,29 @@ final class WorkspaceDirtyPlannerReasonTest extends WorkspaceBuildServiceTestSup
     }
 
     @Test
+    void addedGroovyMainSourceIsReportedAsAMainSourceChange() throws IOException {
+        source("apps/api/src/main/java/com/acme/api/Extra.groovy", """
+                package com.acme.api
+
+                final class Extra {
+                }
+                """);
+
+        assertEquals(
+                List.of(WorkspaceDirtyReason.MAIN_SOURCE_CHANGED),
+                reasons().get("apps/api"));
+    }
+
+    @Test
+    void addedKotlinMainSourceIsReportedAsAMainSourceChange() throws IOException {
+        source("apps/api/src/main/java/com/acme/api/Extra.kt", "package com.acme.api\nclass Extra\n");
+
+        assertEquals(
+                List.of(WorkspaceDirtyReason.MAIN_SOURCE_CHANGED),
+                reasons().get("apps/api"));
+    }
+
+    @Test
     void resourceEditIsReportedAsAResourceChange() throws IOException {
         Files.writeString(
                 tempDir.resolve("apps/api/src/main/resources/application.properties"),
@@ -119,6 +148,35 @@ final class WorkspaceDirtyPlannerReasonTest extends WorkspaceBuildServiceTestSup
         assertEquals(
                 List.of(WorkspaceDirtyReason.OUTPUT_MISSING),
                 reasons().get("modules/core"));
+    }
+
+    @Test
+    void deletedKotlinModuleRecordedByTheFingerprintIsReportedAsAMissingOutput()
+            throws IOException {
+        Path module = outputFile("apps/api/target/classes/META-INF/api.kotlin_module", "module");
+        recordMainFingerprintOutput("apps/api", module);
+        assertEquals(List.of(), reasons().get("apps/api"));
+
+        Files.delete(module);
+
+        assertEquals(
+                List.of(WorkspaceDirtyReason.OUTPUT_MISSING),
+                reasons().get("apps/api"));
+    }
+
+    @Test
+    void deletedClassRecordedOnlyByTheFingerprintIsReportedAsAMissingOutput()
+            throws IOException {
+        Path generatedClass = outputFile(
+                "apps/api/target/classes/com/acme/api/KotlinGenerated.class", "compiled");
+        recordMainFingerprintOutput("apps/api", generatedClass);
+        assertEquals(List.of(), reasons().get("apps/api"));
+
+        Files.delete(generatedClass);
+
+        assertEquals(
+                List.of(WorkspaceDirtyReason.OUTPUT_MISSING),
+                reasons().get("apps/api"));
     }
 
     /**
@@ -192,6 +250,37 @@ final class WorkspaceDirtyPlannerReasonTest extends WorkspaceBuildServiceTestSup
         assertTrue(testReasons().get("apps/api").contains(WorkspaceDirtyReason.TEST_SOURCE_CHANGED));
     }
 
+    @Test
+    void groovyTestSourceEditIsReportedOnlyWhenTheCommandCompilesTests() throws IOException {
+        source("apps/api/src/test/groovy/com/acme/api/ApiSpec.groovy", """
+                package com.acme.api
+
+                final class ApiSpec {
+                }
+                """);
+
+        assertFalse(reasons().get("apps/api").contains(WorkspaceDirtyReason.TEST_SOURCE_CHANGED));
+        assertTrue(testReasons().get("apps/api").contains(WorkspaceDirtyReason.TEST_SOURCE_CHANGED));
+    }
+
+    @Test
+    void kotlinTestSourceInAKotlinRootIsReportedOnlyWhenTheCommandCompilesTests()
+            throws IOException {
+        source("apps/api/src/test/kotlin/com/acme/api/ApiTest.kt", "package com.acme.api\nclass ApiTest\n");
+
+        assertFalse(reasons().get("apps/api").contains(WorkspaceDirtyReason.TEST_SOURCE_CHANGED));
+        assertTrue(testReasons().get("apps/api").contains(WorkspaceDirtyReason.TEST_SOURCE_CHANGED));
+    }
+
+    @Test
+    void misplacedKotlinTestSourceKeepsTheFailClosedTestLaneObservable()
+            throws IOException {
+        source("apps/api/src/test/java/com/acme/api/MisplacedTest.kt", "package com.acme.api\nclass MisplacedTest\n");
+
+        assertFalse(reasons().get("apps/api").contains(WorkspaceDirtyReason.TEST_SOURCE_CHANGED));
+        assertTrue(testReasons().get("apps/api").contains(WorkspaceDirtyReason.TEST_SOURCE_CHANGED));
+    }
+
     /** The test lane's own resource input, mirrored on the main lane's {@code RESOURCE_CHANGED}. */
     @Test
     void testResourceEditIsReportedOnlyWhenTheCommandCompilesTests() throws IOException {
@@ -199,6 +288,30 @@ final class WorkspaceDirtyPlannerReasonTest extends WorkspaceBuildServiceTestSup
 
         assertFalse(reasons().get("apps/api").contains(WorkspaceDirtyReason.TEST_RESOURCE_CHANGED));
         assertTrue(testReasons().get("apps/api").contains(WorkspaceDirtyReason.TEST_RESOURCE_CHANGED));
+    }
+
+    @Test
+    void generatedTestStepsAreConservativeOnlyWhenTheCommandCompilesTests() throws IOException {
+        source("apps/api/fixtures.sql", "fixture\n");
+        Path manifest = tempDir.resolve("apps/api/zolt.toml");
+        Files.writeString(
+                manifest,
+                Files.readString(manifest) + """
+
+                        [generated.test.fixtures]
+                        kind = "declared-root"
+                        language = "java"
+                        inputs = ["fixtures.sql"]
+                        output = "generated/test/java"
+                        required = false
+                        """);
+
+        assertFalse(reasons()
+                .get("apps/api")
+                .contains(WorkspaceDirtyReason.CONSERVATIVE_GENERATED_TEST_SOURCE_STEP));
+        assertTrue(testReasons()
+                .get("apps/api")
+                .contains(WorkspaceDirtyReason.CONSERVATIVE_GENERATED_TEST_SOURCE_STEP));
     }
 
     private Map<String, List<WorkspaceDirtyReason>> reasons() {
@@ -242,5 +355,22 @@ final class WorkspaceDirtyPlannerReasonTest extends WorkspaceBuildServiceTestSup
         dirtyPlan.members().forEach((member, memberPlan) ->
                 byMember.put(member, memberPlan.reasons()));
         return byMember;
+    }
+
+    private Path outputFile(String relativePath, String content) throws IOException {
+        Path output = tempDir.resolve(relativePath);
+        Files.createDirectories(output.getParent());
+        Files.writeString(output, content);
+        return output;
+    }
+
+    private void recordMainFingerprintOutput(String memberPath, Path output) throws IOException {
+        Path memberDirectory = tempDir.resolve(memberPath);
+        Path fingerprint = memberDirectory.resolve("target/classes/.zolt-build-main.fingerprint");
+        String recorded = memberDirectory.relativize(output).toString().replace('\\', '/');
+        String hash = sh.zolt.workspace.state.WorkspaceHash.bytes(Files.readAllBytes(output));
+        Files.writeString(fingerprint, Files.readString(fingerprint)
+                .replace("[expectedClasses]\n", "[expectedClasses]\n" + recorded + "\n")
+                .replace("[compilerOutputHashes]\n", "[compilerOutputHashes]\n" + recorded + "|" + hash + "\n"));
     }
 }

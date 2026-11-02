@@ -30,13 +30,18 @@ import sh.zolt.manifest.authored.AuthoredDependencies;
 import sh.zolt.manifest.authored.AuthoredDependency;
 import sh.zolt.manifest.authored.AuthoredDependencyMetadata;
 import sh.zolt.manifest.authored.AuthoredDependencyRepositories;
+import sh.zolt.manifest.authored.AuthoredGroovyToolchain;
 import sh.zolt.manifest.authored.AuthoredManifest;
+import sh.zolt.manifest.authored.AuthoredKotlinToolchain;
 import sh.zolt.manifest.authored.AuthoredPlatforms;
+import sh.zolt.manifest.authored.AuthoredToolchains;
 import sh.zolt.manifest.authored.AuthoredVersionAliases;
 import sh.zolt.manifest.authored.AuthoredWorkspace;
 import sh.zolt.manifest.authored.AuthoredWorkspaceMembers;
 import sh.zolt.manifest.authored.AuthoredWorkspaceProjectDefaults;
+import sh.zolt.project.toolchain.GroovyToolchainVersion;
 import sh.zolt.project.toolchain.JavaFeatureRelease;
+import sh.zolt.project.toolchain.KotlinToolchainVersion;
 
 final class EffectiveWorkspaceComposerTest {
     private static final EffectiveManifestComposer COMPOSER = new EffectiveManifestComposer();
@@ -144,6 +149,67 @@ final class EffectiveWorkspaceComposerTest {
         assertEquals(
                 ValueOrigin.AUTHORED,
                 dot.project().shared().versions().get(new LocalId("release")).origin());
+    }
+
+    @Test
+    void inheritsRootCompilerTablesUnlessTheMemberOverridesThem() {
+        AuthoredManifest root = new WorkspaceManifestFixture()
+                .virtualRoot(workspace(List.of("modules/*"), Optional.empty()))
+                .toolchains(languageToolchains("4.0.22", "2.2.0"))
+                .create();
+        AuthoredManifest inheriting = new WorkspaceManifestFixture()
+                .identity(WorkspaceManifestFixture.sparseIdentity("inheriting"))
+                .create();
+        AuthoredManifest overriding = new WorkspaceManifestFixture()
+                .identity(WorkspaceManifestFixture.sparseIdentity("overriding"))
+                .toolchains(languageToolchains("4.0.23", "2.2.10"))
+                .create();
+
+        EffectiveValue<GroovyToolchainVersion> inherited = COMPOSER
+                .composeWorkspaceMember(root, CORE, inheriting)
+                .project()
+                .shared()
+                .toolchains()
+                .groovy()
+                .orElseThrow();
+        EffectiveValue<GroovyToolchainVersion> authored = COMPOSER
+                .composeWorkspaceMember(root, CORE, overriding)
+                .project()
+                .shared()
+                .toolchains()
+                .groovy()
+                .orElseThrow();
+        EffectiveValue<KotlinToolchainVersion> inheritedKotlin = COMPOSER
+                .composeWorkspaceMember(root, CORE, inheriting)
+                .project().shared().toolchains().kotlin().orElseThrow();
+        EffectiveValue<KotlinToolchainVersion> authoredKotlin = COMPOSER
+                .composeWorkspaceMember(root, CORE, overriding)
+                .project().shared().toolchains().kotlin().orElseThrow();
+
+        assertEquals(new GroovyToolchainVersion("4.0.22"), inherited.value());
+        assertEquals(ValueOrigin.INHERITED, inherited.origin());
+        assertEquals(
+                new ManifestSource("zolt.toml", List.of("toolchain", "groovy", "version")),
+                inherited.source().orElseThrow());
+        assertEquals(new GroovyToolchainVersion("4.0.23"), authored.value());
+        assertEquals(ValueOrigin.AUTHORED, authored.origin());
+        assertEquals(
+                new ManifestSource(
+                        "modules/core/zolt.toml",
+                        List.of("toolchain", "groovy", "version")),
+                authored.source().orElseThrow());
+        assertEquals(new KotlinToolchainVersion("2.2.0"), inheritedKotlin.value());
+        assertEquals(ValueOrigin.INHERITED, inheritedKotlin.origin());
+        assertEquals(
+                new ManifestSource("zolt.toml", List.of("toolchain", "kotlin", "version")),
+                inheritedKotlin.source().orElseThrow());
+        assertEquals(new KotlinToolchainVersion("2.2.10"), authoredKotlin.value());
+        assertEquals(ValueOrigin.AUTHORED, authoredKotlin.origin());
+        assertEquals(
+                new ManifestSource(
+                        "modules/core/zolt.toml",
+                        List.of("toolchain", "kotlin", "version")),
+                authoredKotlin.source().orElseThrow());
     }
 
     @Test
@@ -339,6 +405,19 @@ final class EffectiveWorkspaceComposerTest {
                         Optional.of(new ProjectVersion("1.0.0")),
                         Optional.of(new JavaFeatureRelease(21)),
                         Optional.of(new ProjectLicense.Identifier("Apache-2.0")))));
+    }
+
+    private static AuthoredToolchains languageToolchains(
+            String groovyVersion,
+            String kotlinVersion) {
+        return new AuthoredToolchains(
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(new AuthoredGroovyToolchain(
+                        new GroovyToolchainVersion(groovyVersion))),
+                Optional.of(new AuthoredKotlinToolchain(
+                        new KotlinToolchainVersion(kotlinVersion))));
     }
 
     private static void assertInherited(EffectiveValue<?> value, String... fieldPath) {

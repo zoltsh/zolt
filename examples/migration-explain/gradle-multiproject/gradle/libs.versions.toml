@@ -1,5 +1,5 @@
 [versions]
-guava = "33.4.8-jre"
+guava = "33.7.2-jre"
 junit = "5.11.4"
 commonsLang = "3.17.0"
 

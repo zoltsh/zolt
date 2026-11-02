@@ -2,9 +2,8 @@ package sh.zolt.cli.command.testcmd;
 
 import sh.zolt.build.BuildException;
 import sh.zolt.build.BuildResultWithClasspaths;
-import sh.zolt.build.GroovyCompileException;
 import sh.zolt.build.JavaRunException;
-import sh.zolt.build.JavacException;
+import sh.zolt.build.SourceCompileException;
 import sh.zolt.build.ResourceCopyException;
 import sh.zolt.build.SourceDiscoveryException;
 import sh.zolt.build.testruntime.*;
@@ -152,7 +151,9 @@ public final class TestCommand implements Runnable {
     @Override
     public void run() {
         TimingRecorder timings = CommandTimings.recorder(timingOptions);
+        CommandHumanOutput output = CommandHumanOutput.of(spec);
         Path projectRoot = projectDirectory.path();
+        CommandTestBuildCacheSupport buildCache = CommandTestBuildCacheSupport.create(noBuildCache);
         try {
             TestCommandRequest request = new TestCommandRequest(
                     TestSelection.fromCli(testSelectors, testPatterns, includedTags, excludedTags),
@@ -168,7 +169,8 @@ public final class TestCommand implements Runnable {
                         projectRoot,
                         CommandWorkspaceSelections.from(all, members, memberGroups),
                         timings,
-                        request);
+                        request,
+                        buildCache);
                 return;
             }
             ProjectCommandContext context = timings.measure(
@@ -177,18 +179,22 @@ public final class TestCommand implements Runnable {
             if (context.workspaceMember()) {
                 // Design §4.5: the member's test lane is a projection of the workspace resolution, and
                 // its providers must be built first, so the workspace service owns both paths.
-                runWorkspace(context.lockRoot(), context.memberSelection(), timings, request);
+                runWorkspace(context.lockRoot(), context.memberSelection(), timings, request, buildCache);
                 return;
             }
             if (compileOnly) {
-                compileRunner().compileSingle(
-                        context, cacheRoot, noBuildCache, timings, CommandProgress.human(spec));
+                compileRunner(buildCache).compileSingle(
+                        context, cacheRoot, timings, CommandProgress.human(spec));
             } else {
-                runSingleProjectTests(context, timings, CommandProgress.human(spec), request);
+                runSingleProjectTests(
+                        context,
+                        timings,
+                        CommandProgress.human(spec),
+                        request,
+                        buildCache);
             }
         } catch (BuildException
-                | JavacException
-                | GroovyCompileException
+                | SourceCompileException
                 | JavaRunException
                 | ResourceCopyException
                 | TestRunException
@@ -203,6 +209,7 @@ public final class TestCommand implements Runnable {
                 | ZoltConfigException exception) {
             throw CommandFailures.user(spec, exception);
         } finally {
+            buildCache.surfaceWarnings(output);
             CommandTimings.print(spec, "test", projectRoot, timingOptions, timings);
         }
     }
@@ -214,14 +221,20 @@ public final class TestCommand implements Runnable {
             Path workspaceRoot,
             WorkspaceSelectionRequest selection,
             TimingRecorder timings,
-            TestCommandRequest request) {
+            TestCommandRequest request,
+            CommandTestBuildCacheSupport buildCache) {
         if (compileOnly) {
-            compileRunner().compileWorkspace(
+            compileRunner(buildCache).compileWorkspace(
                     workspaceRoot, cacheRoot, selection, timings, CommandProgress.human(spec));
             return;
         }
         new WorkspaceTestCommandRunner(
-                        workspaceTestService, testRunServiceFactory, lockfiles, toolchainOptions, spec)
+                        workspaceTestService,
+                        testRunServiceFactory,
+                        lockfiles,
+                        toolchainOptions,
+                        buildCache,
+                        spec)
                 .runTests(
                         workspaceRoot, cacheRoot, selection, timings, CommandProgress.human(spec), request);
     }
@@ -230,15 +243,14 @@ public final class TestCommand implements Runnable {
             ProjectCommandContext context,
             TimingRecorder timings,
             ProgressWriter progress,
-            TestCommandRequest request) {
+            TestCommandRequest request,
+            CommandTestBuildCacheSupport buildCache) {
         Path projectRoot = context.projectRoot();
         ProjectConfig config = context.config();
         var compileChecker = toolchainOptions.jdkChecker(context, "test");
-        TestRunService projectTestRunService =
-                testRunServiceFactory.create(
-                                compileChecker,
-                                toolchainOptions.testRuntimeRunChecker(context, compileChecker))
-                        .withBuildCache(CommandBuildCache.service(noBuildCache, false));
+        TestRunService projectTestRunService = buildCache.applyTo(testRunServiceFactory.create(
+                compileChecker,
+                toolchainOptions.testRuntimeRunChecker(context, compileChecker)));
         var artifactIndex = lockfiles.requireFreshLockfile(context, cacheRoot, false);
         progress.start("Testing project");
         CommandHumanOutput output = CommandHumanOutput.of(spec);
@@ -302,8 +314,13 @@ public final class TestCommand implements Runnable {
         progress.result("Tested project");
     }
 
-    private TestCompileCommandRunner compileRunner() {
+    private TestCompileCommandRunner compileRunner(CommandTestBuildCacheSupport buildCache) {
         return new TestCompileCommandRunner(
-                workspaceTestService, testRunServiceFactory, lockfiles, toolchainOptions, spec);
+                workspaceTestService,
+                testRunServiceFactory,
+                lockfiles,
+                toolchainOptions,
+                buildCache,
+                spec);
     }
 }

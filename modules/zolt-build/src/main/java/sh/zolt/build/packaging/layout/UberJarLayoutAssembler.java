@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.jar.JarFile;
 import java.util.regex.Pattern;
 
@@ -111,19 +112,25 @@ public final class UberJarLayoutAssembler {
             List<PackageMergeDecision> mergeDecisions,
             PackageRuntimeJar runtimeJar) throws IOException {
         if (Files.isDirectory(runtimeJar.jarPath())) {
-            return mergeRuntimeDirectory(writer, runtimeJar);
+            return mergeRuntimeDirectory(writer, mergeDecisions, runtimeJar);
         }
         return mergeRuntimeJar(writer, mergeDecisions, runtimeJar);
     }
 
     private static int mergeRuntimeDirectory(
             UberJarEntryWriter writer,
+            List<PackageMergeDecision> mergeDecisions,
             PackageRuntimeJar runtimeJar) throws IOException {
         Path directory = runtimeJar.jarPath();
         int merged = 0;
         for (Path file : compiledFiles(directory)) {
+            Optional<String> name = dependencyEntryName(
+                    entryName(directory, file), runtimeJar, mergeDecisions);
+            if (name.isEmpty()) {
+                continue;
+            }
             if (writer.writeOrCollectEntry(
-                    entryName(directory, file),
+                    name.orElseThrow(),
                     Files.readAllBytes(file),
                     runtimeJar.packageId().toString())) {
                 merged++;
@@ -143,35 +150,43 @@ public final class UberJarLayoutAssembler {
                     .sorted(Comparator.comparing(java.util.jar.JarEntry::getName))
                     .toList();
             for (java.util.jar.JarEntry entry : jarEntries) {
-                if (ignoredDependencyEntry(entry.getName())) {
-                    if (isDependencyModuleDescriptor(entry.getName())) {
-                        mergeDecisions.add(new PackageMergeDecision(
-                                "omitted-module-descriptor",
-                                entry.getName(),
-                                java.util.Optional.empty(),
-                                List.of(runtimeJar.packageId().toString())));
-                    }
+                Optional<String> name = dependencyEntryName(
+                        entry.getName(), runtimeJar, mergeDecisions);
+                if (name.isEmpty()) {
                     continue;
                 }
                 byte[] content;
                 try (InputStream input = jar.getInputStream(entry)) {
                     content = input.readAllBytes();
                 }
-                String originalEntryName = entry.getName();
-                String entryName = relocatedDependencyMetadataEntry(originalEntryName, runtimeJar);
-                if (!entryName.equals(originalEntryName)) {
-                    mergeDecisions.add(new PackageMergeDecision(
-                            "relocated-metadata",
-                            originalEntryName,
-                            java.util.Optional.of(entryName),
-                            List.of(runtimeJar.packageId().toString())));
-                }
-                if (writer.writeOrCollectEntry(entryName, content, runtimeJar.packageId().toString())) {
+                if (writer.writeOrCollectEntry(name.orElseThrow(), content, runtimeJar.packageId().toString())) {
                     merged++;
                 }
             }
         }
         return merged;
+    }
+
+    /** Directory-backed workspace dependencies obey the same merge policy as Maven JARs. */
+    private static Optional<String> dependencyEntryName(
+            String name,
+            PackageRuntimeJar runtimeJar,
+            List<PackageMergeDecision> mergeDecisions) {
+        if (ignoredDependencyEntry(name)) {
+            if (isDependencyModuleDescriptor(name)) {
+                mergeDecisions.add(new PackageMergeDecision(
+                        "omitted-module-descriptor", name, Optional.empty(),
+                        List.of(runtimeJar.packageId().toString())));
+            }
+            return Optional.empty();
+        }
+        String relocated = relocatedDependencyMetadataEntry(name, runtimeJar);
+        if (!relocated.equals(name)) {
+            mergeDecisions.add(new PackageMergeDecision(
+                    "relocated-metadata", name, Optional.of(relocated),
+                    List.of(runtimeJar.packageId().toString())));
+        }
+        return Optional.of(relocated);
     }
 
     private static boolean detectMultiReleaseContent(

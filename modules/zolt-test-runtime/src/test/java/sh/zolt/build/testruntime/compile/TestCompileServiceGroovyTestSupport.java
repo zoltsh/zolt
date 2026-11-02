@@ -6,11 +6,16 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
+import java.util.jar.Manifest;
 
 abstract class TestCompileServiceGroovyTestSupport {
-    protected static void createFakeGroovyCompilerJar(Path projectDir, Path jar) throws IOException {
+    protected static void createFakeGroovyCompilerJar(
+            Path projectDir,
+            Path jar,
+            String version) throws IOException {
         Path compilerSource = projectDir.resolve(
                 "fake-groovy-compiler-src/org/codehaus/groovy/tools/FileSystemCompiler.java");
         Files.createDirectories(compilerSource.getParent());
@@ -50,10 +55,10 @@ abstract class TestCompileServiceGroovyTestSupport {
                             Files.createDirectories(classFile.getParent());
                             Files.write(classFile, new byte[] {0, 0});
                         }
-                        System.out.println("fake groovy compiler");
+                        System.out.println("fake groovy compiler %s");
                     }
                 }
-                """);
+                """.formatted(version));
         Path classes = projectDir.resolve("fake-groovy-compiler-classes");
         new JavacRunner().compile(
                 currentJavac(),
@@ -62,7 +67,10 @@ abstract class TestCompileServiceGroovyTestSupport {
                 classes);
 
         Files.createDirectories(jar.getParent());
-        try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar))) {
+        Manifest manifest = new Manifest();
+        manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
+        manifest.getMainAttributes().put(Attributes.Name.IMPLEMENTATION_VERSION, version);
+        try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar), manifest)) {
             JarEntry entry = new JarEntry("org/codehaus/groovy/tools/FileSystemCompiler.class");
             output.putNextEntry(entry);
             output.write(Files.readAllBytes(classes.resolve("org/codehaus/groovy/tools/FileSystemCompiler.class")));

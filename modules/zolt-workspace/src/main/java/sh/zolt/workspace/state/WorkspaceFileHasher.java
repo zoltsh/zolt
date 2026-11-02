@@ -13,34 +13,25 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Decides, per file, whether the recorded content hash still holds or the bytes must be read again.
- *
- * <p>The rule is the whole point of the persisted table: a file is re-read only when its size,
- * modification time, or file key differs from what was recorded beside the hash, or when the row is
- * inside the racy-clean window (see {@link WorkspaceFileState}), or when paranoid mode is on. A warm
- * command therefore stats every input and reads none of them.
- *
- * <p>Everything observed is recorded, so the table the command persists is a full replacement for
- * the source sets it swept and a carry-forward for the ones it did not.
+ * Hashes mutable workspace inputs once per command. Persisted metadata cannot prove content is
+ * unchanged: restores and editors may preserve both size and modification time. The file table
+ * remains useful evidence, but only this command's own memo may avoid a second content read.
  */
 final class WorkspaceFileHasher {
     private static final String MISSING = "missing";
 
     private final Path workspaceRoot;
     private final WorkspaceFileState previous;
-    private final boolean paranoid;
     private final Map<Path, String> hashes = new LinkedHashMap<>();
     private final Map<String, WorkspaceFileRecord> observed = new LinkedHashMap<>();
     private final Set<String> sweptScopes = new LinkedHashSet<>();
     private long bytesHashed;
     private int filesHashed;
     private int filesStatted;
-    private int filesReused;
 
     WorkspaceFileHasher(Path workspaceRoot, WorkspaceFileState previous, boolean paranoid) {
         this.workspaceRoot = workspaceRoot.toAbsolutePath().normalize();
         this.previous = previous;
-        this.paranoid = paranoid;
     }
 
     /** Marks one member's source set as fully read this command, so unseen rows are deleted files. */
@@ -107,30 +98,11 @@ final class WorkspaceFileHasher {
         String key = relative(path);
         long modifiedNanos = WorkspaceFileRecord.modifiedNanos(stat);
         String fileKey = WorkspaceFileRecord.fileKey(stat);
-        Optional<WorkspaceFileRecord> recorded = previous.file(key);
-        String hash = reusable(recorded, stat.size(), modifiedNanos, fileKey)
-                ? reuse(recorded.orElseThrow())
-                : read(path);
+        String hash = read(path);
         observed.put(
                 key,
                 new WorkspaceFileRecord(key, kind, member, stat.size(), modifiedNanos, fileKey, hash));
         return hash;
-    }
-
-    private boolean reusable(
-            Optional<WorkspaceFileRecord> recorded,
-            long size,
-            long modifiedNanos,
-            String fileKey) {
-        return !paranoid
-                && recorded.isPresent()
-                && previous.settled(modifiedNanos)
-                && recorded.orElseThrow().matches(size, modifiedNanos, fileKey);
-    }
-
-    private String reuse(WorkspaceFileRecord recorded) {
-        filesReused++;
-        return recorded.hash();
     }
 
     private String read(Path path) {
@@ -175,7 +147,7 @@ final class WorkspaceFileHasher {
     }
 
     int filesReused() {
-        return filesReused;
+        return 0;
     }
 
     private String relative(Path path) {

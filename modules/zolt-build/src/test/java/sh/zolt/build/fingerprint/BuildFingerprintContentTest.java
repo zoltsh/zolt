@@ -10,8 +10,10 @@ import sh.zolt.build.BuildException;
 import sh.zolt.build.CompilationSemantics;
 import sh.zolt.classpath.Classpath;
 import sh.zolt.project.BuildSettings;
+import sh.zolt.project.CompilerSettings;
 import sh.zolt.project.GeneratedSourceKind;
 import sh.zolt.project.GeneratedSourceStep;
+import sh.zolt.project.NativeSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectConfigs;
 import sh.zolt.project.ProjectMetadata;
@@ -22,6 +24,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -41,6 +44,9 @@ final class BuildFingerprintContentTest {
         write("target/classes/com/example/Beta.class", "compiled");
         write("src/main/resources/application.properties", "name=demo\n");
         write("src/main/resources/Ignored.java", "class Ignored {}\n");
+        write("src/main/resources/Ignored.groovy", "class Ignored {}\n");
+        write("src/main/resources/Ignored.kt", "class Ignored\n");
+        write("src/main/resources/setup.kts", "println(\"setup\")\n");
         write("src/main/resources/target/generated.txt", "ignored\n");
         write("api/openapi.yaml", "openapi: 3.0.0\n");
         write("target/generated/sources/annotations/com/example/Generated.java", "class Generated {}\n");
@@ -53,11 +59,14 @@ final class BuildFingerprintContentTest {
         assertTrue(first.startsWith("version=" + CompilationSemantics.VERSION + "\n"));
         assertTrue(first.contains("[resources]\n"));
         assertTrue(first.contains("src/main/resources/application.properties|"));
+        assertTrue(first.contains("src/main/resources/setup.kts|"));
         assertTrue(first.contains("[generatedSourceInputs]\napi/openapi.yaml|"));
         assertTrue(first.contains("[generatedSources]\ntarget/generated/sources/annotations/com/example/Generated.java|"));
         assertTrue(first.contains("[expectedClasses]\ntarget/classes/com/example/Alpha.class\n"));
         assertTrue(first.contains("target/classes/com/example/Beta.class\n"));
         assertFalse(first.contains("src/main/resources/Ignored.java|"));
+        assertFalse(first.contains("src/main/resources/Ignored.groovy|"));
+        assertFalse(first.contains("src/main/resources/Ignored.kt|"));
         assertFalse(first.contains("src/main/resources/target/generated.txt|"));
     }
 
@@ -146,6 +155,78 @@ final class BuildFingerprintContentTest {
         String second = fingerprint(config(List.of()), List.of(), "compiler-21.0.2");
 
         assertNotEquals(first, second);
+    }
+
+    @Test
+    void fingerprintAndCacheKeyTrackBoundedKotlinCompilerFlags() throws IOException {
+        Files.writeString(projectDir.resolve("zolt.toml"), "[project]\nname = \"demo\"\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
+        Classpath empty = new Classpath(List.of());
+        ProjectConfig withoutParameters = configWithCompilerArgs(List.of(), List.of());
+        ProjectConfig withMainParameters = configWithCompilerArgs(
+                List.of("-parameters"), List.of());
+        ProjectConfig withTestParameters = configWithCompilerArgs(
+                List.of(), List.of("-parameters"));
+        ProjectConfig withMainWarningsAsErrors = configWithCompilerArgs(
+                List.of("-Werror"), List.of());
+        ProjectConfig withTestWarningsAsErrors = configWithCompilerArgs(
+                List.of(), List.of("-Werror"));
+
+        String ordinaryWithout = fingerprint(
+                withoutParameters, List.of(), empty, empty, false);
+        String ordinaryMain = fingerprint(
+                withMainParameters, List.of(), empty, empty, false);
+        String ordinaryTest = fingerprint(
+                withTestParameters, List.of(), empty, empty, false);
+        String cacheWithout = fingerprint(
+                withoutParameters, List.of(), empty, empty, true);
+        String cacheMain = fingerprint(
+                withMainParameters, List.of(), empty, empty, true);
+        String cacheTest = fingerprint(
+                withTestParameters, List.of(), empty, empty, true);
+        String ordinaryMainWarnings = fingerprint(
+                withMainWarningsAsErrors, List.of(), empty, empty, false);
+        String ordinaryTestWarnings = fingerprint(
+                withTestWarningsAsErrors, List.of(), empty, empty, false);
+        String cacheMainWarnings = fingerprint(
+                withMainWarningsAsErrors, List.of(), empty, empty, true);
+        String cacheTestWarnings = fingerprint(
+                withTestWarningsAsErrors, List.of(), empty, empty, true);
+
+        assertNotEquals(ordinaryWithout, ordinaryMain);
+        assertNotEquals(ordinaryWithout, ordinaryTest);
+        assertNotEquals(cacheWithout, cacheMain);
+        assertNotEquals(cacheWithout, cacheTest);
+        assertNotEquals(ordinaryWithout, ordinaryMainWarnings);
+        assertNotEquals(ordinaryWithout, ordinaryTestWarnings);
+        assertNotEquals(cacheWithout, cacheMainWarnings);
+        assertNotEquals(cacheWithout, cacheTestWarnings);
+        assertTrue(ordinaryMain.contains("args=[-parameters]"), ordinaryMain);
+        assertTrue(ordinaryTest.contains("testArgs=[-parameters]"), ordinaryTest);
+        assertTrue(ordinaryMainWarnings.contains("args=[-Werror]"), ordinaryMainWarnings);
+        assertTrue(ordinaryTestWarnings.contains("testArgs=[-Werror]"), ordinaryTestWarnings);
+    }
+
+    @Test
+    void processorsTrackImplementationBytesOfOrdinaryCompileDependencies() throws IOException {
+        Path helper = projectDir.resolve("helper/target/classes");
+        Files.createDirectories(helper);
+        Files.writeString(helper.resolve("Helper.class"), "first implementation");
+        String encodedOutput = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(
+                helper.toAbsolutePath().toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        Files.writeString(helper.resolve(".zolt-incremental-main.state"),
+                "version=8\noutputDirectory=" + encodedOutput
+                        + "\npublicAbiDigest=same\npackagePrivateAbiDigest=same\noutputManifestDigest=before\n");
+        Classpath compile = new Classpath(List.of(helper));
+        Classpath processors = new Classpath(List.of(write("processor.jar", "processor")));
+        Classpath empty = new Classpath(List.of());
+        String withoutProcessing = fingerprint(config(List.of()), List.of(), compile, empty, false);
+        String withProcessing = fingerprint(config(List.of()), List.of(), compile, processors, false);
+
+        Files.writeString(helper.resolve("Helper.class"), "other implementation");
+
+        assertEquals(withoutProcessing, fingerprint(config(List.of()), List.of(), compile, empty, false));
+        assertNotEquals(withProcessing, fingerprint(config(List.of()), List.of(), compile, processors, false));
     }
 
     private String fingerprint(ProjectConfig config, List<Path> sources) {
@@ -239,5 +320,25 @@ final class BuildFingerprintContentTest {
                 dependencies,
                 Map.of(),
                 BuildSettings.defaults());
+    }
+
+    private static ProjectConfig configWithCompilerArgs(
+            List<String> arguments,
+            List<String> testArguments) {
+        return ProjectConfigs.withDependencySections(
+                new ProjectMetadata("demo", "0.1.0", "com.example", "21", Optional.empty()),
+                ProjectConfig.defaultRepositories(),
+                Map.of(),
+                Map.of(),
+                Set.of(),
+                Map.of(),
+                Set.of(),
+                Map.of(),
+                Set.of(),
+                Map.of(),
+                Set.of(),
+                BuildSettings.defaults(),
+                NativeSettings.defaults(),
+                new CompilerSettings(null, null, "", "", arguments, testArguments));
     }
 }

@@ -290,7 +290,8 @@ final class QuarkusIdeFrameworkModelProviderTest {
                 List.of(),
                 new IdeModel.OutputInfo(null, null, null),
                 new IdeModel.DependencyInfo(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of()),
-                new IdeModel.ClasspathInfo(List.of(), List.of(), List.of(), List.of(), List.of(), List.of()),
+                new IdeModel.ClasspathInfo(
+                        List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of()),
                 frameworks,
                 diagnostics);
     }

@@ -112,6 +112,7 @@ final class IdeProjectModelBuilderTest {
                 new IdeModel.OutputInfo(
                         root.resolve(".zolt/build/classes"),
                         root.resolve(".zolt/build/test-classes"),
+                        root.resolve(".zolt/build/integration-test-classes"),
                         root.resolve(".zolt/build/library-package-0.1.0.jar")),
                 builder.outputInfo(root, config, diagnostics));
         assertEquals(List.of(), diagnostics);
@@ -167,7 +168,8 @@ final class IdeProjectModelBuilderTest {
                 List.of(),
                 outputInfo,
                 new IdeModel.DependencyInfo(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of()),
-                new IdeModel.ClasspathInfo(List.of(), List.of(), List.of(), List.of(), List.of(), List.of()),
+                new IdeModel.ClasspathInfo(
+                        List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of()),
                 new IdeModel.FrameworkInfo(new IdeModel.QuarkusInfo(
                         false,
                         null,

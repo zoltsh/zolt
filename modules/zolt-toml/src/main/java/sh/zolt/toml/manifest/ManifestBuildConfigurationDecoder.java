@@ -194,7 +194,7 @@ final class ManifestBuildDecoder {
             int index = item;
             paths.add(ManifestSemanticDiagnostics.construct(
                     field,
-                    () -> SourceRootLanguage.requireSupported(
+                    () -> SourceRootLanguage.requireMainSupported(
                             new ManifestRelativePath(authored.get(index)))));
             presence.sources(field, paths);
         }

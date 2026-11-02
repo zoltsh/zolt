@@ -2,5 +2,5 @@
 name = "core"
 
 [dependencies]
-"com.google.guava:guava" = "33.4.8-jre"
+"com.google.guava:guava" = "33.7.2-jre"
 "org.apache.commons:commons-lang3" = "3.18.0"

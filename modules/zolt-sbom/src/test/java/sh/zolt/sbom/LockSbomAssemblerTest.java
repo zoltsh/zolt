@@ -39,6 +39,38 @@ final class LockSbomAssemblerTest extends SbomTestSupport {
     }
 
     @Test
+    void includesCompilerToolsAsOptionalToolingOnlyWhenSelected() {
+        var groovy = maven(
+                "org.apache.groovy",
+                "groovy",
+                "4.0.22",
+                DependencyScope.TOOL_GROOVY,
+                false,
+                SHA_B,
+                List.of());
+        var kotlin = maven(
+                "org.jetbrains.kotlin",
+                "kotlin-compiler-embeddable",
+                "2.2.0",
+                DependencyScope.TOOL_KOTLIN,
+                false,
+                SHA_A,
+                List.of());
+
+        SbomModel excluded = assemble(SbomScopeSelection.requiredOnly(), groovy, kotlin);
+        SbomModel included = assemble(new SbomScopeSelection(false, false, false, true), groovy, kotlin);
+
+        assertTrue(purls(excluded).isEmpty());
+        assertEquals(
+                List.of(
+                        "pkg:maven/org.apache.groovy/groovy@4.0.22?type=jar",
+                        "pkg:maven/org.jetbrains.kotlin/kotlin-compiler-embeddable@2.2.0?type=jar"),
+                purls(included));
+        assertEquals(SbomComponentScope.OPTIONAL, scopeOf(included, "groovy"));
+        assertEquals(SbomComponentScope.OPTIONAL, scopeOf(included, "kotlin-compiler-embeddable"));
+    }
+
+    @Test
     void dedupsMultiScopePackagesWithRequiredWinning() {
         SbomModel model = assemble(
                 new SbomScopeSelection(false, true, false, false),

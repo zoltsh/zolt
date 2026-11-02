@@ -14,7 +14,7 @@ import java.util.Optional;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 
-final class WorkspaceTestServiceTestSupport {
+public final class WorkspaceTestServiceTestSupport {
     private WorkspaceTestServiceTestSupport() {
     }
 
@@ -45,7 +45,7 @@ final class WorkspaceTestServiceTestSupport {
                 tempDir.resolve("zolt.lock"), tempDir.resolve("cache"), content);
     }
 
-    static void createFakeConsoleJar(Path tempDir, Path jar) throws IOException {
+    public static void createFakeConsoleJar(Path tempDir, Path jar) throws IOException {
         createFakeConsoleJar(tempDir, jar, "fake console");
     }
 
@@ -54,7 +54,10 @@ final class WorkspaceTestServiceTestSupport {
      * Use a JUnit-style summary such as {@code [ 0 tests found ]} to exercise the runner's
      * discovery/false-green guards without downloading a real JUnit Platform.
      */
-    static void createFakeConsoleJar(Path tempDir, Path jar, String consoleOutput) throws IOException {
+    public static void createFakeConsoleJar(
+            Path tempDir,
+            Path jar,
+            String consoleOutput) throws IOException {
         Path source = tempDir.resolve("fake-console-src/org/junit/platform/console/ConsoleLauncher.java");
         Files.createDirectories(source.getParent());
         Files.writeString(source, """
@@ -85,7 +88,7 @@ final class WorkspaceTestServiceTestSupport {
         }
     }
 
-    static String zeroTestsFoundSummary() {
+    public static String zeroTestsFoundSummary() {
         return String.join("\n",
                 "Test run finished after 5 ms",
                 "[         1 containers found      ]",

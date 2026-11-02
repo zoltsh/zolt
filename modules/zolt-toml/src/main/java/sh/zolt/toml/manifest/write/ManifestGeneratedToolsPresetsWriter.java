@@ -21,6 +21,7 @@ import sh.zolt.toml.schema.ManifestSection;
 final class ManifestGeneratedToolsPresetsWriter {
     private static final LocalId OPENAPI = new LocalId("openapi");
     private static final LocalId PROTOBUF = new LocalId("protobuf");
+    private static final LocalId KSP = new LocalId("ksp");
     private static final ManifestSection TOOL = section(FinalManifestPaths.GENERATED_TOOL);
     private static final ManifestSection PRESET = section(FinalManifestPaths.GENERATED_PRESET);
     private static final ManifestGeneratedOpenApiOptionsWriter.Fields PRESET_FIELDS =
@@ -65,6 +66,7 @@ final class ManifestGeneratedToolsPresetsWriter {
                     emitter, id, openApi);
             case AuthoredGeneratedTool.Protobuf protobuf -> writeProtobufTool(
                     emitter, id, protobuf);
+            case AuthoredGeneratedTool.Ksp ksp -> writeKspTool(emitter, id, ksp);
             case AuthoredGeneratedTool.Jvm jvm -> writeJvmTool(emitter, jvm);
             case AuthoredGeneratedTool.Process process -> writeProcessTool(emitter, process);
         }
@@ -123,6 +125,25 @@ final class ManifestGeneratedToolsPresetsWriter {
         emitter.field(
                 FinalManifestGeneratedToolFields.GENERATED_TOOL_MAIN_CLASS,
                 string(tool.mainClass().value()));
+    }
+
+    private static void writeKspTool(
+            ManifestTomlEmitter emitter,
+            LocalId id,
+            AuthoredGeneratedTool.Ksp tool) {
+        if (!id.equals(KSP)) {
+            emitter.field(FinalManifestGeneratedToolFields.GENERATED_TOOL_KIND, string("ksp"));
+        }
+        writeSelector(
+                emitter,
+                Optional.of(tool.version()),
+                FinalManifestGeneratedToolFields.GENERATED_TOOL_VERSION,
+                FinalManifestGeneratedToolFields.GENERATED_TOOL_VERSION_REF);
+        emitter.field(
+                FinalManifestGeneratedToolFields.GENERATED_TOOL_COORDINATES,
+                ManifestGeneratedWriterValues.artifactRequests(
+                        FinalManifestGeneratedToolFields.GENERATED_TOOL_COORDINATES,
+                        tool.processors()));
     }
 
     private static void writeProcessTool(

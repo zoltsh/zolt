@@ -96,6 +96,7 @@ public final class PackageServiceTestSupport {
                 build.buildResult().outputDirectory());
         testCompileEntries.addAll(
                 build.classpaths().testCompile().entries());
+        sh.zolt.build.output.CompilerOutputInventory.capture(projectDir.resolve(config.build().testOutput()), false);
         new BuildFingerprintService().writeTestCompileFingerprint(
                 projectDir,
                 config,

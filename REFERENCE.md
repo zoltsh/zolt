@@ -4,6 +4,11 @@ Zolt covers dependency editing, reproducible resolution, workspaces, framework
 packaging, generated sources, migration audits, quality gates, publishing, and
 native release workflows.
 
+The [1.0 compatibility contract](./docs/compatibility.md) defines supported scope.
+Kotlin/KAPT/KSP, Groovy main compilation, Quarkus, and Spring Boot AOT/native
+sections describe experimental features disabled by default; run their commands
+with `ZOLT_EXPERIMENTAL=1`.
+
 ## Start a Project
 
 ```sh
@@ -15,6 +20,11 @@ zolt run-package
 ```
 
 `init` includes JUnit and a passing test. Use `--no-tests` for a bare project.
+Use `--language kotlin` for a Kotlin/JVM project; Java remains the default. The
+Kotlin template pins the compiler and standard library to the same version,
+declares an explicit Kotlin main root, and works for standalone projects and the
+default member created by `--workspace`. Unless `--no-tests` is passed, it also
+declares a Kotlin test root and emits a passing JUnit test.
 `test` resolves the lockfile before compiling and running the suite.
 
 ## Command Map
@@ -23,6 +33,7 @@ Common project commands:
 
 ```sh
 zolt init NAME
+zolt init NAME --language kotlin
 zolt init NAME --no-tests
 zolt resolve
 zolt build
@@ -32,6 +43,8 @@ zolt package
 zolt run-package -- ARGS
 zolt clean
 zolt doctor
+zolt config show --manifest
+zolt config show --effective
 ```
 
 Dependency and lockfile commands:
@@ -447,6 +460,13 @@ zolt self update
 
 ## Project Configuration
 
+Use `zolt config show --manifest` to inspect only the values authored in the
+selected `zolt.toml`. Use `zolt config show --effective` to inspect the composed
+project after workspace inheritance and built-in defaults. For a project, each
+value includes its origin. At a virtual workspace root, the effective view
+reports the shared values once as root-authored, plus the selected members.
+Neither view reads machine-local user configuration.
+
 A minimal project declares its identity, its Java feature release, and its
 dependencies. Maven Central and the conventional Java source, resource, and
 output paths are behavior rather than boilerplate, so they are not written down:
@@ -460,7 +480,7 @@ java = 21
 main = "com.example.Main"
 
 [dependencies]
-"com.google.guava:guava" = "33.4.0-jre"
+"com.google.guava:guava" = "33.7.2-jre"
 
 [dependencies.test]
 "org.junit.jupiter:junit-jupiter" = "5.14.4"
@@ -551,6 +571,1128 @@ Constraints are strict exact-version requirements, so there is no mode selector
 on an entry. Every entry in `[versions]`, `[platforms]`, `[dependencies]`, and
 `[dependencies.constraints]` occupies one physical line under its own table
 header — the source shape Zolt's failure-safe manifest editor requires.
+
+### Joint Java and Groovy main compilation
+
+Authored main roots may contain both `.java` and `.groovy` files. The default
+main root remains `src/main/java`; a project that keeps the conventional Groovy
+layout declares both roots, pins the isolated Groovy compiler launcher, and
+puts the ordinary Groovy API/runtime on the compile classpath:
+
+```toml
+[project]
+name = "groovy-main"
+version = "0.1.0"
+group = "com.example"
+java = 21
+main = "com.example.JavaGreeting"
+
+[toolchain.groovy]
+version = "4.0.22"
+
+[build]
+sources = ["src/main/java", "src/main/groovy"]
+
+[dependencies]
+"org.apache.groovy:groovy" = "4.0.22"
+```
+
+`[toolchain.groovy]` is compiler tooling, not an application dependency. A
+normal `zolt resolve` acquires its checksum-pinned closure in the isolated
+`tool-groovy` scope; `zolt toolchain sync` manages Java toolchains and does not
+install Groovy. The ordinary `org.apache.groovy:groovy` dependency remains
+required for the source API and runtime. Zolt requires that ordinary runtime
+and the isolated compiler core have the configured version and identical
+checksum-verified core content, and rejects a mismatch before restoring a build
+cache entry or cleaning compiled output. Compiler-tooling artifacts never enter
+the application compile, runtime, test-runtime, or packaged dependency lanes.
+
+When an authored main root contains any Groovy source, Zolt passes the complete
+Java/Groovy main source set to Groovy's joint compiler. Java may therefore refer
+to Groovy types while those Groovy types refer back to Java. Source changes use
+a cleaned full-scope compile; an unchanged fingerprint may still skip compilation,
+and a verified build-cache entry may restore the complete output. Generated
+source lanes remain Java-only.
+
+This support is deliberately fail-closed. Zolt rejects Groovy main joint
+compilation before cache restoration or output cleanup when any of these
+conditions applies:
+
+- annotation processors are configured for the main compile;
+- `[compiler].args` contains custom javac arguments;
+- the main source set contains `module-info.java`;
+- the member has workspace API or implementation dependencies;
+- reproducible release mode selects a build JDK whose feature version differs
+  from the effective Java release; or
+- the selected JDK identity is unreadable or has no `java` executable.
+
+Set `[compiler].jdkApi = "host"` to accept the JDK/release mismatch explicitly.
+This uses source/target semantics and gives up the cross-JDK API reproducibility
+of `--release`. The other boundaries must be removed or isolated in a Java-only
+member. See `examples/groovy-main` for a runnable circular Java-to-Groovy-to-Java
+example.
+
+### Kotlin/JVM main compilation preview
+
+Zolt can compile Kotlin/JVM main sources alone or together with Java, using an
+isolated, locked Kotlin/JVM compiler. Authored Kotlin roots are explicit during
+this preview: the default main root remains `src/main/java`, so declare
+`src/main/kotlin` (or another root) under `[build].sources`. Zolt discovers `.kt`
+files, but not Kotlin scripts (`.kts`). A mixed executable project looks like
+this:
+
+For the concise workflow, toolchain, cache, packaging, and performance boundary,
+see the [Kotlin/JVM support matrix](docs/kotlin-jvm-support.md). This section is
+the detailed manifest and compiler-option reference.
+
+`zolt init NAME --language kotlin` emits a Kotlin-only executable with the
+required toolchain, standard-library dependency, and main source root already
+aligned. By default it also emits a matching JUnit test and test root;
+`--no-tests` omits both. Add Java roots explicitly when evolving that template
+into a mixed project.
+
+```toml
+[project]
+name = "kotlin-main"
+version = "0.1.0"
+group = "com.example"
+java = 21
+main = "com.example.Main"
+
+[build]
+sources = ["src/main/java", "src/main/kotlin"]
+
+[toolchain.kotlin]
+version = "2.2.0"
+
+[dependencies]
+"org.jetbrains.kotlin:kotlin-stdlib" = "2.2.0"
+```
+
+```kotlin
+package com.example
+
+object Main {
+    @JvmStatic
+    fun kotlinWord(): String = "Kotlin"
+
+    @JvmStatic
+    fun main(args: Array<String>) {
+        println(JavaGreeting.message())
+    }
+}
+```
+
+```java
+package com.example;
+
+public final class JavaGreeting {
+    public static String message() {
+        return "Hello from Java and " + Main.kotlinWord();
+    }
+}
+```
+
+This is a circular compile-time relationship without runtime recursion: Kotlin's
+`Main` calls Java's `JavaGreeting`, while `JavaGreeting` calls a separate Kotlin
+method.
+
+`[toolchain.kotlin]` selects compiler tooling, not an application dependency.
+`zolt resolve` locks its checksum-verified closure in the isolated `tool-kotlin`
+scope; `zolt toolchain sync` continues to manage Java toolchains only. Declare
+the ordinary external `org.jetbrains.kotlin:kotlin-stdlib` dependency at the
+same exact version so it is available to application compilation and runtime.
+Compiler artifacts do not enter application or package classpaths.
+
+The compilation preview is qualified for stable Kotlin 2.2.x compiler and
+standard-library releases. Zolt rejects other compiler series and prereleases
+before main or test compilation can reuse cached output or clean owned class
+directories. Version-sensitive arguments are checked before generated-source
+work starts. As a final safety net, an otherwise successful compiler process is
+still rejected when it reports that a requested flag or option is unsupported;
+ordinary compiler warnings continue to follow the configured warning policy.
+
+Kotlin-only and mixed Java/Kotlin applications use the ordinary application
+lifecycle: `zolt run`, thin `zolt package` plus `zolt run-package`, and
+self-contained `uber-jar` artifacts. Configure `[project].main` with the JVM
+binary name; for an idiomatic top-level `main` in `Application.kt`, that is
+typically `com.example.ApplicationKt`. Thin packages record the Kotlin runtime
+dependency without embedding compiler tooling, while uber JARs merge the
+application runtime and remain directly executable with `java -jar`.
+
+Without annotation processors, mixed Java/Kotlin main compilation is a cleaned,
+full-scope two-phase operation. First, Zolt passes the complete admitted Java and
+Kotlin source set to
+`kotlinc` so Kotlin can resolve Java declarations. `kotlinc` emits the Kotlin
+bytecode. Zolt then passes the Java sources to `javac` with that Kotlin output first on the
+compile classpath. Java can therefore resolve the Kotlin declarations, including
+the circular relationship above. Kotlin-only main source sets without annotation
+processors skip the second phase.
+
+In a Kotlin-bearing main source set, annotation processors declared under
+`[dependencies.processor]` run through KAPT. `zolt resolve` automatically locks
+`org.jetbrains.kotlin:kotlin-annotation-processing-embeddable` at the configured
+Kotlin toolchain version in the isolated `tool-kotlin` scope. The processor
+classpath remains isolated from the ordinary compile classpath. Zolt runs KAPT
+in `stubsAndApt` mode, compiles Kotlin with any generated Java sources visible,
+then invokes `javac` with processing disabled so a processor never runs twice.
+Generated Java sources use `[compiler.generated].main` (by default
+`target/generated/sources/annotations`) and participate in fingerprint and
+cleanup decisions.
+
+Main KAPT processor options use `-Akey=value` entries in `[compiler].args` and
+require a non-empty `[dependencies.processor]` lane. Keys are dot-separated
+ASCII Java-identifier segments; each key may appear once. Values may be empty
+or contain additional `=` characters, but the valueless `-Akey` form is outside
+the bounded contract. Zolt canonicalizes the option map before passing it to
+KAPT, does not forward it to the non-processing javac phase, and includes the
+authored arguments in fingerprint and cache identity. Changing an option
+therefore recompiles the main source set rather than reusing incompatible
+generated output.
+
+`-Xuse-k2-kapt` opts a Kotlin-bearing source set with configured processors into
+the selected compiler's experimental K2 KAPT implementation. The qualified
+Kotlin 2.2.0 main-source case generated Java visible to authored Kotlin and
+Java, restored the complete compiled output from Zolt's build cache, responded
+to processor-option changes, and executed successfully. The flag does not
+enable annotation processing by itself, change processor isolation, or make the
+experimental compiler mode stable. Keep the selected Kotlin compiler and KAPT
+plugin versions aligned, and qualify each processor before adopting it.
+Configure the mode independently in `[compiler].args` and
+`[compiler.test].args`; changing it invalidates and cleanly recompiles the
+matching source set.
+
+#### Bounded Kotlin compiler plugins
+
+The Kotlin preview supports official compiler plugins through the built-in
+`serialization`, `spring`, `micronaut`, `jpa`, and `power-assert` selectors:
+
+```toml
+[toolchain.kotlin]
+version = "2.2.0"
+plugins = ["serialization", "spring", "micronaut", "jpa", "power-assert"]
+
+[dependencies]
+"org.jetbrains.kotlin:kotlin-stdlib" = "2.2.0"
+"org.jetbrains.kotlinx:kotlinx-serialization-core-jvm" = "1.9.0"
+```
+
+`zolt resolve` adds the artifact matching each selected built-in at the Kotlin
+compiler version to the checksum-verified `tool-kotlin` scope:
+
+- `serialization` selects
+  `org.jetbrains.kotlin:kotlin-serialization-compiler-plugin-embeddable`.
+- `spring` selects
+  `org.jetbrains.kotlin:kotlin-allopen-compiler-plugin-embeddable` and invokes
+  its owned `spring` preset.
+- `micronaut` selects the same all-open artifact and invokes its owned
+  `micronaut` preset. Selecting both all-open presets keeps one direct tool root
+  and emits both preset options in deterministic order.
+- `jpa` selects
+  `org.jetbrains.kotlin:kotlin-noarg-compiler-plugin-embeddable` and invokes
+  its owned `jpa` preset.
+- `power-assert` selects
+  `org.jetbrains.kotlin:kotlin-power-assert-compiler-plugin-embeddable` and
+  targets `kotlin.assert` through its owned `function` option.
+
+Zolt verifies every direct plugin root, version, and manifest identity before
+execution. It also verifies the serialization registrar and the registrar plus
+command-line processor for all-open, no-arg, and Power-assert. The plugins are
+available to configured Kotlin main and test compiler lanes, including a lane
+that also uses KAPT, but never enter an application compile, runtime, or package
+classpath.
+
+The `kotlinx-serialization-core-jvm` entry above is an ordinary application
+dependency, not compiler tooling. Select a runtime version compatible with the
+application and declare any additional serialization formats the application
+uses in the same way. Zolt does not add runtime libraries implicitly.
+
+The `spring` selector does not add Spring libraries. It applies the official
+all-open Spring preset to recognized Spring annotations, making eligible Kotlin
+classes and members non-final for proxying while leaving unannotated types
+unchanged. Applications declare their chosen Spring dependencies normally.
+
+The `micronaut` selector similarly adds no Micronaut libraries. It applies the
+official all-open Micronaut preset to `@Around`, `@Introduction`,
+`@InterceptorBinding`, and `@InterceptorBindingDefinitions`, including
+application annotations meta-annotated with those types. Applications declare
+their chosen Micronaut dependencies normally.
+
+The `jpa` selector does not add a persistence API or provider. It applies the
+official no-arg JPA preset to recognized `javax.persistence` and
+`jakarta.persistence` annotations so frameworks can construct eligible Kotlin
+types through a zero-parameter constructor. The selector loads no all-open
+plugin: an eligible class remains final unless the source or another selected
+plugin opens it. Applications declare their chosen persistence API and provider
+normally.
+
+The `power-assert` selector uses Kotlin's experimental Power-assert compiler
+plugin. It enriches `kotlin.assert` failures with source expressions and
+intermediate values without adding a runtime dependency. Kotlin assertions
+still follow JVM assertion status; pass `--jvm-arg=-ea` to `zolt test` when
+using this selector. Custom intercepted-function options are outside the closed
+selector contract.
+
+Adding or removing any selector requires a lockfile refresh. The authored
+selectors, resulting lockfile, owned plugin options, and complete compiler-tool
+closure participate in fingerprint and output-cache identity. Removing a
+selector therefore cannot reuse incompatible transformed or generated output,
+while a verified cache entry restores the complete compiled output. Compiler
+tooling remains absent from thin and uber packages; declared application
+runtime libraries follow the ordinary packaging rules.
+
+`serialization`, `spring`, `micronaut`, `jpa`, and `power-assert` are the only
+supported compiler-plugin selectors. They may be selected independently or
+together. Arbitrary plugin coordinates, compiler-plugin paths, and plugin
+options are rejected or remain outside the bounded manifest contract.
+
+#### KSP2 source-set generation preview
+
+A Kotlin-bearing main, unit-test, or integration-test source set may run KSP2 as
+an owned pre-compile generator. Declare the KSP engine version and processor
+roots together, then reference that tool from a `kind = "ksp"` main or test
+step (the tool defaults to the reserved `ksp` id):
+
+```toml
+[toolchain.kotlin]
+version = "2.2.0"
+
+[generated.tools.ksp]
+version = "2.2.0-2.0.2"
+coordinates = [
+    { coordinate = "com.example:my-ksp-processor", version = "1.0.0" },
+]
+
+[generated.main.symbols]
+kind = "ksp"
+options = { "processor.mode" = "production" }
+```
+
+For unit and integration tests, use `[generated.test.symbols]` instead. The
+single test declaration is projected onto the source universe selected by
+`zolt test` or `zolt integration-test`.
+
+The KSP release must begin with the configured Kotlin version followed by `-`;
+Zolt rejects a mismatched engine before generation. `zolt resolve` locks the
+`com.google.devtools.ksp:symbol-processing-aa` engine closure and the declared
+processor closure in separate checksum-verified `tool-exec` groups. Neither
+closure enters the compile, runtime, or package classpath. Fixed versions and
+version references use the ordinary generated-tool selector rules.
+
+The default output for the main example is
+`target/generated/ksp/main/symbols`; a `[generated.test.symbols]` step defaults
+to `target/generated/ksp/test/symbols`. A KSP step owns one root with published
+`kotlin`, `java`, and `resources` lanes; all three are admitted before the
+matching compilation or resource copy. Test generation receives the member's
+main output first, followed by the ordered test compile classpath, and preserves
+the Kotlin friend-path rule for that member's own main output. `required = false`,
+`clean = false`, and a `language` override are rejected because the multi-lane
+output is required and Zolt-owned. A custom safe project-relative `output` is
+allowed.
+
+Generation runs in a staging tree and publishes the complete owned root only
+after the KSP process succeeds, so a failed processor cannot replace the last
+successful generated sources or resources with a partial tree. Zolt currently
+disables KSP's internal incremental state and runs the processor before each
+matching build or test compile. Byte-identical published output can still
+preserve the ordinary compile no-op; changing the processor closure, engine,
+options, or published bytes invalidates compile and output-cache reuse. `zolt clean`,
+workspace builds and tests, cache restoration, and main package evidence use the
+same owned output contract. A failed test processor leaves both the last
+published generated tree and the last compiled test output intact.
+
+This preview supports KSP under `[generated.main]` and `[generated.test]`; there
+is no separate integration-step namespace. KSP does not enable arbitrary
+Kotlin compiler plugins; only the built-in selectors documented above are
+supported.
+
+A pre-generated Java or Kotlin tree may join that main source set through a
+`[generated.main.<id>]` step whose `kind` is `"declared-root"`. Set
+`language = "kotlin"` for a Kotlin tree because the default is Java. Zolt treats
+the declared tree as a protected input, includes its matching source files and
+declared producer inputs in reuse decisions, and never removes it during
+compile-output cleanup. Java and Kotlin declarations may refer to one another
+across authored and declared roots. A pinned `kind = "exec"` step may instead
+own a Java or Kotlin tree in the `"java-sources"` lane; Java is the default and
+Kotlin requires `language = "kotlin"`. Its tool, arguments, declared inputs, and
+output bytes participate in reuse decisions, and Zolt regenerates it before
+source discovery. OpenAPI and Protobuf steps support the same Java-or-Kotlin
+choice. Generation, output-integrity repair, source discovery, compilation, and
+cache reuse preserve the selected language.
+
+This is intentionally a bounded preview. Zolt fails before cache restoration or
+output cleanup when any of these conditions applies:
+
+- the main source set also contains Groovy;
+- the main source set contains `module-info.java` (JPMS joint compilation is not
+  supported);
+- `[compiler].args` contains an argument outside the bounded set documented
+  below, or contains a malformed or duplicate supported argument.
+
+Kotlin main compilation supports workspace API and implementation dependencies;
+dependency class ABI and Kotlin module metadata participate in downstream
+workspace invalidation. Kotlin unit and integration tests use the separate
+bounded path described under Tests and Coverage and may consume workspace API,
+implementation, and test dependencies. Authored Kotlin tests may compile alone
+or together with Java tests from authored roots or admitted declared roots, and
+may coexist with a Kotlin-only or mixed Java/Kotlin main source set.
+
+Tests may use their own member's `internal` main declarations: Zolt passes only
+that member's main output as a Kotlin friend path. Internal declarations from
+workspace dependency members remain inaccessible. Kotlin integration-test
+roots are admitted through `[test.integration].sources`; OpenAPI and Protobuf
+steps marked `language = "kotlin"` may also supply owned main or test sources.
+KSP test generation uses `[generated.test]` for both unit and integration-test
+projections. Arbitrary Kotlin compiler-plugin coordinates or options and
+automatic migration of Kotlin shapes outside the bounded Maven subset described
+under Migration Explain are not supported.
+Sources are read as UTF-8.
+The effective Java release must not exceed the selected complete JDK;
+`[compiler].jdkApi = "host"` selects host-platform API semantics instead of
+Kotlin `-Xjdk-release` and javac `--release`. When the selected JDK itself is
+Java 8, Zolt instead uses Kotlin `-jvm-target 1.8` and javac `-source/-target 8`
+because neither release flag is available; that fallback does not opt into host
+API mode.
+
+A sources jar includes authored `.kt` files. Kotlin API documentation requires
+Dokka, which is outside this preview, so Zolt rejects `[package].javadoc = true`
+for a Kotlin source set instead of publishing an empty `-javadoc.jar`.
+
+Every admitted Kotlin or Java source change in a member with Kotlin main sources
+uses a cleaned full-scope compilation; mixed members rerun both phases. An
+unchanged fingerprint may skip compilation, and a verified output-cache entry
+may restore the complete class and `META-INF/*.kotlin_module` inventory.
+`--no-build-cache` only bypasses output-cache restore and storage; it does not
+disable the unchanged-input skip.
+
+For a Kotlin-bearing source set, compiler arguments may contain the standalone
+flags `-parameters`, `-nowarn`, `-Werror`, `-Wextra`,
+`-Xreport-all-warnings`, `-Xrender-internal-diagnostic-names`, `-progressive`,
+`-Xcontext-receivers`, `-Xcontext-parameters`,
+`-Xcontext-sensitive-resolution`, and `-Xwhen-guards`,
+plus `-Xmulti-dollar-interpolation`, `-Xnon-local-break-continue`,
+`-Xnested-type-aliases`, `-Xannotation-target-all`,
+`-Xjvm-expose-boxed`, `-Xconsistent-data-class-copy-visibility`, and
+`-Xemit-jvm-type-annotations`, plus `-Xno-new-java-annotation-targets`,
+`-Xno-source-debug-extension`, `-Xno-unified-null-checks`,
+`-Xno-param-assertions`, `-Xno-call-assertions`,
+`-Xno-receiver-assertions`, `-Xno-optimize`,
+`-Xno-inline`, `-Xuse-inline-scopes-numbers`,
+`-Xenhanced-coroutines-debugging`,
+`-Xuse-14-inline-classes-mangling-scheme`, `-Xsanitize-parentheses`,
+`-Xmultifile-parts-inherit`,
+`-Xvalidate-bytecode`,
+`-Xgenerate-strict-metadata-version`, `-Xannotations-in-metadata`,
+`-Xuse-type-table`, `-Xuse-old-class-files-reading`,
+`-Xskip-metadata-version-check`, `-Xskip-prerelease-check`,
+`-Xallow-kotlin-package`, `-Xuse-k2-kapt`, `-Xjvm-enable-preview`, and
+`-Xallow-unstable-dependencies`, plus
+`-Xindy-allow-annotated-lambdas` when paired with `-Xlambdas=indy`. One each of
+the paired Kotlin arguments
+`-language-version <major.minor>` and
+`-api-version <major.minor>` is also accepted. Distinct, repeatable
+`-opt-in=<qualified.annotation.Name>` arguments are also accepted. One
+`-jvm-default=<mode>` argument may also select `enable`, `no-compatibility`, or
+`disable`, and one `-Xexplicit-api=<mode>` argument may select `strict`,
+`warning`, or `disable`. One `-Xstring-concat=<mode>` argument may select
+`inline`, `indy`, or `indy-with-constants`, and one `-Xlambdas=<mode>` argument
+may select `class` or `indy`. One `-Xsam-conversions=<mode>` argument may also
+select `class` or `indy`. One `-Xannotation-default-target=<mode>` argument may
+select `first-only`, `first-only-warn`, or `param-property`. One
+`-Xassertions=<mode>` argument may select `always-enable`, `always-disable`,
+`jvm`, or `legacy`. One `-Xreturn-value-checker=<mode>` argument may select
+`check`, `full`, or `disable`. One `-Xbackend-threads=<count>` argument may use
+`0` for the host processor count or an integer from 1 through 256. One
+`-Xjspecify-annotations=<mode>` argument may select `ignore`, `warn`, or
+`strict`, and one global `-Xjsr305=<mode>` argument may select `ignore`, `warn`,
+or `strict`. One
+`-Xsupport-compatqual-checker-framework-annotations=<mode>` argument may select
+`enable` or `disable`. Distinct, repeatable
+`-Xnullability-annotations=@package.name:<mode>` arguments may select `ignore`,
+`warn`, or `strict` for compiler-recognized Java annotation packages. Distinct,
+repeatable `-Xwarning-level=DIAGNOSTIC_NAME:<level>` arguments may set an
+uppercase Kotlin diagnostic to `error`, `warning`, or `disabled`. The
+single `-Xabi-stability=<mode>` argument may select `stable` or `unstable`.
+Distinct `-Akey=value` annotation-processor options are also accepted when the
+matching source set has a configured processor lane. The
+standalone and version options must be spelled as separate array entries and
+may appear at most once; each package rule, opt-in, and warning-level rule is
+one array entry, and the same package, annotation, or diagnostic may not be
+repeated:
+
+```toml
+[compiler]
+args = [
+  "-parameters",
+  "-Wextra",
+  "-Xreport-all-warnings",
+  "-Xrender-internal-diagnostic-names",
+  "-progressive",
+  "-Xcontext-parameters",
+  "-Xcontext-sensitive-resolution",
+  "-Xwhen-guards",
+  "-Xmulti-dollar-interpolation",
+  "-Xnon-local-break-continue",
+  "-Xnested-type-aliases",
+  "-Xannotation-target-all",
+  "-Xannotation-default-target=param-property",
+  "-Xassertions=jvm",
+  "-Xreturn-value-checker=check",
+  "-Xbackend-threads=2",
+  "-Xjspecify-annotations=strict",
+  "-Xjsr305=strict",
+  "-Xsupport-compatqual-checker-framework-annotations=enable",
+  "-Xnullability-annotations=@org.jetbrains.annotations:strict",
+  "-Xjvm-expose-boxed",
+  "-Xconsistent-data-class-copy-visibility",
+  "-Xemit-jvm-type-annotations",
+  "-Xno-new-java-annotation-targets",
+  "-Xno-source-debug-extension",
+  "-Xno-unified-null-checks",
+  "-Xno-param-assertions",
+  "-Xno-call-assertions",
+  "-Xno-receiver-assertions",
+  "-Xno-optimize",
+  "-Xno-inline",
+  "-Xuse-inline-scopes-numbers",
+  "-Xenhanced-coroutines-debugging",
+  "-Xuse-14-inline-classes-mangling-scheme",
+  "-Xsanitize-parentheses",
+  "-Xmultifile-parts-inherit",
+  "-Xvalidate-bytecode",
+  "-Xgenerate-strict-metadata-version",
+  "-Xannotations-in-metadata",
+  "-Xuse-type-table",
+  "-Xuse-old-class-files-reading",
+  "-Xjvm-enable-preview",
+  "-Xabi-stability=stable",
+  "-language-version", "1.9",
+  "-api-version", "1.8",
+  "-jvm-default=no-compatibility",
+  "-Xexplicit-api=strict",
+  "-Xstring-concat=indy-with-constants",
+  "-Xlambdas=indy",
+  "-Xindy-allow-annotated-lambdas",
+  "-Xsam-conversions=indy",
+  "-Xwarning-level=REDUNDANT_VISIBILITY_MODIFIER:disabled",
+  "-opt-in=kotlin.ExperimentalStdlibApi",
+  "-Amapstruct.defaultComponentModel=jakarta",
+]
+
+[compiler.test]
+args = [
+  "-language-version", "2.0",
+  "-api-version", "2.0",
+  "-jvm-default=disable",
+  "-Xallow-unstable-dependencies",
+  "-opt-in=com.example.ExperimentalTestApi",
+  "-Azolt.fixture.mode=test",
+]
+```
+
+`-Akey=value` entries are source-set scoped: main options require
+`[dependencies.processor]`, while test options require
+`[dependencies.test-processor]`. Zolt rejects malformed or duplicate keys and
+never treats a processor option as an ordinary kotlinc or javac flag.
+
+`-parameters` enables Java reflection parameter metadata in both the Kotlin and
+authored Java halves of mixed compilation. The contract covers source-declared
+constructor, function, and method parameters; Kotlin compiler-generated
+synthetic parameters are outside it. `-Werror` makes a warning from either
+compiler phase fail that source set. `-Wextra` enables the selected Kotlin
+compiler's additional declaration, expression, and type checks; it is not
+forwarded to javac. Combining it with `-Werror` makes those extra warnings fail
+Kotlin compilation while `-Werror` continues to apply to both compiler phases.
+`-nowarn` suppresses warnings in both the Kotlin and authored Java compiler
+phases. It cannot be combined with `-Werror` or `-Wextra`; choose either warning
+suppression or warning enforcement for a source set. It also cannot be combined
+with `-Xreport-all-warnings`, whose purpose requires warnings to remain enabled.
+`-Xreport-all-warnings` asks `kotlinc` to retain warnings when the same
+compilation also has errors. In the qualified Kotlin 2.2.0 case, an ordinary
+failed compile reports a return-type error alone, while the flag also reports a
+deprecation warning from another declaration. It does not promote warnings to
+errors or intentionally change successful class output. Configure it
+independently for main and test source sets; changing it invalidates the matching
+source set so the selected diagnostics policy applies on the next compilation.
+`-Xrender-internal-diagnostic-names` asks `kotlinc` to prefix diagnostics with
+their bracketed internal identifiers. In the qualified Kotlin 2.2.0 case, those
+identifiers include `[DEPRECATION]` and `[RETURN_TYPE_MISMATCH]`. This is a
+diagnostic-presentation option: successful class output is byte-identical with
+and without it. It is especially useful for discovering the uppercase names
+accepted by `-Xwarning-level=DIAGNOSTIC_NAME:<level>`; combine it with
+`-Xreport-all-warnings` when warning names must remain visible alongside
+compilation errors. The selected compiler remains authoritative for identifiers,
+which may evolve between compiler versions. The flag affects `kotlinc`, not
+authored Java diagnostics from `javac`. Configure it independently for main and
+test source sets; changing it invalidates the matching source set so the selected
+presentation policy applies on the next compilation.
+Diagnostic-specific
+`-Xwarning-level` rules go only to `kotlinc` and may be combined with those
+module-wide policies: `error` promotes one warning, `warning` preserves or
+restores it as a warning, and `disabled` suppresses it. A diagnostic rule
+therefore overrides `-nowarn`, `-Werror`, or `-Wextra` for that Kotlin
+diagnostic without changing authored Java warning policy.
+`-progressive` asks the selected Kotlin compiler to apply its latest deprecation
+and unstable-code fixes without their usual migration period.
+`-Xcontext-receivers` admits deprecated `context(Type)` receiver syntax as a
+migration bridge for source sets that have not yet moved to named context
+parameters. In the qualified Kotlin 2.2 case, the syntax fails without the flag,
+compiles and executes with it, and produces the compiler's migration warning.
+Zolt rejects `-Xcontext-receivers` and `-Xcontext-parameters` together before
+compilation. Configure the bridge independently for main and test sources;
+changing it invalidates the matching source set. Prefer context parameters for
+new code.
+`-Xcontext-parameters` enables named context dependencies on Kotlin functions
+and properties when the selected compiler supports that language feature.
+`-Xcontext-sensitive-resolution` enables the selected Kotlin compiler's preview
+for resolving unqualified enum entries and sealed-class members when the
+surrounding context establishes the expected type. `-Xwhen-guards` enables
+guarded branches for compilers that expose the syntax as a preview, including
+Kotlin 2.1. Kotlin 2.2 promotes guard conditions to stable, so that compiler
+also accepts the syntax without the flag. A language-version pin remains
+authoritative: Kotlin 2.2 does not backport guard syntax to language version 2.1
+merely because the flag is present. Extra warnings, progressive mode, context
+receivers, context parameters, context-sensitive resolution, when guards,
+multi-dollar interpolation, non-local loop control, nested type aliases,
+annotation defaulting and all-target annotations, language/API version pairs,
+boxed value-class exposure, JVM-default modes, explicit-API modes,
+data-class copy visibility, string-concatenation modes, lambda-generation modes,
+JVM type-annotation emission, SAM-conversion modes, diagnostic warning levels,
+Java annotation-target compatibility, assertion modes, JSpecify and JSR-305
+nullness severity, Checker Framework compatqual recognition, package-specific
+Java nullability severity, source-debug annotation emission, legacy null-check
+exception compatibility, strict metadata-version semantics, annotated-lambda
+indy compatibility, backend optimization and method-inlining control,
+inline-scope debug numbering, enhanced coroutine debugging, parentheses
+sanitization, legacy inline-class mangling, multifile-part inheritance,
+complete warning reporting, internal diagnostic-name rendering,
+generated-bytecode validation, annotations in metadata, metadata type-table
+serialization, ABI-stability marking, metadata-version and
+prerelease-dependency bypasses, protected-package opt-in, K2 KAPT mode,
+unstable-dependency opt-in, and opt-ins go only to `kotlinc`.
+JVM preview-class generation is coordinated across `kotlinc`, the javac phase
+of mixed compilation, and Zolt-owned runtime launches.
+`-Xmulti-dollar-interpolation` enables Kotlin 2.1's preview syntax when the
+source set pins `-language-version 2.1`. Kotlin 2.2 promotes the syntax to
+Stable and accepts it without the flag. Prefixing a regular or multiline string
+literal with two or more dollar signs sets the number of consecutive dollar
+signs required to begin interpolation; shorter runs remain literal, which is
+useful for templates and JSON schemas that contain their own `$` placeholders.
+Ordinary single-dollar templates remain unchanged. The selected compiler and
+language-version pin remain authoritative. Configure the compatibility flag
+independently for main and test source sets; changing it invalidates and cleanly
+recompiles the matching output.
+`-Xnon-local-break-continue` enables Kotlin 2.1's preview support for `break`
+and `continue` inside lambdas passed to inline functions that are enclosed by
+the target loop. This lets an inline helper such as `run` continue or terminate
+the surrounding loop without labels or sentinel values. Kotlin 2.2 promotes
+that control flow to Stable and accepts it without the flag. The selected
+compiler still enforces the inline-lambda and loop-target boundaries. Configure
+the compatibility flag independently for main and test source sets; changing
+it invalidates and cleanly recompiles the matching output.
+`-Xnested-type-aliases` enables Kotlin 2.2's Beta support for aliases declared
+inside classes, interfaces, and objects. Such aliases cannot use type parameters
+from an enclosing declaration; they must declare independent type parameters
+when needed, and aliases remain unavailable in local function or lambda scopes.
+The selected compiler determines whether the feature is available and enforces
+its remaining declaration, visibility, and multiplatform restrictions.
+`-Xannotation-default-target=first-only` retains the legacy rule for an
+unqualified annotation on a constructor property: use the first applicable
+target among `param`, `property`, and `field`. `first-only-warn` keeps that
+placement but asks the selected compiler to warn when `param` and either
+`property` or `field` are both applicable. `param-property` uses `param` when
+available and also uses the first applicable target among `property` and
+`field`. These defaulting rules are a Kotlin 2.2 preview. Omitting the argument
+leaves the selected compiler's own default unchanged.
+
+`-Xannotation-target-all` enables the selected compiler's preview `@all:`
+use-site target. For a property, `@all:Marker` propagates `Marker` to each
+applicable constructor parameter, Kotlin property, backing field, getter, and
+mutable-property setter parameter. For an `@JvmRecord`, it also reaches the
+Java record component when the annotation supports `RECORD_COMPONENT`.
+Kotlin-property annotations are not visible through Java reflection. `@all:`
+does not propagate to types, extension receivers, context receivers, or context
+parameters; it cannot annotate delegated properties; and grouped syntax such as
+`@all:[A B]` is invalid, so each annotation needs its own `@all:` use. This flag
+is independent of annotation defaulting for unqualified annotations.
+`-Xjvm-expose-boxed` applies Kotlin 2.2's experimental `@JvmExposeBoxed`
+behavior across the source-set module. Value classes receive public boxed
+constructors, and declarations involving value classes receive unmangled boxed
+bridges that Java can call. The compiler retains the ordinary unboxed Kotlin
+representation and existing mangled declarations, so Kotlin call sites and
+runtime representation remain unchanged. Use declaration-level
+`@JvmExposeBoxed` when only selected APIs should be exposed; use the compiler
+flag when the whole source set needs the Java-facing surface.
+`-Xconsistent-data-class-copy-visibility` applies
+`@ConsistentCopyVisibility` to every data class in the source-set module. With
+Kotlin 2.2.0, a data class whose primary constructor is non-public otherwise
+emits a migration warning while retaining a public generated `copy()` method;
+the flag makes `copy()` match the constructor's Kotlin visibility and removes
+that warning. This can change the module's binary API. The selected compiler's
+migration phase remains authoritative: a future Kotlin release may make the
+consistent behavior the default and render this flag unnecessary. Use the
+declaration annotation when only selected data classes should migrate.
+`-Xemit-jvm-type-annotations` writes applicable Kotlin type-use annotations to
+JVM class-file type-annotation attributes. A runtime-retained annotation whose
+Kotlin target includes `TYPE` can then be observed from Java through APIs such
+as `Method.getAnnotatedReturnType()`. Omitting the flag leaves the selected
+compiler's default unchanged and does not emit those uses as JVM type
+annotations. Annotation retention still determines whether reflection can see
+an emitted annotation. JVM type annotations require a JVM target of 1.8 or
+newer, which is within Zolt's supported Kotlin/JVM target range. Configure the
+flag independently in `[compiler].args` and `[compiler.test].args`; changing it
+invalidates the matching source set and performs a cleaned full compilation.
+`-Xno-new-java-annotation-targets` prevents a Kotlin annotation declaration
+whose Kotlin targets include `TYPE` or `TYPE_PARAMETER` from adding Java's
+`TYPE_USE` or `TYPE_PARAMETER` values to its generated
+`java.lang.annotation.Target`. This is useful for Android consumers below API
+level 26, where those enum values are unavailable. Other applicable Java targets
+remain present, and the annotation's Kotlin target set is unchanged. The flag
+does not lower bytecode, remove other newer API references, or replace Android
+desugaring and platform qualification. It is separate from
+`-Xemit-jvm-type-annotations`, which controls whether annotation uses are
+written to JVM type-annotation attributes. Configure the compatibility flag
+independently for main and test source sets; changing it also invalidates and
+cleanly recompiles the matching output.
+`-Xno-source-debug-extension` removes Kotlin's runtime-invisible
+`kotlin.jvm.internal.SourceDebugExtension` annotation copy of the source-debug
+mapping from generated classes. It does not remove the standard JVM
+`SourceDebugExtension` attribute or line-number tables, so debugger SMAP data
+remains available. The option is useful when class-file consumers reject or
+duplicate that Kotlin-specific annotation; it does not reduce ordinary debug
+information. Configure it independently for main and test source sets; changing
+it invalidates and cleanly recompiles the matching output.
+`-Xno-unified-null-checks` restores the compiler's pre-Kotlin-1.4 exception
+types for generated null checks. In the qualified Java-interoperability case,
+passing Java `null` to a non-null Kotlin parameter changes the generated
+Intrinsics call and throws `IllegalArgumentException` instead of the default
+`NullPointerException`, while preserving the diagnostic. It does not remove the
+null check or make the parameter nullable. Prefer the default unified checks for
+new code; use this flag only when an existing Java caller depends on the legacy
+exception contract. Configure it independently for main and test source sets;
+changing it invalidates and cleanly recompiles the matching output.
+`-Xno-param-assertions` removes the generated entry check on non-null Kotlin
+parameters of methods callable from Java. In the qualified mixed Java/Kotlin
+case, Java can pass `null` to a method that does not dereference its parameter,
+and the method can complete instead of failing in
+`Intrinsics.checkNotNullParameter`. The declaration remains non-null in the
+Kotlin type system, Kotlin callers still cannot pass `null` without an unsafe
+escape, and any later dereference may still fail. The flag is sent only to
+kotlinc and does not alter authored Java compilation. Prefer the default check;
+use suppression only for a deliberately unchecked Java interoperability
+contract. Configure it independently for main and test source sets; changing it
+invalidates and cleanly recompiles the matching output.
+`-Xno-call-assertions` removes generated non-null checks on Java platform-type
+call results used through a non-null Kotlin type. In the qualified mixed
+Java/Kotlin case, an unannotated Java method returning `null` can flow through a
+Kotlin method declared to return `String` instead of failing in
+`Intrinsics.checkNotNullExpressionValue`. The Kotlin declaration and its
+compile-time type remain non-null, while Java can observe the unchecked `null`
+and a later dereference can still fail. The flag is sent only to kotlinc and
+does not change authored Java compilation. Prefer the default boundary check;
+use suppression only for a deliberate platform-type compatibility contract.
+Configure it independently for main and test source sets; changing it
+invalidates and cleanly recompiles the matching output.
+`-Xno-receiver-assertions` removes the generated non-null check when an
+unchecked Java platform value is passed as a non-null Kotlin extension
+receiver. In the qualified mixed Java/Kotlin case, an unannotated Java method
+returning `null` can reach an extension that does not dereference its receiver
+instead of failing in `Intrinsics.checkNotNullExpressionValue` at the call
+site. The extension receiver remains non-null in the Kotlin type system, and a
+later dereference can still fail. This option is narrower than
+`-Xno-call-assertions`, which suppresses platform-result checks generally; the
+separate `-Xno-param-assertions` option controls generated checks at
+Java-callable Kotlin method entry. Prefer the default receiver boundary check;
+use suppression only for a deliberate platform-type compatibility contract.
+Configure it independently for main and test source sets; changing it
+invalidates and cleanly recompiles the matching output.
+`-Xno-optimize` disables the selected Kotlin compiler's backend optimizations
+for the source set. In the qualified Kotlin 2.2.0 case, it preserves an explicit
+integer-zero comparison where the default backend emits a more compact branch;
+both forms produce the same runtime results. This is intended for debugging,
+bytecode instrumentation compatibility, or isolating optimizer behavior. It
+can increase or otherwise change generated bytecode and does not disable javac
+behavior for authored Java sources. The selected compiler remains authoritative
+for the exact unoptimized layout. Configure the flag independently for main and
+test; changing it invalidates and cleanly recompiles the matching output.
+`-Xno-inline` disables ordinary method inlining performed by the selected Kotlin
+compiler. In the qualified Kotlin 2.2.0 case, a call to a simple inline function
+is emitted as an `invokestatic` instead of embedding the function's integer
+multiply in its caller, while producing the same runtime result. This is useful
+for debugging, bytecode instrumentation, and isolating inliner behavior, but it
+can change call structure, bytecode size, and performance. The selected compiler
+remains authoritative for constructs that require special inline handling. The
+flag does not change javac behavior for authored Java sources. Configure it
+independently for main and test; changing it invalidates and cleanly recompiles
+the matching output.
+`-Xuse-inline-scopes-numbers` asks the selected Kotlin compiler to encode scope
+numbers in local-variable names generated for inlined call sites. In the
+qualified Kotlin 2.2.0 case, markers such as `$i$f$doubled` and `value$iv`
+become numbered names such as `$i$f$doubled\1\8` and `value\1`. The executed
+instructions and result remain unchanged, and the inline declaration's own
+class stays byte-identical; the caller's `LocalVariableTable` and class bytes
+change. Debuggers, profilers, coverage agents, and other bytecode tools can
+observe those names, and the selected compiler remains authoritative for the
+numbering format. Configure the flag independently for main and test source
+sets; changing it invalidates and cleanly recompiles the matching output.
+`-Xenhanced-coroutines-debugging` asks the selected Kotlin compiler to add
+synthetic local-variable markers for generated coroutine control flow. In the
+qualified Kotlin 2.2.0 case, the containing file class gains `$ecd$...` markers
+for continuation checks, the state-machine dispatch, result checks, suspension,
+and unreachable regions, plus a `GeneratedCodeMarkers.kt` source-debug mapping.
+The generated continuation class stayed byte-identical and the executed result
+was unchanged in that case, but debuggers, profilers, coverage agents, and other
+bytecode tools can observe the added metadata. The selected compiler remains
+authoritative for marker names, placement, and line mappings. Configure the flag
+independently for main and test source sets; changing it invalidates and cleanly
+recompiles the matching output.
+`-Xuse-14-inline-classes-mangling-scheme` restores the JVM symbol-mangling
+algorithm used by Kotlin 1.4.0 for declarations whose signatures contain inline
+or value classes. In the qualified Kotlin 2.2.0 case, a function with an
+ordinary `String` parameter and a value-class parameter receives a different
+`render-<hash>` JVM name under the legacy scheme, while the value-class wrapper
+stays byte-identical and Kotlin runtime behavior is unchanged. This deliberately
+changes binary linkage. Use it only when preserving compatibility with binaries
+that expect the pre-1.4.30 symbol scheme, and keep producer/consumer expectations
+aligned; reflection and non-Kotlin bytecode callers must use the selected name.
+The selected compiler remains authoritative for the exact hash. Configure the
+flag independently for main and test source sets; changing it invalidates and
+cleanly recompiles the matching output.
+`-Xsanitize-parentheses` replaces parentheses in generated JVM method names with
+the selected Kotlin compiler's safe character sequence. In the qualified Kotlin
+2.2.0 case, a backtick-declared source method named `call(me)` is emitted as
+`call$_me$_`; reflective and binary callers must use that transformed name.
+This deliberately changes binary linkage and can break existing callers, so use
+it only as a workaround for platforms or bytecode tools that reject parentheses
+in identifiers. The selected compiler remains authoritative for the exact
+transformation. Configure the flag independently for main and test source sets;
+changing it invalidates and cleanly recompiles the matching output.
+`-Xmultifile-parts-inherit` changes the JVM layout of declarations annotated
+with `@JvmMultifileClass`. In the qualified Kotlin 2.2.0 case, the default
+layout emits a facade with declared forwarding methods and independent final
+part classes. With the flag, the facade extends the last part, each later part
+extends an earlier part, and the facade obtains the public static methods
+through that hierarchy. Kotlin calls preserve their behavior, but the option
+changes method declaration owners, class hierarchy, part finality, and generated
+constructors; Java reflection, bytecode tooling, and binary consumers can
+observe those differences. Use it only when a consumer requires the inherited
+layout. Configure it independently for main and test source sets; changing it
+invalidates and cleanly recompiles the matching output so obsolete facade and
+part classes cannot survive.
+`-Xvalidate-bytecode` asks the selected Kotlin compiler to validate generated
+JVM bytecode before and after backend optimizations. A validation failure aborts
+compilation; when validation succeeds, the option does not intentionally change
+the emitted classes. It is useful for compiler upgrades, backend experiments,
+and build qualification, but it adds compiler work and is not a substitute for
+running tests or bytecode consumers. The flag applies only to `kotlinc`, not the
+javac phase of a mixed source set. Configure it independently for main and test;
+changing it invalidates and cleanly recompiles the matching output.
+`-Xgenerate-strict-metadata-version` marks generated `kotlin.Metadata` with the
+strict-version-semantics extra-int bit. With the qualified Kotlin 2.2.0
+toolchain, the tested class metadata changes from `xi=48` to `xi=56`; method
+behavior and ordinary JVM bytecode remain unchanged. This is a binary metadata
+compatibility contract for Kotlin-aware consumers, so enable it only when
+downstream compilers and metadata readers support the selected compiler's
+metadata version. Configure it independently for main and test source sets;
+changing it invalidates and cleanly recompiles the matching output.
+`-Xabi-stability=stable` marks generated Kotlin metadata as suitable for stable
+compiler consumers; it is also Kotlin 2.2.0's qualified default. `unstable`
+marks the output as compiler-unstable. In the qualified case, the class's
+`kotlin.Metadata.xi` value changed from `48` to `16` while JVM behavior stayed
+the same. An ordinary Kotlin 2.2.0 consumer then rejected that class before
+code generation. Use `unstable` when publishing output from compiler behavior
+that consumers must explicitly acknowledge; do not use `stable` to disguise an
+ABI whose actual compiler contract is unstable. The selected compiler remains
+authoritative for the metadata bits and compatibility check.
+
+`-Xallow-unstable-dependencies` lets that source set consume classes marked with
+unstable Kotlin ABI. It suppresses the compiler's protective diagnostic; it
+does not make the dependency stable or guarantee binary, metadata, or runtime
+compatibility. Main and test source sets opt in independently. In particular, a
+Kotlin test source set that consumes its own member's main output marked
+`unstable` needs this flag in `[compiler.test].args`. Changing either the
+producer's ABI-stability mode or the consumer override invalidates and cleanly
+recompiles the matching output.
+`-Xuse-type-table` asks the selected Kotlin compiler to serialize reusable type
+descriptions through a table in Kotlin metadata. In the qualified Kotlin 2.2.0
+generic-library case, both the generic class and its calling API received
+different class bytes while their JVM execution result stayed unchanged. This
+is a metadata-layout choice rather than a source-language or JVM-runtime mode,
+but Kotlin-aware compilers, metadata readers, bytecode tools, ABI hashes, and
+caches can observe it. The selected compiler remains authoritative for the
+table encoding and reader compatibility. Configure the flag independently for
+main and test source sets; changing it invalidates and cleanly recompiles the
+matching output, and removing it restores the compiler's default metadata
+layout.
+`-Xuse-old-class-files-reading` switches the selected Kotlin compiler from its
+modern class-file reader to the legacy implementation for dependency and prior
+output bytecode. It is an opt-in compatibility fallback, not a general
+performance setting: keep the modern reader unless a dependency exposes a
+confirmed reader incompatibility. In the qualified case, Kotlin 2.2.0 compiled
+and ran against an actual Groovy 4.0.22-generated class with either reader. The
+fallback does not compile Groovy sources, admit mixed Groovy/Kotlin source sets,
+or remove the need for the Groovy runtime when generated classes reference it;
+put Groovy sources in a separate member or dependency. Configure the flag
+independently for main and test source sets. Changing it invalidates and cleanly
+recompiles the matching output, and removing it restores the selected
+compiler's modern reader.
+`-Xskip-metadata-version-check` suppresses the selected Kotlin compiler's
+dependency metadata-version guard. In the qualified Kotlin 2.2.0 case, an
+otherwise callable dependency deliberately stamped with metadata version
+`99.0.0` failed compilation by default and compiled and ran only with this
+flag. The bypass does not translate, downgrade, or independently validate the
+dependency metadata; a compiler that cannot actually understand it may still
+fail or produce incompatible output. Prefer matching producer and consumer
+toolchains, and use this escape hatch only after independently qualifying the
+specific dependency. Configure it independently for main and test source sets.
+Changing it invalidates and cleanly recompiles the matching output.
+`-Xskip-prerelease-check` suppresses the selected Kotlin compiler's guard
+against dependency declarations marked as produced by a prerelease compiler.
+In the qualified Kotlin 2.2.0 case, an otherwise callable dependency whose
+`kotlin.Metadata.xi` value carried the prerelease bit failed compilation by
+default and compiled and ran only with this flag. The compiler also marks
+declarations compiled through the bypass as prerelease, so the compatibility
+risk can propagate to downstream Kotlin consumers. The flag does not make the
+dependency stable or guarantee source, binary, metadata, or runtime
+compatibility. Prefer a release-built dependency, and use this escape hatch
+only after independently qualifying the exact producer and consumer
+toolchains. Configure it independently for main and test source sets. Changing
+it invalidates and cleanly recompiles the matching output.
+`-Xallow-kotlin-package` lifts the selected compiler's default restriction that
+reserves `kotlin.*` packages for the Kotlin standard library. In the qualified
+Kotlin 2.2.0 case, `package kotlin.zoltprobe` failed compilation by default and
+compiled and ran only with the flag. The opt-in does not grant namespace
+ownership, prevent collisions with the standard library, or protect against
+future Kotlin additions. Reserve it for stdlib/compiler-adjacent projects whose
+package ownership and complete runtime classpath are controlled; ordinary
+applications and libraries should keep the compiler guard. Configure it
+independently for main and test source sets. Changing it invalidates and cleanly
+recompiles the matching output.
+`-Xjvm-enable-preview` asks the selected Kotlin compiler to mark every emitted
+class as using JVM preview features and forwards `--enable-preview` to the javac
+phase of a mixed source set. Preview compilation requires Java 12 or newer, and
+the effective Java target must equal the selected build JDK's feature release;
+preview class files are tied to that exact Java feature. In the qualified Java
+21 and Kotlin 2.2.0 case, Kotlin and Java classes using preview syntax have
+class-file version `65.65535` instead of `65.0`. Zolt automatically adds
+`--enable-preview` to its own `run`, `run-package`, workspace, framework, test,
+and coverage JVM launches whenever they can load preview-marked main or test
+output. Workspace `run`, `run-package`, unit-test, and integration-test launches
+also inherit the requirement from preview-enabled members in the selected
+member's applicable runtime or test dependency closure; the consuming member
+does not need to mark its own ordinary classes as preview classes. An explicitly
+configured `[test.runtime].jvmArgs` entry is not duplicated. When
+`[toolchain.java.test]` is present, its feature release must equal
+`[project].java` if the member's tests can load preview-marked output from that
+member or a workspace dependency; a newer JVM cannot execute preview class
+files from an older feature release. Zolt rejects that mismatch before worker
+launch and directs you to align the test runtime or remove the preview compiler
+flag. Zolt cannot infer this requirement from an arbitrary third-party JAR's
+Maven metadata. External launchers and consumers remain responsible for using
+the same Java feature release and passing `java --enable-preview`; packaging
+does not make preview bytecode ordinary or cross-release compatible. Configure
+the flag independently for main and test source sets. Test execution enables
+the runtime when either source set requires it, and changing either setting
+invalidates and cleanly recompiles the matching output.
+`-Xannotations-in-metadata` writes declaration annotations into Kotlin metadata
+in addition to their ordinary JVM class-file attributes, and lets the selected
+compiler read annotations already represented there. In the qualified Kotlin
+2.2.0 case, a binary-retained class and method annotation add their descriptor,
+argument name, and argument values to `kotlin.Metadata.d2`; omitting the flag
+leaves those values out of `d2` without removing the JVM annotations. This
+changes the metadata contract consumed by Kotlin compilers and metadata tools,
+so enable it only when downstream readers support the selected compiler's
+representation. Configure it independently for main and test source sets;
+changing it invalidates and cleanly recompiles the matching output.
+`-Xassertions=always-enable` evaluates and enforces Kotlin `assert` calls even
+when JVM assertions are disabled. `always-disable` omits both the check and its
+condition evaluation. `jvm` matches Java assertion behavior: the condition is
+evaluated only when assertions are enabled for the generated class. `legacy`
+always evaluates the condition but throws only when runtime assertions are
+enabled; it is the Kotlin 2.2.0 compiler's default when this option is omitted.
+Assertion conditions should not have side effects, but the mode still matters
+for existing code that does. The compiler option does not enable assertions in
+the target JVM. For tests, pass `--jvm-arg=-ea` or configure
+`[test.runtime].jvmArgs = ["-ea"]` when `jvm` or `legacy` should enforce them.
+Configure the mode independently for main and test source sets; changing it
+invalidates and cleanly recompiles the matching output.
+`-Xreturn-value-checker=check` enables Kotlin 2.2's experimental unused-return
+diagnostic and admits `kotlin.MustUseReturnValue` and
+`kotlin.IgnorableReturnValue` annotations. `full` runs the same checker and also
+enables the selected compiler's automatic annotation insertion, while
+`disable` turns the checker off; Kotlin 2.2 rejects the two experimental
+annotations when the checker is disabled, which is also its behavior when the
+option is omitted. In the qualified case, discarding a non-`Unit` result inside
+a `@MustUseReturnValue` class reports `unused return value` in both `check` and
+`full` modes. Combine the mode with `-Werror` when that warning must fail the
+build. The selected compiler remains authoritative for automatic insertion and
+checker coverage. Configure the mode independently for main and test source
+sets; changing it invalidates and cleanly recompiles the matching output.
+`-Xbackend-threads=<count>` controls parallel Kotlin backend code generation for
+the source set. Kotlin 2.2 defaults to one thread when the option is omitted;
+`0` asks the compiler to use one thread per available processor, while Zolt
+accepts explicit counts from 1 through 256. Use a fixed count when CI resource
+limits matter, and reserve `0` for hosts where using every reported processor is
+intentional. The option affects kotlinc only, not javac or KAPT processor
+execution, and does not change source semantics. The configured count is part
+of the compilation fingerprint and output-cache identity. Configure it
+independently for main and test source sets; changing it invalidates and cleanly
+recompiles the matching output.
+`-Xjspecify-annotations=strict` reports Kotlin nullability mismatches inferred
+from supported `org.jspecify.annotations` on Java declarations as compilation
+errors. `warn` reports the same mismatches as warnings, so combining it with
+`-Werror` makes them fail compilation; `ignore` suppresses the mismatch
+diagnostics. Omitting the argument leaves the selected compiler's default in
+effect; Kotlin 2.2.0 defaults to `strict`. Zolt does not inject the JSpecify
+annotations artifact, so the annotation declarations must come from the source
+set or its declared dependencies. Configure the mode independently in
+`[compiler].args` and `[compiler.test].args`; changing it invalidates and
+cleanly recompiles the matching output.
+`-Xjsr305=strict` enables full type enhancement and reports errors for
+inappropriate uses of non-`@UnderMigration` custom JSR-305 qualifier nicknames
+and defaults. `warn` reports those mismatches as warnings without making the
+enhanced types authoritative, while `ignore` ignores those custom qualifiers;
+the selected Kotlin 2.2.0 compiler defaults to `warn`. Kotlin's built-in
+`javax.annotation.Nonnull`, `javax.annotation.Nullable`, and
+`javax.annotation.CheckForNull` handling remains enabled in every mode and is
+not weakened by this option. Zolt's bounded form
+does not admit the compiler's `under-migration:` or per-annotation `@name:`
+overrides, and Zolt does not inject a JSR-305 annotations artifact. Configure
+the global mode independently in `[compiler].args` and `[compiler.test].args`;
+changing it invalidates and cleanly recompiles the matching output.
+`-Xsupport-compatqual-checker-framework-annotations=enable` recognizes Checker
+Framework's legacy `NullableDecl` and `NonNullDecl` compatqual annotations when
+the selected compiler reads Java declarations; Kotlin 2.2.0 enables that
+behavior by default. `disable` ignores those two annotations and leaves their
+Java types as platform types. In the qualified mixed-source case, an unsafe
+dereference of a `@NullableDecl` return fails in the default and explicit
+`enable` modes but compiles under `disable`. That escape hatch can therefore
+move a null failure from compilation to runtime; use it only while migrating a
+legacy API whose compatqual declarations cannot yet be corrected. Zolt does not
+inject Checker Framework annotations. Configure the mode independently in
+`[compiler].args` and `[compiler.test].args`; changing it invalidates and
+cleanly recompiles the matching output.
+`-Xnullability-annotations=@package.name:strict` makes mismatches from
+nullability annotations in that compiler-recognized Java annotation package
+errors. `warn` reports those mismatches as warnings, so `-Werror` promotes them
+to compilation failures, while `ignore` suppresses them. The package is the
+annotation declaration's package, such as `org.jetbrains.annotations`, not the
+package containing the annotated API. The rule does not teach the compiler the
+meaning of arbitrary custom annotations; the selected compiler determines
+which annotation families and declarations it recognizes. Zolt accepts one
+rule per package, preserves distinct package-rule order, and does not inject an
+annotations artifact. Configure rules independently in `[compiler].args` and
+`[compiler.test].args`; changing any rule invalidates and cleanly recompiles the
+matching output.
+`-Xstring-concat=inline` emits concatenation through `StringBuilder`.
+`-Xstring-concat=indy` uses `StringConcatFactory.makeConcat`, while
+`indy-with-constants` uses `StringConcatFactory.makeConcatWithConstants`. The
+invokedynamic modes require an effective JVM target of 9 or newer; the selected
+Kotlin compiler enforces that target boundary.
+`-Xlambdas=class` emits ordinary synthetic classes for Kotlin lambdas, while
+`-Xlambdas=indy` uses `LambdaMetafactory` and avoids those class files. The indy
+form produces lighter output but its lambdas are not serializable unless marked
+`@JvmSerializableLambda`, do not work with Kotlin's experimental `reflect()`
+API, and have a less descriptive `toString()`. Changing modes performs a
+cleaned full compilation so obsolete synthetic lambda classes do not survive.
+`-Xindy-allow-annotated-lambdas` permits `-Xlambdas=indy` to apply to lambda
+expressions with annotations. Without this compatibility flag, the selected
+Kotlin compiler falls back to a generated lambda class so its annotated
+`invoke` method exists. With the flag, Zolt's qualified Kotlin 2.2.0 case emits
+`invokedynamic`, removes that lambda class, and retains the annotation on the
+enclosing class's synthetic implementation method. Runtime invocation behavior
+is unchanged, but reflection or bytecode tooling that expects the annotation on
+a lambda object's `invoke` method is not compatible with this layout. Zolt
+therefore requires an explicit `-Xlambdas=indy` in the same source-set argument
+list. Configure the pair independently for main and test; changing it performs
+a cleaned full compilation so fallback lambda classes cannot survive.
+`-Xsam-conversions=class` emits explicit synthetic implementation classes when
+Kotlin converts a function expression to a Kotlin or Java
+single-abstract-method interface, while `-Xsam-conversions=indy` uses
+`LambdaMetafactory` and avoids those class files. SAM-conversion mode is
+independent of `-Xlambdas`; configure both when ordinary Kotlin lambdas and SAM
+conversions require a particular scheme. Changing SAM-conversion modes likewise
+performs a cleaned full compilation so obsolete synthetic classes do not
+survive.
+`-jvm-default=enable` emits interface default methods plus
+compatibility `DefaultImpls`, `no-compatibility` emits only interface default
+methods, and `disable` emits abstract interface methods plus `DefaultImpls`.
+Changing modes rebuilds the source set with cleaned output so obsolete
+compatibility classes do not survive. `-Xexplicit-api=strict` makes missing
+visibility and return types on public API declarations compilation errors;
+`warning` reports the same issues as warnings, while `disable` turns the check
+off. Main and test arguments are independent, and changing warning suppression
+or enforcement, a diagnostic warning level, progressive mode, version pairs,
+context parameters, context-sensitive resolution, JVM-default mode,
+explicit-API mode, when-guards, nested-type-aliases configuration, annotation
+default-target mode, all-target annotation support, multi-dollar interpolation,
+non-local loop control, string-concatenation mode, lambda-generation mode,
+annotated-lambda indy compatibility, SAM-conversion mode, boxed value-class
+exposure, data-class copy visibility, source-debug annotation emission,
+JSpecify, JSR-305, or package-specific Java nullness severity, legacy null-check
+exceptions, Java-entry parameter assertions, strict metadata-version semantics,
+dependency metadata-version or prerelease bypass, platform-call result
+assertions, protected-package opt-in, K2 KAPT mode, extension-receiver
+assertions,
+annotations in metadata, return-value-checker mode, backend optimization,
+method inlining,
+backend thread count, class-file reader, inline-scope debug numbering, JVM-name
+parentheses sanitization, legacy inline-class mangling, multifile-part
+inheritance, complete warning reporting, internal diagnostic-name rendering,
+generated-bytecode validation, JVM preview-class generation, or opt-ins
+invalidates reuse for that source set.
+Zolt validates warning-level syntax and duplicate names; the selected Kotlin
+compiler still determines
+supported diagnostic names, warnings, extra and progressive checks, version
+values, language/API combinations, JVM-default and explicit-API modes,
+string-concatenation, lambda-generation, annotated-lambda indy compatibility,
+backend optimization, backend scheduling, method inlining, inline-scope debug
+numbering, class-file reading, legacy inline-class mangling, complete warning
+reporting, generated-bytecode
+validation, internal diagnostic-name rendering,
+JVM preview-class generation, JVM-name sanitization, multifile-part inheritance,
+and SAM-conversion modes,
+context-parameter, context-sensitive-resolution, when-guards,
+nested-type-aliases, multi-dollar-interpolation, non-local loop control,
+annotation-target, package-specific nullability, boxed value-class, and
+data-class copy visibility, source-debug annotation, and strict-metadata
+behavior, plus legacy null-check exception and Java-entry parameter-assertion
+behavior, platform-call result-assertion behavior, extension-receiver assertion
+behavior, and return-value-checker behavior. Main and test annotation,
+boxed-exposure, copy-visibility, source-debug, strict-metadata, and legacy
+null-check, parameter-assertion, call-assertion, receiver-assertion, and
+annotation-metadata, return-value-checker, backend-thread, and class-reader
+settings are independent. Changing any of them performs a cleaned full
+compilation of that source set so obsolete placement, constructors, bridges,
+method visibility, metadata, or null-check calls cannot survive. The compiler
+also decides whether an opt-in annotation
+exists and applies. Other custom compiler arguments remain unsupported for
+Kotlin-bearing source sets because javac flags cannot in general be forwarded
+safely to `kotlinc`.
+
+Kotlin compiler module identity is explicit when compatibility with another
+build must be preserved:
+
+```toml
+[compiler]
+kotlinModule = "library-core"
+
+[compiler.test]
+kotlinModule = "library-core-test"
+```
+
+`kotlinModule` controls the Kotlin module identity and the corresponding
+`META-INF/<name>.kotlin_module` metadata file. When omitted, Zolt derives a
+stable name from `[project].name`, followed by `_main` or `_test`. Maven uses
+`${project.artifactId}` for main compilation and `${project.artifactId}-test`
+for test compilation, so a statically proven Maven Kotlin draft writes both
+values explicitly for each source set that contains Kotlin.
+
+An explicit module name is one safe filename component: it must start with an
+ASCII letter or digit and may then contain ASCII letters, digits, `.`, `_`, `-`,
+or `+`. Path separators, traversal names, whitespace, and control characters
+are rejected. This keeps Kotlin metadata in the direct `META-INF` inventory
+used by incremental and cached builds.
 
 ## Resolution and Lockfile Contracts
 
@@ -741,8 +1883,8 @@ writing.
 Automation can select one exact declaration without fuzzy coordinate or section
 matching:
 
-    zolt update --target-id zt1_... --to 33.4.0-jre
-    zolt update --target-id zt1_... --to 33.4.0-jre \
+    zolt update --target-id zt1_... --to 33.7.2-jre
+    zolt update --target-id zt1_... --to 33.7.2-jre \
       --format json --schema-version 2
 
 `--target-id` and `--to` are required together. They cannot be combined with
@@ -880,8 +2022,11 @@ attaches on that JRE too). Without the section, tests run on the build toolchain
 nothing changes. Zolt rejects a test-runtime version older than `[project].java`
 (it would fail with `UnsupportedClassVersionError`) and, when the toolchain is not
 installed, points you at `zolt toolchain sync` — both surfaced by `zolt plan
---target test` and `zolt doctor`. Integration tests are the strongest use case:
-exercise your build on the JDK your users actually run.
+--target test` and `zolt doctor`. A newer test runtime is ordinarily valid, but
+Kotlin JVM preview-marked classes require an exact feature match; this includes
+preview-enabled workspace dependencies visible to the selected member's tests.
+Integration tests are the strongest use case: exercise your build on the JDK
+your users actually run.
 
 Build, run, test, package, and native commands use the resolved toolchain
 automatically. `zolt exec -- ...` runs an arbitrary command with `JAVA_HOME` and
@@ -1136,17 +2281,21 @@ dir = "~/.zolt/build-cache"
 maxSizeMb = 2048
 ```
 
-When enabled, `zolt build`, `zolt test`, and `zolt package` restore a module's
-compiled classes on a fingerprint miss and store them after a real compile. In a
-workspace each member is cached independently. Restores are reported distinctly:
+When enabled, `zolt build`, `zolt test`, `zolt integration-test`, and
+`zolt package` restore a module's compiled classes on a fingerprint miss and
+store them after a real compile. In a workspace each member is cached
+independently. Workspace build and test commands name restored members
+distinctly:
 
 ```text
 ✔ Restored 80 main classes · build cache
 ```
 
 Pass `--no-build-cache` to any of those commands to bypass the cache for one run
-(neither restore nor store). `--timings` records the per-module cache outcome
-(`restored`, `stored`, or `uncacheable`).
+(neither restore nor store). For a standalone module, `--timings` records the
+cache outcome (`restored`, `stored`, or `uncacheable`). Workspace timings report
+separate skipped, restored, and executed member counts. Workspace build and test
+human output names each restored member.
 
 ### Inspecting and pruning
 
@@ -1485,54 +2634,27 @@ are attributed to `"."`. Workspace `package-contents` quality also uses each
 member's actual package/runtime closure and supports BOM POM plans; it does not
 inspect unrelated sibling JARs from the aggregate lock.
 
-### Workspace state and the file-state fence
+### Workspace state and input verification
 
-Every workspace command begins by deciding which members need work. It decides
-from `.zolt/workspace-state-v1`, which records two things: a row of digests per
-member (its sources, resources, configuration, toolchain, resolution inputs, and
-compiled output) and a row per tracked input file.
+Every workspace command decides which members need work using
+`.zolt/workspace-state-v1`. It records member digests for sources, resources,
+configuration, toolchains, resolution inputs, and compiled output, alongside
+observations of individual files.
 
-A file row holds the file's workspace-relative path, its source set, the member
-that owns it, and — captured in the same breath as the content hash beside them —
-its size, its modification time at the filesystem's own resolution, and its file
-key (inode identity) where the platform reports one. A command stats every input
-and re-reads only the files whose size, modification time, or file key no longer
-matches the row. On a warm no-op that is zero bytes read. `--timings` publishes
-the split as `workspaceFilesStatted`, `workspaceFilesReused`,
-`workspaceFilesHashed`, and `workspaceBytesHashed`.
+Mutable input content is read and hashed once per command, even when size,
+modification time, and file identity match the previous observation. This detects
+edits and cache restores that preserve timestamps. Repeated requests for the same
+file within one command reuse its verified hash. An unchanged member still skips
+compilation; verification does not mean recompilation.
 
-**The fence.** Comparing metadata has one race: a file read at the same instant it
-is being edited can end up recorded with a timestamp that never moves again. Zolt
-closes it the way git's index does. The state file's own modification time is the
-fence, and any input whose modification time is *not strictly older* than it is
-re-read regardless of what its row says. Both timestamps come from the same
-filesystem clock, so no clock skew enters the decision, and with nanosecond
-timestamps the set of files inside the window is normally empty.
+`--timings` reports `workspaceFilesStatted`, `workspaceFilesHashed`, and
+`workspaceBytesHashed`. `workspaceFilesReused` remains available for compatibility
+and reports zero persisted-hash reuse. `ZOLT_WORKSPACE_PARANOID` is accepted for
+compatibility; content verification is always enabled.
 
-A command that changes nothing does not rewrite the state file. Rewriting
-identical bytes would teach the next command nothing and would drag the fence
-forward over every input edited since — so the file is left alone, and its
-timestamp keeps meaning what it says.
-
-**The residual, and the switch that removes it.** Comparison demands an input's
-modification time *equal* the one recorded, so it cannot see an edit that keeps the
-file's size, keeps its file key (editing in place reuses the inode), *and* forges the
-modification time back to exactly the recorded value; an older or a newer time is
-caught. That does not arise from editing; it takes a deliberate timestamp rewrite or a
-cache restore that reproduces the recorded timestamp exactly. It is the same residual
-git's index carries. Set `ZOLT_WORKSPACE_PARANOID=1` to remove it: every tracked input is read
-and hashed, and recorded metadata is refreshed but never believed. CI runners that
-restore caches with rewritten timestamps are the intended user.
-
-Zolt has no file-watching daemon, so nothing is assumed about what happened
-between commands — the fence is the whole guarantee, and it holds whether the last
-command ran a second or a month ago.
-
-**Upgrades.** The state file is versioned. A version 2 state (member rows only)
-is read as-is: its member digests carry across untouched, so nothing recompiles,
-and the first command after the upgrade reads every input once and writes a
-version 3 state. Anything older, corrupt, or unrecognised is discarded and the
-workspace is observed from scratch.
+A command that changes nothing does not rewrite identical state bytes. Older
+supported state files are read and upgraded as needed; corrupt or unrecognised
+state is discarded and the workspace is observed from scratch.
 
 ### Annotation processors and dirtiness
 
@@ -1546,13 +2668,15 @@ from the compile classpath. A compile dependency is summarised by its ABI, becau
 javac reads only signatures from one and an unchanged ABI cannot change what it
 compiles. A processor is not read, it is run: an edit confined to a method body
 leaves its signatures identical and can change every source it emits. So processor
-jars and workspace processor members are hashed by their compiled bytes, and a
-member whose workspace processor is being rebuilt in the same command is rebuilt
-with it.
+jars and workspace processor members are hashed by their classes and resources,
+with the processor's runtime dependency closure included. Changes are detected
+even when the processor was built in a separate command. A member whose workspace
+processor is being rebuilt in the same command is rebuilt with it.
 
 Generated sources are part of the member's observed state rather than a reason to
-distrust it. Editing one by hand, or deleting the generated tree, moves the digest
-and rebuilds the member.
+distrust it. Editing or deleting an owned exec output invalidates the producer
+cache, reruns the generator, and repairs the tree before compile fingerprinting.
+If the repaired bytes equal the prior output, compilation may still be skipped.
 
 What this rests on is that a processor is a function of its declared inputs — the
 same assumption Gradle and Bazel make. A processor that reads an undeclared file,
@@ -1562,8 +2686,28 @@ observe that change, and paranoid mode does not help there either.
 ## Tests and Coverage
 
 Zolt runs JUnit Platform based tests and can compile Java and Groovy test
-sources when configured. That covers examples such as JUnit Jupiter, JUnit
-Vintage, and Spock:
+sources when configured. A bounded preview also compiles Kotlin/JVM unit and
+integration tests from authored or admitted generated roots, alone or together
+with admitted Java tests;
+Groovy/Kotlin test source sets remain unsupported. Kotlin unit-test roots are
+explicit: declare them under `[test.sources].kotlin`. Zolt discovers `.kt`
+files, but not Kotlin scripts (`.kts`), only from those roots. A `.kt` file found
+under a Java or Groovy unit-test root fails with guidance to declare or move it;
+explicitly declaring the same directory as a Kotlin root admits it.
+
+Integration-test roots are intentionally polyglot. List both conventional roots
+when Java and Kotlin integration tests coexist; Zolt discovers each supported
+source type from the configured roots and writes their classes and Kotlin module
+metadata to the independently owned integration-test output:
+
+```toml
+[test.integration]
+sources = ["src/integration-test/java", "src/integration-test/kotlin"]
+resources = ["src/integration-test/resources"]
+```
+
+Supported test sources cover examples such as JUnit Jupiter, JUnit Vintage, and
+Spock:
 
 Zolt treats test engines as project dependencies and the JUnit Platform console
 launcher as build tooling. When test dependencies are configured and no console
@@ -1574,6 +2718,9 @@ Resolution fails if a managed console conflicts with the resolved engine line.
 Declare a console artifact only to pin or override the launcher:
 
 ```toml
+[toolchain.groovy]
+version = "4.0.22"
+
 [dependencies.test]
 "org.apache.groovy:groovy" = "4.0.22"
 "org.spockframework:spock-core" = "2.3-groovy-4.0"
@@ -1583,6 +2730,67 @@ Declare a console artifact only to pin or override the launcher:
 [test.sources]
 groovy = ["src/test/groovy"]
 ```
+
+The isolated compiler closure is acquired by `zolt resolve`; the ordinary test
+dependency supplies Groovy to the test compilation and runtime classpaths. The
+configured compiler and ordinary runtime must match by version and verified
+core content, just as they do for main joint compilation.
+
+Kotlin unit and integration tests use the same isolated `[toolchain.kotlin]`
+compiler and need the ordinary `org.jetbrains.kotlin:kotlin-stdlib` dependency
+on the applicable test classpath. The preview accepts Kotlin-only and mixed
+Java/Kotlin test source sets with an empty, Java-only, Kotlin-only, or mixed
+Java/Kotlin main source set. Java may be authored under the configured test
+roots. Pre-generated Java or Kotlin tests may instead be supplied by a
+`[generated.test.<id>]` step whose `kind` is `"declared-root"`. Set
+`language = "kotlin"` for Kotlin. A declared root is an already-present protected
+input: its matching source files and declared producer inputs participate in
+fingerprint, workspace, and output-cache decisions, while compile cleanup and
+cache restoration leave the tree untouched. A pinned `kind = "exec"` step may
+own generated Java or Kotlin tests with `produces = "test-sources"`; Java is the
+default and Kotlin requires `language = "kotlin"`. Generation runs before
+discovery, and its producer identity and output participate in test reuse
+decisions. OpenAPI and Protobuf test steps support the same language choice.
+Java and Kotlin test declarations may refer to one another across authored,
+declared, and generator-owned roots. This applies to both unit tests and the
+projected integration-test source set.
+
+Without annotation processors, mixed tests use the same cleaned two-phase model
+as mixed main sources:
+`kotlinc` first analyzes all admitted Java and Kotlin test sources and emits the
+Kotlin bytecode, then `javac` compiles the Java tests with the test output first
+on its classpath. Circular cross-language unit and integration-test references
+are therefore supported.
+
+In a Kotlin-bearing test source set, annotation processors declared under
+`[dependencies.test-processor]` use the same isolated KAPT lifecycle. Zolt locks
+one matching KAPT plugin for the configured Kotlin compiler, generates Java
+under `[compiler.generated].test`
+(by default `target/generated/test-sources/annotations`), makes those generated
+types visible to Kotlin and Java tests, and disables processing during the
+final `javac` phase. Test KAPT options use `-Akey=value` entries in
+`[compiler.test].args`; they require `[dependencies.test-processor]`, follow the
+same key/value grammar and deterministic encoding as main options, and
+participate in test fingerprint and cache identity. Main and test processor
+lanes remain separate. `-Xuse-k2-kapt` in `[compiler.test].args` selects the
+same experimental compiler mode for test KAPT without changing the main lane.
+
+With Kotlin main sources, unit and integration tests may use public and
+`internal` APIs from their own member because its main output is the sole Kotlin
+friend path. Workspace API, implementation, and test dependency outputs stay
+ordinary classpath entries, so their `internal` declarations remain
+inaccessible. Workspace-wide `integration-test --workspace --all` runs use the
+same bounded compiler path for every selected member, and unchanged main and
+integration-test outputs remain eligible for fingerprint reuse. The preview
+rejects Groovy test sources, `module-info.java`,
+`[compiler.test].args` containing an argument outside the bounded set documented
+above, a malformed or duplicate supported argument, or Quarkus in the same
+member. Exec steps that produce test resources or intermediate outputs remain
+compatible. KSP steps may produce owned Kotlin, Java, and resource lanes before
+the selected unit- or integration-test compile; custom Kotlin compiler plugins
+remain unsupported. Test dependencies remain isolated from main compilation and
+main runtime. Any source change in a Kotlin-bearing test source set uses cleaned
+full-scope compilation rather than incremental javac state.
 
 Test commands support class/method selection, glob patterns, JUnit tags, JVM
 arguments, XML reports, deterministic shards, named suites, and optional profile
@@ -1633,11 +2841,14 @@ Zolt has project-model support for common Java application shapes:
   `[package] mode = "quarkus"`.
 - Micronaut-style annotation processor workflows.
 - Vert.x applications with platform BOMs and dependency exclusions.
-- OpenAPI generated Java sources with tool versioning and presets.
-- Protobuf/gRPC generated Java sources.
+- OpenAPI generated Java or Kotlin sources with tool versioning and presets.
+- Protobuf/gRPC generated Java or Kotlin sources.
+- KSP2-generated Kotlin, Java, and resources for Kotlin-bearing main, unit-test,
+  and integration-test source sets, with separately locked engine and processor
+  closures.
 - Generic exec steps that run a pinned tool — a resolver-locked `jvm` tool, a
   PATH `process` tool, or the member's own `project` classpath — to produce Java
-  sources or resources consumed by the build.
+  or Kotlin sources or resources consumed by the build.
 - Library-style canaries such as Commons CLI, HikariCP, and SLF4J workspace
   modules.
 
@@ -1667,7 +2878,40 @@ preset = "spring-api"
 repeat `kind` on a reserved id. A step's `tool` defaults to the built-in for its
 kind and its `output` defaults to `<build.output.root>/generated/sources/<id>`
 (`generated/test-sources/<id>` for a test step), so neither is written unless it
-differs. `language` is omitted while Java is the sole supported language.
+differs. `language` defaults to `"java"`. The value `"kotlin"` is accepted for
+`kind = "declared-root"`, which admits an already-present protected Kotlin tree
+without making Zolt its producer; for `kind = "exec"` when `produces` is
+`"java-sources"` or `"test-sources"`; and for `kind = "openapi"`. A Kotlin
+OpenAPI step must select a generator and options that actually emit `.kt` files.
+Its owned output is generated before discovery and participates in fingerprint,
+workspace, and output-cache decisions. Protobuf and non-source exec outputs
+remain Java-only.
+
+`ksp` is also a reserved tool id, but it has no implicit processor selection:
+declare `[generated.tools.ksp]` with a matching KSP engine version and at least
+one processor coordinate. A `kind = "ksp"` step has fixed Kotlin, Java, and
+resource lanes rather than a configurable `language` or `produces` value. See
+[KSP2 source-set generation preview](#ksp2-source-set-generation-preview) for its complete
+contract.
+
+For example, an external generator can hand an existing Kotlin tree to Zolt
+without granting cleanup ownership:
+
+```toml
+[generated.main.external-model]
+kind = "declared-root"
+language = "kotlin"
+output = "generated/main/kotlin"
+inputs = ["schema/model.yaml"]
+required = true
+clean = false
+```
+
+The same shape works under `[generated.test.<id>]`. The matching `.kt` files and
+declared producer inputs participate in compilation, workspace dirtiness,
+fingerprints, and output-cache validation. The output tree must already exist
+when `required = true`, and compile cleanup, cache restoration, and `zolt clean`
+do not remove it when `clean = false`.
 
 Protobuf/gRPC configuration can look like this:
 
@@ -1727,6 +2971,14 @@ anchor, `after`, or `dependsOn`. `produces = "java-sources"` (or
 input equal to or under another exec step's declared output creates an ordering
 edge; steps run serially in the topological order of those edges, with ties
 broken alphabetically by id, and a cycle is a configuration error.
+
+Source-producing exec steps default to Java. Set `language = "kotlin"` when
+the tool emits `.kt` files; use `"java-sources"` under `[generated.main]` and
+`"test-sources"` under `[generated.test]`. Zolt runs the generator before
+source discovery, routes only the matching language into compilation, and owns
+the output tree according to the step's `clean` setting. Kotlin is rejected for
+resource, test-resource, and intermediate exec outputs because those lanes do
+not enter Kotlin compilation.
 
 Determinism follows the OpenAPI cache: an exec step re-runs only when its
 fingerprint changes — locked tool jar hashes, argv, the content of its expanded
@@ -1804,10 +3056,11 @@ cache = "none"                          # always-run; excluded from --offline; h
 
 ## Generated Producer Contract
 
-Every generated-source producer — the OpenAPI and protobuf built-ins and the
-generic exec step — obeys one contract, documented here the way resolution is,
-because a build tool that runs third-party tools must be explicit about what
-those tools may read and produce:
+The OpenAPI and protobuf built-ins and the generic exec step obey one declared-IO
+contract, documented here the way resolution is, because a build tool that runs
+third-party tools must be explicit about what those tools may read and produce.
+KSP uses the separate source-set and fixed multi-lane contract documented under
+[KSP2 source-set generation preview](#ksp2-source-set-generation-preview).
 
 - Inputs are exactly the declared closure. Zolt expands the `inputs` globs
   itself, sorts them, and hashes their content into the step fingerprint;
@@ -1823,12 +3076,16 @@ those tools may read and produce:
   jar is in `zolt.lock` and the fingerprint. A `process` tool is probed-advisory: PATH
   bytes are unprovable, so its identity is the binary name plus the probed
   `versionCommand` stdout, and it requires `allowUnpinnedTool = true` to say so.
-- Skip is fingerprint-exact. A step re-runs only when its fingerprint changes —
+- Skip is fingerprint-exact. A step re-runs when its fingerprint changes —
   tool identity, argv, expanded input content, env names and literal values, a
   digest of each `inheritEnv` variable's actual runtime value, `cwd`, and
-  `produces`/`into` — and its output bytes are hashed
-  into the module build fingerprint, so a changed output invalidates exactly its
-  consumers while stable output lets them skip even after an always-run step.
+  `produces`/`into` — or when its recorded output tree has been edited or
+  deleted. OpenAPI and content-cached exec steps bind the producer fingerprint
+  to the output digest recorded after a successful run, so a matching input
+  fingerprint alone cannot accept damaged generated output. Output bytes are
+  hashed into the module build fingerprint, so a changed output invalidates
+  exactly its consumers while stable output lets them skip even after an
+  always-run step.
 - `cache = "none"` is honest non-determinism, not a cache miss. It always runs,
   is excluded from `--offline` as a hard error, fails `zolt check
   --require-offline-ready`, and stamps `hermetic = false` into package evidence.
@@ -2036,6 +3293,57 @@ and in `--emit-toml`; anything dynamic (ranges, SNAPSHOT parents, unresolved
 `${...}`) is surfaced as a review item instead of being guessed, and every
 fetched coordinate is recorded in the audit.
 
+Maven Kotlin/JVM emission is deliberately narrower than Maven inspection.
+`zolt explain --emit-toml` authors Kotlin toolchain, source-root, runtime, and
+compiler-module settings only when the static model proves all of the following:
+
+- the project is a plain JAR with no inherited parent model or profiles;
+- exactly one active `org.jetbrains.kotlin:kotlin-maven-plugin` has a fixed
+  Kotlin 2.4-or-newer release, `<extensions>true</extensions>`, and no custom
+  configuration, executions, plugin dependencies, disabled executions, or
+  matching `pluginManagement` entry;
+- one direct, ordinary, plain-JAR `org.jetbrains.kotlin:kotlin-stdlib`
+  dependency has the same fixed version and a scope visible to every Kotlin
+  source set;
+- main and test roots use the conventional Java/Kotlin layout, do not replace
+  the test source root, stay inside the project, and contain no symbolic-link,
+  Groovy, Scala, Android, generated-source, build-helper, or JPMS behavior;
+- `maven.compiler.release` is an explicit Java feature release,
+  `project.build.sourceEncoding` is UTF-8, `maven.compiler.proc` is `none`, and
+  `kapt.include.compile.classpath` is `false`;
+- one plain, fixed `maven-compiler-plugin` 3.13-or-newer declaration establishes
+  those compiler properties without configuration, executions, dependencies,
+  or another Maven JDK toolchain; and
+- the effective Maven `artifactId` is fixed and valid as a safe Kotlin module
+  filename component.
+
+Additional Maven/Kotlin compiler properties, lifecycle extensions, competing
+language plugins, annotation processors, generated outputs, custom roots, or
+unresolved values keep Kotlin as review data and produce a manual-migration
+note instead of an optimistic Kotlin draft.
+
+Gradle Kotlin/JVM emission uses a separate, equally conservative gate.
+`zolt explain --emit-toml` authors Kotlin settings only for a standalone root
+whose settings contain one literal `rootProject.name`, whose build uses exactly
+one applied, fixed `org.jetbrains.kotlin.jvm` 2.2.x or 2.3.x plugin, and whose
+literal Java 8-21 toolchain matches the project release. Main and test roots
+must be conventional and Kotlin-only; mixed Java, Groovy, JPMS, symlinked source
+trees, custom source sets, annotation or symbol processing, compiler options,
+Kotlin extension/task configuration, `buildSrc`, resolution rules, other active
+plugins, and executable build logic keep the project in review-only mode.
+Every dependency statement must also be a single literal `group:artifact:version`
+or a resolved default-catalog alias in a supported configuration. Local files,
+project edges, map/computed notations, custom configurations, classifiers,
+dependency closures, and unresolved aliases keep Kotlin settings out of the
+draft rather than allowing an omitted classpath entry to look complete.
+
+The emitted runtime is either one explicit plain `kotlin-stdlib` at the plugin
+version or the same dependency Gradle would add automatically. The draft also
+preserves the pre-2.4 Gradle module identities (`project.name` and
+`project.name + "_test"`). Kotlin 2.4 and newer remain review-only until their
+changed default module identity is represented explicitly. Ordinary Maven and
+Gradle audit output and non-Kotlin draft behavior are unchanged by these gates.
+
 Gradle BOM shapes map like their Maven counterparts. A `platform('g:a:v')` or
 `enforcedPlatform(...)` import — Groovy or Kotlin DSL, a string coordinate or a
 `platform(libs.x)` version-catalog reference, in any configuration — is emitted
@@ -2128,6 +3436,11 @@ The `examples/` directory is deliberately broad. It includes:
 - `adoption-plain-app`: plain Java app with resources and a small test.
 - `junit-basic`: JUnit Platform console runner.
 - `junit-vintage`: JUnit Vintage test support.
+- `groovy-main`: joint Java/Groovy main compilation with separate conventional
+  roots and circular cross-language references.
+- `kotlin-main`: bounded two-phase Java/Kotlin main compilation with isolated
+  compiler tooling, circular cross-language references, and an ordinary Kotlin
+  runtime dependency.
 - `spock-basic`: Groovy test sources and Spock.
 - `workspace-app`: app/module/tools workspace with a configured task.
 - `large-workspace`: larger workspace selection fixture.
@@ -2153,13 +3466,18 @@ The `examples/` directory is deliberately broad. It includes:
 
 ## Platforms
 
-Zolt ships only through the automatic `zap` channel, which publishes native
-binaries for:
+Zolt native release channels target:
 
 - `linux-x64`
 - `linux-arm64`
 - `macos-arm64`
 - `macos-x64`
+
+The 1.0 release qualification baselines are Ubuntu 24.04 with glibc and macOS 15,
+on both architectures. Each stable candidate must pass the native CLI lifecycle
+and build and execute a plain GraalVM native application on its target runner.
+Older OS versions and Linux musl distributions are outside this qualification
+matrix; the target names alone do not promise compatibility with them.
 
 Windows (`windows-x64`) is **experimental and not yet supported as a host**. CI
 runs a non-blocking `windows-smoke` discovery lane that builds the workspace and

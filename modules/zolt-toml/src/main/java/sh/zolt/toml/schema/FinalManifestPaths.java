@@ -12,6 +12,8 @@ public final class FinalManifestPaths {
     public static final ManifestPath TOOLCHAIN_ZOLT = ManifestPath.of("toolchain", "zolt");
     public static final ManifestPath TOOLCHAIN_JAVA = ManifestPath.of("toolchain", "java");
     public static final ManifestPath TOOLCHAIN_JAVA_TEST = TOOLCHAIN_JAVA.child("test");
+    public static final ManifestPath TOOLCHAIN_GROOVY = ManifestPath.of("toolchain", "groovy");
+    public static final ManifestPath TOOLCHAIN_KOTLIN = ManifestPath.of("toolchain", "kotlin");
     public static final ManifestPath VERSIONS = ManifestPath.of("versions");
     public static final ManifestPath REPOSITORIES = ManifestPath.of("repositories");
     public static final ManifestPath REPOSITORY = REPOSITORIES.child("<id>");

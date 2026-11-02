@@ -11,7 +11,9 @@ import java.util.List;
 public final class BuildFingerprintService {
     private static final String MAIN_FILE_NAME = ".zolt-build-main.fingerprint";
     private static final String TEST_FILE_NAME = ".zolt-build-test.fingerprint";
-    private final BuildFingerprintEngine engine = new BuildFingerprintEngine();
+    private final BuildFingerprintEngine engine;
+    public BuildFingerprintService() { this(new sh.zolt.build.metadata.BuildMetadataGenerator()); }
+    public BuildFingerprintService(sh.zolt.build.metadata.BuildMetadataGenerator metadata) { engine = new BuildFingerprintEngine(metadata); }
 
     public boolean isMainCompileCurrent(
             Path projectDirectory,
@@ -50,7 +52,7 @@ public final class BuildFingerprintService {
                 BuildFingerprintSourceRoots.main(config.build()),
                 config.build().resourceRoots(),
                 "[resources].main",
-                sources.mainSources(),
+                sources.allMainSources(),
                 config.build().generatedMainSources(),
                 List.of(),
                 classpaths.compile(),
@@ -78,7 +80,7 @@ public final class BuildFingerprintService {
                 BuildFingerprintSourceRoots.main(config.build()),
                 config.build().resourceRoots(),
                 "[resources].main",
-                sources.mainSources(),
+                sources.allMainSources(),
                 config.build().generatedMainSources(),
                 List.of(),
                 classpaths.compile(),
@@ -261,8 +263,9 @@ public final class BuildFingerprintService {
     /**
      * The inputs-only fingerprint SHA-256 for the main compile scope: the content component of a
      * build-output cache key. Computed from the same input sections the skip-gate hashes, minus the
-     * {@code [expectedClasses]} output section. Stable across the compile it keys (inputs do not change
-     * while javac runs), so the value taken before a compile matches the one implied after it.
+     * {@code [expectedClasses]} output-only section. Stable across the compile it keys (inputs do not
+     * change while a compiler runs), so the value taken before a compile matches the one implied
+     * after it.
      */
     public String mainInputsFingerprintSha256(
             Path projectDirectory,
@@ -281,7 +284,7 @@ public final class BuildFingerprintService {
                 BuildFingerprintSourceRoots.main(config.build()),
                 config.build().resourceRoots(),
                 "[resources].main",
-                sources.mainSources(),
+                sources.allMainSources(),
                 config.build().generatedMainSources(),
                 List.of(),
                 classpaths.compile(),

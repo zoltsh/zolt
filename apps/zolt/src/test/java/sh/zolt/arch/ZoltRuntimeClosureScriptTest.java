@@ -25,4 +25,20 @@ final class ZoltRuntimeClosureScriptTest {
         assertEquals(0, process.exitValue(), output);
         assertTrue(output.contains("Zolt runtime closure script test passed"), output);
     }
+
+    @Test
+    void builtLauncherSnapshotsMutableRuntimeEntries() throws IOException, InterruptedException {
+        Path root = RepositoryPaths.root();
+        Process process = new ProcessBuilder(
+                        "bash",
+                        root.resolve("scripts/run-zolt-built-test").toString())
+                .directory(root.toFile())
+                .redirectErrorStream(true)
+                .start();
+
+        assertTrue(process.waitFor(30, TimeUnit.SECONDS), "built launcher script test timed out");
+        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        assertEquals(0, process.exitValue(), output);
+        assertTrue(output.contains("run-zolt-built isolation test passed"), output);
+    }
 }

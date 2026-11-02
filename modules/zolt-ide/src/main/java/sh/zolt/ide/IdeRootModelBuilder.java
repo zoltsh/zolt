@@ -27,14 +27,35 @@ final class IdeRootModelBuilder {
         }
         BuildSettings settings = config.build();
         List<IdeModel.SourceRoot> roots = new ArrayList<>();
+        List<Path> resolvedMainRoots = new ArrayList<>();
         for (int index = 0; index < settings.sourceRoots().size(); index++) {
-            addSourceRoot(
-                    roots,
-                    index == 0 ? "main-java" : "main-java-" + (index + 1),
-                    "main",
-                    "java",
-                    inputRoot(root, "[build].sources", settings.sourceRoots().get(index), diagnostics),
-                    false);
+            Path sourceRoot = inputRoot(
+                    root, "[build].sources", settings.sourceRoots().get(index), diagnostics);
+            resolvedMainRoots.add(sourceRoot);
+            for (String language : IdeSourceRootLanguages.detect(
+                    settings.sourceRoots().get(index), sourceRoot)) {
+                addSourceRoot(
+                        roots,
+                        mainSourceRootId(language, index),
+                        "main",
+                        language,
+                        sourceRoot,
+                        false);
+            }
+        }
+        for (int index = 0; index < settings.sourceRoots().size(); index++) {
+            Path sourceRoot = resolvedMainRoots.get(index);
+            if (sourceRoot != null
+                    && IdeSourceRootLanguages.includesGroovy(
+                            settings.sourceRoots().get(index), sourceRoot)) {
+                addSourceRoot(
+                        roots,
+                        mainSourceRootId("groovy", index),
+                        "main",
+                        "groovy",
+                        sourceRoot,
+                        false);
+            }
         }
         addSourceRoot(
                 roots,
@@ -47,28 +68,13 @@ final class IdeRootModelBuilder {
             roots.add(new IdeModel.SourceRoot(
                     generatedRoot.id(),
                     "main",
-                    "java",
+                    generatedRoot.language(),
                     generatedRoot.path(),
                     true));
         }
-        for (int index = 0; index < settings.testSources().size(); index++) {
-            addSourceRoot(
-                    roots,
-                    "test-java-" + (index + 1),
-                    "test",
-                    "java",
-                    inputRoot(root, "[test.sources].java", settings.testSources().get(index), diagnostics),
-                    false);
-        }
-        for (int index = 0; index < settings.groovyTestSources().size(); index++) {
-            addSourceRoot(
-                    roots,
-                    "test-groovy-" + (index + 1),
-                    "test",
-                    "groovy",
-                    inputRoot(root, "[test.sources].groovy", settings.groovyTestSources().get(index), diagnostics),
-                    false);
-        }
+        addTestSourceRoots(roots, root, "java", settings.testSources(), diagnostics);
+        addTestSourceRoots(roots, root, "groovy", settings.groovyTestSources(), diagnostics);
+        addTestSourceRoots(roots, root, "kotlin", settings.kotlinTestSources(), diagnostics);
         addSourceRoot(
                 roots,
                 "test-generated-java",
@@ -80,10 +86,12 @@ final class IdeRootModelBuilder {
             roots.add(new IdeModel.SourceRoot(
                     generatedRoot.id(),
                     "test",
-                    "java",
+                    generatedRoot.language(),
                     generatedRoot.path(),
                     true));
         }
+        addIntegrationTestSourceRoots(
+                roots, root, settings.integrationTestSources(), diagnostics);
         return roots;
     }
 
@@ -112,8 +120,17 @@ final class IdeRootModelBuilder {
         }
         BuildSettings settings = config.build();
         List<IdeModel.ResourceRoot> roots = new ArrayList<>();
-        addResourceRoots(roots, root, "main", settings.resourceRoots(), diagnostics);
-        addResourceRoots(roots, root, "test", settings.testResourceRoots(), diagnostics);
+        addResourceRoots(
+                roots, root, "main", "[resources].main", settings.resourceRoots(), diagnostics);
+        addResourceRoots(
+                roots, root, "test", "[resources].test", settings.testResourceRoots(), diagnostics);
+        addResourceRoots(
+                roots,
+                root,
+                "integration-test",
+                "[test.integration].resources",
+                settings.integrationTestResourceRoots(),
+                diagnostics);
         return List.copyOf(roots);
     }
 
@@ -127,6 +144,46 @@ final class IdeRootModelBuilder {
         if (path != null) {
             roots.add(new IdeModel.SourceRoot(id, kind, language, path, generated));
         }
+    }
+
+    private static void addTestSourceRoots(
+            List<IdeModel.SourceRoot> roots, Path root, String language, List<String> configuredRoots,
+            List<IdeModel.Diagnostic> diagnostics) {
+        for (int index = 0; index < configuredRoots.size(); index++) {
+            addSourceRoot(
+                    roots,
+                    "test-" + language + "-" + (index + 1),
+                    "test",
+                    language,
+                    inputRoot(root, "[test.sources]." + language, configuredRoots.get(index), diagnostics),
+                    false);
+        }
+    }
+
+    private static void addIntegrationTestSourceRoots(
+            List<IdeModel.SourceRoot> roots,
+            Path root,
+            List<String> configuredRoots,
+            List<IdeModel.Diagnostic> diagnostics) {
+        for (int index = 0; index < configuredRoots.size(); index++) {
+            String configuredRoot = configuredRoots.get(index);
+            Path sourceRoot = inputRoot(
+                    root, "[test.integration].sources", configuredRoot, diagnostics);
+            for (String language : IdeSourceRootLanguages.detect(configuredRoot, sourceRoot)) {
+                addSourceRoot(
+                        roots,
+                        "integration-test-" + language + "-" + (index + 1),
+                        "integration-test",
+                        language,
+                        sourceRoot,
+                        false);
+            }
+        }
+    }
+
+    private static String mainSourceRootId(String language, int index) {
+        String prefix = "main-" + language;
+        return index == 0 ? prefix : prefix + "-" + (index + 1);
     }
 
     private static List<GeneratedSourceRoot> generatedRoots(
@@ -153,10 +210,11 @@ final class IdeRootModelBuilder {
         if (output == null) {
             return null;
         }
-        return new GeneratedSourceRoot("generated-" + kind + "-" + step.id(), output);
+        return new GeneratedSourceRoot(
+                "generated-" + kind + "-" + step.id(), step.language(), output);
     }
 
-    private record GeneratedSourceRoot(String id, Path path) {}
+    private record GeneratedSourceRoot(String id, String language, Path path) {}
 
     private static List<GeneratedSourceStep> safeGeneratedSteps(
             Path root,
@@ -214,12 +272,13 @@ final class IdeRootModelBuilder {
             List<IdeModel.ResourceRoot> roots,
             Path root,
             String kind,
+            String key,
             List<String> configuredRoots,
             List<IdeModel.Diagnostic> diagnostics) {
         String idPrefix = kind + "-resources";
         for (int index = 0; index < configuredRoots.size(); index++) {
             String id = index == 0 ? idPrefix : idPrefix + "-" + (index + 1);
-            Path path = inputRoot(root, "[resources]." + kind, configuredRoots.get(index), diagnostics);
+            Path path = inputRoot(root, key, configuredRoots.get(index), diagnostics);
             if (path != null) {
                 roots.add(new IdeModel.ResourceRoot(id, kind, path));
             }

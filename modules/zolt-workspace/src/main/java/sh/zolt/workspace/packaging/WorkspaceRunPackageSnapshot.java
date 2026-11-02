@@ -24,14 +24,17 @@ public record WorkspaceRunPackageSnapshot(
 
     public record MemberLaunch(
             String member,
+            Path workingDirectory,
             WorkspaceBuildResult.MemberBuildResult build,
             PackageResult originalPackage,
             PackageResult snapshotPackage,
             List<Path> runtimeEntries,
             Path java,
-            String mainClass) {
+            String mainClass,
+            List<String> jvmArguments) {
         public MemberLaunch {
             runtimeEntries = List.copyOf(runtimeEntries);
+            jvmArguments = List.copyOf(jvmArguments);
         }
     }
 }

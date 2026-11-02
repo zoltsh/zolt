@@ -28,6 +28,7 @@ import sh.zolt.manifest.authored.AuthoredGeneratedPresets;
 import sh.zolt.manifest.authored.AuthoredGeneratedSources;
 import sh.zolt.manifest.authored.AuthoredGeneratedStep;
 import sh.zolt.manifest.authored.AuthoredGeneratedTools;
+import sh.zolt.manifest.authored.AuthoredKspStep;
 import sh.zolt.manifest.authored.AuthoredOpenApiOptions;
 import sh.zolt.manifest.authored.AuthoredOpenApiStep;
 import sh.zolt.manifest.authored.AuthoredProtobufStep;
@@ -88,6 +89,10 @@ final class ManifestGeneratedSourcesDecoder {
         if (step instanceof AuthoredProtobufStep protobuf) {
             return constructAtOptionalTool(
                     composition.index, entry, fields, protobuf.tool().isPresent(), aggregate);
+        }
+        if (step instanceof AuthoredKspStep ksp) {
+            return constructAtOptionalTool(
+                    composition.index, entry, fields, ksp.tool().isPresent(), aggregate);
         }
         if (step instanceof AuthoredExecStep) {
             return constructAtField(

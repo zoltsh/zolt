@@ -23,13 +23,13 @@ final class ToolchainStoreTest {
     private Path tempDir;
 
     @Test
-    void mapsLockedToolchainToStableStorePath() {
+    void mapsLockedToolchainToStableStorePath() throws IOException {
         ToolchainStore store = new ToolchainStore(tempDir.resolve("toolchains"));
 
         Path javaHome = store.javaHome(locked());
 
         assertEquals(
-                tempDir.resolve("toolchains/java/graalvm-community/21/linux-x64/jdk"),
+                tempDir.toRealPath().resolve("toolchains/java/graalvm-community/21/linux-x64/jdk"),
                 javaHome);
     }
 

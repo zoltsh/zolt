@@ -73,6 +73,34 @@ final class PlanCommandTest {
     }
 
     @Test
+    void planAcceptsKotlinProtobufGeneration() throws IOException {
+        Path projectDir = tempDir.resolve("plan-kotlin-protobuf");
+        Path input = projectDir.resolve("src/main/proto/protocol.proto");
+        Path output = projectDir.resolve("target/generated/sources/protobuf/com/example/Protocol.kt");
+        Files.createDirectories(input.getParent());
+        Files.createDirectories(output.getParent());
+        Files.writeString(input, "syntax = \"proto3\"; message Protocol {}\n");
+        Files.writeString(output, "package com.example\nclass Protocol\n");
+        Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("plan-kotlin-protobuf") + """
+
+                [generated.main.protocol]
+                kind = "protobuf"
+                language = "kotlin"
+                inputs = ["src/main/proto/protocol.proto"]
+                output = "target/generated/sources/protobuf"
+                """);
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
+
+        CommandResult result = execute("plan", "--cwd", projectDir.toString());
+
+        assertEquals(0, result.exitCode(), result.stderr());
+        assertTrue(result.stdout().contains("- generate-main-protocol [generated-source] ready"));
+        assertTrue(result.stdout().contains("kind: protobuf"));
+        assertTrue(result.stdout().contains("language: kotlin"));
+        assertTrue(result.stdout().contains("ownership: zolt-owned-protobuf"));
+    }
+
+    @Test
     void planJsonRedactsTestEnvironmentValues() throws IOException {
         Path projectDir = tempDir.resolve("plan-json");
         Files.createDirectories(projectDir);
@@ -100,6 +128,45 @@ final class PlanCommandTest {
         assertTrue(result.stdout().contains("\"environment: [TZ] (values redacted)\""));
         assertFalse(result.stdout().contains("America/Chicago"));
         assertEquals("", result.stderr());
+    }
+
+    @Test
+    void planBlocksMismatchedPreviewTestRuntime() throws IOException {
+        Path projectDir = tempDir.resolve("plan-preview-test-runtime");
+        Files.createDirectories(projectDir);
+        int feature = Runtime.version().feature();
+        Files.writeString(projectDir.resolve("zolt.toml"), """
+                [project]
+                name = "plan-preview-test-runtime"
+                version = "0.1.0"
+                group = "com.example"
+                java = %d
+
+                [toolchain.java]
+                version = %d
+                features = []
+                policy = "allow-system"
+
+                [toolchain.java.test]
+                version = %d
+
+                [compiler.test]
+                args = ["-Xjvm-enable-preview"]
+                """.formatted(feature, feature, feature + 1));
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
+
+        CommandResult result = execute(
+                "plan",
+                "--target", "test",
+                "--cwd", projectDir.toString());
+
+        assertEquals(1, result.exitCode(), result.stdout() + result.stderr());
+        assertTrue(result.stdout().contains("- run-tests [test] blocked"));
+        assertTrue(result.stdout().contains("blocker test-runtime-toolchain"));
+        assertTrue(result.stdout().contains(
+                "JVM preview class files require the same Java feature release"));
+        assertTrue(result.stdout().contains(
+                "Set [toolchain.java.test].version to " + feature));
     }
 
     @Test

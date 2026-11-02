@@ -73,11 +73,11 @@ public final class NativeInstallCommandSupport {
         if (!Files.isSymbolicLink(binLink)) {
             return UserGlobalDirectory.root();
         }
-        try {
-            return binLink.toRealPath().equals(executable) ? root : UserGlobalDirectory.root();
-        } catch (IOException exception) {
-            return UserGlobalDirectory.root();
-        }
+        // Another transaction may switch the launcher after this process starts. Its completed
+        // version still identifies the installation; the service validates current state under its lease.
+        String version = versionDirectory.getFileName().toString();
+        return Files.isRegularFile(executable) && !version.startsWith(".") && !version.endsWith(".tmp")
+                ? root : UserGlobalDirectory.root();
     }
 
     public static String effectiveChannelUrl(Path installRoot, String channelUrl) {

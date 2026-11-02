@@ -94,22 +94,16 @@ public record IncrementalCompileState(
         sources = sortedSources(sources);
         classes = sortedClasses(classes);
         reverseDependencies = sortedReverseDependencies(reverseDependencies);
+        IncrementalCompileOutputDigests calculated = IncrementalCompileOutputDigests.fromClasses(classes);
         publicAbiDigest = digestOrCalculated(
                 publicAbiDigest,
-                classes.stream()
-                        .filter(ClassRecord::externallyVisible)
-                        .map(value -> value.binaryName() + "|" + value.abiHash())
-                        .toList());
+                calculated.publicAbiDigest());
         packagePrivateAbiDigest = digestOrCalculated(
                 packagePrivateAbiDigest,
-                classes.stream()
-                        .map(value -> value.binaryName() + "|" + value.packagePrivateAbiHash())
-                        .toList());
+                calculated.packagePrivateAbiDigest());
         outputManifestDigest = digestOrCalculated(
                 outputManifestDigest,
-                classes.stream()
-                        .map(value -> value.binaryName() + "|" + value.classFileHash())
-                        .toList());
+                calculated.outputManifestDigest());
     }
 
     public static Path mainStatePath(Path outputDirectory) {
@@ -290,10 +284,10 @@ public record IncrementalCompileState(
 
     private static String digestOrCalculated(
             String digest,
-            List<String> entries) {
+            String calculated) {
         if (digest != null && !digest.isBlank()) {
             return digest;
         }
-        return IncrementalCompileInputHasher.hashText(String.join("\n", entries));
+        return calculated;
     }
 }

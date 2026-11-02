@@ -43,9 +43,10 @@ final class AttributingCompiler {
             List<String> sourceFiles = new ArrayList<>();
             List<String> options = partition(arguments, sourceFiles);
             StandardJavaFileManager standard = compiler.getStandardFileManager(null, null, StandardCharsets.UTF_8);
-            try (OutputTrackingFileManager fileManager = new OutputTrackingFileManager(standard, collector)) {
+            try (OutputTrackingFileManager fileManager = new OutputTrackingFileManager(standard, collector);
+                    ProcessorLoader.Loaded loaded = ProcessorLoader.load(processorPath)) {
                 Iterable<? extends JavaFileObject> units = standard.getJavaFileObjectsFromStrings(sourceFiles);
-                List<Processor> processors = wrap(ProcessorLoader.load(processorPath), collector);
+                List<Processor> processors = wrap(loaded.processors(), collector);
                 JavaCompiler.CompilationTask task =
                         compiler.getTask(diagnosticsWriter, fileManager, null, options, null, units);
                 task.setProcessors(processors);

@@ -63,15 +63,15 @@ final class JavacCommandBuilder {
         if (options.release().isBlank()) {
             return;
         }
-        if (options.hostPlatformApi()) {
-            // Host mode matches legacy Maven `-source/-target`; it is not reproducible across build JDKs.
+        if (options.useJdkRelease()) {
+            // --release pins the platform API via ct.sym, making compilation reproducible across build JDKs.
+            command.add("--release");
+            command.add(options.release());
+        } else {
+            // Host mode and selected JDK 8 both require -source/-target; javac 8 has no --release.
             command.add("-source");
             command.add(options.release());
             command.add("-target");
-            command.add(options.release());
-        } else {
-            // --release pins the platform API via ct.sym, making compilation reproducible across build JDKs.
-            command.add("--release");
             command.add(options.release());
         }
     }

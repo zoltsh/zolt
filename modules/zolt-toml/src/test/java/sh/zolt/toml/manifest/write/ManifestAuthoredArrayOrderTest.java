@@ -37,6 +37,7 @@ final class ManifestAuthoredArrayOrderTest {
 
             [test.sources]
             java = ["src/zeta/test-java", "src/alpha/test-java"]
+            kotlin = ["src/zeta/test-kotlin", "src/alpha/test-kotlin"]
 
             [test.integration]
             sources = ["src/zeta/it-java", "src/alpha/it-java"]
@@ -63,6 +64,9 @@ final class ManifestAuthoredArrayOrderTest {
         assertEquals(
                 List.of("src/zeta/test-java", "src/alpha/test-java"),
                 tests.sources().orElseThrow().java().stream().map(Object::toString).toList());
+        assertEquals(
+                List.of("src/zeta/test-kotlin", "src/alpha/test-kotlin"),
+                tests.sources().orElseThrow().kotlin().stream().map(Object::toString).toList());
         AuthoredTests.Integration integration = tests.integration().orElseThrow();
         assertEquals(
                 List.of("src/zeta/it-java", "src/alpha/it-java"),
@@ -84,6 +88,9 @@ final class ManifestAuthoredArrayOrderTest {
         assertEquals(
                 List.of("src/zeta/test-java", "src/alpha/test-java"),
                 config.build().testSources());
+        assertEquals(
+                List.of("src/zeta/test-kotlin", "src/alpha/test-kotlin"),
+                config.build().kotlinTestSources());
         assertEquals(
                 List.of("src/zeta/resources", "src/alpha/resources"),
                 config.build().resourceRoots());
@@ -110,6 +117,9 @@ final class ManifestAuthoredArrayOrderTest {
                 canonical);
         assertTrue(
                 canonical.contains("java = [\"src/zeta/test-java\", \"src/alpha/test-java\"]"),
+                canonical);
+        assertTrue(
+                canonical.contains("kotlin = [\"src/zeta/test-kotlin\", \"src/alpha/test-kotlin\"]"),
                 canonical);
         assertEquals(canonical, new ManifestCanonicalWriter().write(decodeAuthoredManifest(canonical)));
     }

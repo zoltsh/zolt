@@ -6,6 +6,7 @@ import sh.zolt.build.fingerprint.BuildFingerprintService;
 import sh.zolt.build.generatedsource.GeneratedSourceProducerFingerprint;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.BuildSettings;
+import sh.zolt.project.GeneratedSourceKind;
 import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectMetadata;
@@ -61,7 +62,10 @@ final class PackageBuildInputFingerprint {
         // v2 adds the shared compilation-semantics token. Package/publish paths can validate
         // existing evidence without first entering BuildService, so the stored compile fingerprint
         // alone cannot force pre-fix output through the current compiler.
-        hash.value("schema", "zolt.package-build-input.v2");
+        // v3 classifies authored Groovy files as main sources rather than resources.
+        // v4 gives authored Kotlin files the same source ownership before compiler support lands.
+        // v5 fingerprints only KSP outputs published to the build, excluding compiler scratch data.
+        hash.value("schema", "zolt.package-build-input.v5");
         hash.value("compilationSemantics", compilationSemantics);
         hash.value(
                 "build",
@@ -122,9 +126,7 @@ final class PackageBuildInputFingerprint {
                     "[build].sources",
                     configuredRoot);
             sources.addAll(files(root).stream()
-                    .filter(path -> path.getFileName()
-                            .toString()
-                            .endsWith(".java"))
+                    .filter(PackageBuildInputFingerprint::isSource)
                     .toList());
         }
         return sources.stream().distinct().sorted().toList();
@@ -137,7 +139,7 @@ final class PackageBuildInputFingerprint {
         for (String configuredRoot : build.resourceRoots()) {
             Path root = ProjectPaths.existingRoot(projectRoot, "[resources].main", configuredRoot);
             resources.addAll(files(root).stream()
-                    .filter(path -> !path.getFileName().toString().endsWith(".java"))
+                    .filter(path -> !isSource(path))
                     .filter(path -> !path.startsWith(mainOutput))
                     .filter(path -> !path.startsWith(testOutput))
                     .filter(path -> !startsWithBuildDirectory(root.relativize(path)))
@@ -155,9 +157,31 @@ final class PackageBuildInputFingerprint {
                     projectRoot,
                     "[generated.main." + step.id() + "].output",
                     step.output());
-            outputs.addAll(expand(output));
+            generatedOutputRoots(step.kind(), output).forEach(
+                    root -> outputs.addAll(expand(root)));
         }
         return outputs.stream().sorted().toList();
+    }
+
+    private static List<Path> generatedOutputRoots(
+            GeneratedSourceKind kind,
+            Path output) {
+        if (kind != GeneratedSourceKind.KSP) {
+            return List.of(output);
+        }
+        // KSP's cache and classes lanes are private scratch space. Only these three lanes are
+        // discovered or copied into the canonical build and therefore belong in package evidence.
+        return List.of(
+                output.resolve("java"),
+                output.resolve("kotlin"),
+                output.resolve("resources"));
+    }
+
+    private static boolean isSource(Path path) {
+        String fileName = path.getFileName().toString();
+        return fileName.endsWith(".java")
+                || fileName.endsWith(".groovy")
+                || fileName.endsWith(".kt");
     }
 
     private static List<Path> expand(Path path) {

@@ -113,6 +113,9 @@ final class ManifestBuildCompilerWriter {
                     FinalManifestCompilerFields.COMPILER_ARGS,
                     strings(FinalManifestCompilerFields.COMPILER_ARGS, compiler.args()));
         }
+        compiler.kotlinModule().ifPresent(value -> emitter.field(
+                FinalManifestCompilerFields.COMPILER_KOTLIN_MODULE,
+                string(value)));
 
         AuthoredCompiler.JdkApiMode mainMode = compiler.jdkApi()
                 .orElse(AuthoredCompiler.JdkApiMode.RELEASE);
@@ -135,6 +138,9 @@ final class ManifestBuildCompilerWriter {
                     FinalManifestCompilerFields.COMPILER_TEST_ARGS,
                     strings(FinalManifestCompilerFields.COMPILER_TEST_ARGS, test.args()));
         }
+        test.kotlinModule().ifPresent(value -> emitter.field(
+                FinalManifestCompilerFields.COMPILER_TEST_KOTLIN_MODULE,
+                string(value)));
     }
 
     private static void writeGenerated(

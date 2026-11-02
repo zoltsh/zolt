@@ -145,7 +145,7 @@ public final class BuildPlanService {
                 "compile-main",
                 "compile",
                 PlanNodeStatus.READY,
-                "Compile main Java sources with Zolt-owned javac inputs.",
+                "Compile configured main sources with Zolt-owned compiler inputs.",
                 mainCompileInputs(build),
                 List.of(build.output()),
                 List.of("sources: " + build.sourceRoots()),
@@ -175,6 +175,7 @@ public final class BuildPlanService {
         testCompileInputs.add(build.output());
         testCompileInputs.addAll(build.testSources());
         testCompileInputs.addAll(build.groovyTestSources());
+        testCompileInputs.addAll(build.kotlinTestSources());
         for (GeneratedSourceStep step : build.generatedTestSources()) {
             if (joinsCompileSources(step)) {
                 testCompileInputs.add(step.output());
@@ -184,7 +185,7 @@ public final class BuildPlanService {
                 "compile-tests",
                 "compile",
                 PlanNodeStatus.READY,
-                "Compile Java and configured Groovy test sources.",
+                "Compile configured Java, Groovy, and Kotlin test sources.",
                 testCompileInputs,
                 List.of(build.testOutput()),
                 testCompileDetails(build),
@@ -288,6 +289,9 @@ public final class BuildPlanService {
         }
         if (!build.groovyTestSources().isEmpty()) {
             details.add("groovyTestRoots: " + build.groovyTestSources());
+        }
+        if (!build.kotlinTestSources().isEmpty()) {
+            details.add("kotlinTestRoots: " + build.kotlinTestSources());
         }
         return List.copyOf(details);
     }

@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -15,9 +17,9 @@ import java.util.Optional;
  * <p>Algorithm:
  *
  * <ol>
- *   <li>Locate the git dir: {@code <root>/.git} is a directory → use it; {@code <root>/.git} is a file
- *       → parse {@code gitdir: <path>} (linked worktree; path may be relative) and read the optional
- *       {@code commondir} to find the shared {@code packed-refs}. Neither → not a repo → empty.
+ *   <li>Find the nearest enclosing {@code .git} marker, stopping even if that marker is malformed.
+ *       A directory is used directly; a file provides {@code gitdir: <path>} relative to its checkout.
+ *       Linked worktrees use {@code commondir} for shared loose and packed refs. No marker → empty.
  *   <li>Read {@code HEAD}: {@code ref: refs/heads/<b>} is a symref; a raw 40/64-hex line is a detached
  *       HEAD.
  *   <li>Resolve a symref loose-ref-first ({@code <gitDir>/<refPath>}) — the loose ref wins over
@@ -37,7 +39,7 @@ public final class GitProvenanceReader {
 
     /**
      * Reads git provenance for {@code projectRoot}. Returns {@link Optional#empty()} when the path is
-     * not a git repository; a well-formed {@link GitProvenance} otherwise (with empty fields where a
+     * not inside a git repository; a well-formed {@link GitProvenance} otherwise (with empty fields where a
      * value could not be resolved).
      */
     public Optional<GitProvenance> read(Path projectRoot) {
@@ -46,7 +48,7 @@ public final class GitProvenanceReader {
         }
         try {
             return readInternal(projectRoot);
-        } catch (IOException | UncheckedIOException e) {
+        } catch (IOException | UncheckedIOException | InvalidPathException e) {
             // A read failure on an otherwise-present repo should never fail the build: omit cleanly.
             return Optional.empty();
         }
@@ -92,6 +94,9 @@ public final class GitProvenanceReader {
         for (int hop = 0; hop < MAX_SYMREF_HOPS; hop++) {
             // 1. Loose ref wins over packed-refs.
             Path looseRef = gitDir.gitDir().resolve(toRelative(refPath));
+            if (!Files.isRegularFile(looseRef)) {
+                looseRef = gitDir.commonDir().resolve(toRelative(refPath));
+            }
             if (Files.isRegularFile(looseRef)) {
                 String contents = readTrimmed(looseRef);
                 if (contents.startsWith("ref:")) {
@@ -152,9 +157,21 @@ public final class GitProvenanceReader {
         return Optional.empty();
     }
 
-    /** Locates the git dir and the common dir (which holds the shared {@code packed-refs}). */
+    /** The nearest marker is a repository boundary; never fall through a broken nested checkout. */
     private Optional<GitDir> locateGitDir(Path projectRoot) throws IOException {
-        Path dotGit = projectRoot.resolve(".git");
+        if (!Files.isDirectory(projectRoot)) {
+            return Optional.empty();
+        }
+        for (Path directory = projectRoot.toRealPath(); directory != null; directory = directory.getParent()) {
+            Path dotGit = directory.resolve(".git");
+            if (Files.exists(dotGit, LinkOption.NOFOLLOW_LINKS)) {
+                return gitDirAt(directory, dotGit);
+            }
+        }
+        return Optional.empty();
+    }
+
+    private Optional<GitDir> gitDirAt(Path projectRoot, Path dotGit) throws IOException {
         if (Files.isDirectory(dotGit)) {
             return Optional.of(new GitDir(dotGit.normalize(), dotGit.normalize()));
         }

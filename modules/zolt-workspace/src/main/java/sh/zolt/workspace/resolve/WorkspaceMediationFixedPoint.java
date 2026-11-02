@@ -1,6 +1,5 @@
 package sh.zolt.workspace.resolve;
 
-import sh.zolt.dependency.DependencyScope;
 import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.lockfile.LockConflict;
 import sh.zolt.lockfile.LockPackage;
@@ -222,7 +221,8 @@ final class WorkspaceMediationFixedPoint {
             WorkspaceProvidedArtifactMediator provided) {
         return output.lockfile().packages().stream()
                 .filter(lockPackage ->
-                        lockPackage.scope() != DependencyScope.TOOL_EXEC)
+                        !WorkspaceIsolatedToolPackageSelector.isIsolatedScope(
+                                lockPackage.scope()))
                 .filter(lockPackage -> !provided.shadows(output.member(), lockPackage))
                 .anyMatch(lockPackage -> {
                     String selected = overrides.get(new ResolutionVariant(
@@ -239,7 +239,7 @@ final class WorkspaceMediationFixedPoint {
             WorkspaceProvidedArtifactMediator provided) {
         Map<ResolutionVariant, String> applicable = new LinkedHashMap<>();
         for (LockPackage lockPackage : output.lockfile().packages()) {
-            if (lockPackage.scope() == DependencyScope.TOOL_EXEC
+            if (WorkspaceIsolatedToolPackageSelector.isIsolatedScope(lockPackage.scope())
                     || provided.shadows(output.member(), lockPackage)) {
                 continue;
             }

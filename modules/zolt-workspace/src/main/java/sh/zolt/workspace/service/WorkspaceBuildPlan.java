@@ -10,6 +10,7 @@ public record WorkspaceBuildPlan(
         WorkspaceSelection selection,
         Optional<ResolveResult> resolveResult,
         ZoltLockfile lockfile,
+        boolean offline,
         WorkspaceExecutionContext executionContext,
         WorkspacePlanInputSnapshot inputSnapshot,
         WorkspacePlanMetrics metrics) {
@@ -23,6 +24,7 @@ public record WorkspaceBuildPlan(
                 selection,
                 resolveResult,
                 lockfile,
+                false,
                 new WorkspaceExecutionContext(workspace, lockfile, Path.of(".")),
                 WorkspacePlanInputSnapshot.unchecked(),
                 WorkspacePlanMetrics.empty());
@@ -39,6 +41,7 @@ public record WorkspaceBuildPlan(
                 selection,
                 resolveResult,
                 lockfile,
+                false,
                 executionContext,
                 WorkspacePlanInputSnapshot.unchecked(),
                 WorkspacePlanMetrics.empty());
@@ -56,6 +59,7 @@ public record WorkspaceBuildPlan(
                 selection,
                 resolveResult,
                 lockfile,
+                false,
                 executionContext,
                 WorkspacePlanInputSnapshot.unchecked(),
                 metrics);
@@ -79,5 +83,9 @@ public record WorkspaceBuildPlan(
     public WorkspaceBuildPlan requireInputsCurrent() {
         inputSnapshot.requireCurrent();
         return this;
+    }
+
+    boolean inputsCurrent() {
+        return inputSnapshot.current();
     }
 }

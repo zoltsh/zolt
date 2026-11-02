@@ -68,7 +68,7 @@ public final class UpdateApplier {
                         updated,
                         new DependencyCoordinate(edit.identifier()),
                         new PlatformSelector.FixedVersion(edit.toVersion()));
-                case EXEC_TOOL_COORDINATE, PROTOBUF_TOOL, OPENAPI_TOOL -> throw new IllegalArgumentException(
+                case EXEC_TOOL_COORDINATE, KSP_TOOL, PROTOBUF_TOOL, OPENAPI_TOOL -> throw new IllegalArgumentException(
                         "Update surface `" + edit.surface().jsonName() + "` is not mutable.");
             };
         }

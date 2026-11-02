@@ -25,6 +25,9 @@ final class BuildFingerprintContent {
 
     private final BuildFingerprintExpectedClasses expectedClasses = new BuildFingerprintExpectedClasses();
     private final BuildFingerprintFileHasher fileHasher = new BuildFingerprintFileHasher();
+    private final sh.zolt.build.metadata.BuildMetadataGenerator metadata;
+    BuildFingerprintContent() { this(new sh.zolt.build.metadata.BuildMetadataGenerator()); }
+    BuildFingerprintContent(sh.zolt.build.metadata.BuildMetadataGenerator metadata) { this.metadata = metadata; }
 
     String fingerprint(
             Path projectDirectory,
@@ -95,8 +98,11 @@ final class BuildFingerprintContent {
         line(content, "outputDirectory", normalize(outputDirectoryName));
         line(content, "generatedSourcesDirectory", fileHasher.relative(projectRoot, generatedSourcesDirectory));
         line(content, "compilerSettings", config.compilerSettings().toString());
-        orderedSection(content, "compileClasspath", classpathEntries(
-                compileClasspath, cachedState, collectedState, cacheKeyMode));
+        // javac also appends compile dependencies to the processor path. A processor can run
+        // their implementations, so ABI-only freshness is insufficient while processing is enabled.
+        orderedSection(content, "compileClasspath", processorClasspath.entries().isEmpty()
+                ? classpathEntries(compileClasspath, cachedState, collectedState, cacheKeyMode)
+                : processorClasspathEntries(compileClasspath, cachedState, collectedState, cacheKeyMode));
         orderedSection(content, "processorClasspath", processorClasspathEntries(
                 processorClasspath, cachedState, collectedState, cacheKeyMode));
         section(content, "sources", fileEntries(projectRoot, sources, cachedState, collectedState));
@@ -111,7 +117,12 @@ final class BuildFingerprintContent {
                 config.build(),
                 cachedState,
                 collectedState));
-        section(content, "expectedClasses", expectedClasses.entries(projectRoot, sourceRoots, sources, outputDirectory));
+        var overlays = sh.zolt.build.output.CompilerOutputOverlays.planned(
+                projectRoot, config, "[resources].test".equals(resourceRootKey), metadata);
+        section(content, "expectedClasses", expectedClasses.entries(projectRoot, outputDirectory, overlays));
+        if (!cacheKeyMode) {
+            section(content, "compilerOutputHashes", expectedClasses.hashes(projectRoot, outputDirectory, overlays));
+        }
         return content.toString();
     }
 
@@ -147,15 +158,7 @@ final class BuildFingerprintContent {
                 .toList();
     }
 
-    /**
-     * The processor path is hashed by content, never by ABI.
-     *
-     * <p>A compile classpath entry that is a workspace output is summarised by its ABI, because javac
-     * reads only signatures from a dependency and an unchanged ABI cannot change what it compiles. A
-     * processor is not read, it is <em>run</em>: an edit confined to a method body leaves the ABI
-     * identical and changes every source the processor emits. Hashing the compiled bytes is what makes
-     * a processor edit reach the members whose sources it generates.
-     */
+    /** Processor-visible dependencies are executable inputs: hash content, including method bodies. */
     private List<String> processorClasspathEntries(
             Classpath classpath,
             BuildFingerprintState cachedState,
@@ -274,7 +277,7 @@ final class BuildFingerprintContent {
             try (Stream<Path> paths = Files.walk(root)) {
                 paths.filter(Files::isRegularFile)
                         .map(Path::normalize)
-                        .filter(path -> !path.getFileName().toString().endsWith(".java"))
+                        .filter(path -> !isSource(path))
                         .filter(path -> !path.startsWith(mainOutput))
                         .filter(path -> !path.startsWith(testOutput))
                         .filter(path -> !startsWithOutputDirectorySegment(root.relativize(path)))
@@ -335,6 +338,13 @@ final class BuildFingerprintContent {
     private static boolean startsWithOutputDirectorySegment(Path relativePath) {
         return relativePath.getNameCount() > 0
                 && OUTPUT_DIRECTORY_NAMES.contains(relativePath.getName(0).toString());
+    }
+
+    private static boolean isSource(Path path) {
+        String fileName = path.getFileName().toString();
+        return fileName.endsWith(".java")
+                || fileName.endsWith(".groovy")
+                || fileName.endsWith(".kt");
     }
 
 }

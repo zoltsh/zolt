@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.build.BuildException;
+import sh.zolt.build.ProjectMutationLock;
 import sh.zolt.lockfile.toml.AtomicLockfileWriter;
 import sh.zolt.manifest.LocalId;
 import sh.zolt.manifest.VersionAliasValue;
@@ -25,6 +26,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -38,7 +40,7 @@ final class ManifestEditTransactionRecoveryTest {
     void standaloneProjectEditWaitsForItsMutationLock() throws Exception {
         writeProject(tempDir, "standalone");
 
-        assertEditWaitsForLock(tempDir, tempDir);
+        assertEditWaitsForLock(tempDir, () -> ProjectMutationLock.acquire(tempDir));
     }
 
     @Test
@@ -54,7 +56,7 @@ final class ManifestEditTransactionRecoveryTest {
         Files.createDirectories(member);
         writeProject(member, "member");
 
-        assertEditWaitsForLock(tempDir, member);
+        assertEditWaitsForLock(member, () -> WorkspaceMutationLock.acquire(tempDir));
     }
 
     @Test
@@ -244,13 +246,16 @@ final class ManifestEditTransactionRecoveryTest {
         }
     }
 
-    private static void assertEditWaitsForLock(Path lockRoot, Path projectRoot) throws Exception {
+    private static void assertEditWaitsForLock(
+            Path projectRoot, Supplier<? extends AutoCloseable> acquireLock) throws Exception {
+        Path manifest = projectRoot.resolve("zolt.toml");
+        String originalManifest = Files.readString(manifest);
         ExecutorService executor = Executors.newSingleThreadExecutor();
         CountDownLatch submitted = new CountDownLatch(1);
         CountDownLatch mutationEntered = new CountDownLatch(1);
         Future<ManifestEditResult> edit;
         try {
-            try (WorkspaceMutationLock ignored = WorkspaceMutationLock.acquire(lockRoot)) {
+            try (AutoCloseable ignored = acquireLock.get()) {
                 edit = executor.submit(() -> {
                     submitted.countDown();
                     return ManifestEditTransaction.execute(
@@ -261,14 +266,18 @@ final class ManifestEditTransactionRecoveryTest {
                             null,
                             config -> {
                                 mutationEntered.countDown();
-                                return config;
+                                return AuthoredManifestMutator.setVersionAlias(
+                                        config, new LocalId("serialized"), new VersionAliasValue("1.0.0"));
                             });
                 });
                 assertTrue(submitted.await(5, TimeUnit.SECONDS));
                 assertFalse(mutationEntered.await(250, TimeUnit.MILLISECONDS));
+                assertFalse(edit.isDone());
+                assertEquals(originalManifest, Files.readString(manifest));
             }
-            assertTrue(mutationEntered.await(5, TimeUnit.SECONDS));
             edit.get(5, TimeUnit.SECONDS);
+            assertEquals(0, mutationEntered.getCount());
+            assertTrue(Files.readString(manifest).contains("serialized = \"1.0.0\""));
         } finally {
             executor.shutdownNow();
         }

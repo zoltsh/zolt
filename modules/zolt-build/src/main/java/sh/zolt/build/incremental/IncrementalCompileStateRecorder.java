@@ -94,10 +94,14 @@ public final class IncrementalCompileStateRecorder {
             String compilerIdentity,
             GeneratedOutputAttribution attribution,
             List<Path> compiledSources) {
+        List<String> fallbackReasons = new ArrayList<>(processorFallbackReasons(classpaths.processor()));
+        fallbackReasons.addAll(IncrementalCompileLanguageFallbacks.main(sources));
         record(
                 "main",
                 projectDirectory,
                 config,
+                // Language fallback markers keep non-Java state out of selective compilation while
+                // class records still summarize every emitted class.
                 sources.mainSources(),
                 config.build().sourceRoots(),
                 config.build().generatedMainSources(),
@@ -108,7 +112,7 @@ public final class IncrementalCompileStateRecorder {
                 IncrementalCompileState.mainStatePath(outputDirectory),
                 outputDirectory.resolve(MAIN_FINGERPRINT_FILE),
                 compilerIdentity,
-                processorFallbackReasons(classpaths.processor()),
+                fallbackReasons,
                 attribution,
                 compiledSources);
     }
@@ -130,9 +134,7 @@ public final class IncrementalCompileStateRecorder {
             GeneratedOutputAttribution attribution,
             List<Path> compiledSources) {
         List<String> fallbackReasons = new ArrayList<>(processorFallbackReasons(processorClasspath));
-        if (!sources.groovyTestSources().isEmpty()) {
-            fallbackReasons.add("groovy-test-sources");
-        }
+        fallbackReasons.addAll(IncrementalCompileLanguageFallbacks.test(sources));
         record(
                 "test",
                 projectDirectory,
@@ -176,6 +178,7 @@ public final class IncrementalCompileStateRecorder {
         Map<Path, String> generatedStepIds = generatedStepIds(projectRoot, generatedSteps);
         List<ClassFileAbi> classFiles = classFiles(outputDirectory, stateFallbackReasons);
         List<IncrementalCompileState.ClassRecord> classRecords = classRecords(classFiles);
+        IncrementalCompileOutputDigests digests = IncrementalCompileOutputDigests.capture(outputDirectory, classRecords);
         List<IncrementalCompileState.SourceRecord> baseRecords = sourceRecordBuilder.sourceRecords(
                 projectRoot,
                 sources,
@@ -196,9 +199,9 @@ public final class IncrementalCompileStateRecorder {
                         hashText(config.compilerSettings().toString()),
                         compilerIdentity,
                         hash(fingerprintPath),
-                        "",
-                        "",
-                        "",
+                        digests.publicAbiDigest(),
+                        digests.packagePrivateAbiDigest(),
+                        digests.outputManifestDigest(),
                         stateFallbackReasons,
                         sourceRoots.stream().map(path -> relative(projectRoot, path)).toList(),
                         generatedSteps.stream().map(GeneratedSourceStep::output).sorted().toList(),

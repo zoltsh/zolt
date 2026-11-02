@@ -38,11 +38,23 @@ final class ExplainSignalsTest {
                 ExplainSignal.Severity.WARN,
                 ExplainSignal.Category.BUILDABILITY);
         assertDefinition(
+                "maven.kotlin.manual-migration",
+                ExplainSignal.Severity.WARN,
+                ExplainSignal.Category.BUILDABILITY);
+        assertDefinition(
                 "gradle.build-src.detected",
                 ExplainSignal.Severity.BLOCK,
                 ExplainSignal.Category.MIGRATION_BLOCKER);
         assertDefinition(
                 "gradle.project.build-file-name-unresolved",
+                ExplainSignal.Severity.UNKNOWN,
+                ExplainSignal.Category.BUILDABILITY);
+        assertDefinition(
+                "gradle.plugin-alias.unresolved",
+                ExplainSignal.Severity.UNKNOWN,
+                ExplainSignal.Category.BUILDABILITY);
+        assertDefinition(
+                "gradle.kotlin.plugin-unresolved",
                 ExplainSignal.Severity.UNKNOWN,
                 ExplainSignal.Category.BUILDABILITY);
         assertDefinition(
@@ -52,6 +64,10 @@ final class ExplainSignalsTest {
         assertDefinition(
                 "gradle.dependency.unresolved-notation",
                 ExplainSignal.Severity.UNKNOWN,
+                ExplainSignal.Category.BUILDABILITY);
+        assertDefinition(
+                "gradle.kotlin.manual-migration",
+                ExplainSignal.Severity.WARN,
                 ExplainSignal.Category.BUILDABILITY);
     }
 

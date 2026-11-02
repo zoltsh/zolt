@@ -92,6 +92,7 @@ final class PublishSignerTest {
 
         Path signature = signer.sign(artifact);
         byte[] first = Files.readAllBytes(signature);
+        assertEquals(epoch, verifiedSignatureTime(gnupgHome, signature, artifact));
         Thread.sleep(1100); // cross a wall-clock second so a non-frozen signing time WOULD differ
         signer.sign(artifact);
         byte[] second = Files.readAllBytes(signature);
@@ -101,6 +102,7 @@ final class PublishSignerTest {
                 second,
                 "SOURCE_DATE_EPOCH must freeze the signature creation time for byte-identical .asc output");
         assertEquals(0, verify(gnupgHome, signature, artifact), "the deterministic signature must still verify");
+        assertEquals(epoch, verifiedSignatureTime(gnupgHome, signature, artifact));
     }
 
     @Test
@@ -295,6 +297,22 @@ final class PublishSignerTest {
 
     private int verify(Path gnupgHome, Path signature, Path artifact) throws IOException, InterruptedException {
         return runGpg(gnupgHome, List.of("--verify", signature.toString(), artifact.toString()));
+    }
+
+    private long verifiedSignatureTime(Path gnupgHome, Path signature, Path artifact)
+            throws IOException, InterruptedException {
+        ProcessBuilder builder = new ProcessBuilder(
+                "gpg", "--status-fd", "1", "--verify", signature.toString(), artifact.toString())
+                .redirectErrorStream(true);
+        builder.environment().put("GNUPGHOME", gnupgHome.toString());
+        Process process = builder.start();
+        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        assertEquals(0, process.waitFor(), output);
+        return output.lines()
+                .filter(line -> line.startsWith("[GNUPG:] VALIDSIG "))
+                .mapToLong(line -> Long.parseLong(line.split("\\s+")[4]))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Missing verified signature timestamp: " + output));
     }
 
     private static int runGpg(Path gnupgHome, List<String> arguments) throws IOException, InterruptedException {

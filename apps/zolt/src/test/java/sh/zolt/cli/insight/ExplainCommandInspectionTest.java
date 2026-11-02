@@ -129,10 +129,49 @@ final class ExplainCommandInspectionTest {
 
         assertEquals(0, result.exitCode());
         assertTrue(result.stdout().contains("\"id\": \"maven.dependency.dynamic-version\""));
-        assertTrue(result.stdout().contains("\"id\": \"maven.language.unsupported\""));
+        assertTrue(result.stdout().contains("\"id\": \"maven.kotlin.manual-migration\""));
+        assertFalse(result.stdout().contains("\"id\": \"maven.language.unsupported\""));
         assertTrue(result.stdout().contains("\"id\": \"maven.framework-native.unsupported\""));
         assertTrue(result.stdout().contains("\"id\": \"maven.profile.detected\""));
         assertTrue(result.stdout().contains("\"status\": \"blocked\""));
+        assertEquals("", result.stderr());
+    }
+
+    @Test
+    void explainMavenClassifiesKotlinJvmAsManualReview() throws IOException {
+        Files.writeString(tempDir.resolve("pom.xml"), """
+                <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>com.example</groupId>
+                  <artifactId>kotlin-app</artifactId>
+                  <version>1.0.0</version>
+                  <properties>
+                    <maven.compiler.release>21</maven.compiler.release>
+                  </properties>
+                  <build>
+                    <plugins>
+                      <plugin>
+                        <groupId>org.jetbrains.kotlin</groupId>
+                        <artifactId>kotlin-maven-plugin</artifactId>
+                        <version>2.2.0</version>
+                      </plugin>
+                    </plugins>
+                  </build>
+                </project>
+                """);
+
+        CommandResult result = execute(
+                "explain",
+                "--cwd", tempDir.toString(),
+                "--source", "maven",
+                "--format", "json");
+
+        assertEquals(0, result.exitCode());
+        assertTrue(result.stdout().contains("\"blockers\": 0"));
+        assertTrue(result.stdout().contains("\"warnings\": 1"));
+        assertTrue(result.stdout().contains("\"id\": \"maven.kotlin.manual-migration\""));
+        assertTrue(result.stdout().contains("\"status\": \"manual-review\""));
+        assertFalse(result.stdout().contains("\"id\": \"maven.language.unsupported\""));
         assertEquals("", result.stderr());
     }
 

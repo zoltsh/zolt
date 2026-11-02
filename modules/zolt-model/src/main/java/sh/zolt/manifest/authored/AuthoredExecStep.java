@@ -9,6 +9,7 @@ import java.util.Objects;
 import java.util.Optional;
 import sh.zolt.manifest.EnvironmentVariableName;
 import sh.zolt.manifest.GeneratedCachePolicy;
+import sh.zolt.manifest.GeneratedLanguage;
 import sh.zolt.manifest.GeneratedOutputKind;
 import sh.zolt.manifest.GeneratedStepSettings;
 import sh.zolt.manifest.JavaBinaryClassName;
@@ -47,6 +48,7 @@ public record AuthoredExecStep(
         }
         Objects.requireNonNull(output, "Exec step output must not be null.");
         Objects.requireNonNull(produces, "Exec step output kind must not be null.");
+        validateLanguage(settings, produces);
         into = Objects.requireNonNull(into, "Exec step resource destination must not be null.");
         if (into.isPresent() && !produces.producesResources()) {
             throw new IllegalArgumentException(
@@ -71,6 +73,17 @@ public record AuthoredExecStep(
                         "Exec step timeoutSeconds must be positive.");
             }
         });
+    }
+
+    private static void validateLanguage(
+            GeneratedStepSettings settings,
+            GeneratedOutputKind produces) {
+        if (settings.language().orElse(GeneratedLanguage.JAVA) == GeneratedLanguage.KOTLIN
+                && !produces.producesSources()) {
+            throw new IllegalArgumentException(
+                    "Exec generated steps may use language `kotlin` only with produces = `java-sources`"
+                            + " or `test-sources`.");
+        }
     }
 
     private static List<String> immutableArguments(List<String> values) {

@@ -1,7 +1,8 @@
 # Usage
 
-Common Zolt workflows. See [FEATURES.md](./FEATURES.md) for the complete feature
-set and [REFERENCE.md](./REFERENCE.md) for configuration and contracts.
+Common workflows for the supported Java lifecycle in Zolt 1.0. See
+[Features](./FEATURES.md) for release scope and [Reference](./REFERENCE.md) for
+configuration and contracts.
 
 ## Start
 
@@ -44,6 +45,17 @@ are `implementation` (default), `api`, `runtime`, `provided`, `dev`, `test`,
 `processor`, and `test-processor`. Every mutation refreshes `zolt.lock` unless
 `--no-resolve` is given, which commits only the source-safe manifest edit and
 names the resolve command that refreshes the stale lock.
+
+Pass processor options as scoped compiler arguments. Each option requires the
+matching processor dependency lane:
+
+```toml
+[compiler]
+args = ["-Amapstruct.defaultComponentModel=jakarta"]
+
+[compiler.test]
+args = ["-Azolt.fixture.mode=test"]
+```
 
 Inspect and update the graph:
 
@@ -124,15 +136,12 @@ See [Toolchains](./REFERENCE.md#java-toolchains).
 
 ## Frameworks
 
-Zolt includes packaging or generated-source paths for Spring Boot, Quarkus,
-OpenAPI, and Protobuf, with documented Micronaut and Vert.x examples.
+Zolt supports Spring Boot JVM packaging and generated Java from OpenAPI and
+Protobuf, with documented Micronaut and Vert.x examples.
 
 ```sh
 zolt resolve
 zolt package
-zolt package --mode quarkus
-zolt quarkus plan
-zolt quarkus test-plan
 ```
 
 Spring Boot archive modes are resolution inputs because they add locked loader
@@ -150,13 +159,12 @@ zolt package --plan
 zolt package --mode jar
 zolt package --mode uber-jar
 zolt package --mode war
-zolt package --mode quarkus
 zolt native
 ```
 
 Packages support sources, Javadoc, manifests, Maven metadata, and evidence.
 `--mode` is a one-command standalone override only when the configured and
-requested modes use the same resolution tooling. Jar, uber-jar, WAR, and Quarkus
+requested modes use the same resolution tooling. Jar, uber-jar, and WAR
 layouts are in one resolution family; Spring Boot jar and Spring Boot WAR are
 another. Crossing between those families fails closed: persist `[package].mode`, run
 `zolt resolve`, and retry without `--mode`. Native builds validate that same
@@ -185,6 +193,8 @@ families, full preflight, and safe resume. See
 
 ```sh
 zolt doctor
+zolt config show --manifest
+zolt config show --effective
 zolt plan --target package
 zolt plan --target test --format json
 zolt classpath audit --format json
@@ -193,8 +203,12 @@ zolt licenses
 zolt sbom
 ```
 
-Human-readable output is the default. Commands that feed tools expose stable
-JSON.
+Human-readable output is the default. The stable JSON contracts are listed in
+[Compatibility](./docs/compatibility.md); other structured output remains preview. The manifest configuration view shows only locally authored values; the
+effective view composes workspace inheritance and built-in defaults. For a
+project it labels each value's origin; at a virtual workspace root it reports
+shared values once as root-authored, plus selected members. Neither view reads
+machine-local user configuration.
 
 ## CI
 
@@ -255,6 +269,50 @@ zolt self update
 
 Installer-managed versions support channels, switching, pruning, updates, and
 rollback.
+
+Native installation changes (`self update`, `install`, `use`, `rollback`, and
+`prune`, plus the shell installer) share a transaction lock under the canonical
+installation root. Downloads and extraction use unique directories on the
+installation filesystem. A verified version is installed once and reused;
+switching versions atomically replaces the launcher symlink. Other installers
+wait up to two minutes, then report the lock path and owner.
+
+If an installer is forcibly killed, the existing launcher remains usable and
+its lock is deliberately left in place. There is no automatic stale-lock
+recovery. Inspect `<install-root>/.install-lock/owner` (`PID:unique-token`) and
+confirm that the owning process has exited and no installer is running before
+removing only that lock directory. Orphaned
+`<install-root>/versions/.install-attempt-*` directories may be removed only
+while installers are stopped. Never remove a live or ambiguously owned lock.
+Retry the original command after recovery.
+
+`self prune --keep N` always protects the active and recorded rollback versions,
+even when that retains more than N versions. Other versions are retained by
+numeric major/minor/patch order, with a final release above prereleases of the
+same version. Prerelease identifiers use SemVer ordering: numeric identifiers
+compare numerically; alpha precedes beta, rc, and zap. Zap dates sort by date;
+commit hashes for the same date provide a deterministic lexical tie-break, not
+commit-age ordering. Build metadata does not affect precedence (full version
+text breaks ties). Legacy names outside this version format sort below valid
+versions. Use `--dry-run` to inspect the retained set before deletion.
+
+## Experimental features
+
+Kotlin/JVM (including KAPT, KSP, and compiler plugins), Groovy main sources,
+Quarkus workflows, and Spring Boot AOT/native builds require an explicit opt-in
+for each command:
+
+```sh
+ZOLT_EXPERIMENTAL=1 zolt init hello-kotlin --language kotlin
+ZOLT_EXPERIMENTAL=1 zolt test --cwd hello-kotlin
+ZOLT_EXPERIMENTAL=1 zolt package --mode quarkus
+```
+
+Java builds, Spock/Groovy tests, Spring Boot JVM packaging, and plain GraalVM
+native images do not require this flag. Experimental features are outside the
+stable 1.0 contract. The [Reference](./REFERENCE.md) retains their configuration
+and the [Kotlin/JVM matrix](./docs/kotlin-jvm-support.md) records current compiler
+and workflow boundaries.
 
 ## More
 

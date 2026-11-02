@@ -146,10 +146,7 @@ public final class IncrementalCompilePlanner {
             Path outputDirectory,
             Path generatedSourcesDirectory,
             String compilerIdentity) {
-        List<String> fallbackReasons = new ArrayList<>();
-        if (!sources.groovyTestSources().isEmpty()) {
-            fallbackReasons.add("groovy-test-sources");
-        }
+        List<String> fallbackReasons = IncrementalCompileLanguageFallbacks.test(sources);
         return plan(
                 "test",
                 projectDirectory,
@@ -306,6 +303,10 @@ public final class IncrementalCompilePlanner {
                     0,
                     changedPreviousRecords.size(),
                     0);
+        }
+        if (sh.zolt.build.output.CompilerOutputInventory.requiresFullCompile(
+                outputDirectory, !processorClasspath.entries().isEmpty())) {
+            return IncrementalCompilePlan.full("compiler-output-overlays");
         }
         return IncrementalCompilePlan.incremental(
                 dirtySources,
