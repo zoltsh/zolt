@@ -14,6 +14,8 @@ final class PackagePlanDependencyOmissionsTest {
         assertEquals("spring-aot-tool-omitted", PackagePlanDependencyOmissions.rule(DependencyScope.TOOL_SPRING_AOT, false));
         assertEquals("exec-tool-omitted", PackagePlanDependencyOmissions.rule(DependencyScope.TOOL_EXEC, false));
         assertEquals("coverage-tool-omitted", PackagePlanDependencyOmissions.rule(DependencyScope.TOOL_COVERAGE, false));
+        assertEquals("groovy-tool-omitted", PackagePlanDependencyOmissions.rule(DependencyScope.TOOL_GROOVY, false));
+        assertEquals("kotlin-tool-omitted", PackagePlanDependencyOmissions.rule(DependencyScope.TOOL_KOTLIN, false));
     }
 
     @Test
@@ -32,5 +34,11 @@ final class PackagePlanDependencyOmissionsTest {
         assertEquals(
                 "OpenAPI generator dependency is build-time tooling, not package runtime",
                 PackagePlanDependencyOmissions.reason(DependencyScope.TOOL_OPENAPI, false));
+        assertEquals(
+                "Groovy compiler dependency is build-time tooling, not package runtime",
+                PackagePlanDependencyOmissions.reason(DependencyScope.TOOL_GROOVY, false));
+        assertEquals(
+                "Kotlin compiler dependency is build-time tooling, not package runtime",
+                PackagePlanDependencyOmissions.reason(DependencyScope.TOOL_KOTLIN, false));
     }
 }

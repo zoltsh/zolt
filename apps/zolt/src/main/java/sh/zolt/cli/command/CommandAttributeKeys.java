@@ -65,6 +65,7 @@ public final class CommandAttributeKeys {
     public static final String MAIN_RESTORED_CLASSES = "mainRestoredClasses";
     public static final String MAIN_COMPILATION_SKIPPED = "mainCompilationSkipped";
     public static final String MAIN_COMPILATIONS_EXECUTED = "mainCompilationsExecuted";
+    public static final String MAIN_COMPILATIONS_RESTORED = "mainCompilationsRestored";
     public static final String MAIN_COMPILATIONS_SKIPPED = "mainCompilationsSkipped";
     public static final String MAIN_FINGERPRINT_CHECK_MILLIS = "mainFingerprintCheckMillis";
     public static final String MAIN_FINGERPRINT_CHECK_NANOS = "mainFingerprintCheckNanos";
@@ -114,6 +115,7 @@ public final class CommandAttributeKeys {
     public static final String TEST_COMPILATION_MODE = "testCompilationMode";
     public static final String TEST_COMPILATION_SKIPPED = "testCompilationSkipped";
     public static final String TEST_COMPILATIONS_EXECUTED = "testCompilationsExecuted";
+    public static final String TEST_COMPILATIONS_RESTORED = "testCompilationsRestored";
     public static final String TEST_COMPILATIONS_SKIPPED = "testCompilationsSkipped";
     public static final String TEST_DISCOVERY_SCAN_ROOTS = "testDiscoveryScanRoots";
     public static final String TEST_EXCLUDED_TAGS = "testExcludedTags";

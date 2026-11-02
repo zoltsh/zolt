@@ -24,6 +24,7 @@ import sh.zolt.manifest.RepositoryUrl;
 import sh.zolt.manifest.WorkspaceMemberPath;
 import sh.zolt.manifest.WorkspaceMemberPattern;
 import sh.zolt.manifest.ZoltVersionPin;
+import sh.zolt.project.toolchain.GroovyToolchainVersion;
 import sh.zolt.project.toolchain.JavaFeatureRelease;
 
 final class AuthoredManifestTest {
@@ -151,7 +152,8 @@ final class AuthoredManifestTest {
                 fixture -> fixture.toolchains = new AuthoredToolchains(
                         Optional.empty(), Optional.of(mainJavaToolchain()), Optional.empty()),
                 fixture -> fixture.toolchains = new AuthoredToolchains(
-                        Optional.empty(), Optional.empty(), Optional.of(testJavaToolchain())));
+                        Optional.empty(), Optional.empty(), Optional.of(testJavaToolchain())),
+                fixture -> fixture.toolchains = groovyToolchains("4.0.22"));
 
         for (Consumer<Fixture> prohibitedDomain : prohibitedDomains) {
             Fixture fixture = bomFixture();
@@ -170,6 +172,25 @@ final class AuthoredManifestTest {
 
         assertEquals(fixture.platforms, manifest.platforms());
         assertEquals(fixture.buildConfiguration.coverage(), manifest.build().coverage());
+    }
+
+    @Test
+    void standaloneBomRejectsGroovyWhileAVirtualRootMayShareIt() {
+        Fixture bom = bomFixture();
+        bom.toolchains = groovyToolchains("4.0.22");
+
+        IllegalArgumentException failure =
+                assertThrows(IllegalArgumentException.class, bom::create);
+        assertEquals(
+                "A BOM cannot author project-local Groovy compiler toolchain.",
+                failure.getMessage());
+
+        Fixture virtualRoot = virtualWorkspaceFixture();
+        virtualRoot.toolchains = groovyToolchains("4.0.22");
+
+        assertEquals(
+                new GroovyToolchainVersion("4.0.22"),
+                virtualRoot.create().toolchains().groovy().orElseThrow().version());
     }
 
     @Test
@@ -362,7 +383,18 @@ final class AuthoredManifestTest {
         return new AuthoredToolchains(
                 Optional.of(new ZoltVersionPin("0.1.0")),
                 Optional.of(mainJavaToolchain()),
-                Optional.of(testJavaToolchain()));
+                Optional.of(testJavaToolchain()),
+                Optional.of(new AuthoredGroovyToolchain(
+                        new GroovyToolchainVersion("4.0.22"))));
+    }
+
+    private static AuthoredToolchains groovyToolchains(String version) {
+        return new AuthoredToolchains(
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(new AuthoredGroovyToolchain(
+                        new GroovyToolchainVersion(version))));
     }
 
     private static AuthoredJavaToolchain mainJavaToolchain() {

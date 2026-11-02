@@ -152,6 +152,7 @@ final class PackageTestCompileGateTest {
         testCompileEntries.add(project.resolve("target/classes"));
         testCompileEntries.addAll(
                 classpaths.testCompile().entries());
+        sh.zolt.build.output.CompilerOutputInventory.capture(project.resolve("target/test-classes"), false);
         new BuildFingerprintService().writeTestCompileFingerprint(
                 project,
                 config,

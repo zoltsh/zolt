@@ -9,6 +9,8 @@
 /.gradle/
 /.gradle-user/
 /.zolt/
+**/.zolt/project-mutation.lock
+**/.zolt/workspace-mutation.lock
 javac.*.args
 
 # IDE

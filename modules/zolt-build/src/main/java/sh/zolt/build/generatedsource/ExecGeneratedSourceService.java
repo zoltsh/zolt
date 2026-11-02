@@ -223,7 +223,7 @@ public final class ExecGeneratedSourceService {
         if (contentCache) {
             ExecUndeclaredOutputScan.verify(subject, cwd, output, context.metadataDirectory(), before);
         }
-        context.cache().writeFingerprint(cacheState);
+        context.cache().writeFingerprint(output, cacheState);
     }
 
     private ResolvedCommand resolveCommand(StepContext context, GeneratedSourceStep step, String subject, Path cwd) {

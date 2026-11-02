@@ -40,7 +40,7 @@ final class InspectionToManifestTest {
         assertEquals(Optional.of(21), subject.javaRelease());
         assertEquals("maven-simple", subject.name());
         assertTrue(subject.mainClass().isEmpty());
-        assertEquals("33.4.8-jre", subject.fixed(DependencyLane.IMPLEMENTATION).get("com.google.guava:guava"));
+        assertEquals("33.7.2-jre", subject.fixed(DependencyLane.IMPLEMENTATION).get("com.google.guava:guava"));
         assertEquals("5.11.4", subject.fixed(DependencyLane.TEST).get("org.junit.jupiter:junit-jupiter"));
         assertFalse(subject.coordinates(DependencyLane.IMPLEMENTATION).contains("org.junit.jupiter:junit-jupiter"));
     }

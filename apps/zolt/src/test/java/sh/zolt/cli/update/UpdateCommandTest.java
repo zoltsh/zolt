@@ -210,7 +210,7 @@ final class UpdateCommandTest {
                 "version");
 
         assertEquals(0, result.exitCode());
-        assertTrue(result.stdout().contains("0.1.0-SNAPSHOT"));
+        assertTrue(result.stdout().contains("1.0.0"));
         assertTrue(result.stderr().contains(
                 "A newer Zolt is available on stable: 0.1.0 -> 0.1.1. Run `zolt self update` to download and verify it."));
     }
@@ -230,7 +230,7 @@ final class UpdateCommandTest {
                 "version");
 
         assertEquals(0, result.exitCode());
-        assertTrue(result.stdout().contains("0.1.0-SNAPSHOT"));
+        assertTrue(result.stdout().contains("1.0.0"));
         assertEquals("", result.stderr());
     }
 
@@ -291,7 +291,7 @@ final class UpdateCommandTest {
                 "version");
 
         assertEquals(0, result.exitCode());
-        assertTrue(result.stdout().contains("0.1.0-SNAPSHOT"));
+        assertTrue(result.stdout().contains("1.0.0"));
         assertEquals("", result.stderr());
     }
 

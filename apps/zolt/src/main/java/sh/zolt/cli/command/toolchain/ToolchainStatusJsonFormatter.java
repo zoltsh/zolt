@@ -2,28 +2,63 @@ package sh.zolt.cli.command.toolchain;
 
 import sh.zolt.project.toolchain.JavaFeature;
 import sh.zolt.toolchain.JavaToolchainStatus;
+import sh.zolt.toolchain.TestRuntimeToolchain;
 import sh.zolt.toolchain.jvm.ResolvedJavaToolchain;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 final class ToolchainStatusJsonFormatter {
     private ToolchainStatusJsonFormatter() {
     }
 
     static String json(String command, JavaToolchainStatus status) {
+        return json(command, status, Optional.empty());
+    }
+
+    static String json(
+            String command,
+            JavaToolchainStatus status,
+            Optional<TestRuntimeToolchain> testRuntime) {
         ResolvedJavaToolchain resolved = status.resolved();
+        Optional<TestRuntimeToolchain> runtime = testRuntime == null
+                ? Optional.empty()
+                : testRuntime;
+        boolean ok = status.ok() && runtime.stream().allMatch(TestRuntimeToolchain::ready);
+        List<String> problems = new ArrayList<>(resolved.problems());
+        runtime.filter(value -> !value.ready())
+                .flatMap(TestRuntimeToolchain::problem)
+                .ifPresent(problems::add);
         StringBuilder json = new StringBuilder();
         json.append("{\n");
         intField(json, 1, "schemaVersion", 1, true);
         stringField(json, 1, "command", command, true);
-        stringField(json, 1, "status", status.ok() ? "ok" : "failed", true);
-        diagnostics(json, resolved.problems());
-        booleanField(json, 1, "ok", status.ok(), true);
+        stringField(json, 1, "status", ok ? "ok" : "failed", true);
+        diagnostics(json, problems);
+        booleanField(json, 1, "ok", ok, true);
         request(json, status);
         json.append(",\n");
         resolved(json, resolved);
+        runtime.ifPresent(value -> {
+            json.append(",\n");
+            testRuntime(json, value);
+        });
         json.append("\n}\n");
         return json.toString();
+    }
+
+    private static void testRuntime(
+            StringBuilder json,
+            TestRuntimeToolchain runtime) {
+        indent(json, 1).append("\"testRuntime\": {\n");
+        stringField(json, 2, "version", runtime.request().version(), true);
+        stringField(json, 2, "status", runtime.ready() ? "ok" : "error", true);
+        booleanField(json, 2, "ok", runtime.ready(), true);
+        optionalPathField(json, 2, "resolved", runtime.java(), true);
+        optionalStringField(json, 2, "problem", runtime.problem(), true);
+        optionalStringField(json, 2, "remediation", runtime.remediation(), false);
+        indent(json, 1).append("}");
     }
 
     private static void diagnostics(StringBuilder json, List<String> problems) {

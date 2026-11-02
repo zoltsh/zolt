@@ -123,6 +123,7 @@ final class WorkspaceTestCommandTest {
         assertTrue(lines[2].contains("\"dependencyMembers\":\"0\""));
         assertTrue(lines[2].contains("\"sourceFiles\":\"2\""));
         assertTrue(lines[2].contains("\"mainCompilationsSkipped\":\"0\""));
+        assertTrue(lines[2].contains("\"mainCompilationsRestored\":\"0\""));
         assertTrue(lines[2].contains("\"mainCompilationsExecuted\":\"2\""));
         assertTrue(lines[3].contains("\"phase\":\"run workspace test members\""));
         assertTrue(lines[3].contains("\"depth\":1"));
@@ -132,8 +133,10 @@ final class WorkspaceTestCommandTest {
         assertTrue(lines[3].contains("\"dependencyMembers\":\"0\""));
         assertTrue(lines[3].contains("\"testSourceFiles\":\"1\""));
         assertTrue(lines[3].contains("\"mainCompilationsSkipped\":\"0\""));
+        assertTrue(lines[3].contains("\"mainCompilationsRestored\":\"0\""));
         assertTrue(lines[3].contains("\"mainCompilationsExecuted\":\"2\""));
         assertTrue(lines[3].contains("\"testCompilationsSkipped\""));
+        assertTrue(lines[3].contains("\"testCompilationsRestored\":\"0\""));
         assertTrue(lines[3].contains("\"testCompilationsExecuted\""));
         assertTrue(lines[3].contains("\"testDiscoveryScanRoots\""));
         assertTrue(lines[3].contains("\"workspaceToolchainLockfileParses\":\"1\""));
@@ -147,8 +150,10 @@ final class WorkspaceTestCommandTest {
         assertTrue(lines[4].contains("\"dependencyMembers\":\"0\""));
         assertTrue(lines[4].contains("\"testSourceFiles\":\"1\""));
         assertTrue(lines[4].contains("\"mainCompilationsSkipped\":\"0\""));
+        assertTrue(lines[4].contains("\"mainCompilationsRestored\":\"0\""));
         assertTrue(lines[4].contains("\"mainCompilationsExecuted\":\"2\""));
         assertTrue(lines[4].contains("\"testCompilationsSkipped\""));
+        assertTrue(lines[4].contains("\"testCompilationsRestored\":\"0\""));
         assertTrue(lines[4].contains("\"testCompilationsExecuted\""));
         assertTrue(lines[4].contains("\"testDiscoveryScanRoots\""));
         assertTrue(Files.exists(coreDir.resolve("target/classes/com/example/core/Core.class")));
@@ -166,9 +171,11 @@ final class WorkspaceTestCommandTest {
                 "--cache-root", cacheRoot.toString());
 
         assertEquals(0, compileOnly.exitCode());
-        assertTrue(compileOnly.stdout().contains("Tests compiled in modules/core"));
-        assertTrue(compileOnly.stdout().contains("Tests compiled in apps/api"));
-        assertTrue(compileOnly.stdout().contains("Compiled tests for 2 workspace members"));
+        assertTrue(compileOnly.stdout().contains(
+                "Skipped test compilation in modules/core; inputs are unchanged"));
+        assertTrue(compileOnly.stdout().contains(
+                "Skipped test compilation in apps/api; inputs are unchanged"));
+        assertTrue(compileOnly.stdout().contains("Prepared test classes for 2 workspace members"));
         assertFalse(compileOnly.stdout().contains("fake console"));
         String[] compileLines = compileOnly.stderr().lines().toArray(String[]::new);
         assertEquals(5, compileLines.length);

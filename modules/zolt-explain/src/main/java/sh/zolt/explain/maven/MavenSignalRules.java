@@ -1,7 +1,11 @@
 package sh.zolt.explain.maven;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Pure classification and message helpers used by {@link MavenStaticProjectInspector} when deriving
@@ -31,6 +35,81 @@ final class MavenSignalRules {
                 || coordinate.contains(":spring-boot-maven-plugin");
     }
 
+    static boolean gmavenPlusPlugin(String coordinate) {
+        return plugin(coordinate, "org.codehaus.gmavenplus", "gmavenplus-plugin");
+    }
+
+    static boolean kotlinMavenPlugin(String coordinate) {
+        return plugin(coordinate, "org.jetbrains.kotlin", "kotlin-maven-plugin");
+    }
+
+    static boolean boundedKotlinJvmCompilation(MavenPluginInspection plugin) {
+        if (!kotlinMavenPlugin(plugin.coordinate())) {
+            return false;
+        }
+        boolean explicitExecutions = plugin.conventionalKotlinJvmExecutions()
+                && (plugin.extensions().isBlank() || "false".equalsIgnoreCase(plugin.extensions()));
+        boolean automaticExtension = plugin.goals().isEmpty()
+                && "true".equalsIgnoreCase(plugin.extensions());
+        return (explicitExecutions || automaticExtension)
+                && !plugin.pluginDependenciesPresent()
+                && plugin.disabledExecutions().isEmpty();
+    }
+
+    /** A Kotlin plugin declaration with no lifecycle or compiler behavior to classify yet. */
+    static boolean passiveKotlinJvmDeclaration(MavenPluginInspection plugin) {
+        return kotlinMavenPlugin(plugin.coordinate())
+                && plugin.phases().isEmpty()
+                && plugin.goals().isEmpty()
+                && plugin.disabledExecutions().isEmpty()
+                && plugin.execInvocations().isEmpty()
+                && !plugin.databaseBackedCodegen()
+                && !plugin.configurationPresent()
+                && (plugin.extensions().isBlank() || "false".equalsIgnoreCase(plugin.extensions()))
+                && !plugin.pluginDependenciesPresent()
+                && plugin.kotlinPluginProperties().isEmpty();
+    }
+
+    /**
+     * A deliberately narrower subset whose Maven compiler behavior can be replaced by a generated
+     * Zolt draft without dropping statically visible Kotlin plugin controls.
+     */
+    static boolean draftableKotlinJvmPluginShape(MavenPluginInspection plugin) {
+        return boundedKotlinJvmCompilation(plugin)
+                && !plugin.configurationPresent()
+                && plugin.kotlinPluginProperties().isEmpty()
+                && (!"true".equalsIgnoreCase(plugin.extensions())
+                        || "false".equalsIgnoreCase(plugin.kaptIncludeCompileClasspath()));
+    }
+
+    /**
+     * The conventional gmavenplus compile pair is fully replaced by Zolt's main/test compilation.
+     * Any extra goal or lifecycle phase stays visible to the caller and must be reviewed as arbitrary
+     * Maven behavior rather than being silently treated as compilation.
+     */
+    static boolean replacedGroovyCompilation(MavenPluginInspection plugin) {
+        if (!gmavenPlusPlugin(plugin.coordinate()) || plugin.goals().isEmpty()) {
+            return false;
+        }
+        Set<String> goals = plugin.goals().stream()
+                .map(goal -> goal.toLowerCase(Locale.ROOT))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (!Set.of("compile", "compiletests").containsAll(goals)) {
+            return false;
+        }
+        Set<String> expectedPhases = new LinkedHashSet<>();
+        if (goals.contains("compile")) {
+            expectedPhases.add("compile");
+        }
+        if (goals.contains("compiletests")) {
+            expectedPhases.add("test-compile");
+        }
+        Set<String> actualPhases = plugin.phases().stream()
+                .map(phase -> phase.toLowerCase(Locale.ROOT))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        return actualPhases.equals(expectedPhases);
+    }
+
     static String phaseSuffix(MavenPluginInspection plugin) {
         if (plugin.phases().isEmpty()) {
             return "";
@@ -38,11 +117,11 @@ final class MavenSignalRules {
         return " in effective lifecycle phase(s) " + plugin.phases();
     }
 
-    static boolean unsupportedLanguagePlugin(String coordinate) {
-        String lower = coordinate.toLowerCase();
-        return lower.contains(":kotlin-maven-plugin")
-                || lower.contains(":scala-maven-plugin")
-                || lower.contains(":android-maven-plugin");
+    private static boolean plugin(String coordinate, String groupId, String artifactId) {
+        String[] parts = coordinate.toLowerCase(Locale.ROOT).split(":", -1);
+        return parts.length >= 2
+                && groupId.equals(parts[0])
+                && artifactId.equals(parts[1]);
     }
 
     static boolean unsupportedFrameworkNativePlugin(MavenPluginInspection plugin) {

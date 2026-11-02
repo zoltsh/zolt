@@ -21,7 +21,13 @@ import java.util.Optional;
  * scopes.
  */
 final class BuildFingerprintEngine {
-    private final BuildFingerprintContent content = new BuildFingerprintContent();
+    private final BuildFingerprintContent content;
+    private final sh.zolt.build.metadata.BuildMetadataGenerator metadata;
+
+    BuildFingerprintEngine(sh.zolt.build.metadata.BuildMetadataGenerator metadata) {
+        this.metadata = metadata;
+        this.content = new BuildFingerprintContent(metadata);
+    }
     private final BuildFingerprintComparison comparison = new BuildFingerprintComparison();
     private final BuildFingerprintExpectedClasses expectedClasses = new BuildFingerprintExpectedClasses();
     private final BuildFingerprintStateStore stateStore = new BuildFingerprintStateStore();
@@ -165,18 +171,27 @@ final class BuildFingerprintEngine {
         if (!processorClasspath.entries().isEmpty() && !Files.isDirectory(generatedSourcesDirectory)) {
             return BuildFingerprintCheck.miss("missing-generated-sources-directory");
         }
+        if (sh.zolt.build.output.CompilerOutputInventory.read(outputDirectory).isEmpty()) {
+            return BuildFingerprintCheck.miss("missing-or-invalid-compiler-output-inventory");
+        }
+        var overlays = sh.zolt.build.output.CompilerOutputOverlays.planned(
+                projectDirectory, config, "[resources].test".equals(resourceRootKey), metadata);
+        if (sh.zolt.build.output.CompilerOutputOverlays.removedCompilerOverlay(outputDirectory, overlays)) {
+            return BuildFingerprintCheck.miss("compiler-output-overlay-removed");
+        }
         try {
             String existing = Files.readString(fingerprintPath);
             String currentCompilerIdentity = compilerIdentity == null
                     ? value(existing, "compilerIdentity").orElse("missing")
                     : compilerIdentity;
             List<Path> missingExpectedClasses = expectedClasses.missing(
-                    projectDirectory.toAbsolutePath().normalize(),
-                    existing);
+                    projectDirectory.toAbsolutePath().normalize(), outputDirectory, overlays, existing);
             if (!missingExpectedClasses.isEmpty()) {
-                return BuildFingerprintCheck.miss("missing-expected-class:" + relative(
-                        projectDirectory,
-                        missingExpectedClasses.getFirst()));
+                Path missing = missingExpectedClasses.getFirst();
+                String reason = missing.getFileName().toString().endsWith(".class")
+                        ? "missing-expected-class:"
+                        : "missing-expected-compiler-output:";
+                return BuildFingerprintCheck.miss(reason + relative(projectDirectory, missing));
             }
             Optional<BuildFingerprintState> state = stateStore.readState(fingerprintPath);
             if (state.isPresent() && state.orElseThrow().matchesFingerprint(existing)) {

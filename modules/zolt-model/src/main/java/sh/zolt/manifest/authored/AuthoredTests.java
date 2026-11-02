@@ -29,14 +29,23 @@ public record AuthoredTests(
         return new AuthoredTests(Optional.empty(), Optional.empty(), Optional.empty(), Map.of());
     }
 
-    /** Custom Java and Groovy unit-test source roots. */
+    /** Custom Java, Groovy, and Kotlin unit-test source roots. */
     public record Sources(
             List<ManifestRelativePath> java,
-            List<ManifestRelativePath> groovy) {
+            List<ManifestRelativePath> groovy,
+            List<ManifestRelativePath> kotlin) {
+        /** Compatibility constructor for callers that predate explicit Kotlin test roots. */
+        public Sources(
+                List<ManifestRelativePath> java,
+                List<ManifestRelativePath> groovy) {
+            this(java, groovy, List.of());
+        }
+
         public Sources {
             java = ManifestModelValues.orderedDistinctList(java, "Java test source roots");
             groovy = ManifestModelValues.orderedDistinctList(groovy, "Groovy test source roots");
-            if (java.isEmpty() && groovy.isEmpty()) {
+            kotlin = ManifestModelValues.orderedDistinctList(kotlin, "Kotlin test source roots");
+            if (java.isEmpty() && groovy.isEmpty() && kotlin.isEmpty()) {
                 throw new IllegalArgumentException("Authored test sources must not be empty.");
             }
         }

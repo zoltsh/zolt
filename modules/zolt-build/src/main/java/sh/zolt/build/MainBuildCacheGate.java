@@ -6,9 +6,13 @@ import sh.zolt.build.cache.BuildCacheModulePolicy;
 import sh.zolt.build.cache.BuildCacheRestoreResult;
 import sh.zolt.build.cache.BuildCacheScope;
 import sh.zolt.build.cache.BuildCacheService;
+import sh.zolt.build.cache.ProcessorBuildCacheRestore;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.build.fingerprint.BuildFingerprintService;
 import sh.zolt.build.incremental.IncrementalCompileState;
+import sh.zolt.build.metadata.BuildMetadataGenerator;
+import sh.zolt.build.output.CompilerOutputInventory;
+import sh.zolt.build.output.CompilerOutputOverlays;
 import sh.zolt.project.ProjectConfig;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -24,9 +28,12 @@ final class MainBuildCacheGate {
     private final BuildCacheService buildCacheService;
     private final BuildFingerprintService buildFingerprintService;
 
-    MainBuildCacheGate(BuildCacheService buildCacheService, BuildFingerprintService buildFingerprintService) {
-        this.buildCacheService = buildCacheService;
-        this.buildFingerprintService = buildFingerprintService;
+    private final BuildMetadataGenerator metadataGenerator;
+
+    MainBuildCacheGate(BuildServiceDependencies dependencies) {
+        this.buildCacheService = dependencies.buildCacheService();
+        this.buildFingerprintService = dependencies.buildFingerprintService();
+        this.metadataGenerator = dependencies.buildMetadataGenerator();
     }
 
     Attempt attemptRestore(
@@ -54,7 +61,16 @@ final class MainBuildCacheGate {
                 projectDirectory, config, compilerIdentity, lockfilePath, sources,
                 classpaths, outputDirectory, generatedSourcesDirectory);
         BuildCacheKey key = BuildCacheKey.of(BuildCacheScope.MAIN, inputsSha, compilerIdentity);
-        return Attempt.active(key, buildCacheService.restore(key, outputDirectory));
+        BuildCacheRestoreResult restore = ProcessorBuildCacheRestore.complete(
+                buildCacheService.restore(key, outputDirectory),
+                classpaths.processor(),
+                generatedSourcesDirectory);
+        if (restore.restored() && (!CompilerOutputInventory.complete(outputDirectory)
+                || CompilerOutputOverlays.removedCompilerOverlay(outputDirectory,
+                        CompilerOutputOverlays.planned(projectDirectory, config, false, metadataGenerator)))) {
+            restore = BuildCacheRestoreResult.miss();
+        }
+        return Attempt.active(key, restore);
     }
 
     String store(Attempt attempt, Path outputDirectory) {

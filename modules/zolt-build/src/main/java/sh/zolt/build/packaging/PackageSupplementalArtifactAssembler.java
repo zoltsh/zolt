@@ -34,12 +34,23 @@ public final class PackageSupplementalArtifactAssembler {
             BuildResult buildResult,
             Optional<List<ResolvedClasspathPackage>> classpathPackages,
             Optional<ClasspathSet> classpaths) {
+        return assemble(projectDirectory, config, buildResult, classpathPackages, classpaths,
+                PackageJavadocTool.preflight(config, new sh.zolt.doctor.JdkDetector()));
+    }
+
+    public List<PackageArtifact> assemble(
+            Path projectDirectory,
+            ProjectConfig config,
+            BuildResult buildResult,
+            Optional<List<ResolvedClasspathPackage>> classpathPackages,
+            Optional<ClasspathSet> classpaths,
+            Optional<Path> javadoc) {
         List<PackageArtifact> artifacts = new ArrayList<>();
         if (config.packageSettings().sources()) {
             artifacts.add(packageSourcesJar(projectDirectory, config));
         }
         if (config.packageSettings().javadoc()) {
-            artifacts.add(packageJavadocJar(projectDirectory, config, buildResult, classpathPackages, classpaths));
+            artifacts.add(packageJavadocJar(projectDirectory, config, buildResult, classpathPackages, classpaths, javadoc.orElseThrow()));
         }
         if (config.packageSettings().tests()) {
             artifacts.add(packageTestJar(projectDirectory, config));
@@ -77,7 +88,8 @@ public final class PackageSupplementalArtifactAssembler {
             ProjectConfig config,
             BuildResult buildResult,
             Optional<List<ResolvedClasspathPackage>> classpathPackages,
-            Optional<ClasspathSet> classpaths) {
+            Optional<ClasspathSet> classpaths,
+            Path javadoc) {
         List<MainSourceRoot> sourceRoots = mainSourceRoots(projectDirectory, config);
         Path javadocDirectory = ProjectPaths.output(
                 projectDirectory,
@@ -91,9 +103,10 @@ public final class PackageSupplementalArtifactAssembler {
             Files.createDirectories(jarPath.getParent());
             PackageSupplementalArtifactFiles.deleteDirectory(javadocDirectory);
             Files.createDirectories(javadocDirectory);
-            List<Path> sources = sourceFiles(sourceRoots);
+            List<Path> sources = javadocSourceFiles(sourceRoots);
             if (!sources.isEmpty()) {
                 runJavadoc(
+                        javadoc,
                         projectDirectory,
                         sourceRoots.stream().map(MainSourceRoot::path).toList(),
                         javadocDirectory,
@@ -155,13 +168,14 @@ public final class PackageSupplementalArtifactAssembler {
     }
 
     private static void runJavadoc(
+            Path javadoc,
             Path projectDirectory,
             List<Path> sourceRoots,
             Path outputDirectory,
             List<Path> sources,
             List<Path> classpath) {
         List<String> command = new ArrayList<>();
-        command.add(javadocExecutable().toString());
+        command.add(javadoc.toString());
         command.add("-quiet");
         command.add("-d");
         command.add(outputDirectory.toString());
@@ -195,20 +209,13 @@ public final class PackageSupplementalArtifactAssembler {
             }
         } catch (IOException exception) {
             throw new PackageException(
-                    "Could not run javadoc. Check that the configured JDK includes the javadoc tool.",
+                    "Could not run the selected JDK's javadoc at " + javadoc
+                            + ". Check that the tool is installed and executable.",
                     exception);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new PackageException("javadoc was interrupted. Try packaging again.", exception);
         }
-    }
-
-    private static Path javadocExecutable() {
-        return Path.of(System.getProperty("java.home"), "bin", executable("javadoc"));
-    }
-
-    private static String executable(String name) {
-        return System.getProperty("os.name", "").toLowerCase().contains("win") ? name + ".exe" : name;
     }
 
     private static List<MainSourceRoot> mainSourceRoots(Path projectDirectory, ProjectConfig config) {
@@ -224,7 +231,7 @@ public final class PackageSupplementalArtifactAssembler {
     private static List<SourceJarEntry> sourceJarEntries(List<MainSourceRoot> sourceRoots) throws IOException {
         List<SourceJarEntry> entries = new ArrayList<>();
         for (MainSourceRoot root : sourceRoots) {
-            for (Path file : PackageSupplementalArtifactFiles.sourceFiles(root.path())) {
+            for (Path file : PackageSupplementalArtifactFiles.sourceArchiveFiles(root.path())) {
                 entries.add(new SourceJarEntry(entryName(root.path(), file), file));
             }
         }
@@ -234,10 +241,10 @@ public final class PackageSupplementalArtifactAssembler {
                 .toList();
     }
 
-    private static List<Path> sourceFiles(List<MainSourceRoot> sourceRoots) throws IOException {
+    private static List<Path> javadocSourceFiles(List<MainSourceRoot> sourceRoots) throws IOException {
         List<Path> sources = new ArrayList<>();
         for (MainSourceRoot root : sourceRoots) {
-            sources.addAll(PackageSupplementalArtifactFiles.sourceFiles(root.path()));
+            sources.addAll(PackageSupplementalArtifactFiles.javadocSourceFiles(root.path()));
         }
         return sources.stream()
                 .sorted()

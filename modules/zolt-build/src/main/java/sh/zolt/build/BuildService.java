@@ -1,25 +1,27 @@
 package sh.zolt.build;
 
+import static sh.zolt.build.output.CompilerOutputInventory.captureIfCompiled;
 import sh.zolt.build.classpath.ClasspathBuilder;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.build.cache.BuildCacheService;
 import sh.zolt.build.compile.CompileOutputLayoutValidator;
-import sh.zolt.build.compile.EffectiveCompilerIdentity;
+import sh.zolt.build.compile.KotlinCompilationScope;
 import sh.zolt.build.compile.MainCompileSourceExecutor;
+import sh.zolt.build.compile.MainCompilerToolchain;
+import sh.zolt.build.compile.MainCompilerToolchainResolver;
+import sh.zolt.build.compile.kotlin.KotlinCompilerCompatibilityPolicy;
 import sh.zolt.build.discovery.SourceDiscoverer;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.build.fingerprint.BuildFingerprintCheck;
 import sh.zolt.build.fingerprint.BuildFingerprintService;
-import sh.zolt.build.generatedsource.ExecGeneratedSourceService;
-import sh.zolt.build.generatedsource.OpenApiGeneratedSourceService;
+import sh.zolt.build.generatedsource.MainGeneratedSourceCoordinator;
+import sh.zolt.build.generatedsource.ksp.KspMainGenerationCoordinator;
 import sh.zolt.build.incremental.IncrementalCompileStateRecorder;
 import sh.zolt.build.lockfile.VerifiedArtifactIndex;
 import sh.zolt.doctor.JdkChecker;
 import sh.zolt.doctor.JdkDetector;
 import sh.zolt.doctor.JdkStatus;
-import sh.zolt.generated.GeneratedSourceException;
-import sh.zolt.generated.ProtobufGeneratedSourceService;
 import sh.zolt.lockfile.ProjectBuildContext;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.provenance.BuildProvenanceSource;
@@ -38,11 +40,10 @@ public final class BuildService {
     private final SourceDiscoverer sourceDiscoverer;
     private final BuildFingerprintService buildFingerprintService;
     private final JdkChecker jdkDetector;
-    private final OpenApiGeneratedSourceService openApiGeneratedSourceService;
-    private final ProtobufGeneratedSourceService protobufGeneratedSourceService;
-    private final ExecGeneratedSourceService execGeneratedSourceService;
+    private final MainGeneratedSourceCoordinator mainGeneratedSourceCoordinator;
     private final IncrementalCompileStateRecorder incrementalCompileStateRecorder;
     private final MainCompileSourceExecutor sourceExecutor;
+    private final MainCompilerToolchainResolver mainCompilerToolchainResolver;
     private final MainBuildCacheGate mainBuildCacheGate;
     private final BuildOutputFinalizer outputFinalizer;
 
@@ -79,13 +80,16 @@ public final class BuildService {
         this.sourceDiscoverer = dependencies.sourceDiscoverer();
         this.buildFingerprintService = dependencies.buildFingerprintService();
         this.jdkDetector = dependencies.jdkDetector();
-        this.openApiGeneratedSourceService = dependencies.openApiGeneratedSourceService();
-        this.protobufGeneratedSourceService = dependencies.protobufGeneratedSourceService();
-        this.execGeneratedSourceService = dependencies.execGeneratedSourceService();
+        this.mainGeneratedSourceCoordinator = new MainGeneratedSourceCoordinator(
+                dependencies.openApiGeneratedSourceService(),
+                dependencies.protobufGeneratedSourceService(),
+                dependencies.execGeneratedSourceService(),
+                new KspMainGenerationCoordinator(sourceDiscoverer, jdkDetector));
         this.incrementalCompileStateRecorder = dependencies.incrementalCompileStateRecorder();
         this.sourceExecutor = dependencies.sourceExecutor();
+        this.mainCompilerToolchainResolver = new MainCompilerToolchainResolver();
         this.mainBuildCacheGate =
-                new MainBuildCacheGate(dependencies.buildCacheService(), dependencies.buildFingerprintService());
+                new MainBuildCacheGate(dependencies);
         this.outputFinalizer = new BuildOutputFinalizer(dependencies);
     }
 
@@ -94,11 +98,7 @@ public final class BuildService {
         return new BuildService(dependencies.withJdkChecker(jdkChecker));
     }
 
-    /**
-     * Returns a build service that uses the given build-output cache. The CLI injects an enabled cache
-     * built from the user-global {@code [buildCache]} config; the default is a disabled no-op so every
-     * other construction path (and all existing tests) behaves exactly as before.
-     */
+    /** Returns a build service with the supplied output cache; the default cache is disabled. */
     public BuildService withBuildCache(BuildCacheService buildCacheService) {
         Objects.requireNonNull(buildCacheService, "buildCacheService");
         return new BuildService(dependencies.withBuildCache(buildCacheService));
@@ -162,23 +162,22 @@ public final class BuildService {
     }
 
     private BuildResultWithClasspaths buildWithClasspaths(BuildRequest request) {
-        CompileOutputLayoutValidator.validateMain(request.projectDirectory(), request.config());
-        BuildClasspathResolver.Result resolved = buildClasspathResolver.resolve(request);
-        List<ResolvedClasspathPackage> classpathPackages = resolved.packages();
-        ClasspathSet classpaths = classpathBuilder.build(classpathPackages);
-        openApiGeneratedSourceService.generateMain(request.projectDirectory(), request.config(), classpathPackages);
-        try {
-            protobufGeneratedSourceService.generateMain(request.projectDirectory(), request.config());
-        } catch (GeneratedSourceException exception) {
-            throw new BuildException(exception.getMessage(), exception);
+        try (sh.zolt.build.ProjectMutationLock ignored =
+                sh.zolt.build.ProjectMutationLock.acquire(request.projectDirectory())) {
+            KotlinCompilerCompatibilityPolicy.requireConfiguredOptionsSupported(
+                    request.config(), KotlinCompilationScope.MAIN);
+            CompileOutputLayoutValidator.validateMain(request.projectDirectory(), request.config());
+            BuildClasspathResolver.Result resolved = buildClasspathResolver.resolve(request);
+            List<ResolvedClasspathPackage> classpathPackages = resolved.packages();
+            ClasspathSet classpaths = classpathBuilder.build(classpathPackages);
+            mainGeneratedSourceCoordinator.generateMain(
+                    request.projectDirectory(), request.config(), classpaths, classpathPackages, request.offline());
+            return new BuildResultWithClasspaths(
+                    build(request.context(), request.config(), classpaths, resolved.resolveResult(), classpathPackages,
+                            request.offline(), true),
+                    classpaths,
+                    classpathPackages);
         }
-        execGeneratedSourceService.generateMain(
-                request.projectDirectory(), request.config(), classpathPackages, request.offline());
-        return new BuildResultWithClasspaths(
-                build(request.context(), request.config(), classpaths, resolved.resolveResult(), classpathPackages,
-                        request.offline()),
-                classpaths,
-                classpathPackages);
     }
 
     public BuildResult build(Path projectDirectory, ProjectConfig config, ClasspathSet classpaths) {
@@ -188,6 +187,7 @@ public final class BuildService {
                 classpaths,
                 Optional.empty(),
                 List.of(),
+                false,
                 false);
     }
 
@@ -201,104 +201,84 @@ public final class BuildService {
             ProjectConfig config,
             ClasspathSet classpaths,
             List<ResolvedClasspathPackage> classpathPackages) {
-        return build(
-                context,
-                config,
-                classpaths,
-                Optional.empty(),
-                classpathPackages == null ? List.of() : List.copyOf(classpathPackages),
-                false);
+        return build(context, config, classpaths, classpathPackages, false);
+    }
+
+    /** Builds a projected workspace member after running its pre-compile generated-source steps. */
+    public BuildResult build(
+            ProjectBuildContext context,
+            ProjectConfig config,
+            ClasspathSet classpaths,
+            List<ResolvedClasspathPackage> classpathPackages,
+            boolean offline) {
+        try (sh.zolt.build.ProjectMutationLock ignored =
+                sh.zolt.build.ProjectMutationLock.acquire(context.projectRoot())) {
+            KotlinCompilerCompatibilityPolicy.requireConfiguredOptionsSupported(
+                    config, KotlinCompilationScope.MAIN);
+            List<ResolvedClasspathPackage> packages =
+                    classpathPackages == null ? List.of() : List.copyOf(classpathPackages);
+            CompileOutputLayoutValidator.validateMain(context.projectRoot(), config);
+            mainGeneratedSourceCoordinator.generateMain(
+                    context.projectRoot(), config, classpaths, packages, offline);
+            return build(
+                    context,
+                    config,
+                    classpaths,
+                    Optional.empty(),
+                    packages,
+                    offline,
+                    true);
+        }
     }
 
     public int ensureCleanMemberOutputsCurrent(
             Path projectDirectory,
             ProjectConfig config,
             ClasspathSet classpaths) {
-        CompileOutputLayoutValidator.validateMain(projectDirectory, config);
-        return outputFinalizer
-                .ensureCleanMemberCurrent(projectDirectory, config, classpaths)
-                .generatedOutputCount();
+        try (ProjectMutationLock ignored = ProjectMutationLock.acquire(projectDirectory)) {
+            CompileOutputLayoutValidator.validateMain(projectDirectory, config);
+            return outputFinalizer
+                    .ensureCleanMemberCurrent(projectDirectory, config, classpaths)
+                    .generatedOutputCount();
+        }
     }
-
     private BuildResult build(
             ProjectBuildContext context,
             ProjectConfig config,
             ClasspathSet classpaths,
             Optional<ResolveResult> resolveResult,
             List<ResolvedClasspathPackage> classpathPackages,
-            boolean offline) {
-        Path projectDirectory = context.projectRoot();
-        CompileOutputLayoutValidator.validateMain(projectDirectory, config);
-        if (config.packageSettings().mode() == sh.zolt.project.PackageMode.BOM) {
-            // A BOM has no compiled sources; keep it in the build graph for ordering, but skip the
-            // compile wave and produce no class output.
-            return new BuildResult(
-                    resolveResult, 0, 0, projectDirectory.resolve(config.build().output()), "", true);
-        }
-        SourceDiscoveryResult sources = sourceDiscoverer.discover(projectDirectory, config.build());
-        JdkStatus jdkStatus = jdkDetector.detect(config.project().java());
-        if (!jdkStatus.ok()) {
-            throw BuildException.actionable("JDK check failed.", String.join(" ", jdkStatus.problems()));
-        }
-        String compilerIdentity = EffectiveCompilerIdentity.of(jdkStatus);
+            boolean offline,
+            boolean verifiedPackageMetadataAvailable) {
+        try (sh.zolt.build.ProjectMutationLock ignored =
+                sh.zolt.build.ProjectMutationLock.acquire(context.projectRoot())) {
+            KotlinCompilerCompatibilityPolicy.requireConfiguredOptionsSupported(
+                    config, KotlinCompilationScope.MAIN);
+            Path projectDirectory = context.projectRoot();
+            CompileOutputLayoutValidator.validateMain(projectDirectory, config);
+            if (config.packageSettings().mode() == sh.zolt.project.PackageMode.BOM) {
+                // A BOM has no compiled sources; keep it in the build graph for ordering, but skip the
+                // compile wave and produce no class output.
+                return new BuildResult(
+                        resolveResult, 0, 0, projectDirectory.resolve(config.build().output()), "", true);
+            }
+            SourceDiscoveryResult sources = sourceDiscoverer.discoverMain(projectDirectory, config.build());
+            SourceLanguagePolicy.requireMainSupported(sources);
+            JdkStatus jdkStatus = jdkDetector.detect(config.project().java());
+            if (!jdkStatus.ok()) {
+                throw BuildException.actionable("JDK check failed.", String.join(" ", jdkStatus.problems()));
+            }
+            MainCompilerToolchain compilerToolchain = mainCompilerToolchainResolver.resolve(
+                    sources, config, classpathPackages, verifiedPackageMetadataAvailable);
+            sourceExecutor.preflight(config, sources, classpaths, jdkStatus, compilerToolchain);
+            String compilerIdentity = compilerToolchain.compilerIdentity(jdkStatus);
 
-        Path outputDirectory = projectDirectory.resolve(config.build().output());
-        Path generatedSourcesDirectory =
-                GeneratedSourcesDirectory.main(projectDirectory, config.compilerSettings().generatedSources());
-        Path lockfilePath = context.lockfilePath();
-        long fingerprintCheckStarted = System.nanoTime();
-        BuildFingerprintCheck fingerprintCheck = buildFingerprintService.checkMainCompileCurrent(
-                projectDirectory,
-                config,
-                compilerIdentity,
-                lockfilePath,
-                sources,
-                classpaths,
-                outputDirectory,
-                generatedSourcesDirectory);
-        boolean compileSkipped = fingerprintCheck.current();
-        long fingerprintCheckNanos = elapsedSince(fingerprintCheckStarted);
-
-        // On a fingerprint miss, try to restore the compiled classes from the build-output cache instead
-        // of running javac. A restore is a real (non-skipped) outcome: it still stamps the skip-gate
-        // fingerprint below, but leaves no incremental state so the next source edit does one full
-        // recompile (the documented v1 tradeoff).
-        MainBuildCacheGate.Attempt cacheAttempt = mainBuildCacheGate.attemptRestore(
-                compileSkipped,
-                projectDirectory,
-                config,
-                lockfilePath,
-                sources,
-                classpaths,
-                outputDirectory,
-                generatedSourcesDirectory,
-                compilerIdentity);
-        boolean restored = cacheAttempt.restored();
-        boolean runJavac = !compileSkipped && !restored;
-
-        MainCompileSourceExecutor.Attempt javacResult = sourceExecutor.compile(
-                !runJavac,
-                fingerprintCheck.reason(),
-                projectDirectory,
-                config,
-                sources,
-                classpaths,
-                outputDirectory,
-                generatedSourcesDirectory,
-                jdkStatus);
-        BuildOutputFinalizer.Result finalization = outputFinalizer.afterCompile(
-                projectDirectory,
-                config,
-                outputDirectory,
-                jdkStatus,
-                classpaths,
-                classpathPackages,
-                offline);
-        long fingerprintWriteNanos = 0L;
-        String buildCacheOutcome = "";
-        if (!compileSkipped || !fingerprintCheck.reason().isBlank()) {
-            long fingerprintWriteStarted = System.nanoTime();
-            buildFingerprintService.writeMainCompileFingerprint(
+            Path outputDirectory = projectDirectory.resolve(config.build().output());
+            Path generatedSourcesDirectory =
+                    GeneratedSourcesDirectory.main(projectDirectory, config.compilerSettings().generatedSources());
+            Path lockfilePath = context.lockfilePath();
+            long fingerprintCheckStarted = System.nanoTime();
+            BuildFingerprintCheck fingerprintCheck = buildFingerprintService.checkMainCompileCurrent(
                     projectDirectory,
                     config,
                     compilerIdentity,
@@ -307,40 +287,94 @@ public final class BuildService {
                     classpaths,
                     outputDirectory,
                     generatedSourcesDirectory);
-            fingerprintWriteNanos = elapsedSince(fingerprintWriteStarted);
-            if (!compileSkipped) {
-                if (restored) {
-                    incrementalCompileStateRecorder.deleteMainState(outputDirectory);
-                    buildCacheOutcome = "restored";
-                } else {
-                    incrementalCompileStateRecorder.recordMain(
-                            projectDirectory,
-                            config,
-                            sources,
-                            classpaths,
-                            outputDirectory,
-                            generatedSourcesDirectory,
-                            compilerIdentity,
-                            javacResult.attribution(),
-                            javacResult.compiledSources());
-                    buildCacheOutcome = mainBuildCacheGate.store(cacheAttempt, outputDirectory);
+            boolean compileSkipped = fingerprintCheck.current();
+            long fingerprintCheckNanos = elapsedSince(fingerprintCheckStarted);
+
+            // On a fingerprint miss, try to restore the compiled classes from the build-output cache instead
+            // of running javac. A restore is a real (non-skipped) outcome: it still stamps the skip-gate
+            // fingerprint below, but leaves no incremental state so the next source edit does one full
+            // recompile (the documented v1 tradeoff).
+            MainBuildCacheGate.Attempt cacheAttempt = mainBuildCacheGate.attemptRestore(
+                    compileSkipped,
+                    projectDirectory,
+                    config,
+                    lockfilePath,
+                    sources,
+                    classpaths,
+                    outputDirectory,
+                    generatedSourcesDirectory,
+                    compilerIdentity);
+            boolean restored = cacheAttempt.restored();
+            boolean runJavac = !compileSkipped && !restored;
+
+            MainCompileSourceExecutor.Attempt javacResult = sourceExecutor.compile(
+                    !runJavac,
+                    fingerprintCheck.reason(),
+                    projectDirectory,
+                    config,
+                    sources,
+                    classpaths,
+                    outputDirectory,
+                    generatedSourcesDirectory,
+                    jdkStatus,
+                    compilerToolchain);
+            captureIfCompiled(outputDirectory, javacResult.mode(), runJavac);
+            BuildOutputFinalizer.Result finalization = outputFinalizer.afterCompile(
+                    projectDirectory,
+                    config,
+                    outputDirectory,
+                    jdkStatus,
+                    classpaths,
+                    classpathPackages,
+                    offline);
+            long fingerprintWriteNanos = 0L;
+            String buildCacheOutcome = "";
+            if (!compileSkipped || !fingerprintCheck.reason().isBlank()) {
+                long fingerprintWriteStarted = System.nanoTime();
+                buildFingerprintService.writeMainCompileFingerprint(
+                        projectDirectory,
+                        config,
+                        compilerIdentity,
+                        lockfilePath,
+                        sources,
+                        classpaths,
+                        outputDirectory,
+                        generatedSourcesDirectory);
+                fingerprintWriteNanos = elapsedSince(fingerprintWriteStarted);
+                if (!compileSkipped) {
+                    if (restored) {
+                        incrementalCompileStateRecorder.deleteMainState(outputDirectory);
+                        buildCacheOutcome = "restored";
+                    } else {
+                        incrementalCompileStateRecorder.recordMain(
+                                projectDirectory,
+                                config,
+                                sources,
+                                classpaths,
+                                outputDirectory,
+                                generatedSourcesDirectory,
+                                compilerIdentity,
+                                javacResult.attribution(),
+                                javacResult.compiledSources());
+                        buildCacheOutcome = mainBuildCacheGate.store(cacheAttempt, outputDirectory);
+                    }
                 }
             }
+            return new BuildResult(
+                    resolveResult,
+                    javacResult.sourceCount(),
+                    finalization.generatedOutputCount(),
+                    javacResult.outputDirectory(),
+                    javacResult.output(),
+                    compileSkipped,
+                    compileSkipped ? "skipped" : (restored ? "restored" : javacResult.mode()),
+                    runJavac ? javacResult.fallbackReason() : "",
+                    javacResult.diagnostics(),
+                    fingerprintCheckNanos,
+                    fingerprintWriteNanos,
+                    restored ? cacheAttempt.restore().classCount() : 0,
+                    buildCacheOutcome);
         }
-        return new BuildResult(
-                resolveResult,
-                javacResult.sourceCount(),
-                finalization.generatedOutputCount(),
-                javacResult.outputDirectory(),
-                javacResult.output(),
-                compileSkipped,
-                compileSkipped ? "skipped" : (restored ? "restored" : javacResult.mode()),
-                runJavac ? javacResult.fallbackReason() : "",
-                javacResult.diagnostics(),
-                fingerprintCheckNanos,
-                fingerprintWriteNanos,
-                restored ? cacheAttempt.restore().classCount() : 0,
-                buildCacheOutcome);
     }
 
     private static long elapsedSince(long started) {

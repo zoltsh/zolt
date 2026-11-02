@@ -78,6 +78,18 @@
     "allDeclaredMethods": true
   },
   {
+    "name": "sh.zolt.cli.command.config.InitCommand$ProjectInitLanguageConverter",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "sh.zolt.init.ProjectInitLanguage",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true
+  },
+  {
     "name": "sh.zolt.cli.command.dependency.VersionCommand",
     "allDeclaredConstructors": true,
     "allDeclaredFields": true,

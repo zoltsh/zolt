@@ -9,7 +9,7 @@ smoke.suite("zolt CLI startup smoke", { tags: ["jvm", "cli"] }, async (t: SmokeC
 
   await t.step("built CLI starts outside a project", async () => {
     const version = await runZolt(t, zolt, ["--no-progress", "--version"], { timeout: "30s" });
-    expect.value(version.stdout.trim()).toMatch(/\S/u);
+    expect.value(version.stdout.trim()).toBe(process.env.ZOLT_VERSION_OVERRIDE ?? "1.0.0");
 
     const help = await runZolt(t, zolt, ["--no-progress"], { timeout: "30s" });
     expect.value(help.stdout).toContain("Usage: zolt");

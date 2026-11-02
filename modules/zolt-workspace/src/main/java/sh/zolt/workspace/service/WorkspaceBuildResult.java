@@ -82,7 +82,7 @@ public record WorkspaceBuildResult(
     public int compiledSourceCount() {
         return members.stream()
                 .map(MemberBuildResult::result)
-                .filter(result -> !result.mainCompilationSkipped())
+                .filter(result -> !result.mainCompilationSkipped() && !result.mainCompilationRestored())
                 .mapToInt(BuildResult::sourceCount)
                 .sum();
     }
@@ -95,7 +95,21 @@ public record WorkspaceBuildResult(
     }
 
     public int mainCompilationExecutedCount() {
-        return members.size() - mainCompilationSkippedCount();
+        return members.size() - mainCompilationSkippedCount() - mainCompilationRestoredCount();
+    }
+
+    public int mainCompilationRestoredCount() {
+        return (int) members.stream()
+                .map(MemberBuildResult::result)
+                .filter(BuildResult::mainCompilationRestored)
+                .count();
+    }
+
+    public int mainRestoredClassCount() {
+        return members.stream()
+                .map(MemberBuildResult::result)
+                .mapToInt(BuildResult::mainRestoredClassCount)
+                .sum();
     }
 
     public long mainFingerprintCheckNanos() {
@@ -172,6 +186,7 @@ public record WorkspaceBuildResult(
         private final BuildResult result;
         private final Supplier<ClasspathSet> classpaths;
         private final Supplier<List<ResolvedClasspathPackage>> classpathPackages;
+        private final Supplier<List<ResolvedClasspathPackage>> verifiedCompilerPackages;
 
         public MemberBuildResult(
                 String member,
@@ -183,17 +198,20 @@ public record WorkspaceBuildResult(
             this.result = result;
             this.classpaths = () -> classpaths;
             this.classpathPackages = () -> packages;
+            this.verifiedCompilerPackages = () -> packages;
         }
 
         MemberBuildResult(
                 String member,
                 BuildResult result,
                 Supplier<ClasspathSet> classpaths,
-                Supplier<List<ResolvedClasspathPackage>> classpathPackages) {
+                Supplier<List<ResolvedClasspathPackage>> classpathPackages,
+                Supplier<List<ResolvedClasspathPackage>> verifiedCompilerPackages) {
             this.member = member;
             this.result = result;
             this.classpaths = memoized(classpaths);
             this.classpathPackages = memoized(classpathPackages);
+            this.verifiedCompilerPackages = memoized(verifiedCompilerPackages);
         }
 
         public String member() {
@@ -210,6 +228,14 @@ public record WorkspaceBuildResult(
 
         public List<ResolvedClasspathPackage> classpathPackages() {
             return classpathPackages.get();
+        }
+
+        /**
+         * The verified member lock projection available to compiler tooling. Unlike packaging
+         * inputs, this remains available to test compilation after an ordinary workspace build.
+         */
+        public List<ResolvedClasspathPackage> verifiedCompilerPackages() {
+            return verifiedCompilerPackages.get();
         }
 
         @Override

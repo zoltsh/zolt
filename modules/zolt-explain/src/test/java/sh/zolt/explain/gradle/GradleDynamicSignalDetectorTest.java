@@ -1,5 +1,6 @@
 package sh.zolt.explain.gradle;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -75,7 +76,7 @@ final class GradleDynamicSignalDetectorTest {
     }
 
     @Test
-    void reportsWidenedPublicationConventionTestRuntimeAndGroovySignals() throws IOException {
+    void reportsWidenedPublicationConventionAndTestRuntimeSignalsWithoutBlockingGroovyMain() throws IOException {
         Files.createDirectories(tempDir.resolve("src/main/groovy/com/example"));
         Files.writeString(tempDir.resolve("settings.gradle"), "rootProject.name = 'widened-gradle-signals'\n");
         Files.writeString(tempDir.resolve("build.gradle"), """
@@ -104,11 +105,31 @@ final class GradleDynamicSignalDetectorTest {
                 result,
                 "gradle.plugin.convention",
                 "gradle.publication.detected",
-                "gradle.test-runtime-settings",
-                "gradle.language.unsupported");
-        assertTrue(result.signals().stream().anyMatch(signal ->
-                signal.id().equals("gradle.language.unsupported")
-                        && signal.message().contains("Groovy main sources")));
+                "gradle.test-runtime-settings");
+        assertFalse(
+                result.signals().stream().anyMatch(signal -> signal.id().equals("gradle.language.unsupported")),
+                () -> "Groovy main sources are supported and must not block migration: " + result.signals());
+    }
+
+    @Test
+    void inactivePluginsDoNotDescribeProjectCapabilities() throws IOException {
+        Files.writeString(tempDir.resolve("settings.gradle"), "rootProject.name = 'inactive-plugins'\n");
+        Files.writeString(tempDir.resolve("build.gradle"), """
+                plugins {
+                    id 'com.android.application' version '8.13.0' apply false
+                    id 'junitbuild.build-metadata' version '1.0.0' apply false
+                    id 'org.springframework.boot' version '3.5.6' apply false
+                    id 'io.spring.dependency-management' version '1.1.7' apply false
+                }
+                """);
+
+        GradleInspectionResult result = inspector.inspect(tempDir);
+
+        assertFalse(result.signals().stream().anyMatch(signal ->
+                        signal.id().equals("gradle.language.unsupported")
+                                || signal.id().equals("gradle.plugin.convention")
+                                || signal.id().equals("gradle.enterprise-plugin.mapped")),
+                () -> "unapplied plugins must not describe project behavior: " + result.signals());
     }
 
     private static void assertSignalIds(GradleInspectionResult result, String... expectedIds) {

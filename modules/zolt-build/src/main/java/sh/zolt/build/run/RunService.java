@@ -2,7 +2,10 @@ package sh.zolt.build.run;
 
 import sh.zolt.build.BuildResultWithClasspaths;
 import sh.zolt.build.BuildService;
+import sh.zolt.build.BuildResult;
+import sh.zolt.build.ProjectMutationLock;
 import sh.zolt.build.RunException;
+import sh.zolt.build.compile.kotlin.KotlinJvmPreviewPolicy;
 import sh.zolt.build.lockfile.VerifiedArtifactIndex;
 import sh.zolt.classpath.Classpath;
 import sh.zolt.doctor.JdkChecker;
@@ -96,6 +99,24 @@ public final class RunService {
             List<String> arguments,
             Consumer<String> outputConsumer,
             VerifiedArtifactIndex artifactIndex) {
+        try (RunFiles files = RunFiles.create(projectDirectory)) {
+            Launch launch = ProjectMutationLock.withLock(projectDirectory,
+                    () -> prepareRun(projectDirectory, config, cacheRoot, artifactIndex, files));
+            JavaRunResult result = launch.jar().isPresent()
+                    ? javaRunner.runJar(launch.java(), launch.jar().orElseThrow(), launch.mainClass(),
+                            KotlinJvmPreviewPolicy.mainJvmArguments(config), arguments, projectDirectory, outputConsumer)
+                    : javaRunner.run(launch.java(), launch.classpath(), launch.mainClass(),
+                            KotlinJvmPreviewPolicy.mainJvmArguments(config), arguments, projectDirectory, outputConsumer);
+            return new RunResult(launch.buildResult(), result);
+        }
+    }
+
+    private Launch prepareRun(
+            Path projectDirectory,
+            ProjectConfig config,
+            Path cacheRoot,
+            VerifiedArtifactIndex artifactIndex,
+            RunFiles files) {
         if (config.packageSettings().mode() == sh.zolt.project.PackageMode.BOM) {
             throw new RunException(
                     "Package mode `bom` publishes a dependencyManagement POM and has nothing to run. "
@@ -123,27 +144,24 @@ public final class RunService {
         }
         if (frameworkRunResult.isPresent()) {
             FrameworkRunResult runResult = frameworkRunResult.orElseThrow();
-            JavaRunResult javaRunResult = javaRunner.runJar(
-                    jdkStatus.java().orElseThrow(),
-                    runResult.runnerJar(),
-                    runResult.runnerDescription(),
-                    arguments,
-                    outputConsumer);
-            return new RunResult(buildResult.buildResult(), javaRunResult);
+            // Framework runner manifests can refer to sibling libraries by relative path.
+            files.capture(runResult.runnerJar().toAbsolutePath().normalize().getParent());
+            return new Launch(buildResult.buildResult(), jdkStatus.java().orElseThrow(),
+                    new Classpath(List.of()), runResult.runnerDescription(),
+                    Optional.of(files.remap(runResult.runnerJar())));
         }
         if (frameworkRunEnabled) {
             throw new RunException("Framework run augmenter was not configured for the enabled framework.");
         }
-
+        files.capture(buildResult.buildResult().outputDirectory());
+        files.captureProjectEntries(projectDirectory, buildResult.classpaths().runtime().entries());
         List<Path> runtimeEntries = new ArrayList<>();
-        runtimeEntries.add(buildResult.buildResult().outputDirectory());
-        runtimeEntries.addAll(buildResult.classpaths().runtime().entries());
-        JavaRunResult javaRunResult = javaRunner.run(
-                jdkStatus.java().orElseThrow(),
-                new Classpath(runtimeEntries),
-                mainClass,
-                arguments,
-                outputConsumer);
-        return new RunResult(buildResult.buildResult(), javaRunResult);
+        runtimeEntries.add(files.remap(buildResult.buildResult().outputDirectory()));
+        runtimeEntries.addAll(files.remap(buildResult.classpaths().runtime().entries()));
+        return new Launch(buildResult.buildResult(), jdkStatus.java().orElseThrow(),
+                new Classpath(runtimeEntries), mainClass, Optional.empty());
     }
+
+    private record Launch(
+            BuildResult buildResult, Path java, Classpath classpath, String mainClass, Optional<Path> jar) {}
 }

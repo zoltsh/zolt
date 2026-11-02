@@ -162,12 +162,30 @@ final class ZoltLockfileReaderFieldsTest {
                 scope = "tool-coverage"
                 direct = false
                 dependencies = []
+
+                [[package]]
+                id = "org.apache.groovy:groovy"
+                version = "4.0.22"
+                source = "maven-central"
+                scope = "tool-groovy"
+                direct = true
+                dependencies = []
+
+                [[package]]
+                id = "org.jetbrains.kotlin:kotlin-compiler-embeddable"
+                version = "2.2.0"
+                source = "maven-central"
+                scope = "tool-kotlin"
+                direct = true
+                dependencies = []
                 """);
 
         assertEquals(DependencyScope.PROCESSOR, lockfile.packages().get(0).scope());
         assertEquals(DependencyScope.TEST_PROCESSOR, lockfile.packages().get(1).scope());
         assertEquals(DependencyScope.QUARKUS_DEPLOYMENT, lockfile.packages().get(2).scope());
         assertEquals(DependencyScope.TOOL_COVERAGE, lockfile.packages().get(3).scope());
+        assertEquals(DependencyScope.TOOL_GROOVY, lockfile.packages().get(4).scope());
+        assertEquals(DependencyScope.TOOL_KOTLIN, lockfile.packages().get(5).scope());
     }
 
     @Test

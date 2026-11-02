@@ -37,18 +37,24 @@ public final class CleanService {
     }
 
     public CleanResult clean(Path projectDirectory, BuildSettings settings, CompilerSettings compilerSettings) {
-        Path projectRoot = projectDirectory.toAbsolutePath().normalize();
-        Set<Path> targets = cleanTargets(projectRoot, settings, compilerSettings);
-        validateCleanTargets(projectRoot, settings, targets);
-        return cleanTargets(targets);
+        try (sh.zolt.build.ProjectMutationLock ignored =
+                sh.zolt.build.ProjectMutationLock.acquire(projectDirectory)) {
+            Path projectRoot = projectDirectory.toAbsolutePath().normalize();
+            Set<Path> targets = cleanTargets(projectRoot, settings, compilerSettings);
+            validateCleanTargets(projectRoot, settings, targets);
+            return cleanTargets(targets);
+        }
     }
 
     public CleanResult clean(Path projectDirectory, ProjectConfig config) {
-        Path projectRoot = projectDirectory.toAbsolutePath().normalize();
-        Set<Path> targets = cleanTargets(projectRoot, config.build(), config.compilerSettings());
-        targets.addAll(frameworkCleanTargets.cleanTargets(projectRoot, config));
-        validateCleanTargets(projectRoot, config.build(), targets);
-        return cleanTargets(targets);
+        try (sh.zolt.build.ProjectMutationLock ignored =
+                sh.zolt.build.ProjectMutationLock.acquire(projectDirectory)) {
+            Path projectRoot = projectDirectory.toAbsolutePath().normalize();
+            Set<Path> targets = cleanTargets(projectRoot, config.build(), config.compilerSettings());
+            targets.addAll(frameworkCleanTargets.cleanTargets(projectRoot, config));
+            validateCleanTargets(projectRoot, config.build(), targets);
+            return cleanTargets(targets);
+        }
     }
 
     private static CleanResult cleanTargets(Set<Path> targets) {

@@ -29,9 +29,11 @@ final class ManifestBuildCompilerWriterTest {
                 Optional.of("UTF-16"),
                 Optional.of(AuthoredCompiler.JdkApiMode.HOST),
                 List.of("-Xlint:all", "-parameters"),
+                Optional.of("maven-main"),
                 Optional.of(new AuthoredCompiler.Test(
                         Optional.of(AuthoredCompiler.JdkApiMode.RELEASE),
-                        List.of("-g", "-Xlint:none"))),
+                        List.of("-g", "-Xlint:none"),
+                        Optional.of("maven-test"))),
                 Optional.of(new AuthoredCompiler.Generated(
                         Optional.of(path("generated/main")),
                         Optional.of(path("generated/test")))));
@@ -58,10 +60,12 @@ final class ManifestBuildCompilerWriterTest {
                 encoding = "UTF-16"
                 jdkApi = "host"
                 args = ["-Xlint:all", "-parameters"]
+                kotlinModule = "maven-main"
 
                 [compiler.test]
                 jdkApi = "release"
                 args = ["-g", "-Xlint:none"]
+                kotlinModule = "maven-test"
 
                 [compiler.generated]
                 main = "generated/main"

@@ -77,6 +77,24 @@ final class ExecGeneratedSourceServiceTest {
     }
 
     @Test
+    void regeneratesWhenCachedOutputChangesOrDisappears() throws IOException {
+        writeProjectFiles(projectDir);
+        List<List<String>> commands = new ArrayList<>();
+        ExecGeneratedSourceService service = service(projectDir, generatingRunner(commands));
+        Path generated = projectDir.resolve(
+                "target/generated/sources/jooq/com/example/generated/Model.java");
+
+        service.generateMain(projectDir, config(), packages(projectDir));
+        Files.writeString(generated, "manually changed\n");
+        service.generateMain(projectDir, config(), packages(projectDir));
+        Files.delete(generated);
+        service.generateMain(projectDir, config(), packages(projectDir));
+
+        assertEquals(3, commands.size());
+        assertTrue(Files.isRegularFile(generated));
+    }
+
+    @Test
     void regeneratesWhenArgsChange() throws IOException {
         writeProjectFiles(projectDir);
         List<List<String>> commands = new ArrayList<>();

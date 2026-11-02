@@ -40,7 +40,7 @@ public final class DependencyWhyFormatter {
         }
         DependencyRootProjection.ResolvedPath resolved = resolvedPath.orElseThrow();
         List<LockPackage> path = resolved.packages();
-        Optional<LockConflict> targetConflict = conflictFor(lockfile, path.getLast());
+        Optional<LockConflict> targetConflict = new DependencyConflictIndex(lockfile, member).first(path.getLast());
         StringBuilder output = new StringBuilder();
         output.append(config.project().group())
                 .append(':')
@@ -112,16 +112,6 @@ public final class DependencyWhyFormatter {
         output.append(" (policy: ")
                 .append(String.join("; ", lockPackage.policies().stream().sorted().toList()))
                 .append(')');
-    }
-
-    private static Optional<LockConflict> conflictFor(ZoltLockfile lockfile, LockPackage target) {
-        LockArtifactVariant targetVariant = LockArtifactVariant.of(target);
-        return lockfile.conflicts().stream()
-                .filter(conflict -> conflict.packageId().equals(target.packageId()))
-                .filter(conflict -> conflict.variant()
-                        .orElse(LockArtifactVariant.defaultVariant())
-                        .equals(targetVariant))
-                .findFirst();
     }
 
     private static void appendConflict(StringBuilder output, LockConflict conflict) {

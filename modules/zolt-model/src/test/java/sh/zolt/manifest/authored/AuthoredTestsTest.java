@@ -17,7 +17,8 @@ final class AuthoredTestsTest {
     void storesDistinctAuthoredOrderRootsAndSortedNamedSuites() {
         AuthoredTests.Sources sources = new AuthoredTests.Sources(
                 List.of(path("src/z-test/java"), path("src/a-test/java")),
-                List.of(path("src/test/groovy")));
+                List.of(path("src/test/groovy")),
+                List.of(path("src/z-test/kotlin"), path("src/a-test/kotlin")));
         AuthoredTests.Integration integration = new AuthoredTests.Integration(
                 List.of(path("src/integration-test/java")),
                 List.of(path("src/integration-test/resources")));
@@ -34,6 +35,9 @@ final class AuthoredTestsTest {
                 tests.sources().orElseThrow().java(),
                 "test source roots are order-bearing and keep authored order");
         assertEquals(
+                List.of(path("src/z-test/kotlin"), path("src/a-test/kotlin")),
+                tests.sources().orElseThrow().kotlin());
+        assertEquals(
                 List.of("fast", "smoke"),
                 tests.suites().keySet().stream().map(LocalId::value).toList());
         assertThrows(UnsupportedOperationException.class, () -> tests.suites().clear());
@@ -42,11 +46,15 @@ final class AuthoredTestsTest {
     @Test
     void rejectsEmptySourceTablesDuplicateRootsAndReservedAllSuite() {
         assertThrows(IllegalArgumentException.class, () -> new AuthoredTests.Sources(
-                List.of(), List.of()));
+                List.of(), List.of(), List.of()));
         assertThrows(IllegalArgumentException.class, () -> new AuthoredTests.Integration(
                 List.of(), List.of()));
         assertThrows(IllegalArgumentException.class, () -> new AuthoredTests.Sources(
                 List.of(path("src/test/java"), path("src/test/java")), List.of()));
+        assertThrows(IllegalArgumentException.class, () -> new AuthoredTests.Sources(
+                List.of(),
+                List.of(),
+                List.of(path("src/test/kotlin"), path("src/test/kotlin"))));
         assertThrows(IllegalArgumentException.class, () -> new AuthoredTests(
                 Optional.empty(),
                 Optional.empty(),

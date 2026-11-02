@@ -2,14 +2,17 @@ package sh.zolt.lockfile;
 
 import sh.zolt.dependency.PackageId;
 import sh.zolt.dependency.ConflictSelectionReason;
+import sh.zolt.dependency.DependencyScope;
 import java.util.List;
 import java.util.Optional;
 
 /**
- * A recorded version mediation. {@code toolGroup} names the isolated exec-tool closure whose own
- * resolution mediated this conflict (see Hole 1); it is empty for a mediation in the main project graph.
- * The attribution keeps the audit trail unambiguous about WHICH closure conflicted when the same GA
- * mediates in more than one place.
+ * A recorded version mediation. {@code toolGroup} is the wire field {@code tool}: it names the
+ * isolated resolution whose own closure mediated this conflict, and is empty for the main project
+ * graph. Exec tools retain their authored local ID; compiler closures use the reserved stable key
+ * {@code compiler:<scope>:<closure-root-identity>}. The attribution keeps the audit trail
+ * unambiguous when the same GA mediates in more than one place, including compiler closures from
+ * workspace members configured with different compiler versions.
  *
  * <p>{@code variant} qualifies the mediation to a single artifact variant when the workspace layer
  * mediates within a variant lane rather than across a whole {@code groupId:artifactId}: two variants of
@@ -26,6 +29,8 @@ public record LockConflict(
         Optional<String> toolGroup,
         Optional<LockArtifactVariant> variant,
         List<String> members) {
+    private static final String COMPILER_TOOL_GROUP_PREFIX = "compiler:";
+
     public LockConflict {
         requestedVersions = List.copyOf(requestedVersions);
         toolGroup = toolGroup == null ? Optional.empty() : toolGroup;
@@ -34,6 +39,35 @@ public record LockConflict(
         // output byte-identical for variant-free locks.
         variant = variant == null ? Optional.empty() : variant.filter(value -> !value.isDefault());
         members = members == null ? List.of() : List.copyOf(members);
+    }
+
+    /** Stable {@code tool} attribution for one isolated compiler closure. */
+    public static String compilerToolGroup(DependencyScope scope, String closureRootIdentity) {
+        String identity = closureRootIdentity == null ? "" : closureRootIdentity.strip();
+        if (identity.isEmpty()) {
+            throw new IllegalArgumentException("Compiler conflict resolution group requires a closure root identity.");
+        }
+        return compilerToolGroupPrefix(scope) + identity;
+    }
+
+    /** Prefix shared by compiler closures in one scope, for display and filtering consumers. */
+    public static String compilerToolGroupPrefix(DependencyScope scope) {
+        return switch (scope) {
+            case TOOL_GROOVY, TOOL_KOTLIN -> COMPILER_TOOL_GROUP_PREFIX + scope.lockfileName() + ":";
+            default -> throw new IllegalArgumentException(
+                    "Compiler conflict resolution group requires a compiler-tool scope.");
+        };
+    }
+
+    /** Whether an isolated-resolution key belongs to one compiler scope. */
+    public static boolean isCompilerToolGroup(String value, DependencyScope scope) {
+        String prefix = compilerToolGroupPrefix(scope);
+        return value != null && value.length() > prefix.length() && value.startsWith(prefix);
+    }
+
+    /** Whether an isolated-resolution key belongs to the compiler-reserved namespace. */
+    public static boolean isReservedCompilerToolGroup(String value) {
+        return value != null && value.startsWith(COMPILER_TOOL_GROUP_PREFIX);
     }
 
     public LockConflict(

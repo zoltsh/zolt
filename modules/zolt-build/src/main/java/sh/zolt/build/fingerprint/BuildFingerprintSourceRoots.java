@@ -23,6 +23,7 @@ final class BuildFingerprintSourceRoots {
                 .map(GeneratedSourceStep::output)
                 .toList());
         roots.addAll(settings.groovyTestSources());
+        roots.addAll(settings.kotlinTestSources());
         return List.copyOf(roots);
     }
 }

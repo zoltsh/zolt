@@ -18,6 +18,8 @@ final class BuildFingerprintInputsTest {
             src/Foo.java|hash-foo
             [expectedClasses]
             target/classes/Foo.class
+            [compilerOutputHashes]
+            target/classes/Foo.class|hash-class
             """;
 
     @Test
@@ -26,6 +28,8 @@ final class BuildFingerprintInputsTest {
         assertTrue(inputs.contains("[sources]"));
         assertTrue(inputs.contains("src/Foo.java|hash-foo"));
         assertFalse(inputs.contains("[expectedClasses]"));
+        assertFalse(inputs.contains("[compilerOutputHashes]"));
+        assertFalse(inputs.contains("hash-class"));
         assertFalse(inputs.contains("Foo.class"));
     }
 
@@ -37,6 +41,9 @@ final class BuildFingerprintInputsTest {
                 BuildFingerprintInputs.inputsSha256(FINGERPRINT),
                 BuildFingerprintInputs.inputsSha256(differentOutputs),
                 "expected-class changes must not change the cache key");
+        assertEquals(
+                BuildFingerprintInputs.inputsSha256(FINGERPRINT),
+                BuildFingerprintInputs.inputsSha256(FINGERPRINT.replace("hash-class", "damaged-class")));
 
         String differentInputs = FINGERPRINT.replace("hash-foo", "hash-foo-edited");
         assertNotEquals(

@@ -71,6 +71,7 @@ jobs:
           check_group 'coverage floors' 1
           check_group 'smoke packaged workflows ' 4
           check_group 'managed Java toolchain dogfood ' 2
+          check_group 'stable Java lifecycle' 1
 
           if [ "${#errors[@]}" -ne 0 ]; then
             for error in "${errors[@]}"; do

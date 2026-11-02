@@ -1,5 +1,6 @@
 package sh.zolt.javac;
 
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -7,46 +8,41 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ServiceLoader;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import javax.annotation.processing.Processor;
 
-/**
- * Loads annotation {@link Processor} implementations from a processor classpath the same way javac's
- * own discovery would: a {@link ServiceLoader} over an isolated {@link URLClassLoader}. The class
- * loader is cached per exact processor-classpath so the persistent worker keeps it warm across
- * compiles, but processor instances are always created fresh (they are stateful per compile). Loaders
- * are never shared across different classpaths.
- */
+/** Loads processors in an isolated loader owned by one compilation, including lazy resource reads. */
 final class ProcessorLoader {
-    private static final int MAX_CACHED_LOADERS = 64;
-    private static final ConcurrentMap<String, URLClassLoader> LOADERS = new ConcurrentHashMap<>();
-
     private ProcessorLoader() {
     }
 
-    static List<Processor> load(List<Path> processorPath) {
+    static Loaded load(List<Path> processorPath) {
         if (processorPath.isEmpty()) {
-            return List.of();
+            return new Loaded(null, List.of());
         }
-        URLClassLoader loader = LOADERS.computeIfAbsent(key(processorPath), ignored -> newLoader(processorPath));
-        if (LOADERS.size() > MAX_CACHED_LOADERS) {
-            LOADERS.clear();
-            loader = newLoader(processorPath);
+        URLClassLoader loader = newLoader(processorPath);
+        try {
+            List<Processor> processors = new ArrayList<>();
+            for (Processor processor : ServiceLoader.load(Processor.class, loader)) {
+                processors.add(processor);
+            }
+            return new Loaded(loader, List.copyOf(processors));
+        } catch (RuntimeException | Error failure) {
+            try {
+                loader.close();
+            } catch (IOException cleanup) {
+                failure.addSuppressed(cleanup);
+            }
+            throw failure;
         }
-        List<Processor> processors = new ArrayList<>();
-        for (Processor processor : ServiceLoader.load(Processor.class, loader)) {
-            processors.add(processor);
-        }
-        return processors;
     }
 
-    private static String key(List<Path> processorPath) {
-        StringBuilder key = new StringBuilder();
-        for (Path entry : processorPath) {
-            key.append(entry.toAbsolutePath().normalize()).append('\n');
+    record Loaded(URLClassLoader loader, List<Processor> processors) implements AutoCloseable {
+        @Override
+        public void close() throws IOException {
+            if (loader != null) {
+                loader.close();
+            }
         }
-        return key.toString();
     }
 
     private static URLClassLoader newLoader(List<Path> processorPath) {

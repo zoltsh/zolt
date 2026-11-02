@@ -38,6 +38,42 @@ final class NativeVersionInstallServiceTest extends NativeUpdateServiceTestCase 
     }
 
     @Test
+    void rejectedCandidateDoesNotReplaceExistingVersionContents() throws IOException {
+        InstalledFixture installed = install("0.1.0");
+        Path targetDirectory = installed.installRoot().resolve("versions/0.1.1");
+        Files.createDirectories(targetDirectory);
+        Path marker = targetDirectory.resolve("preserve.txt");
+        Files.writeString(marker, "original incomplete install");
+        Path archive = archive("0.1.1", "linux-x64", "wrong-version");
+        Path index = writeReleaseIndex("stable", "0.1.1", "linux-x64", archive, "sidecar");
+
+        assertThrows(NativeUpdateException.class,
+                () -> installService.install(new NativeVersionInstallRequest(
+                        installed.installRoot(), installed.binLink(), index.toUri(), "0.1.1",
+                        ReleaseTarget.LINUX_X64, tempDir.resolve("install-work"))));
+
+        assertEquals("original incomplete install", Files.readString(marker));
+        assertFalse(Files.exists(targetDirectory.resolve("bin/zolt")));
+        assertEquals("../versions/0.1.0/bin/zolt", Files.readSymbolicLink(installed.binLink()).toString());
+        assertFalse(Files.exists(installed.installRoot().resolve("previous-version")));
+    }
+
+    @Test
+    void rejectedCandidateIsNotRecordedAsAnInstalledVersion() throws IOException {
+        InstalledFixture installed = install("0.1.0");
+        Path archive = archive("0.1.1", "linux-x64", "wrong-version");
+        Path index = writeReleaseIndex("stable", "0.1.1", "linux-x64", archive, "sidecar");
+
+        assertThrows(NativeUpdateException.class,
+                () -> installService.install(new NativeVersionInstallRequest(
+                        installed.installRoot(), installed.binLink(), index.toUri(), "0.1.1",
+                        ReleaseTarget.LINUX_X64, tempDir.resolve("install-work"))));
+
+        assertFalse(Files.exists(installed.installRoot().resolve("versions/0.1.1")));
+        assertEquals("../versions/0.1.0/bin/zolt", Files.readSymbolicLink(installed.binLink()).toString());
+    }
+
+    @Test
     void alreadyInstalledVersionIsVerifiedAndDoesNotCreateWorkDirectory() throws IOException {
         InstalledFixture installed = install("0.1.0");
         writeFakeZolt(installed.installRoot().resolve("versions/0.1.1/bin/zolt"), "0.1.1");

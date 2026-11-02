@@ -42,11 +42,13 @@ final class ManifestTestsDecoderTest {
         AuthoredTests tests = decode("""
                 [test.sources]
                 java = ["src/custom-test/java"]
+                kotlin = ["src/custom-test/kotlin"]
 
                 [test.runtime]
                 events = ["failed"]
 
                 [test.integration]
+                sources = ["src/custom-integration/java", "src/custom-integration/kotlin"]
                 resources = ["src/custom-integration/resources"]
 
                 [test.suites.zeta]
@@ -59,13 +61,18 @@ final class ManifestTestsDecoderTest {
         AuthoredTests.Sources sources = tests.sources().orElseThrow();
         assertEquals(List.of(path("src/custom-test/java")), sources.java());
         assertTrue(sources.groovy().isEmpty());
+        assertEquals(List.of(path("src/custom-test/kotlin")), sources.kotlin());
         AuthoredTestRuntime runtime = tests.runtime().orElseThrow();
         assertTrue(runtime.jvmArgs().isEmpty());
         assertTrue(runtime.properties().isEmpty());
         assertTrue(runtime.env().isEmpty());
         assertEquals(List.of(AuthoredTestRuntime.Event.FAILED), runtime.events());
         AuthoredTests.Integration integration = tests.integration().orElseThrow();
-        assertTrue(integration.sources().isEmpty());
+        assertEquals(
+                List.of(
+                        path("src/custom-integration/java"),
+                        path("src/custom-integration/kotlin")),
+                integration.sources());
         assertEquals(
                 List.of(path("src/custom-integration/resources")),
                 integration.resources());
@@ -113,13 +120,16 @@ final class ManifestTestsDecoderTest {
     }
 
     @Test
-    void rejectsTestSourceRootsForLanguagesZoltDoesNotBuild() {
+    void enforcesLanguageSpecificUnitAndIntegrationRootGuards() {
         // §10.1: unsupported roots fail actionably. Groovy test sources stay legal per §10.6.
         assertFailure(
                 "[test.sources]\njava = [\"src/test/kotlin\"]\n",
                 "`test.sources.java[0]`",
                 "Unsupported Kotlin source root `src/test/kotlin`",
-                "keep Kotlin modules outside the Zolt beta scope");
+                "unit-test roots in [test.sources].kotlin");
+        AuthoredTests.Sources kotlin = decode("[test.sources]\nkotlin = [\"src/test/kotlin\"]\n")
+                .orElseThrow().sources().orElseThrow();
+        assertEquals(List.of(path("src/test/kotlin")), kotlin.kotlin());
         assertFailure(
                 "[test.sources]\ngroovy = [\"src/test/scala\"]\n",
                 "`test.sources.groovy[0]`",

@@ -12,6 +12,7 @@ import sh.zolt.manifest.authored.AuthoredDependencyConstraints;
 import sh.zolt.manifest.authored.AuthoredGeneratedSources;
 import sh.zolt.manifest.authored.AuthoredManifest;
 import sh.zolt.manifest.authored.AuthoredPackaging;
+import sh.zolt.manifest.authored.AuthoredToolchains;
 import sh.zolt.project.VersionPolicy;
 import java.util.ArrayList;
 import java.util.List;
@@ -75,6 +76,15 @@ final class MavenInspectionMapper {
         for (MavenAnnotationProcessorInspection processor : primary.annotationProcessors()) {
             mapAnnotationProcessor(processor, dependencies, notes);
         }
+        Optional<AuthoredGeneratedSources> generated =
+                MavenExecStepDrafter.draft(primary.plugins(), notes);
+        MavenKotlinDraftAssessor.Result kotlinAssessment =
+                MavenKotlinDraftAssessor.assess(primary, dependencies);
+        kotlinAssessment.reviewNote().ifPresent(notes::add);
+        Optional<KotlinJvmDraftEligibility.Decision.Eligible> kotlin =
+                kotlinAssessment.decision() instanceof KotlinJvmDraftEligibility.Decision.Eligible eligible
+                        ? Optional.of(eligible)
+                        : Optional.empty();
         addRepositoryNotes(primary.repositories(), notes);
         addProfileNotes(primary, notes);
 
@@ -92,18 +102,39 @@ final class MavenInspectionMapper {
             notes.add(jdkApiHostNote(primary.javaVersion()));
         }
 
-        AuthoredBuildConfiguration build = InspectionBuildSettingsMapper.fromRoots(
-                primary.sourceRoots(),
-                primary.testSourceRoots(),
-                primary.resourceRoots(),
-                primary.testResourceRoots(),
-                notes);
-        Optional<AuthoredGeneratedSources> generated =
-                MavenExecStepDrafter.draft(primary.plugins(), notes);
+        AuthoredBuildConfiguration build = kotlin
+                .map(eligible -> InspectionBuildSettingsMapper.fromKotlinRoots(
+                        kotlinMainRoots(primary, eligible),
+                        primary.testSourceRoots(),
+                        primary.resourceRoots(),
+                        primary.testResourceRoots(),
+                        eligible,
+                        notes))
+                .orElseGet(() -> InspectionBuildSettingsMapper.fromRoots(
+                        primary.sourceRoots(),
+                        primary.testSourceRoots(),
+                        primary.resourceRoots(),
+                        primary.testResourceRoots(),
+                        notes));
+        if (kotlin.isPresent()) {
+            build = DraftManifests.withKotlinModules(
+                    build,
+                    primary.artifactId(),
+                    primary.artifactId() + "-test",
+                    kotlin.orElseThrow());
+        }
         if (generated.isPresent()) {
             notes.add("Exec steps drafted from Maven exec-shaped plugins carry a placeholder input ("
                     + MavenExecStepDrafter.INPUT_PLACEHOLDER + ") and a conventional output path;"
                     + " declare the real declared-input closure and owned output for each before building.");
+        }
+        AuthoredToolchains toolchains = DraftManifests.groovyToolchains(
+                dependencies,
+                primary.sourceRoots(),
+                primary.testSourceRoots(),
+                List.of());
+        if (kotlin.isPresent()) {
+            toolchains = DraftManifests.withKotlinToolchain(toolchains, kotlin.orElseThrow());
         }
         AuthoredManifest manifest = DraftManifests.project(
                 DraftManifests.identity(
@@ -113,12 +144,27 @@ final class MavenInspectionMapper {
                         javaRelease,
                         notes),
                 DraftManifests.metadata(Optional.empty(), notes),
+                toolchains,
                 dependencies,
                 constraints,
                 build,
                 generated,
                 AuthoredPackaging.empty());
         return new DraftZoltToml(manifest, notes, suggestJdkApiHost);
+    }
+
+    private static List<String> kotlinMainRoots(
+            MavenProjectInspection project,
+            KotlinJvmDraftEligibility.Decision.Eligible kotlin) {
+        if (!kotlin.main()
+                || project.explicitSourceDirectory()
+                || project.sourceRoots().contains("src/main/java")) {
+            return project.sourceRoots();
+        }
+        List<String> roots = new ArrayList<>();
+        roots.add("src/main/java");
+        roots.addAll(project.sourceRoots());
+        return List.copyOf(roots);
     }
 
     private static String jdkApiHostNote(String javaVersion) {

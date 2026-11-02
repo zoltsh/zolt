@@ -7,6 +7,7 @@ import sh.zolt.project.BuildSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectConfigs;
 import sh.zolt.project.ProjectMetadata;
+import sh.zolt.project.TestSourceRoots;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -86,6 +87,51 @@ final class WorkspaceTestScheduleTest {
         assertEquals(0, weights.get("bare"));
     }
 
+    @Test
+    void weighsJavaGroovyAndKotlinTestSourcesWithoutCountingWrongLanguageFiles() throws IOException {
+        Path directory = tempDir.resolve("mixed");
+        write(directory.resolve("src/test/java/example/JavaTest.java"));
+        write(directory.resolve("src/test/java/example/Ignored.kt"));
+        write(directory.resolve("src/test/java/example/Ignored.groovy"));
+        write(directory.resolve("src/test/groovy/example/GroovySpec.groovy"));
+        write(directory.resolve("src/test/groovy/example/Ignored.kt"));
+        write(directory.resolve("src/test/groovy/example/Ignored.kts"));
+        write(directory.resolve("src/test/groovy/example/Ignored.java"));
+        write(directory.resolve("src/test/kotlin/example/KotlinTest.kt"));
+        write(directory.resolve("src/test/kotlin/example/Ignored.java"));
+        write(directory.resolve("src/test/kotlin/example/Ignored.groovy"));
+        write(directory.resolve("src/test/kotlin/example/Ignored.kts"));
+        BuildSettings defaults = BuildSettings.defaults();
+        BuildSettings build = new BuildSettings(
+                defaults.source(),
+                defaults.sourceRoots(),
+                defaults.test(),
+                defaults.outputRoot(),
+                defaults.output(),
+                defaults.testOutput(),
+                new TestSourceRoots(
+                        List.of("src/test/java"),
+                        List.of("src/test/groovy"),
+                        List.of("src/test/kotlin")),
+                defaults.integrationTestOutput(),
+                defaults.integrationTestSources(),
+                defaults.integrationTestResourceRoots(),
+                defaults.resourceRoots(),
+                defaults.testResourceRoots(),
+                defaults.resourceFiltering(),
+                defaults.testRuntime(),
+                defaults.testSuites(),
+                defaults.metadata(),
+                defaults.generatedMainSources(),
+                defaults.generatedTestSources());
+        WorkspaceMember mixed = new WorkspaceMember("mixed", directory, config("mixed", build));
+
+        Map<String, Integer> weights = WorkspaceTestSchedule.testSourceWeights(
+                List.of("mixed"), Map.of("mixed", mixed));
+
+        assertEquals(3, weights.get("mixed"));
+    }
+
     private WorkspaceMember member(String name, int testSources) throws IOException {
         Path directory = tempDir.resolve(name);
         Path testRoot = directory.resolve("src/test/java/example");
@@ -103,11 +149,20 @@ final class WorkspaceTestScheduleTest {
     }
 
     private static ProjectConfig config(String name) {
+        return config(name, BuildSettings.defaults());
+    }
+
+    private static ProjectConfig config(String name, BuildSettings build) {
         return ProjectConfigs.withDirectDependencies(
                 new ProjectMetadata(name, "0.1.0", "com.example", "21", Optional.empty()),
                 Map.of(),
                 Map.of(),
                 Map.of(),
-                BuildSettings.defaults());
+                build);
+    }
+
+    private static void write(Path path) throws IOException {
+        Files.createDirectories(path.getParent());
+        Files.writeString(path, "class Example {}\n");
     }
 }

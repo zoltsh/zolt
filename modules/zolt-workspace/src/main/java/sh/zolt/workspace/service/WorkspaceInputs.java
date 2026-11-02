@@ -104,26 +104,34 @@ public final class WorkspaceInputs {
     }
 
     public void requireCurrent() {
+        if (!current()) {
+            throw changed();
+        }
+    }
+
+    /** Whether every captured planning input still has the exact bytes and directory shape. */
+    public boolean current() {
         if (files.isEmpty() && missing.isEmpty() && directoryEvidence.isEmpty()) {
-            return;
+            return true;
         }
         for (Map.Entry<Path, byte[]> entry : files.entrySet()) {
             if (!matches(entry.getKey(), entry.getValue())) {
-                throw changed();
+                return false;
             }
         }
         for (Path path : missing) {
             if (Files.exists(path)) {
-                throw changed();
+                return false;
             }
         }
         for (WorkspaceDirectoryEvidence evidence : directoryEvidence) {
             List<String> current = currentDirectoryListing(
                     evidence.directory(), evidence.selector());
             if (current == null || !current.equals(evidence.entries())) {
-                throw changed();
+                return false;
             }
         }
+        return true;
     }
 
     Map<Path, String> digests() {

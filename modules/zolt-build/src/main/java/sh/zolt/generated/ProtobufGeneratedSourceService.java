@@ -66,11 +66,17 @@ public final class ProtobufGeneratedSourceService {
             Path packageRoot = packageRoot(output, javaPackage);
             createDirectory(packageRoot);
             for (String message : protoFile.messages()) {
-                write(packageRoot.resolve(message + ".java"), messageSource(javaPackage, message));
+                write(
+                        packageRoot.resolve(message + ProtobufJvmSourceEmitter.extension(step.language())),
+                        ProtobufJvmSourceEmitter.message(step.language(), javaPackage, message));
             }
             if (step.protobuf().grpc()) {
                 for (String service : protoFile.services()) {
-                    write(packageRoot.resolve(service + "Grpc.java"), grpcSource(javaPackage, protoFile.protoPackage(), service));
+                    write(
+                            packageRoot.resolve(
+                                    service + "Grpc" + ProtobufJvmSourceEmitter.extension(step.language())),
+                            ProtobufJvmSourceEmitter.grpc(
+                                    step.language(), javaPackage, protoFile.protoPackage(), service));
                 }
             }
         }
@@ -78,7 +84,7 @@ public final class ProtobufGeneratedSourceService {
     }
 
     private static void validateStep(Path root, String scope, GeneratedSourceStep step) {
-        if (!"java".equals(step.language())) {
+        if (!"java".equals(step.language()) && !"kotlin".equals(step.language())) {
             throw new GeneratedSourceException(
                     "Protobuf generated source step [generated."
                             + scope
@@ -86,7 +92,7 @@ public final class ProtobufGeneratedSourceService {
                             + step.id()
                             + "] uses unsupported language `"
                             + step.language()
-                            + "`. Zolt currently supports java.");
+                            + "`. Zolt supports java and kotlin for Protobuf output.");
         }
         if (step.inputs().isEmpty()) {
             throw new GeneratedSourceException(
@@ -164,53 +170,11 @@ public final class ProtobufGeneratedSourceService {
         return normalized;
     }
 
-    private static String messageSource(String javaPackage, String message) {
-        return packageLine(javaPackage)
-                + "\n"
-                + "public final class "
-                + message
-                + " {\n"
-                + "    public "
-                + message
-                + "() {\n"
-                + "    }\n\n"
-                + "    public static "
-                + message
-                + " getDefaultInstance() {\n"
-                + "        return new "
-                + message
-                + "();\n"
-                + "    }\n"
-                + "}\n";
-    }
-
-    private static String grpcSource(String javaPackage, String protoPackage, String service) {
-        String serviceName = protoPackage == null || protoPackage.isBlank() ? service : protoPackage + "." + service;
-        return packageLine(javaPackage)
-                + "\n"
-                + "public final class "
-                + service
-                + "Grpc {\n"
-                + "    private "
-                + service
-                + "Grpc() {\n"
-                + "    }\n\n"
-                + "    public static String serviceName() {\n"
-                + "        return "
-                + JavaSourceLiterals.string(serviceName)
-                + ";\n"
-                + "    }\n"
-                + "}\n";
-    }
-
-    private static String packageLine(String javaPackage) {
-        return javaPackage == null || javaPackage.isBlank() ? "" : "package " + javaPackage + ";\n";
-    }
-
     private static void writeDescriptor(Path output, GeneratedSourceStep step, List<GeneratedProtoFile> protoFiles) {
         Path descriptor = output.resolve("META-INF/zolt/protobuf/" + step.id() + ".descriptor");
         StringBuilder content = new StringBuilder();
         content.append("id=").append(step.id()).append('\n');
+        content.append("language=").append(step.language()).append('\n');
         for (GeneratedProtoFile generatedProtoFile : protoFiles) {
             ProtoFile protoFile = generatedProtoFile.protoFile();
             content.append("input=").append(protoFile.input()).append('\n');

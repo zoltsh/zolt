@@ -222,6 +222,43 @@ final class DoctorCommandTest {
         assertTrue(result.stderr().contains("Java version mismatch."), result.stderr());
     }
 
+    @Test
+    void doctorReportsMismatchedPreviewTestRuntime() throws IOException {
+        Path projectDir = tempDir.resolve("preview-test-runtime");
+        Files.createDirectories(projectDir);
+        int feature = Runtime.version().feature();
+        Files.writeString(projectDir.resolve("zolt.toml"), """
+                [project]
+                name = "preview-test-runtime"
+                version = "0.1.0"
+                group = "com.example"
+                java = %d
+
+                [toolchain.java]
+                version = %d
+                features = []
+                policy = "allow-system"
+
+                [toolchain.java.test]
+                version = %d
+
+                [compiler]
+                args = ["-Xjvm-enable-preview"]
+                """.formatted(feature, feature, feature + 1));
+
+        CommandResult result = execute(
+                "--color=never",
+                "doctor",
+                "--directory", projectDir.toString());
+
+        assertEquals(1, result.exitCode(), result.stdout() + result.stderr());
+        assertTrue(result.stdout().contains("Test runtime JDK status: error"));
+        assertTrue(result.stderr().contains(
+                "JVM preview class files require the same Java feature release"));
+        assertTrue(result.stderr().contains(
+                "Set [toolchain.java.test].version to " + feature));
+    }
+
     /**
      * An unusable toolchain still reports the paths it resolved. The version is wrong, not the JDK, so
      * every tool row must name a real path instead of collapsing to `missing`.

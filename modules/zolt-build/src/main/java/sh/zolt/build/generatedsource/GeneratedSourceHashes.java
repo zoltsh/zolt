@@ -9,13 +9,11 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-/**
- * Reusable SHA-256 content-hash primitives for generated-source producer caches. Extracted so the
- * exec producer cache can share the exact hashing the OpenAPI cache pioneered without disturbing the
- * OpenAPI cache's byte-for-byte behavior.
- */
+/** Shared SHA-256 content-hash primitives for generated-source producer inputs and owned outputs. */
 final class GeneratedSourceHashes {
     private GeneratedSourceHashes() {
     }
@@ -46,20 +44,31 @@ final class GeneratedSourceHashes {
     }
 
     static String directoryHash(Path directory) {
-        try (Stream<Path> paths = Files.walk(directory)) {
+        return directoryHash(directory, Set.of());
+    }
+
+    static String directoryHash(Path directory, Set<Path> excludedFiles) {
+        Path normalizedDirectory = directory.toAbsolutePath().normalize();
+        Set<Path> normalizedExclusions = excludedFiles.stream()
+                .map(path -> path.toAbsolutePath().normalize())
+                .collect(Collectors.toUnmodifiableSet());
+        try (Stream<Path> paths = Files.walk(normalizedDirectory)) {
             StringBuilder content = new StringBuilder();
             paths.filter(Files::isRegularFile)
-                    .map(Path::normalize)
+                    .map(path -> path.toAbsolutePath().normalize())
+                    .filter(path -> !normalizedExclusions.contains(path))
                     .sorted()
                     .forEach(path -> content
-                            .append(directory.relativize(path).toString().replace('\\', '/'))
+                            .append(normalizedDirectory.relativize(path).toString().replace('\\', '/'))
                             .append('|')
                             .append(fileHash(path))
                             .append('\n'));
             return sha256(content.toString().getBytes(StandardCharsets.UTF_8));
         } catch (IOException exception) {
             throw new BuildException(
-                    "Could not fingerprint generated-source directory " + directory + ". Check that it is readable.",
+                    "Could not fingerprint generated-source directory "
+                            + normalizedDirectory
+                            + ". Check that it is readable.",
                     exception);
         }
     }

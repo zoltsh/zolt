@@ -134,7 +134,10 @@ public record WorkspaceTestResult(
     }
 
     public int mainCompilationExecutedCount() {
-        return builtMembers.size() - mainCompilationSkippedCount();
+        return (int) builtMembers.stream()
+                .map(WorkspaceBuildResult.MemberBuildResult::result)
+                .filter(result -> !result.mainCompilationSkipped() && !result.mainCompilationRestored())
+                .count();
     }
 
     public int testCompilationSkippedCount() {
@@ -146,7 +149,11 @@ public record WorkspaceTestResult(
     }
 
     public int testCompilationExecutedCount() {
-        return members.size() - testCompilationSkippedCount();
+        return (int) members.stream()
+                .map(MemberTestRunResult::result)
+                .map(TestRunResult::compileResult)
+                .filter(result -> !result.testCompilationSkipped() && !result.testCompilationRestored())
+                .count();
     }
 
     public long mainFingerprintCheckNanos() {

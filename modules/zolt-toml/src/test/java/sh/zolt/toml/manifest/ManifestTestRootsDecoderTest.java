@@ -23,14 +23,15 @@ final class ManifestTestRootsDecoderTest {
     }
 
     @Test
-    void decodesAllFourArraysAsAuthoredOrderImmutableRoots() {
+    void decodesAllFiveArraysAsAuthoredOrderImmutableRoots() {
         ManifestDecodeIndex index = ManifestSemanticTestSupport.index("""
                 [test.sources]
                 java = ["src/z-test/java", "src/a-test/java"]
                 groovy = ["src/z-test/groovy", "src/a-test/groovy"]
+                kotlin = ["src/z-test/kotlin", "src/a-test/kotlin"]
 
                 [test.integration]
-                sources = ["src/z-integration/java", "src/a-integration/java"]
+                sources = ["src/z-integration/java", "src/a-integration/kotlin"]
                 resources = ["src/z-integration/resources", "src/a-integration/resources"]
                 """);
 
@@ -43,7 +44,9 @@ final class ManifestTestRootsDecoderTest {
                 List.of(path("src/z-test/groovy"), path("src/a-test/groovy")),
                 sources.groovy());
         assertEquals(
-                List.of(path("src/z-integration/java"), path("src/a-integration/java")),
+                List.of(path("src/z-test/kotlin"), path("src/a-test/kotlin")), sources.kotlin());
+        assertEquals(
+                List.of(path("src/z-integration/java"), path("src/a-integration/kotlin")),
                 integration.sources());
         assertEquals(
                 List.of(
@@ -62,6 +65,8 @@ final class ManifestTestRootsDecoderTest {
         assertEquals(
                 List.of(path("custom/groovy")),
                 sources("groovy = [\"custom/groovy\"]\n").orElseThrow().groovy());
+        assertEquals(List.of(path("custom/kotlin")),
+                sources("kotlin = [\"custom/kotlin\"]\n").orElseThrow().kotlin());
         assertEquals(
                 List.of(path("custom/integration")),
                 integration("sources = [\"custom/integration\"]\n")
@@ -80,6 +85,7 @@ final class ManifestTestRootsDecoderTest {
         // meaningful sibling never rescues an empty array.
         assertSourcesFailure("java = []\n", "`test.sources.java`");
         assertSourcesFailure("groovy = []\n", "`test.sources.groovy`");
+        assertSourcesFailure("kotlin = []\n", "`test.sources.kotlin`");
         assertSourcesFailure(
                 "java = []\ngroovy = []\n", "`test.sources.java`");
         assertIntegrationFailure("sources = []\n", "`test.integration.sources`");
@@ -100,6 +106,8 @@ final class ManifestTestRootsDecoderTest {
         assertSourcesFailure(
                 "groovy = [\"custom/groovy\", \"custom/groovy\"]\n",
                 "`test.sources.groovy[1]`");
+        assertSourcesFailure("kotlin = [\"custom/kotlin\", \"custom/kotlin\"]\n",
+                "`test.sources.kotlin[1]`");
         assertIntegrationFailure(
                 "sources = [\"custom/java\", \"custom/java\"]\n",
                 "`test.integration.sources[1]`");

@@ -3,8 +3,7 @@ package sh.zolt.cli.command.build;
 import sh.zolt.build.BuildException;
 import sh.zolt.build.BuildResult;
 import sh.zolt.build.BuildService;
-import sh.zolt.build.GroovyCompileException;
-import sh.zolt.build.JavacException;
+import sh.zolt.build.SourceCompileException;
 import sh.zolt.build.ResourceCopyException;
 import sh.zolt.build.SourceDiscoveryException;
 import sh.zolt.cache.ArtifactCacheException;
@@ -39,7 +38,7 @@ import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Spec;
 
-@Command(name = "build", description = "Compile main Java sources with the resolved compile classpath.")
+@Command(name = "build", description = "Compile configured main sources with the resolved compile classpath.")
 public final class BuildCommand implements Runnable {
     private final ManifestProjectLoader projectLoader;
     private final BuildService buildService;
@@ -200,8 +199,7 @@ public final class BuildCommand implements Runnable {
             }
         } catch (BuildException
                 | ArtifactCacheException
-                | JavacException
-                | GroovyCompileException
+                | SourceCompileException
                 | FrameworkBuildException
                 | ResourceCopyException
                 | SourceDiscoveryException
@@ -281,8 +279,13 @@ public final class BuildCommand implements Runnable {
                 }
             }
         }
-        if (result.mainCompilationExecutedCount() == 0) {
+        if (result.mainCompilationExecutedCount() == 0
+                && result.mainCompilationRestoredCount() == 0) {
             output.detail("Skipped workspace main compilation; inputs are unchanged");
+        } else if (result.mainCompilationExecutedCount() == 0) {
+            output.summary(
+                    "Restored " + result.mainRestoredClassCount() + " workspace main classes",
+                    "build cache");
         } else {
             output.summary(
                     "Compiled " + result.compiledSourceCount() + " workspace main source files",

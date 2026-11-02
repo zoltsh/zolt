@@ -1,0 +1,55 @@
+name: dispatch stable publication
+
+on:
+  workflow_dispatch:
+    inputs:
+      controller_tag:
+        description: Protected release-controller tag, such as zolt-v1.0.0
+        required: true
+        type: string
+      candidate_run_id:
+        description: Successful stable candidate run in zoltsh/releases
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Validate publication identity
+        env:
+          CONTROLLER_TAG: ${{ inputs.controller_tag }}
+          CANDIDATE_RUN_ID: ${{ inputs.candidate_run_id }}
+        run: |
+          set -euo pipefail
+          [[ "$CONTROLLER_TAG" =~ ^zolt-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          [[ "$CANDIDATE_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+
+      # The App initiates publication so the human reviewer can approve it while
+      # both protected stable environments retain prevent_self_review.
+      - name: Create releases dispatcher token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        with:
+          client-id: ${{ vars.ZOLT_RELEASES_DISPATCH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.ZOLT_RELEASES_DISPATCH_APP_PRIVATE_KEY }}
+          owner: zoltsh
+          repositories: releases
+          permission-actions: write
+
+      - name: Request independently verified stable publication
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CONTROLLER_TAG: ${{ inputs.controller_tag }}
+          CANDIDATE_RUN_ID: ${{ inputs.candidate_run_id }}
+        run: |
+          set -euo pipefail
+          gh workflow run stable-publish.yml \
+              --repo zoltsh/releases \
+              --ref "$CONTROLLER_TAG" \
+              --field "candidate_run_id=$CANDIDATE_RUN_ID"

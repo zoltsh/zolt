@@ -96,6 +96,11 @@ public record TestCompileResult(
         return testFingerprintWriteNanos / 1_000_000L;
     }
 
+    /** Whether this module's test output was restored from the build cache instead of compiled. */
+    public boolean testCompilationRestored() {
+        return "restored".equals(testCompilationMode);
+    }
+
     private static String normalizeMode(String mode, boolean skipped) {
         if (skipped) {
             return "skipped";

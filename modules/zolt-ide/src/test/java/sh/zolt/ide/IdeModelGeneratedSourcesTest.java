@@ -21,17 +21,17 @@ final class IdeModelGeneratedSourcesTest {
     void exportsDeclaredGeneratedSourceRootsForEditors() throws IOException {
         Path projectDir = tempDir.resolve("generated-sources");
         Path mainInput = projectDir.resolve("src/main/openapi/api.yaml");
-        Path mainOutput = projectDir.resolve("target/generated/sources/openapi/com/example/GeneratedApi.java");
+        Path mainOutput = projectDir.resolve("target/generated/sources/openapi/com/example/GeneratedApi.kt");
         Path testInput = projectDir.resolve("src/test/fixtures/schema.json");
-        Path testOutput = projectDir.resolve("target/generated/test-sources/fixtures/com/example/GeneratedFixture.java");
+        Path testOutput = projectDir.resolve("target/generated/test-sources/fixtures/com/example/GeneratedFixture.kt");
         Files.createDirectories(mainInput.getParent());
         Files.createDirectories(mainOutput.getParent());
         Files.createDirectories(testInput.getParent());
         Files.createDirectories(testOutput.getParent());
         Files.writeString(mainInput, "openapi: 3.1.0\n");
-        Files.writeString(mainOutput, "package com.example; public final class GeneratedApi {}\n");
+        Files.writeString(mainOutput, "package com.example\nobject GeneratedApi\n");
         Files.writeString(testInput, "{}\n");
-        Files.writeString(testOutput, "package com.example; public final class GeneratedFixture {}\n");
+        Files.writeString(testOutput, "package com.example\nobject GeneratedFixture\n");
         Files.setLastModifiedTime(mainInput, FileTime.fromMillis(1_000));
         Files.setLastModifiedTime(mainOutput, FileTime.fromMillis(2_000));
         Files.setLastModifiedTime(testInput, FileTime.fromMillis(1_000));
@@ -45,13 +45,13 @@ final class IdeModelGeneratedSourcesTest {
 
                 [generated.main.openapi]
                 kind = "declared-root"
-                language = "java"
+                language = "kotlin"
                 output = "target/generated/sources/openapi"
                 inputs = ["src/main/openapi/api.yaml"]
 
                 [generated.test.fixtures]
                 kind = "declared-root"
-                language = "java"
+                language = "kotlin"
                 output = "target/generated/test-sources/fixtures"
                 inputs = ["src/test/fixtures/schema.json"]
                 required = false
@@ -65,13 +65,13 @@ final class IdeModelGeneratedSourcesTest {
         assertTrue(model.sourceRoots().contains(new IdeModel.SourceRoot(
                 "generated-main-openapi",
                 "main",
-                "java",
+                "kotlin",
                 root.resolve("target/generated/sources/openapi"),
                 true)));
         assertTrue(model.sourceRoots().contains(new IdeModel.SourceRoot(
                 "generated-test-fixtures",
                 "test",
-                "java",
+                "kotlin",
                 root.resolve("target/generated/test-sources/fixtures"),
                 true)));
         assertEquals(List.of(
@@ -80,7 +80,7 @@ final class IdeModelGeneratedSourcesTest {
                         "generated-main-openapi",
                         "main",
                         "declared-root",
-                        "java",
+                        "kotlin",
                         root.resolve("target/generated/sources/openapi"),
                         List.of(root.resolve("src/main/openapi/api.yaml")),
                         true,
@@ -98,7 +98,7 @@ final class IdeModelGeneratedSourcesTest {
                         "generated-test-fixtures",
                         "test",
                         "declared-root",
-                        "java",
+                        "kotlin",
                         root.resolve("target/generated/test-sources/fixtures"),
                         List.of(root.resolve("src/test/fixtures/schema.json")),
                         false,
@@ -116,9 +116,66 @@ final class IdeModelGeneratedSourcesTest {
         assertTrue(json.contains("\"generatedSources\": ["));
         assertTrue(json.contains("\"id\": \"generated-main-openapi\""));
         assertTrue(json.contains("\"id\": \"generated-test-fixtures\""));
+        assertTrue(json.contains("\"language\": \"kotlin\""));
         assertTrue(json.contains("\"ownership\": \"external-declared-root\""));
         assertTrue(json.contains("\"compileLane\": \"test-compile\""));
         assertTrue(json.contains("\"freshness\": \"fresh\""));
+    }
+
+    @Test
+    void exportsExecGeneratedKotlinRootsForEditors() throws IOException {
+        Path projectDir = tempDir.resolve("exec-generated-kotlin");
+        Path input = projectDir.resolve("schema/model.yaml");
+        Path output = projectDir.resolve(
+                "target/generated/sources/model/com/example/GeneratedModel.kt");
+        Files.createDirectories(input.getParent());
+        Files.createDirectories(output.getParent());
+        Files.writeString(input, "model: demo\n");
+        Files.writeString(output, "package com.example\nobject GeneratedModel\n");
+        Files.setLastModifiedTime(input, FileTime.fromMillis(1_000));
+        Files.setLastModifiedTime(output, FileTime.fromMillis(2_000));
+        Files.writeString(projectDir.resolve("zolt.toml"), """
+                [project]
+                name = "exec-generated-kotlin"
+                version = "0.1.0"
+                group = "com.example"
+                java = 21
+
+                [generated.tools.generator]
+                kind = "process"
+                binary = "generator"
+                versionCommand = ["generator", "--version"]
+                allowUnpinnedTool = true
+
+                [generated.main.model]
+                kind = "exec"
+                language = "kotlin"
+                tool = "generator"
+                inputs = ["schema/model.yaml"]
+                output = "target/generated/sources/model"
+                produces = "java-sources"
+                """);
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
+
+        IdeModel model = service.export(projectDir, tempDir.resolve("cache"));
+
+        Path root = projectDir.toAbsolutePath().normalize();
+        assertTrue(model.sourceRoots().contains(new IdeModel.SourceRoot(
+                "generated-main-model",
+                "main",
+                "kotlin",
+                root.resolve("target/generated/sources/model"),
+                true)));
+        IdeModel.GeneratedSourceInfo generatedSource = model.generatedSources().getFirst();
+        assertEquals("exec", generatedSource.kind());
+        assertEquals("kotlin", generatedSource.language());
+        assertEquals("zolt-owned-clean", generatedSource.ownership());
+        assertEquals("main-compile", generatedSource.compileLane());
+        assertEquals("fresh", generatedSource.freshness());
+
+        String json = new IdeModelJsonWriter().write(model);
+        assertTrue(json.contains("\"kind\": \"exec\""));
+        assertTrue(json.contains("\"language\": \"kotlin\""));
     }
 
     @Test

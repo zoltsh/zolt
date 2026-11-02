@@ -6,6 +6,7 @@ import sh.zolt.manifest.GeneratedStepSettings;
 public sealed interface AuthoredGeneratedStep
         permits AuthoredOpenApiStep,
                 AuthoredProtobufStep,
+                AuthoredKspStep,
                 AuthoredExecStep,
                 AuthoredDeclaredRootStep {
     GeneratedStepSettings settings();

@@ -174,6 +174,29 @@ final class ResolveLockfilePersistenceTest {
     }
 
     @Test
+    void persistNamesResolutionInputCategoriesRemovedFromLockedCandidate() {
+        Path lockfilePath = tempDir.resolve("zolt.lock");
+        ZoltLockfile existing = withInputFingerprints(
+                lockfile("maven-central", DependencyScope.COMPILE),
+                List.of("schema=same", "dependencies.test=present"));
+        ZoltLockfile candidate = withInputFingerprints(
+                lockfile("maven-central", DependencyScope.COMPILE),
+                List.of("schema=same"));
+        writer.write(lockfilePath, existing);
+
+        ResolveException exception = assertThrows(
+                ResolveException.class,
+                () -> persistence.persist(
+                        lockfilePath,
+                        candidate,
+                        ResolveMetrics.empty(),
+                        true,
+                        ResolveOptions.defaults()));
+
+        assertTrue(exception.getMessage().contains("Changed inputs: dependencies.test."));
+    }
+
+    @Test
     void persistRejectsNewLocalOverlayLockfileWhenOverlaysAreDisabled() {
         Path lockfilePath = tempDir.resolve("zolt.lock");
 
@@ -217,6 +240,22 @@ final class ResolveLockfilePersistenceTest {
                 List.of(),
                 List.of(),
                 dependencyRoots(scope, version));
+    }
+
+    private static ZoltLockfile withInputFingerprints(
+            ZoltLockfile lockfile,
+            List<String> inputFingerprints) {
+        return new ZoltLockfile(
+                lockfile.version(),
+                lockfile.aliasFingerprint(),
+                lockfile.projectResolutionFingerprint(),
+                inputFingerprints,
+                lockfile.packages(),
+                lockfile.conflicts(),
+                lockfile.policyEffects(),
+                lockfile.memberGraphs(),
+                lockfile.workspaceResolutionInputFingerprint(),
+                lockfile.dependencyRoots());
     }
 
     private static List<LockDependencyRoot> dependencyRoots(DependencyScope scope, String version) {

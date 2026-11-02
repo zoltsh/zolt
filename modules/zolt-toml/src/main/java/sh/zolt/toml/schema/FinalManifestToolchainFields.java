@@ -2,7 +2,7 @@ package sh.zolt.toml.schema;
 
 import java.util.List;
 
-/** Registered field handles for Zolt and Java toolchain requests. */
+/** Registered field handles for Zolt, Java, Groovy, and Kotlin toolchain requests. */
 public final class FinalManifestToolchainFields {
     public static final ManifestField ZOLT_VERSION = field(
             FinalManifestPaths.TOOLCHAIN_ZOLT, "version", ManifestValueKind.STRING, 3_010);
@@ -23,6 +23,12 @@ public final class FinalManifestToolchainFields {
             3_220);
     public static final ManifestField JAVA_TEST_POLICY = field(
             FinalManifestPaths.TOOLCHAIN_JAVA_TEST, "policy", ManifestValueKind.STRING, 3_230);
+    public static final ManifestField GROOVY_VERSION = field(
+            FinalManifestPaths.TOOLCHAIN_GROOVY, "version", ManifestValueKind.STRING, 3_310);
+    public static final ManifestField KOTLIN_VERSION = field(
+            FinalManifestPaths.TOOLCHAIN_KOTLIN, "version", ManifestValueKind.STRING, 3_410);
+    public static final ManifestField KOTLIN_PLUGINS = field(
+            FinalManifestPaths.TOOLCHAIN_KOTLIN, "plugins", ManifestValueKind.STRING_ARRAY, 3_420);
 
     private FinalManifestToolchainFields() {
     }
@@ -36,7 +42,10 @@ public final class FinalManifestToolchainFields {
                 JAVA_POLICY,
                 JAVA_TEST_VERSION,
                 JAVA_TEST_DISTRIBUTION,
-                JAVA_TEST_POLICY);
+                JAVA_TEST_POLICY,
+                GROOVY_VERSION,
+                KOTLIN_VERSION,
+                KOTLIN_PLUGINS);
     }
 
     private static ManifestField field(

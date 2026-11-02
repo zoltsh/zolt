@@ -14,8 +14,6 @@ import sh.zolt.project.PublicationMetadata;
 import sh.zolt.quality.QualityCheckResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -55,6 +53,15 @@ public final class PackageQualityCheck {
                     "Library package metadata is enabled, but sources jar generation is disabled.",
                     "Set [package].sources = true for library projects.");
         }
+        if (hasKotlinSourceFiles(projectRoot, config.build().sourceRoots())) {
+            return QualityCheckResult.failed(
+                    PACKAGE_METADATA,
+                    member,
+                    "[package].javadoc",
+                    "Kotlin/Dokka Javadoc publication is outside the bounded Kotlin/JVM preview.",
+                    "Do not enable [package].javadoc for Kotlin sources; generate and publish Dokka "
+                            + "documentation through an external qualified workflow.");
+        }
         if (hasSourceFiles(projectRoot, config.build().sourceRoots()) && !settings.javadoc()) {
             return QualityCheckResult.failed(
                     PACKAGE_METADATA,
@@ -63,7 +70,7 @@ public final class PackageQualityCheck {
                     "Library package metadata is enabled, but javadoc jar generation is disabled.",
                     "Set [package].javadoc = true when publishing Java APIs.");
         }
-        if (hasSourceFiles(projectRoot, testSourceRoots(config.build())) && !settings.tests()) {
+        if (hasTestSourceFiles(projectRoot, config.build()) && !settings.tests()) {
             return QualityCheckResult.failed(
                     PACKAGE_METADATA,
                     member,
@@ -241,12 +248,36 @@ public final class PackageQualityCheck {
                 "Fill " + field + " in zolt.toml."));
     }
 
-    private static List<String> testSourceRoots(BuildSettings build) {
-        List<String> roots = new ArrayList<>();
-        roots.add(build.test());
-        roots.addAll(build.testSources());
-        roots.addAll(build.groovyTestSources());
-        return List.copyOf(new LinkedHashSet<>(roots));
+    private static boolean hasTestSourceFiles(Path projectRoot, BuildSettings build) {
+        return hasSourceFiles(projectRoot, build.testSources(), ".java")
+                || hasSourceFiles(projectRoot, build.groovyTestSources(), ".groovy")
+                || hasSourceFiles(projectRoot, build.kotlinTestSources(), ".kt");
+    }
+
+    private static boolean hasSourceFiles(
+            Path projectRoot,
+            List<String> roots,
+            String extension) {
+        Path normalizedRoot = projectRoot.toAbsolutePath().normalize();
+        for (String root : roots) {
+            if (root == null || root.isBlank()) {
+                continue;
+            }
+            Path sourceRoot = normalizedRoot.resolve(root).normalize();
+            if (!sourceRoot.startsWith(normalizedRoot) || !Files.isDirectory(sourceRoot)) {
+                continue;
+            }
+            try (var stream = Files.find(sourceRoot, Integer.MAX_VALUE, (path, attributes) ->
+                    attributes.isRegularFile()
+                            && path.getFileName().toString().endsWith(extension))) {
+                if (stream.findFirst().isPresent()) {
+                    return true;
+                }
+            } catch (java.io.IOException exception) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean hasSourceFiles(Path projectRoot, List<String> roots) {
@@ -271,8 +302,34 @@ public final class PackageQualityCheck {
         return false;
     }
 
+    private static boolean hasKotlinSourceFiles(Path projectRoot, List<String> roots) {
+        Path normalizedRoot = projectRoot.toAbsolutePath().normalize();
+        for (String root : roots) {
+            if (root == null || root.isBlank()) {
+                continue;
+            }
+            Path sourceRoot = normalizedRoot.resolve(root).normalize();
+            if (!sourceRoot.startsWith(normalizedRoot) || !Files.isDirectory(sourceRoot)) {
+                continue;
+            }
+            try (var stream = Files.find(sourceRoot, Integer.MAX_VALUE, (path, attributes) ->
+                    attributes.isRegularFile()
+                            && path.getFileName().toString().endsWith(".kt"))) {
+                if (stream.findFirst().isPresent()) {
+                    return true;
+                }
+            } catch (java.io.IOException exception) {
+                // Let the broader source check below fail closed without misclassifying the language.
+                return false;
+            }
+        }
+        return false;
+    }
+
     private static boolean sourceLike(Path path) {
         String fileName = path.getFileName().toString();
-        return fileName.endsWith(".java") || fileName.endsWith(".groovy");
+        return fileName.endsWith(".java")
+                || fileName.endsWith(".groovy")
+                || fileName.endsWith(".kt");
     }
 }

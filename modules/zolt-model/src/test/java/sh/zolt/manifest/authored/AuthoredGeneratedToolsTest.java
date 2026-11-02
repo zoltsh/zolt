@@ -24,6 +24,7 @@ final class AuthoredGeneratedToolsTest {
         LinkedHashMap<LocalId, AuthoredGeneratedTool> source = new LinkedHashMap<>();
         source.put(new LocalId("z-process"), process("npm"));
         source.put(new LocalId("protobuf"), protobuf());
+        source.put(new LocalId("ksp"), kspTool());
         source.put(new LocalId("jooq"), jvmTool());
         source.put(new LocalId("openapi"), openApi());
 
@@ -31,7 +32,7 @@ final class AuthoredGeneratedToolsTest {
         source.clear();
 
         assertEquals(
-                List.of("jooq", "openapi", "protobuf", "z-process"),
+                List.of("jooq", "ksp", "openapi", "protobuf", "z-process"),
                 tools.declarations().keySet().stream().map(LocalId::value).toList());
         assertInstanceOf(
                 AuthoredGeneratedTool.Jvm.class,
@@ -50,6 +51,9 @@ final class AuthoredGeneratedToolsTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> new AuthoredGeneratedTools(Map.of(new LocalId("protobuf"), openApi())));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new AuthoredGeneratedTools(Map.of(new LocalId("ksp"), openApi())));
 
         assertEquals(
                 openApi(),
@@ -80,6 +84,34 @@ final class AuthoredGeneratedToolsTest {
                         new DependencySelector.Managed()));
     }
 
+    @Test
+    void kspToolRequiresACompatibleSelectorAndDistinctImmutableProcessors() {
+        ArrayList<GeneratedArtifactRequest> processors = new ArrayList<>();
+        processors.add(request("com.example:processor", "processor"));
+        AuthoredGeneratedTool.Ksp tool = new AuthoredGeneratedTool.Ksp(
+                new DependencySelector.FixedVersion("2.2.0-2.0.2"), processors);
+        processors.clear();
+
+        assertEquals(1, tool.processors().size());
+        assertThrows(UnsupportedOperationException.class, () -> tool.processors().clear());
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new AuthoredGeneratedTool.Ksp(
+                        new DependencySelector.FixedVersion("2.2.0-2.0.2"), List.of()));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new AuthoredGeneratedTool.Ksp(
+                        new DependencySelector.FixedVersion("2.2.0-2.0.2"),
+                        List.of(
+                                request("com.example:processor", "a"),
+                                request("com.example:processor", "b"))));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new AuthoredGeneratedTool.Ksp(
+                        new DependencySelector.Managed(),
+                        List.of(request("com.example:processor", "processor"))));
+    }
+
     private static AuthoredGeneratedTool.OpenApi openApi() {
         return new AuthoredGeneratedTool.OpenApi(
                 Optional.empty(),
@@ -98,6 +130,12 @@ final class AuthoredGeneratedToolsTest {
         return new AuthoredGeneratedTool.Jvm(
                 List.of(request("org.jooq:jooq-codegen", "jooq")),
                 new JavaBinaryClassName("org.jooq.codegen.GenerationTool"));
+    }
+
+    private static AuthoredGeneratedTool.Ksp kspTool() {
+        return new AuthoredGeneratedTool.Ksp(
+                new DependencySelector.VersionReference(new LocalId("ksp")),
+                List.of(request("com.example:ksp-processor", "processor")));
     }
 
     private static AuthoredGeneratedTool.Process process(String binary) {

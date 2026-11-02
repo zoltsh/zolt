@@ -51,10 +51,16 @@ final class IdeClasspathModelBuilder {
             ClasspathSet dependencyClasspaths = classpathBuilder.build(LockfileClasspathPackageConverter.classpathPackages(lockfile, cacheRoot));
             Path mainOutput = outputPath(root, "[build.output].main", config.build().output(), diagnostics);
             Path testOutput = outputPath(root, "[build.output].test", config.build().testOutput(), diagnostics);
+            Path integrationTestOutput = outputPath(
+                    root,
+                    "[build.output].integration",
+                    config.build().integrationTestOutput(),
+                    diagnostics);
             return new IdeModel.ClasspathInfo(
                     absoluteEntries(dependencyClasspaths.compile()),
                     withOutputs(nonNullPaths(mainOutput), dependencyClasspaths.runtime()),
-                    withOutputs(nonNullPaths(mainOutput, testOutput), dependencyClasspaths.test()),
+                    withOutputs(nonNullPaths(testOutput, mainOutput), dependencyClasspaths.test()),
+                    withOutputs(nonNullPaths(integrationTestOutput, mainOutput), dependencyClasspaths.test()),
                     absoluteEntries(dependencyClasspaths.processor()),
                     absoluteEntries(dependencyClasspaths.testProcessor()),
                     absoluteEntries(dependencyClasspaths.quarkusDeployment()));
@@ -76,7 +82,8 @@ final class IdeClasspathModelBuilder {
     }
 
     private static IdeModel.ClasspathInfo emptyClasspaths() {
-        return new IdeModel.ClasspathInfo(List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
+        return new IdeModel.ClasspathInfo(
+                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
     }
 
     private static Path outputPath(

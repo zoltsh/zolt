@@ -158,37 +158,19 @@ final class NativeUpdateFailureTest extends NativeUpdateServiceTestCase {
     }
 
     @Test
-    void rejectsSymlinkedWorkDirectoryBeforeDownloadingArchive() throws IOException {
+    void callerWorkDirectoryIsNeverModifiedEvenWhenItIsASymlinkOrFile() throws IOException {
         InstalledFixture installed = install("0.1.0");
         Path archive = archive("0.1.1", "linux-x64", "0.1.1");
         Path channel = writeChannel("stable", "0.1.1", "linux-x64", archive, archive.getFileName().toString(), "sidecar");
-        Path realWork = tempDir.resolve("real-update-work");
-        Path linkedWork = tempDir.resolve("linked-update-work");
-        Files.createDirectories(realWork);
-        Files.createSymbolicLink(linkedWork, realWork);
-
-        NativeUpdateException exception = assertThrows(
-                NativeUpdateException.class,
-                () -> service.update(request(installed, channel, linkedWork)));
-
-        assertTrue(exception.getMessage().contains("native update work directory must not be a symbolic link"), exception.getMessage());
-        assertEquals("../versions/0.1.0/bin/zolt", Files.readSymbolicLink(installed.binLink()).toString());
-    }
-
-    @Test
-    void wrapsWorkDirectoryCreationFailureWithUpdateDiagnostic() throws IOException {
-        InstalledFixture installed = install("0.1.0");
-        Path archive = archive("0.1.1", "linux-x64", "0.1.1");
-        Path channel = writeChannel("stable", "0.1.1", "linux-x64", archive, archive.getFileName().toString(), "sidecar");
-        Path workDirectory = tempDir.resolve("update-work-file");
-        Files.writeString(workDirectory, "not a directory");
-
-        NativeUpdateException exception = assertThrows(
-                NativeUpdateException.class,
-                () -> service.update(request(installed, channel, workDirectory)));
-
-        assertTrue(exception.getMessage().contains("Could not update native Zolt:"), exception.getMessage());
-        assertEquals("../versions/0.1.0/bin/zolt", Files.readSymbolicLink(installed.binLink()).toString());
+        Path realWork = Files.createDirectory(tempDir.resolve("real-update-work"));
+        Path marker = Files.writeString(realWork.resolve("marker"), "keep");
+        Path linkedWork = Files.createSymbolicLink(tempDir.resolve("linked-update-work"), realWork);
+        assertTrue(service.update(request(installed, channel, linkedWork)).updated());
+        assertEquals("keep", Files.readString(marker));
+        assertTrue(Files.isSymbolicLink(linkedWork));
+        Path workFile = Files.writeString(tempDir.resolve("work-file"), "keep file");
+        assertFalse(service.update(request(installed, channel, workFile)).updated());
+        assertEquals("keep file", Files.readString(workFile));
     }
 
     @Test

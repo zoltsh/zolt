@@ -16,6 +16,7 @@ import sh.zolt.project.PackageMode;
 import sh.zolt.project.PackageSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.PublicationMetadata;
+import sh.zolt.project.TestSourceRoots;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -123,7 +124,9 @@ final class PackageEvidenceFreshnessTest {
                 "target/test-classes/com/example/MainTest.class");
         Files.createDirectories(testClass.getParent());
         Files.writeString(testClass, "test bytecode");
-        ProjectConfig config = config(Optional.of("com.example.Main"))
+        ProjectConfig baseConfig = config(Optional.of("com.example.Main"));
+        ProjectConfig config = baseConfig
+                .withBuildSettings(withKotlinTestSources(baseConfig.build()))
                 .withPackageSettings(new PackageSettings(
                         PackageMode.THIN,
                         false,
@@ -147,6 +150,14 @@ final class PackageEvidenceFreshnessTest {
                 final class MainTest {
                 }
                 """);
+
+        Path kotlinTest = projectDir.resolve("src/test/kotlin/com/example/KotlinTest.kt");
+        source(projectDir, "src/test/kotlin/com/example/KotlinTest.kt", """
+                package com.example
+                class KotlinTest
+                """);
+        assertStale(config, evidence, "supplemental package input `tests` changed");
+        Files.delete(kotlinTest);
 
         Files.writeString(testClass, "changed test bytecode");
         assertStale(config, evidence, "supplemental package input `tests` changed");
@@ -192,6 +203,101 @@ final class PackageEvidenceFreshnessTest {
         Files.writeString(main, source + "\n// changed\n");
         assertStale(config, evidence, "supplemental package input `sources` changed");
         assertStale(config, evidence, "supplemental package input `javadoc` changed");
+    }
+
+    @Test
+    void sourcesEvidenceTracksAuthoredGroovyAddedAfterPackaging()
+            throws IOException {
+        writeLockfile(projectDir);
+        source(projectDir, "src/main/java/com/example/Main.java", """
+                package com.example;
+
+                public final class Main {
+                    public static void main(String[] args) {
+                    }
+                }
+                """);
+        ProjectConfig config = config(Optional.of("com.example.Main"))
+                .withPackageSettings(new PackageSettings(
+                        PackageMode.THIN,
+                        true,
+                        false,
+                        false,
+                        PublicationMetadata.empty()));
+        PackageResult result = packageService.packageJar(
+                projectDir,
+                config,
+                projectDir.resolve("cache"));
+        Path evidence = result.evidenceManifestPath().orElseThrow();
+
+        source(projectDir, "src/main/java/com/example/GroovyApi.groovy", """
+                package com.example
+
+                class GroovyApi {
+                }
+                """);
+
+        assertStale(config, evidence, "build inputs changed");
+        assertStale(config, evidence, "supplemental package input `sources` changed");
+    }
+
+    @Test
+    void sourcesEvidenceTracksAuthoredKotlinAddedAfterPackaging() throws IOException {
+        writeLockfile(projectDir);
+        source(projectDir, "src/main/java/com/example/Main.java", """
+                package com.example;
+
+                public final class Main {
+                    public static void main(String[] args) {
+                    }
+                }
+                """);
+        ProjectConfig config = config(Optional.of("com.example.Main"))
+                .withPackageSettings(new PackageSettings(
+                        PackageMode.THIN,
+                        true,
+                        false,
+                        false,
+                        PublicationMetadata.empty()));
+        PackageResult result = packageService.packageJar(
+                projectDir,
+                config,
+                projectDir.resolve("cache"));
+        Path evidence = result.evidenceManifestPath().orElseThrow();
+
+        source(projectDir, "src/main/java/com/example/KotlinApi.kt", """
+                package com.example
+
+                class KotlinApi
+                """);
+
+        assertStale(config, evidence, "build inputs changed");
+        assertStale(config, evidence, "supplemental package input `sources` changed");
+    }
+
+    private static BuildSettings withKotlinTestSources(BuildSettings build) {
+        return new BuildSettings(
+                build.source(),
+                build.sourceRoots(),
+                build.test(),
+                build.outputRoot(),
+                build.output(),
+                build.testOutput(),
+                new TestSourceRoots(
+                        build.testSources(),
+                        build.groovyTestSources(),
+                        List.of("src/test/kotlin")),
+                build.integrationTestOutput(),
+                build.integrationTestSources(),
+                build.integrationTestResourceRoots(),
+                build.resourceRoots(),
+                build.testResourceRoots(),
+                build.resourceFiltering(),
+                build.testRuntime(),
+                build.testSuites(),
+                build.metadata(),
+                build.generatedMainSources(),
+                build.generatedTestSources());
     }
 
     private void assertStale(

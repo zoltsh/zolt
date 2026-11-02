@@ -29,6 +29,7 @@ final class GradleVersionCatalogParser {
             Path catalogPath,
             Map<String, String> aliases,
             Map<String, List<String>> bundles,
+            Map<String, GradlePluginInspection> pluginAliases,
             List<ExplainSignal> signals) {
         if (!Files.isRegularFile(catalogPath)) {
             return List.of();
@@ -64,7 +65,63 @@ final class GradleVersionCatalogParser {
             }
         }
         parseBundles(result, libraryCoordinatesByKey, bundles, signals);
+        parsePlugins(result, versions, pluginAliases, signals);
         return parsed;
+    }
+
+    private static void parsePlugins(
+            TomlParseResult result,
+            Map<String, String> versions,
+            Map<String, GradlePluginInspection> pluginAliases,
+            List<ExplainSignal> signals) {
+        TomlTable plugins = result.getTable("plugins");
+        if (plugins == null) {
+            return;
+        }
+        Map<String, Integer> normalizedAliasCounts = new LinkedHashMap<>();
+        for (String key : plugins.keySet()) {
+            normalizedAliasCounts.merge(normalizeAlias(key), 1, Integer::sum);
+        }
+        for (String key : plugins.keySet()) {
+            String normalized = normalizeAlias(key);
+            if (normalizedAliasCounts.getOrDefault(normalized, 0) != 1) {
+                continue;
+            }
+            pluginAlias(plugins, key, versions, signals)
+                    .ifPresent(plugin -> pluginAliases.put(normalized, plugin));
+        }
+    }
+
+    private static Optional<GradlePluginInspection> pluginAlias(
+            TomlTable plugins,
+            String key,
+            Map<String, String> versions,
+            List<ExplainSignal> signals) {
+        Object raw = plugins.get(key);
+        if (raw instanceof String value && !value.isBlank()) {
+            String[] parts = value.strip().split(":", -1);
+            if (parts.length == 2) {
+                String id = parts[0].strip();
+                String version = parts[1].strip();
+                if (!id.isBlank() && !version.isBlank()) {
+                    return Optional.of(new GradlePluginInspection(id, version));
+                }
+            }
+            return Optional.empty();
+        }
+        if (!(raw instanceof TomlTable table)) {
+            return Optional.empty();
+        }
+        String id = nullToEmpty(table.getString("id")).strip();
+        if (id.isBlank()) {
+            return Optional.empty();
+        }
+        return pluginVersion("plugin alias `" + key + "`", table, versions, signals)
+                .map(version -> new GradlePluginInspection(id, version));
+    }
+
+    private static String normalizeAlias(String alias) {
+        return alias.replace('-', '.').replace('_', '.');
     }
 
     private static Map<String, String> parseVersions(TomlTable versionTable, List<ExplainSignal> signals) {
@@ -72,9 +129,17 @@ final class GradleVersionCatalogParser {
         if (versionTable == null) {
             return versions;
         }
+        Map<String, Integer> normalizedAliasCounts = new LinkedHashMap<>();
         for (String key : versionTable.keySet()) {
+            normalizedAliasCounts.merge(normalizeAlias(key), 1, Integer::sum);
+        }
+        for (String key : versionTable.keySet()) {
+            String normalized = normalizeAlias(key);
+            if (normalizedAliasCounts.getOrDefault(normalized, 0) != 1) {
+                continue;
+            }
             versionValue("version `" + key + "`", versionTable.get(key), signals)
-                    .ifPresent(version -> versions.put(key, version));
+                    .ifPresent(version -> versions.put(normalized, version));
         }
         return versions;
     }
@@ -141,32 +206,59 @@ final class GradleVersionCatalogParser {
         if (module.isBlank()) {
             return Optional.empty();
         }
-        String version = libraryVersion(key, table, versions, signals);
-        return Optional.of(version.isBlank() ? module : module + ":" + version);
+        String resolvedModule = module;
+        return libraryVersion(key, table, versions, signals)
+                .map(version -> version.isBlank() ? resolvedModule : resolvedModule + ":" + version);
     }
 
-    private static String libraryVersion(
+    private static Optional<String> libraryVersion(
             String key,
             TomlTable table,
             Map<String, String> versions,
             List<ExplainSignal> signals) {
         Object rawVersion = table.get("version");
         if (rawVersion instanceof String stringVersion && !stringVersion.isBlank()) {
-            return stringVersion;
+            return Optional.of(stringVersion);
         }
 
-        String ref = nullToEmpty(table.getString("version.ref"));
+        String ref = nullToEmpty(table.getString("version.ref")).strip();
         TomlTable versionTable = table.getTable("version");
         if (ref.isBlank() && versionTable != null) {
-            ref = nullToEmpty(versionTable.getString("ref"));
+            ref = nullToEmpty(versionTable.getString("ref")).strip();
         }
         if (!ref.isBlank()) {
-            return versions.getOrDefault(ref, ref);
+            return Optional.ofNullable(versions.get(normalizeAlias(ref)))
+                    .filter(version -> !version.isBlank());
         }
         if (versionTable != null) {
-            return richVersionValue("alias `" + key + "`", versionTable, signals).orElse("");
+            return richVersionValue("alias `" + key + "`", versionTable, signals);
         }
-        return "";
+        return rawVersion == null ? Optional.of("") : Optional.empty();
+    }
+
+    private static Optional<String> pluginVersion(
+            String owner,
+            TomlTable table,
+            Map<String, String> versions,
+            List<ExplainSignal> signals) {
+        Object rawVersion = table.get("version");
+        if (rawVersion instanceof String stringVersion && !stringVersion.isBlank()) {
+            return Optional.of(stringVersion.strip());
+        }
+
+        String ref = nullToEmpty(table.getString("version.ref")).strip();
+        TomlTable versionTable = table.getTable("version");
+        if (ref.isBlank() && versionTable != null) {
+            ref = nullToEmpty(versionTable.getString("ref")).strip();
+        }
+        if (!ref.isBlank()) {
+            return Optional.ofNullable(versions.get(normalizeAlias(ref)))
+                    .filter(version -> !version.isBlank());
+        }
+        if (versionTable != null) {
+            return richVersionValue(owner, versionTable, signals);
+        }
+        return rawVersion == null ? Optional.of("") : Optional.empty();
     }
 
     private static Optional<String> versionValue(String owner, Object raw, List<ExplainSignal> signals) {

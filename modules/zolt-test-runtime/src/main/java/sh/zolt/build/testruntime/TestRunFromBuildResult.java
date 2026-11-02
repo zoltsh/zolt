@@ -25,16 +25,19 @@ final class TestRunFromBuildResult {
             List<String> cliEvents,
             String suiteName,
             TestShardSpec shard) {
-        return service.runCompiledTests(
-                context.projectRoot(),
-                config,
-                buildResult.classpaths(),
-                service.compileTests(context, config, buildResult),
-                selection,
-                jvmArguments,
-                reportSettings,
-                cliEvents,
-                suiteName,
-                shard);
+        try (sh.zolt.build.ProjectMutationLock ignored =
+                sh.zolt.build.ProjectMutationLock.acquire(context.projectRoot())) {
+            return service.runCompiledTests(
+                    context.projectRoot(),
+                    config,
+                    buildResult.classpaths(),
+                    service.compileTests(context, config, buildResult),
+                    selection,
+                    jvmArguments,
+                    reportSettings,
+                    cliEvents,
+                    suiteName,
+                    shard);
+        }
     }
 }

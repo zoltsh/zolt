@@ -7,11 +7,15 @@ include = ["apps/*", "modules/*"]
 
 [workspace.project]
 group = "sh.zolt"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 java = 21
 license = "Apache-2.0"
 
 [versions]
+groovy = "4.0.22"
+kotlin = "2.2.0"
+kotlinx-serialization = "1.9.0"
+ksp = "2.2.0-2.0.2"
 junit-platform = "1.14.4"
 quarkus = "3.40.1.1"
 tomlj = "1.1.1"
