@@ -28,9 +28,9 @@ final class NativeInstallLease implements AutoCloseable {
     }
 
     static NativeInstallLease acquireManaged(Path installRoot, Path executable) throws IOException, InterruptedException {
-        // Validate the caller before waiting, then callers re-read current state while holding the lease.
-        NativeInstalledLayout.detect(installRoot, executable);
-        return acquire(installRoot);
+        // Caller identity is immutable across launcher switches; current state is read under the lease.
+        Path root = NativeInstalledLayout.managedRoot(installRoot, executable);
+        return acquire(root);
     }
 
     static NativeInstallLease acquire(Path installRoot) throws IOException, InterruptedException {

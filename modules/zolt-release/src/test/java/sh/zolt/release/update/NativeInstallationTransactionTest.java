@@ -12,6 +12,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import sh.zolt.release.ReleaseTarget;
 
 final class NativeInstallationTransactionTest extends NativeUpdateServiceTestCase {
@@ -47,6 +49,35 @@ final class NativeInstallationTransactionTest extends NativeUpdateServiceTestCas
         } finally {
             for (Process process : processes) stop(process);
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"update", "install", "use", "rollback", "prune"})
+    void retainedManagedCallerSurvivesLauncherSwitchBeforeLeaseAcquisition(String operation) throws Exception {
+        InstalledFixture installed = install("1.0.0");
+        writeFakeZolt(installed.installRoot().resolve("versions/1.0.1/bin/zolt"), "1.0.1");
+        Path archive = archive("1.0.2", "linux-x64", "1.0.2");
+        Path channel = operation.equals("install") ? writeReleaseIndex("1.0.2", archive)
+                : writeChannel("stable", "1.0.2", "linux-x64", archive, archive.getFileName().toString(), "sidecar");
+        Path captured = Files.createDirectory(tempDir.resolve("captured-caller"));
+        Process process = probe("captured-" + operation, installed, channel, captured, null);
+        try {
+            awaitEntered(captured);
+            assertEquals(installed.binLink().toRealPath().toString(), Files.readString(captured.resolve("entered")));
+            new NativeVersionService().use(new NativeVersionSwitchRequest(
+                    installed.installRoot(), installed.binLink(), "1.0.1"));
+            assertEquals("1.0.1", version(installed.binLink()));
+            process.getOutputStream().write('\n');
+            process.getOutputStream().flush();
+            assertSucceeded(process);
+            String expected = operation.equals("update") ? "1.0.2" : operation.equals("rollback") ? "1.0.0" : "1.0.1";
+            assertEquals(expected, version(installed.binLink()));
+            if (operation.equals("install")) {
+                assertEquals("1.0.2", version(installed.installRoot().resolve("versions/1.0.2/bin/zolt")));
+            }
+            assertEquals("1.0.0", version(installed.installRoot().resolve("versions/1.0.0/bin/zolt")));
+            assertFalse(Files.exists(installed.installRoot().resolve(".install-lock")));
+        } finally { stop(process); }
     }
 
     @Test
@@ -240,7 +271,8 @@ final class NativeInstallationTransactionTest extends NativeUpdateServiceTestCas
         if (systemTemp != null) command.add("-Djava.io.tmpdir=" + systemTemp);
         command.addAll(List.of(Probe.class.getName(), operation, installed.installRoot().toString(), channel.toString()));
         ProcessBuilder builder = new ProcessBuilder(command).redirectErrorStream(true);
-        if (gate != null) builder.environment().put("ZOLT_INSTALL_TEST_GATE", gate.toString());
+        if (gate != null) builder.environment().put(operation.startsWith("captured-")
+                ? "ZOLT_INSTALL_TEST_CAPTURE_GATE" : "ZOLT_INSTALL_TEST_GATE", gate.toString());
         return builder.start();
     }
 
@@ -301,6 +333,12 @@ final class NativeInstallationTransactionTest extends NativeUpdateServiceTestCas
         public static void main(String[] args) throws Exception {
             Path root = Path.of(args[1]);
             Path executable = root.resolve("bin/zolt").toRealPath();
+            String captureGate = System.getenv("ZOLT_INSTALL_TEST_CAPTURE_GATE");
+            if (captureGate != null) {
+                Path captured = Files.writeString(Path.of(captureGate).resolve("captured.tmp"), executable.toString());
+                Files.move(captured, Path.of(captureGate).resolve("entered"), java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+                if (System.in.read() != '\n') throw new IllegalStateException("captured caller was not released");
+            }
             NativeUpdateTransport delegate = NativeUpdateTransport.standard();
             NativeUpdateTransport observed = new NativeUpdateTransport() {
                 public byte[] downloadBytes(java.net.URI uri, int maxBytes, String description) throws java.io.IOException {
@@ -315,7 +353,7 @@ final class NativeInstallationTransactionTest extends NativeUpdateServiceTestCas
                     System.out.println("destination-local-download=" + output);
                 }
             };
-            switch (args[0]) {
+            switch (args[0].replaceFirst("^captured-", "")) {
                 case "update" -> {
                     var updater = new NativeUpdateService(new sh.zolt.release.channel.ReleaseChannelManifestValidator(),
                             sh.zolt.release.signing.ReleaseSignatureVerifier.bundled(), observed);
