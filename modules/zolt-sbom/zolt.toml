@@ -8,5 +8,5 @@ name = "zolt-sbom"
 
 [dependencies.test]
 "com.fasterxml.jackson.core:jackson-databind" = "2.22.3"
-"com.networknt:json-schema-validator" = "2.0.7"
+"com.networknt:json-schema-validator" = "2.0.8"
 "org.junit.platform:junit-platform-console-standalone" = { versionRef = "junit-platform" }
