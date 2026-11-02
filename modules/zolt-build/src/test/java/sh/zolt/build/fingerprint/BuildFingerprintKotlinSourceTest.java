@@ -46,8 +46,11 @@ final class BuildFingerprintKotlinSourceTest {
         write("target/classes/com/example/Main.class", "compiled");
         write("target/classes/com/example/Main$Companion.class", "compiled");
         write("target/classes/META-INF/demo.kotlin_module", "module");
-        write("target/classes/META-INF/nested/ignored.kotlin_module", "not direct metadata");
+        sh.zolt.build.output.CompilerOutputInventory.capture(output, false);
+        write("target/classes/META-INF/nested/ignored.kotlin_module", "copied resource");
         write("target/classes/application.properties", "not a compiler output");
+        sh.zolt.build.output.CompilerOutputInventory.recordOverlays(output, java.util.Set.of(
+                Path.of("META-INF/nested/ignored.kotlin_module"), Path.of("application.properties")));
 
         service.writeMainCompileFingerprint(
                 projectDir,
@@ -108,6 +111,7 @@ final class BuildFingerprintKotlinSourceTest {
         Path output = projectDir.resolve("target/classes");
         Path mainClass = write("target/classes/com/example/Main.class", "compiled");
         Path module = write("target/classes/META-INF/demo.kotlin_module", "module");
+        sh.zolt.build.output.CompilerOutputInventory.capture(output, false);
 
         service.writeMainCompileFingerprint(
                 projectDir,

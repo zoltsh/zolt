@@ -1,5 +1,6 @@
 package sh.zolt.build.testruntime.compile;
 
+import static sh.zolt.build.output.CompilerOutputInventory.captureIfCompiled;
 import sh.zolt.classpath.Classpath;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.classpath.ResolvedClasspathPackage;
@@ -282,9 +283,12 @@ public final class TestCompileService {
                     generatedSourcesDirectory,
                     jdkStatus,
                     compiler.identity());
+            captureIfCompiled(outputDirectory, compileAttempt.mode(), runCompile);
             // Post-compile exec steps run after test compilation, before test resource copy consumes them.
             generatedSourceCoordinator.generatePostCompile(projectDirectory, config, classpathPackages);
             ResourceCopyResult resourceResult = resourceCopier.copyTestResources(projectDirectory, config);
+            sh.zolt.build.output.CompilerOutputInventory.recordOverlays(outputDirectory,
+                    sh.zolt.build.output.CompilerOutputOverlays.planned(projectDirectory, config, true));
             long fingerprintWriteNanos = 0L;
             if (!compileSkipped || !fingerprintCheck.reason().isBlank()) {
                 long fingerprintWriteStarted = System.nanoTime();

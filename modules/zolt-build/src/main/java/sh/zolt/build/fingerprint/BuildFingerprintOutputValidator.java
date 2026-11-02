@@ -36,7 +36,7 @@ public final class BuildFingerprintOutputValidator {
                     projectDirectory.toAbsolutePath().normalize(),
                     outputDirectory,
                     Files.readString(fingerprint, StandardCharsets.UTF_8));
-        } catch (IOException exception) {
+        } catch (IOException | sh.zolt.build.BuildException exception) {
             return false;
         }
     }

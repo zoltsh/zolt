@@ -86,6 +86,7 @@ final class BuildServiceDependencies {
             ResolveService resolveService,
             BuildProvenanceSource provenanceSource,
             IncrementalCompilePlanner incrementalCompilePlanner) {
+        BuildMetadataGenerator metadata = new BuildMetadataGenerator(provenanceSource);
         JavacRunner javacRunner = new JavacRunner();
         IncrementalCompileStateRecorder incrementalCompileStateRecorder = new IncrementalCompileStateRecorder();
         return new BuildServiceDependencies(
@@ -96,8 +97,8 @@ final class BuildServiceDependencies {
                 new OutputDependencies(
                         new SourceDiscoverer(),
                         new ResourceCopier(),
-                        new BuildMetadataGenerator(provenanceSource),
-                        new BuildFingerprintService()),
+                        metadata,
+                        new BuildFingerprintService(metadata)),
                 new GeneratedSourceDependencies(
                         jdkDetector,
                         new OpenApiGeneratedSourceService(jdkDetector),

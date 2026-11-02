@@ -12,7 +12,7 @@ import java.util.HexFormat;
  * <p>The canonical fingerprint text (see {@link BuildFingerprintContent}) intentionally mixes build
  * INPUTS (config, sources, classpath, generated sources, exec outputs) with EXPECTED-OUTPUT
  * sections {@code [expectedClasses]} and {@code [compilerOutputHashes]}. These inventory every
- * emitted class and Kotlin module metadata file and verify their contents. The skip gate needs
+ * compiler-owned file, including processor metadata, and verify its contents. The skip gate needs
  * both halves; a build-output cache key must use only inputs because the cache restores outputs.
  * Section-aware extraction keeps the key independent of output existence, content, and ordering.
  */

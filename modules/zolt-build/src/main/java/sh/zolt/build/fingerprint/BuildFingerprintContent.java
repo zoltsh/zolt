@@ -25,6 +25,9 @@ final class BuildFingerprintContent {
 
     private final BuildFingerprintExpectedClasses expectedClasses = new BuildFingerprintExpectedClasses();
     private final BuildFingerprintFileHasher fileHasher = new BuildFingerprintFileHasher();
+    private final sh.zolt.build.metadata.BuildMetadataGenerator metadata;
+    BuildFingerprintContent() { this(new sh.zolt.build.metadata.BuildMetadataGenerator()); }
+    BuildFingerprintContent(sh.zolt.build.metadata.BuildMetadataGenerator metadata) { this.metadata = metadata; }
 
     String fingerprint(
             Path projectDirectory,
@@ -114,9 +117,11 @@ final class BuildFingerprintContent {
                 config.build(),
                 cachedState,
                 collectedState));
-        section(content, "expectedClasses", expectedClasses.entries(projectRoot, outputDirectory));
+        var overlays = sh.zolt.build.output.CompilerOutputOverlays.planned(
+                projectRoot, config, "[resources].test".equals(resourceRootKey), metadata);
+        section(content, "expectedClasses", expectedClasses.entries(projectRoot, outputDirectory, overlays));
         if (!cacheKeyMode) {
-            section(content, "compilerOutputHashes", expectedClasses.hashes(projectRoot, outputDirectory));
+            section(content, "compilerOutputHashes", expectedClasses.hashes(projectRoot, outputDirectory, overlays));
         }
         return content.toString();
     }

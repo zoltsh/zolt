@@ -18,6 +18,7 @@ import java.util.stream.Stream;
 
 final class BuildFingerprintFileHasher {
     private static final List<String> LOCAL_FINGERPRINT_FILES = List.of(
+            ".zolt-compiler-outputs.state",
             ".zolt-resources.state",
             ".zolt-build-main.fingerprint",
             ".zolt-build-test.fingerprint",
@@ -30,6 +31,7 @@ final class BuildFingerprintFileHasher {
      * incremental state) or restored (has none), and portable across machines (no absolute paths).
      */
     private static final List<String> LOCAL_METADATA_FILES = List.of(
+            ".zolt-compiler-outputs.state",
             ".zolt-resources.state",
             ".zolt-build-main.fingerprint",
             ".zolt-build-test.fingerprint",

@@ -265,6 +265,9 @@ public final class PackageCommand implements Runnable {
             }
             return;
         }
+        var selectedJdk = toolchainOptions.jdkChecker(context, config, "package");
+        PackageService selectedPackageService = packageService.withJdkChecker(selectedJdk);
+        selectedPackageService.preflightSupplementalTools(config);
         ProgressWriter progress = CommandProgress.human(spec);
         progress.start("Packaging project");
         var result = timings.measure(
@@ -272,8 +275,7 @@ public final class PackageCommand implements Runnable {
                 () -> {
                     BuildResultWithClasspaths buildResult = timings.measure(
                             "build package inputs",
-                            () -> buildService.withJdkChecker(
-                                            toolchainOptions.jdkChecker(context, config, "package"))
+                            () -> buildService.withJdkChecker(selectedJdk)
                                     .withBuildCache(CommandBuildCache.service(noBuildCache, false))
                                     .buildWithClasspaths(
                                     projectRoot,
@@ -284,7 +286,7 @@ public final class PackageCommand implements Runnable {
                             resultWithClasspaths -> CommandBuildAttributes.build(resultWithClasspaths.buildResult()));
                     return timings.measure(
                             "assemble package",
-                            () -> packageService.packageJar(projectRoot, config, buildResult, cacheRoot),
+                            () -> selectedPackageService.packageJar(projectRoot, config, buildResult, cacheRoot),
                             CommandPackageAttributes::packageResult);
                 },
                 CommandPackageAttributes::packageResult);

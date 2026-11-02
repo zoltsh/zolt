@@ -33,6 +33,17 @@ public final class PackageApplicationLauncher {
             String mainClass,
             List<String> jvmArguments,
             List<String> arguments) {
+        return launch(java, packageResult, runtimeEntries, mainClass, jvmArguments, arguments, null);
+    }
+
+    public JavaRunResult launch(
+            Path java,
+            PackageResult packageResult,
+            List<Path> runtimeEntries,
+            String mainClass,
+            List<String> jvmArguments,
+            List<String> arguments,
+            Path directory) {
         PackageLaunchPolicy.Decision decision =
                 PackageLaunchPolicy.forMode(packageResult.mode());
         if (decision.strategy() == PackageLaunchPolicy.Strategy.REJECT) {
@@ -44,7 +55,9 @@ public final class PackageApplicationLauncher {
                     packageResult.jarPath(),
                     mainClass,
                     jvmArguments,
-                    arguments);
+                    arguments,
+                    directory,
+                    ignored -> {});
         }
         List<Path> classpath = new ArrayList<>();
         classpath.add(packageResult.jarPath());
@@ -54,6 +67,8 @@ public final class PackageApplicationLauncher {
                 new Classpath(classpath),
                 mainClass,
                 jvmArguments,
-                arguments);
+                arguments,
+                directory,
+                ignored -> {});
     }
 }

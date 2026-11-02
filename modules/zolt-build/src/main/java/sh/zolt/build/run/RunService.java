@@ -104,9 +104,9 @@ public final class RunService {
                     () -> prepareRun(projectDirectory, config, cacheRoot, artifactIndex, files));
             JavaRunResult result = launch.jar().isPresent()
                     ? javaRunner.runJar(launch.java(), launch.jar().orElseThrow(), launch.mainClass(),
-                            KotlinJvmPreviewPolicy.mainJvmArguments(config), arguments, outputConsumer)
+                            KotlinJvmPreviewPolicy.mainJvmArguments(config), arguments, projectDirectory, outputConsumer)
                     : javaRunner.run(launch.java(), launch.classpath(), launch.mainClass(),
-                            KotlinJvmPreviewPolicy.mainJvmArguments(config), arguments, outputConsumer);
+                            KotlinJvmPreviewPolicy.mainJvmArguments(config), arguments, projectDirectory, outputConsumer);
             return new RunResult(launch.buildResult(), result);
         }
     }

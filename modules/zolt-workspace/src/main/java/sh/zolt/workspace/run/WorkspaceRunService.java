@@ -161,6 +161,7 @@ public final class WorkspaceRunService {
                         memberBuild.classpaths().runtime().entries()));
                 launches.add(new WorkspaceRunSnapshot.MemberLaunch(
                         member.path(),
+                        member.directory(),
                         memberBuild,
                         jdkStatus.java().orElseThrow(),
                         new Classpath(runtimeEntries),
@@ -188,6 +189,7 @@ public final class WorkspaceRunService {
                     launch.mainClass(),
                     launch.jvmArguments(),
                     arguments,
+                    launch.workingDirectory(),
                     outputConsumer);
             results.add(new WorkspaceRunResult.MemberRunResult(
                     launch.member(),

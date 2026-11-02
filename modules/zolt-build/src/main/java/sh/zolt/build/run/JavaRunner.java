@@ -31,7 +31,16 @@ public final class JavaRunner {
                     List<String> command,
                     Map<String, String> environment,
                     Consumer<String> outputConsumer) {
-                return runProcess(command, environment, outputConsumer);
+                return runProcess(command, environment, null, outputConsumer);
+            }
+
+            @Override
+            public ProcessResult run(
+                    List<String> command,
+                    Map<String, String> environment,
+                    Path directory,
+                    Consumer<String> outputConsumer) {
+                return runProcess(command, environment, directory, outputConsumer);
             }
         });
     }
@@ -87,9 +96,18 @@ public final class JavaRunner {
             List<String> jvmArguments,
             List<String> arguments,
             Consumer<String> outputConsumer) {
-        List<String> command = command(java, classpath, mainClass, jvmArguments, arguments);
-        ProcessResult result = processRunner.run(command, outputConsumer);
-        return result(mainClass, result);
+        return run(java, classpath, mainClass, jvmArguments, arguments, Map.of(), null, outputConsumer);
+    }
+
+    public JavaRunResult run(
+            Path java,
+            Classpath classpath,
+            String mainClass,
+            List<String> jvmArguments,
+            List<String> arguments,
+            Path directory,
+            Consumer<String> outputConsumer) {
+        return run(java, classpath, mainClass, jvmArguments, arguments, Map.of(), directory, outputConsumer);
     }
 
     public JavaRunResult run(
@@ -100,8 +118,20 @@ public final class JavaRunner {
             List<String> arguments,
             Map<String, String> environment,
             Consumer<String> outputConsumer) {
-        List<String> command = command(java, classpath, mainClass, jvmArguments, arguments);
-        ProcessResult result = processRunner.run(command, environment, outputConsumer);
+        return run(java, classpath, mainClass, jvmArguments, arguments, environment, null, outputConsumer);
+    }
+
+    public JavaRunResult run(
+            Path java,
+            Classpath classpath,
+            String mainClass,
+            List<String> jvmArguments,
+            List<String> arguments,
+            Map<String, String> environment,
+            Path directory,
+            Consumer<String> outputConsumer) {
+        List<String> command = command(directory == null ? java : java.toAbsolutePath().normalize(), classpath, mainClass, jvmArguments, arguments);
+        ProcessResult result = processRunner.run(command, environment, directory, outputConsumer);
         return result(mainClass, result);
     }
 
@@ -140,8 +170,19 @@ public final class JavaRunner {
             List<String> jvmArguments,
             List<String> arguments,
             Consumer<String> outputConsumer) {
-        List<String> command = jarCommand(java, jar, jvmArguments, arguments);
-        ProcessResult result = processRunner.run(command, outputConsumer);
+        return runJar(java, jar, mainClass, jvmArguments, arguments, null, outputConsumer);
+    }
+
+    public JavaRunResult runJar(
+            Path java,
+            Path jar,
+            String mainClass,
+            List<String> jvmArguments,
+            List<String> arguments,
+            Path directory,
+            Consumer<String> outputConsumer) {
+        List<String> command = jarCommand(directory == null ? java : java.toAbsolutePath().normalize(), jar, jvmArguments, arguments);
+        ProcessResult result = processRunner.run(command, Map.of(), directory, outputConsumer);
         return result(mainClass, result);
     }
 
@@ -207,16 +248,18 @@ public final class JavaRunner {
     }
 
     private static ProcessResult runProcess(List<String> command, Consumer<String> outputConsumer) {
-        return runProcess(command, Map.of(), outputConsumer);
+        return runProcess(command, Map.of(), null, outputConsumer);
     }
 
     private static ProcessResult runProcess(
             List<String> command,
             Map<String, String> environment,
+            Path directory,
             Consumer<String> outputConsumer) {
         try {
             SupervisedProcessResult result = new ProcessSupervisor().run(
                     SupervisedProcessSpec.builder(command)
+                            .directory(directory == null ? null : directory.toAbsolutePath().normalize())
                             .environment(environment == null ? Map.of() : environment)
                             .inputPolicy(ProcessInputPolicy.INHERIT)
                             .stdoutConsumer(outputConsumer)
@@ -246,6 +289,14 @@ public final class JavaRunner {
                 Map<String, String> environment,
                 Consumer<String> outputConsumer) {
             return run(command, outputConsumer);
+        }
+
+        default ProcessResult run(
+                List<String> command,
+                Map<String, String> environment,
+                Path directory,
+                Consumer<String> outputConsumer) {
+            return run(command, environment, outputConsumer);
         }
     }
 

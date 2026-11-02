@@ -304,6 +304,10 @@ public final class IncrementalCompilePlanner {
                     changedPreviousRecords.size(),
                     0);
         }
+        if (sh.zolt.build.output.CompilerOutputInventory.requiresFullCompile(
+                outputDirectory, !processorClasspath.entries().isEmpty())) {
+            return IncrementalCompilePlan.full("compiler-output-overlays");
+        }
         return IncrementalCompilePlan.incremental(
                 dirtySources,
                 addedSourceCount,

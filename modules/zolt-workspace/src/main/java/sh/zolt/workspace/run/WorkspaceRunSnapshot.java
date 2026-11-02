@@ -24,6 +24,7 @@ public record WorkspaceRunSnapshot(
 
     public record MemberLaunch(
             String member,
+            Path workingDirectory,
             WorkspaceBuildResult.MemberBuildResult build,
             Path java,
             Classpath classpath,

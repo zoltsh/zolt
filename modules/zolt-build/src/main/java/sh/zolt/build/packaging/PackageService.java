@@ -13,7 +13,6 @@ import sh.zolt.build.packageplan.PackageOutputFingerprintIndex;
 import sh.zolt.build.packageplan.PackagePlan;
 import sh.zolt.build.packageplan.PackagePlanService;
 import sh.zolt.build.manifest.ManifestGenerator;
-import sh.zolt.build.springboot.SpringBootPackageToolingPreparer;
 import sh.zolt.framework.FrameworkPackageAugmenter;
 import sh.zolt.lockfile.ProjectBuildContext;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
@@ -27,13 +26,8 @@ import java.util.Optional;
 
 public final class PackageService {
     private final BuildService buildService;
-    private final SpringBootPackageToolingPreparer packageToolingPreparer;
-    private final PackagePlanResolver packagePlanResolver;
-    private final PackageEvidenceManifestWriter evidenceManifestWriter;
-    private final PackagePrimaryArtifactAssembler primaryArtifactAssembler;
-    private final PackageSupplementalArtifactAssembler supplementalArtifactAssembler;
-    private final PackageTestCompileGate testCompileGate;
-    private final PackageReuseService reuseService;
+    private final sh.zolt.doctor.JdkChecker jdkChecker;
+    private final PackageAssemblyServices assembly;
 
     public PackageService() {
         this(FrameworkPackageAugmenter.none());
@@ -120,18 +114,23 @@ public final class PackageService {
             PackagePlanService packagePlanService,
             PackageEvidenceManifestWriter evidenceManifestWriter) {
         this.buildService = buildService;
-        this.packageToolingPreparer = new SpringBootPackageToolingPreparer(resolveService, lockfileReader);
-        this.packagePlanResolver =
-                new PackagePlanResolver(packagePlanService == null ? new PackagePlanService() : packagePlanService);
-        this.evidenceManifestWriter = evidenceManifestWriter;
-        this.primaryArtifactAssembler = new PackagePrimaryArtifactAssembler(
-                manifestGenerator,
-                lockfileReader,
-                classpathBuilder,
-                frameworkPackageAugmenter);
-        this.supplementalArtifactAssembler = new PackageSupplementalArtifactAssembler(classpathBuilder);
-        this.testCompileGate = new PackageTestCompileGate(lockfileReader, classpathBuilder);
-        this.reuseService = new PackageReuseService();
+        this.jdkChecker = new sh.zolt.doctor.JdkDetector();
+        this.assembly = PackageAssemblyServices.create(resolveService, manifestGenerator, lockfileReader,
+                classpathBuilder, frameworkPackageAugmenter, packagePlanService, evidenceManifestWriter);
+    }
+
+    private PackageService(PackageService source, sh.zolt.doctor.JdkChecker jdkChecker) {
+        this.jdkChecker = java.util.Objects.requireNonNull(jdkChecker, "jdkChecker");
+        this.buildService = source.buildService.withJdkChecker(jdkChecker);
+        this.assembly = source.assembly;
+    }
+
+    public PackageService withJdkChecker(sh.zolt.doctor.JdkChecker jdkChecker) {
+        return new PackageService(this, jdkChecker);
+    }
+
+    public void preflightSupplementalTools(ProjectConfig config) {
+        PackageJavadocTool.preflight(config, jdkChecker);
     }
 
     public PackageResult packageJar(Path projectDirectory, ProjectConfig config, Path cacheRoot) {
@@ -159,6 +158,7 @@ public final class PackageService {
             Path projectRoot = projectRoot(projectDirectory);
             PackageMode mode = packageConfig.packageSettings().mode();
             PackageModeValidator.ensureSupported(mode);
+            preflightSupplementalTools(packageConfig);
             preparePackageToolingIfNeeded(projectRoot, packageConfig, cacheRoot);
             BuildResultWithClasspaths buildResult = buildService.buildWithClasspaths(
                     projectRoot,
@@ -175,7 +175,7 @@ public final class PackageService {
         try (sh.zolt.build.ProjectMutationLock ignored =
                 sh.zolt.build.ProjectMutationLock.acquire(projectDirectory)) {
             ProjectBuildContext context = ProjectBuildContext.standalone(projectDirectory);
-            packageToolingPreparer.prepareIfNeeded(context.projectRoot(), context.lockfilePath(), config, cacheRoot);
+            assembly.tooling().prepareIfNeeded(context.projectRoot(), context.lockfilePath(), config, cacheRoot);
         }
     }
 
@@ -309,18 +309,19 @@ public final class PackageService {
                 sh.zolt.build.ProjectMutationLock.acquire(context.projectRoot())) {
             Path projectDirectory = context.projectRoot();
             PackageJavadocPolicy.requireSupported(projectDirectory, config);
-            testCompileGate.requireCurrent(
+            Optional<Path> javadoc = PackageJavadocTool.preflight(config, jdkChecker);
+            assembly.tests().requireCurrent(
                     context, config, buildResult, cacheRoot, classpathPackages, classpaths);
             PackagePlan plan = suppliedPlan.orElseGet(() ->
-                    packagePlanResolver.plan(context, config, cacheRoot, inputs));
+                    assembly.plans().plan(context, config, cacheRoot, inputs));
             try {
                 Optional<PackageResult> reused =
-                        reuseService.reuse(projectDirectory, config, buildResult, plan);
+                        assembly.reuse().reuse(projectDirectory, config, buildResult, plan);
                 if (reused.isPresent()) {
                     return reused.orElseThrow();
                 }
                 PackageArchiveDigests digests = new PackageArchiveDigests();
-                PackageResult result = primaryArtifactAssembler.assemble(
+                PackageResult result = assembly.primary().assemble(
                         context,
                         config,
                         buildResult,
@@ -329,13 +330,14 @@ public final class PackageService {
                         classpaths,
                         inputs.snapshot(plan.applicationOutput()),
                         digests);
-                List<PackageArtifact> artifacts = supplementalArtifactAssembler.assemble(
+                List<PackageArtifact> artifacts = assembly.supplemental().assemble(
                         projectDirectory,
                         config,
                         buildResult,
                         classpathPackages,
-                        classpaths);
-                Path evidenceManifest = evidenceManifestWriter.write(
+                        classpaths,
+                        javadoc);
+                Path evidenceManifest = assembly.evidence().write(
                         projectDirectory, config, plan, result, artifacts, digests);
                 return result.withArtifactsAndEvidence(artifacts, Optional.of(evidenceManifest));
             } finally {

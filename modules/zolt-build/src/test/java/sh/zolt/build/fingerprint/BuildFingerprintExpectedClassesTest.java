@@ -21,14 +21,19 @@ final class BuildFingerprintExpectedClassesTest {
     void inventoriesEveryCompilerOutputAndExcludesResources() throws IOException {
         Path output = projectDir.resolve("target/classes");
         for (String name : List.of("p/Main.class", "p/Main$Nested.class", "p/Main$1.class",
-                "p/Additional.class", "META-INF/app.kotlin_module", "application.properties")) {
+                "p/Additional.class", "META-INF/app.kotlin_module", "META-INF/services/example.Service")) {
             Path file = output.resolve(name);
             Files.createDirectories(file.getParent());
             Files.writeString(file, "compiled");
         }
 
+        sh.zolt.build.output.CompilerOutputInventory.capture(output, false);
+        Files.writeString(output.resolve("application.properties"), "resource");
+        sh.zolt.build.output.CompilerOutputInventory.recordOverlays(output,
+                java.util.Set.of(Path.of("application.properties")));
         assertEquals(List.of(
                 "target/classes/META-INF/app.kotlin_module",
+                "target/classes/META-INF/services/example.Service",
                 "target/classes/p/Additional.class",
                 "target/classes/p/Main$1.class",
                 "target/classes/p/Main$Nested.class",
@@ -45,10 +50,10 @@ final class BuildFingerprintExpectedClassesTest {
         Path output = projectDir.resolve("target/classes");
         Path expectedClass = output.resolve("com/example/Main.class");
         String fingerprint = "[expectedClasses]\ntarget/classes/com/example/Main.class\n";
-        assertEquals(List.of(expectedClass), expectedClasses.missing(projectDir, fingerprint));
+        assertEquals(List.of(expectedClass), expectedClasses.missing(projectDir, output, java.util.Set.of(), fingerprint));
         Files.createDirectories(expectedClass.getParent());
         Files.writeString(expectedClass, "compiled");
-        assertTrue(expectedClasses.missing(projectDir, fingerprint).isEmpty());
+        assertTrue(expectedClasses.missing(projectDir, output, java.util.Set.of(), fingerprint).isEmpty());
     }
 
     @Test
@@ -57,6 +62,7 @@ final class BuildFingerprintExpectedClassesTest {
         Files.createDirectories(output);
         Path main = output.resolve("Main.class");
         Files.writeString(main, "compiled");
+        sh.zolt.build.output.CompilerOutputInventory.capture(output, false);
         String fingerprint = "[expectedClasses]\n"
                 + String.join("\n", expectedClasses.entries(projectDir, output))
                 + "\n[compilerOutputHashes]\n"

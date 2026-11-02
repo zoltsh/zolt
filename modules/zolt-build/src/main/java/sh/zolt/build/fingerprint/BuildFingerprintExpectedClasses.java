@@ -1,35 +1,44 @@
 package sh.zolt.build.fingerprint;
 
-import sh.zolt.build.BuildException;
-import java.io.IOException;
-import java.nio.file.LinkOption;
+import sh.zolt.build.output.CompilerOutputInventory;
+import java.util.Set;
+import java.util.TreeSet;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Stream;
 
 final class BuildFingerprintExpectedClasses {
-    List<String> entries(
-            Path projectRoot,
-            Path outputDirectory) {
-        // Java also emits nested, anonymous, package-private, and processor-generated classes.
-        // Source filenames cannot enumerate those outputs (or even predict the declared package).
-        List<Path> outputs = compilerOutputs(outputDirectory);
-        return outputs.stream()
-                .sorted()
-                .map(path -> relative(projectRoot, path))
-                .toList();
+    List<String> entries(Path projectRoot, Path outputDirectory) {
+        return entries(projectRoot, outputDirectory, storedOverlays(outputDirectory));
+    }
+
+    List<String> entries(Path projectRoot, Path outputDirectory, Set<Path> overlays) {
+        return compilerOutputs(outputDirectory, overlays).stream()
+                .map(path -> relative(projectRoot, path)).toList();
     }
 
     List<String> hashes(Path projectRoot, Path outputDirectory) {
-        BuildFingerprintFileHasher hasher = new BuildFingerprintFileHasher();
-        return compilerOutputs(outputDirectory).stream()
-                .map(path -> relative(projectRoot, path) + "|" + hasher.fileHash(path, null, null))
-                .toList();
+        return hashes(projectRoot, outputDirectory, storedOverlays(outputDirectory));
     }
 
-    List<Path> missing(Path projectRoot, String fingerprint) {
+    List<String> hashes(Path projectRoot, Path outputDirectory, Set<Path> overlays) {
+        var original = CompilerOutputInventory.read(outputDirectory)
+                .map(CompilerOutputInventory.Snapshot::files).orElse(java.util.Map.of());
+        Path root = outputDirectory.toAbsolutePath().normalize();
+        return compilerOutputs(root, overlays).stream().map(path -> {
+            Path relative = root.relativize(path);
+            String hash = overlays.contains(relative) && original.containsKey(relative)
+                    ? original.get(relative) : CompilerOutputInventory.fileHash(path);
+            return relative(projectRoot, path) + "|" + hash;
+        }).toList();
+    }
+
+    private static Set<Path> storedOverlays(Path output) {
+        return CompilerOutputInventory.read(output).map(CompilerOutputInventory.Snapshot::overlays).orElse(Set.of());
+    }
+
+    List<Path> missing(Path projectRoot, Path output, Set<Path> overlays, String fingerprint) {
         List<Path> missing = new ArrayList<>();
         boolean expectedClassesSection = false;
         for (String line : fingerprint.lines().toList()) {
@@ -42,7 +51,8 @@ final class BuildFingerprintExpectedClasses {
                 Path expectedClass = recorded.isAbsolute()
                         ? recorded.normalize()
                         : projectRoot.resolve(recorded).normalize();
-                if (!Files.isRegularFile(expectedClass)) {
+                if (!overlays.contains(output.toAbsolutePath().normalize().relativize(expectedClass))
+                        && !Files.isRegularFile(expectedClass)) {
                     missing.add(expectedClass);
                 }
             }
@@ -51,7 +61,8 @@ final class BuildFingerprintExpectedClasses {
     }
 
     boolean recordedOutputsCurrent(Path projectRoot, Path outputDirectory, String fingerprint) {
-        return fingerprint.lines().anyMatch("[expectedClasses]"::equals)
+        return CompilerOutputInventory.read(outputDirectory).isPresent()
+                && fingerprint.lines().anyMatch("[expectedClasses]"::equals)
                 && fingerprint.lines().anyMatch("[compilerOutputHashes]"::equals)
                 && recordedSection(fingerprint, "expectedClasses")
                         .equals(new java.util.TreeSet<>(entries(projectRoot, outputDirectory)))
@@ -72,35 +83,19 @@ final class BuildFingerprintExpectedClasses {
         return recorded;
     }
 
-    private static List<Path> compilerOutputs(Path outputDirectory) {
-        Path outputRoot = outputDirectory.toAbsolutePath().normalize();
-        if (!Files.isDirectory(outputRoot, LinkOption.NOFOLLOW_LINKS)) {
-            return List.of();
+    private static List<Path> compilerOutputs(Path outputDirectory, Set<Path> overlays) {
+        Path root = outputDirectory.toAbsolutePath().normalize();
+        var inventory = CompilerOutputInventory.read(root);
+        Set<Path> owned = new TreeSet<>();
+        inventory.ifPresent(value -> owned.addAll(value.files().keySet()));
+        Set<Path> masked = new java.util.HashSet<>(overlays);
+        inventory.ifPresent(value -> masked.addAll(value.overlays()));
+        for (Path path : CompilerOutputInventory.outputFiles(root)) {
+            if (!masked.contains(path)) {
+                owned.add(path);
+            }
         }
-        try (Stream<Path> paths = Files.walk(outputRoot)) {
-            return paths.filter(path -> Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
-                    .map(Path::normalize)
-                    .filter(path -> isClassFile(path) || isKotlinModule(outputRoot, path))
-                    .sorted()
-                    .toList();
-        } catch (IOException exception) {
-            throw new BuildException(
-                    "Could not inventory compiler outputs under "
-                            + outputRoot
-                            + ". Check that the directory is readable.",
-                    exception);
-        }
-    }
-
-    private static boolean isClassFile(Path path) {
-        return path.getFileName().toString().endsWith(".class");
-    }
-
-    private static boolean isKotlinModule(Path outputRoot, Path path) {
-        Path relative = outputRoot.relativize(path);
-        return relative.getNameCount() == 2
-                && "META-INF".equals(relative.getName(0).toString())
-                && relative.getFileName().toString().endsWith(".kotlin_module");
+        return owned.stream().map(root::resolve).toList();
     }
 
     private static String relative(Path projectRoot, Path path) {

@@ -121,6 +121,7 @@ final class BuildFingerprintServiceTest {
                 List.of(groovyTest));
         Path output = projectDir.resolve("target/test-classes");
 
+        sh.zolt.build.output.CompilerOutputInventory.capture(output, false);
         service.writeTestCompileFingerprint(
                 projectDir,
                 config,
@@ -173,6 +174,7 @@ final class BuildFingerprintServiceTest {
         ProjectConfig config = config();
         Path output = projectDir.resolve("target/classes");
 
+        sh.zolt.build.output.CompilerOutputInventory.capture(output, false);
         service.writeMainCompileFingerprint(
                 projectDir,
                 config,
@@ -215,6 +217,7 @@ final class BuildFingerprintServiceTest {
                 List.of("src/main/java", "src/main/groovy")));
         Path output = projectDir.resolve("target/classes");
 
+        sh.zolt.build.output.CompilerOutputInventory.capture(output, false);
         service.writeMainCompileFingerprint(
                 projectDir,
                 config,
@@ -280,6 +283,7 @@ final class BuildFingerprintServiceTest {
         String firstCompiler = "jdk-a+groovy-sha-a";
         String changedCompiler = "jdk-a+groovy-sha-b";
 
+        sh.zolt.build.output.CompilerOutputInventory.capture(output, false);
         service.writeMainCompileFingerprint(
                 projectDir,
                 config,
@@ -338,6 +342,7 @@ final class BuildFingerprintServiceTest {
         ClasspathSet classpaths = new ClasspathSet(compile, compile, compile, empty, empty, empty);
         Path fingerprint = output.resolve(".zolt-build-main.fingerprint");
 
+        sh.zolt.build.output.CompilerOutputInventory.capture(output, false);
         service.writeMainCompileFingerprint(
                 projectDir,
                 config,
@@ -358,6 +363,7 @@ final class BuildFingerprintServiceTest {
                 output,
                 projectDir.resolve("target/generated/sources/annotations")));
 
+        sh.zolt.build.output.CompilerOutputInventory.capture(output, false);
         service.writeMainCompileFingerprint(
                 projectDir,
                 config,

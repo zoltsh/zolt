@@ -1,5 +1,6 @@
 package sh.zolt.build;
 
+import static sh.zolt.build.output.CompilerOutputInventory.captureIfCompiled;
 import sh.zolt.build.classpath.ClasspathBuilder;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.classpath.ResolvedClasspathPackage;
@@ -88,7 +89,7 @@ public final class BuildService {
         this.sourceExecutor = dependencies.sourceExecutor();
         this.mainCompilerToolchainResolver = new MainCompilerToolchainResolver();
         this.mainBuildCacheGate =
-                new MainBuildCacheGate(dependencies.buildCacheService(), dependencies.buildFingerprintService());
+                new MainBuildCacheGate(dependencies);
         this.outputFinalizer = new BuildOutputFinalizer(dependencies);
     }
 
@@ -317,6 +318,7 @@ public final class BuildService {
                     generatedSourcesDirectory,
                     jdkStatus,
                     compilerToolchain);
+            captureIfCompiled(outputDirectory, javacResult.mode(), runJavac);
             BuildOutputFinalizer.Result finalization = outputFinalizer.afterCompile(
                     projectDirectory,
                     config,

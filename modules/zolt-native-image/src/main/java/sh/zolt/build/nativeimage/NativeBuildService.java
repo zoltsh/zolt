@@ -80,7 +80,7 @@ public final class NativeBuildService {
 
     public NativeBuildService withJdkChecker(JdkChecker jdkChecker) {
         return new NativeBuildService(
-                packageService,
+                packageService.withJdkChecker(jdkChecker),
                 buildService.withJdkChecker(jdkChecker),
                 lockfileReader,
                 classpathBuilder,
@@ -136,6 +136,7 @@ public final class NativeBuildService {
                     nativeImageExecutable);
             ProjectConfig packageConfig = NativePackagePolicy.packageConfig(config);
             var packageFilter = NativePackagePolicy.classpathFilter(config);
+            packageService.preflightSupplementalTools(packageConfig);
             packageService.preparePackageToolingIfNeeded(projectDirectory, packageConfig, cacheRoot);
             BuildResultWithClasspaths buildResult = buildService.buildWithClasspaths(
                     projectDirectory,

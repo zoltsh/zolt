@@ -2,12 +2,11 @@ package sh.zolt.workspace.state;
 
 import sh.zolt.build.BuildException;
 import sh.zolt.project.BuildSettings;
-import java.io.IOException;
-import java.nio.file.FileVisitResult;
+import sh.zolt.project.ProjectPaths;
+import sh.zolt.project.ProjectPathException;
+import sh.zolt.workspace.state.WorkspaceSnapshotFiles.Entry;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -18,11 +17,11 @@ import java.util.function.Predicate;
  * The workspace's view of its own input files: one stat and content read per file per command.
  * Persisted timestamps are observations, not proof that mutable content is unchanged.
  *
- * <p>Directory walks carry each file's {@link BasicFileAttributes} straight from the walk into the
+ * <p>Directory walks carry each file's {@link java.nio.file.attribute.BasicFileAttributes} straight from the walk into the
  * hasher, so the size, modification time, and file key the comparison needs cost nothing beyond the
- * traversal that had to happen anyway. Digests keep their previous shape — a sorted list of
- * {@code relativePath|contentHash} lines — so a command that reuses every hash produces byte-identical
- * keys to one that re-reads every file.
+ * traversal that had to happen anyway. Regular-file digests retain sorted
+ * {@code relativePath|contentHash} lines. Accepted file links additionally include their confined,
+ * member-relative target identity so retargeting remains visible even when bytes match.
  */
 public final class WorkspaceFileSnapshot {
     private static final Set<String> COMPILER_STATE_FILES = Set.of(
@@ -32,6 +31,7 @@ public final class WorkspaceFileSnapshot {
             ".zolt-build-test.fingerprint.state",
             ".zolt-incremental-main.state",
             ".zolt-incremental-test.state",
+            ".zolt-compiler-outputs.state",
             ".zolt-resources.state");
 
     private final WorkspaceFileHasher hasher;
@@ -201,7 +201,7 @@ public final class WorkspaceFileSnapshot {
         Path output = confined(projectRoot, outputRoot);
         for (String configuredRoot : resourceRoots) {
             Path root = confined(projectRoot, configuredRoot);
-            for (Entry input : walk(root, path -> !source(path))) {
+            for (Entry input : inputFiles(projectRoot, root, path -> !source(path))) {
                 Path candidate = output.resolve(root.relativize(input.path())).normalize();
                 String copied = hasher.hash(candidate, WorkspaceFileKind.OUTPUT_RESOURCE, member);
                 if (!hasher.hash(input.path(), input.attributes(), kind, member).equals(copied)) {
@@ -221,7 +221,7 @@ public final class WorkspaceFileSnapshot {
         Path projectRoot = projectDirectory.toAbsolutePath().normalize();
         List<Entry> files = configuredRoots.stream()
                 .map(root -> confined(projectRoot, root))
-                .flatMap(root -> walk(root, included).stream())
+                .flatMap(root -> inputFiles(projectRoot, root, included).stream())
                 .toList();
         hasher.sweep(member, kind);
         return digest(member, kind, projectRoot, files);
@@ -234,7 +234,7 @@ public final class WorkspaceFileSnapshot {
             List<Entry> files) {
         configuredRoots.stream()
                 .map(root -> confined(projectRoot, root))
-                .flatMap(root -> walk(root, included).stream())
+                .flatMap(root -> inputFiles(projectRoot, root, included).stream())
                 .forEach(files::add);
     }
 
@@ -254,39 +254,21 @@ public final class WorkspaceFileSnapshot {
             counted++;
             content.append(display(relativeRoot, entry.path()))
                     .append('|')
-                    .append(hasher.hash(entry.path(), entry.attributes(), kind, member))
-                    .append('\n');
+                    .append(hasher.hash(entry.path(), entry.attributes(), kind, member));
+            if (entry.linkTarget() != null) {
+                content.append("|target:").append(entry.linkTarget());
+            }
+            content.append('\n');
         }
         return new TreeDigest(WorkspaceHash.text(content.toString()), counted);
     }
 
     private static List<Entry> walk(Path root, Predicate<Path> included) {
-        if (!Files.isDirectory(root)) {
-            return List.of();
-        }
-        List<Entry> entries = new ArrayList<>();
-        try {
-            Files.walkFileTree(root, new SimpleFileVisitor<Path>() {
-                @Override
-                public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) {
-                    Path normalized = file.toAbsolutePath().normalize();
-                    if (attributes.isRegularFile() && included.test(normalized)) {
-                        entries.add(new Entry(normalized, attributes));
-                    }
-                    return FileVisitResult.CONTINUE;
-                }
+        return WorkspaceSnapshotFiles.walk(root, included, null);
+    }
 
-                @Override
-                public FileVisitResult visitFileFailed(Path file, IOException exception) {
-                    return FileVisitResult.CONTINUE;
-                }
-            });
-        } catch (IOException exception) {
-            throw new BuildException(
-                    "Could not snapshot workspace files under " + root + ".",
-                    exception);
-        }
-        return entries;
+    private static List<Entry> inputFiles(Path projectRoot, Path root, Predicate<Path> included) {
+        return WorkspaceSnapshotFiles.walk(root, included, projectRoot);
     }
 
     private static boolean java(Path path) {
@@ -314,22 +296,17 @@ public final class WorkspaceFileSnapshot {
     }
 
     private static Path confined(Path projectRoot, String configuredPath) {
-        Path configured = Path.of(configuredPath);
-        Path resolved = projectRoot.resolve(configured).normalize();
-        if (configured.isAbsolute() || !resolved.startsWith(projectRoot)) {
-            throw new BuildException(
-                    "Workspace input path escapes its member: " + configuredPath);
+        try {
+            return ProjectPaths.existingRoot(projectRoot, "workspace input", configuredPath);
+        } catch (ProjectPathException exception) {
+            throw new BuildException(exception.getMessage(), exception);
         }
-        return resolved;
     }
 
     private static String display(Path root, Path path) {
         return path.startsWith(root)
                 ? root.relativize(path).toString().replace('\\', '/')
                 : path.toString().replace('\\', '/');
-    }
-
-    private record Entry(Path path, BasicFileAttributes attributes) {
     }
 
     public record TreeDigest(String digest, int fileCount) {

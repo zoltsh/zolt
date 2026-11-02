@@ -121,6 +121,7 @@ final class WorkspaceKotlinMetadataAbiPropagationTest {
                 sources.allMainSources());
         // Model a completed compiler run: output ownership and content evidence must agree.
         // Updating only the incremental summary would describe an unverified output mutation.
+        sh.zolt.build.output.CompilerOutputInventory.capture(output, false);
         new sh.zolt.build.fingerprint.BuildFingerprintService().writeMainCompileFingerprint(
                 provider.directory(),
                 provider.config(),

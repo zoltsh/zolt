@@ -75,6 +75,32 @@ public final class ResourceCopier {
             Optional<ProjectMetadata> project,
             String resourceRootKey,
             boolean testResources) {
+        List<ResourceCopyPlan.Entry> entries = planResources(configuredRoots, outputDirectory,
+                projectDirectory, settings, project, resourceRootKey, testResources);
+        List<Path> copied = new ArrayList<>();
+        List<Path> skipped = new ArrayList<>();
+        ResourceCopyPlan.copy(outputDirectory, entries, copied, skipped);
+        return new ResourceCopyResult(copied, skipped);
+    }
+
+    public Set<Path> plannedOutputPaths(Path projectDirectory, ProjectConfig config, boolean testResources) {
+        BuildSettings settings = config.build();
+        return planResources(testResources ? settings.testResourceRoots() : settings.resourceRoots(),
+                outputDirectory(projectDirectory, testResources ? "[build.output].test" : "[build.output].main",
+                        testResources ? settings.testOutput() : settings.output()),
+                projectDirectory, settings, Optional.of(config.project()),
+                testResources ? "[resources].test" : "[resources].main", testResources)
+                .stream().map(ResourceCopyPlan.Entry::relative).collect(java.util.stream.Collectors.toUnmodifiableSet());
+    }
+
+    private static List<ResourceCopyPlan.Entry> planResources(
+            List<String> configuredRoots,
+            Path outputDirectory,
+            Path projectDirectory,
+            BuildSettings settings,
+            Optional<ProjectMetadata> project,
+            String resourceRootKey,
+            boolean testResources) {
         Path projectRoot = ProjectPaths.root(projectDirectory);
         Path mainOutput = outputPath(projectRoot, "[build.output].main", settings.output());
         Path testOutput = outputPath(projectRoot, "[build.output].test", settings.testOutput());
@@ -82,8 +108,6 @@ public final class ResourceCopier {
         boolean filteringEnabled = filtering.enabled() && (!testResources || filtering.testEnabled());
         ResourceFilteringProcessor filteringProcessor =
                 ResourceFilteringProcessor.create(filteringEnabled, filtering, project);
-        List<Path> copiedResources = new ArrayList<>();
-        List<Path> skippedResources = new ArrayList<>();
         List<ResourceCopyPlan.Entry> entries = new ArrayList<>();
         Set<Path> targetRelativePaths = new HashSet<>();
         for (String configuredRoot : configuredRoots) {
@@ -139,8 +163,7 @@ public final class ResourceCopier {
                 targetRelativePaths,
                 entries,
                 testResources ? "test" : "main");
-        ResourceCopyPlan.copy(outputDirectory, entries, copiedResources, skippedResources);
-        return new ResourceCopyResult(copiedResources, skippedResources);
+        return List.copyOf(entries);
     }
 
     private static List<GeneratedSourceStep> execResourceSteps(BuildSettings settings, boolean testResources) {

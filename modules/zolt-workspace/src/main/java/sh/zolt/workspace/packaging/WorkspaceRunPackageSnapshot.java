@@ -24,6 +24,7 @@ public record WorkspaceRunPackageSnapshot(
 
     public record MemberLaunch(
             String member,
+            Path workingDirectory,
             WorkspaceBuildResult.MemberBuildResult build,
             PackageResult originalPackage,
             PackageResult snapshotPackage,

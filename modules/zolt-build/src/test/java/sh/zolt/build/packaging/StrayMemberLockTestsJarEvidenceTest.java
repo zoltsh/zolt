@@ -103,6 +103,7 @@ final class StrayMemberLockTestsJarEvidenceTest {
 
         // What the compile lane records: the canonical test fingerprint, taken against the workspace
         // root's lock and an empty dependency classpath (the root lock declares no packages).
+        sh.zolt.build.output.CompilerOutputInventory.capture(memberDirectory.resolve("target/test-classes"), false);
         new BuildFingerprintService().writeTestCompileFingerprint(
                 memberDirectory,
                 config,

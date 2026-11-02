@@ -99,7 +99,7 @@ public final class RunPackageService {
             ClasspathBuilder classpathBuilder,
             JdkChecker jdkDetector,
             JavaRunner javaRunner) {
-        this.packageService = packageService;
+        this.packageService = packageService.withJdkChecker(jdkDetector);
         this.buildService = buildService;
         this.classpathBuilder = classpathBuilder;
         this.jdkDetector = jdkDetector;
@@ -130,7 +130,7 @@ public final class RunPackageService {
                     () -> prepareRun(projectDirectory, config, cacheRoot, artifactIndex, files));
             JavaRunResult result = applicationLauncher.launch(
                     launch.java(), launch.captured(), launch.runtimeEntries(), launch.mainClass(),
-                    KotlinJvmPreviewPolicy.mainJvmArguments(config), arguments);
+                    KotlinJvmPreviewPolicy.mainJvmArguments(config), arguments, projectDirectory);
             return new RunPackageResult(launch.original(), result);
         }
     }
@@ -148,6 +148,7 @@ public final class RunPackageService {
         }
         String mainClass = config.project().main().orElseThrow(() -> new RunPackageException(
                 "No main class is configured. Add [project].main to zolt.toml to run a packaged application."));
+        packageService.preflightSupplementalTools(config);
         packageService.preparePackageToolingIfNeeded(projectDirectory, config, cacheRoot);
         BuildResultWithClasspaths buildResult = buildService.buildWithClasspaths(
                 projectDirectory,

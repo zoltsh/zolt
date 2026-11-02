@@ -69,6 +69,7 @@ final class TestCompileCacheGate {
         return ProcessorBuildCacheRestore.complete(
                 cache.restore(key, outputDirectory),
                 processorClasspath,
-                generatedSourcesDirectory).restored();
+                generatedSourcesDirectory).restored()
+                && sh.zolt.build.output.CompilerOutputInventory.complete(outputDirectory);
     }
 }

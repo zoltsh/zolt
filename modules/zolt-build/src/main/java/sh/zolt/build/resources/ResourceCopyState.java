@@ -31,8 +31,10 @@ final class ResourceCopyState {
             for (Path path : current) {
                 validatePath(root, path, false);
             }
+            Set<Path> compilerOwned = sh.zolt.build.output.CompilerOutputInventory.read(root)
+                    .map(value -> value.files().keySet()).orElse(Set.of());
             for (Path path : previous.stream().sorted().toList()) {
-                if (!current.contains(path)) {
+                if (!current.contains(path) && !compilerOwned.contains(path)) {
                     Files.deleteIfExists(root.resolve(path));
                     pruneEmptyParents(root, root.resolve(path).getParent());
                 }

@@ -235,6 +235,7 @@ public final class WorkspaceRunPackageService {
                 }
                 launches.add(new WorkspaceRunPackageSnapshot.MemberLaunch(
                         memberPackage.member(),
+                        member.directory(),
                         memberBuild,
                         original,
                         captured,
@@ -266,7 +267,8 @@ public final class WorkspaceRunPackageService {
                     launch.runtimeEntries(),
                     launch.mainClass(),
                     launch.jvmArguments(),
-                    arguments);
+                    arguments,
+                    launch.workingDirectory());
             results.add(new WorkspaceRunPackageResult.MemberRunPackageResult(
                     launch.member(),
                     new RunPackageResult(launch.originalPackage(), javaRunResult)));

@@ -11,7 +11,9 @@ import java.util.List;
 public final class BuildFingerprintService {
     private static final String MAIN_FILE_NAME = ".zolt-build-main.fingerprint";
     private static final String TEST_FILE_NAME = ".zolt-build-test.fingerprint";
-    private final BuildFingerprintEngine engine = new BuildFingerprintEngine();
+    private final BuildFingerprintEngine engine;
+    public BuildFingerprintService() { this(new sh.zolt.build.metadata.BuildMetadataGenerator()); }
+    public BuildFingerprintService(sh.zolt.build.metadata.BuildMetadataGenerator metadata) { engine = new BuildFingerprintEngine(metadata); }
 
     public boolean isMainCompileCurrent(
             Path projectDirectory,
