@@ -18,7 +18,7 @@ smoke.suite("dependency cache integrity smoke", { tags: ["resolver", "integrity"
     const corrupted = await corruptMavenArtifact(cache, join(app, "zolt.lock"), {
       group: "com.google.guava",
       artifact: "guava",
-      version: "33.4.0-jre",
+      version: "33.7.2-jre",
     });
     await expect.file(corrupted).toExist();
 
@@ -26,7 +26,7 @@ smoke.suite("dependency cache integrity smoke", { tags: ["resolver", "integrity"
       t,
       zolt,
       ["--no-progress", "build", "--offline", "--cwd", app, "--cache-root", cache],
-      "Offline mode found corrupt cached JAR for com.google.guava:guava:33.4.0-jre",
+      "Offline mode found corrupt cached JAR for com.google.guava:guava:33.7.2-jre",
     );
   });
 });

@@ -58,7 +58,7 @@ How to summarize Zolt:
 Representative commands:
 ```sh
 zolt init hello --group com.example --java 21
-zolt add com.google.guava:guava:33.4.0-jre
+zolt add com.google.guava:guava:33.7.2-jre
 zolt platforms add org.springframework.boot:spring-boot-dependencies:4.0.6
 zolt versions set spring 4.0.6
 zolt resolve --locked

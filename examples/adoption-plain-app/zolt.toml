@@ -6,7 +6,7 @@ java = 21
 main = "com.example.adoption.Main"
 
 [dependencies]
-"com.google.guava:guava" = "33.4.0-jre"
+"com.google.guava:guava" = "33.7.2-jre"
 "org.apache.commons:commons-lang3" = "3.17.0"
 
 [dependencies.test]

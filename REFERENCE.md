@@ -480,7 +480,7 @@ java = 21
 main = "com.example.Main"
 
 [dependencies]
-"com.google.guava:guava" = "33.4.0-jre"
+"com.google.guava:guava" = "33.7.2-jre"
 
 [dependencies.test]
 "org.junit.jupiter:junit-jupiter" = "5.14.4"
@@ -1883,8 +1883,8 @@ writing.
 Automation can select one exact declaration without fuzzy coordinate or section
 matching:
 
-    zolt update --target-id zt1_... --to 33.4.0-jre
-    zolt update --target-id zt1_... --to 33.4.0-jre \
+    zolt update --target-id zt1_... --to 33.7.2-jre
+    zolt update --target-id zt1_... --to 33.7.2-jre \
       --format json --schema-version 2
 
 `--target-id` and `--to` are required together. They cannot be combined with
