@@ -270,6 +270,32 @@ zolt self update
 Installer-managed versions support channels, switching, pruning, updates, and
 rollback.
 
+Native installation changes (`self update`, `install`, `use`, `rollback`, and
+`prune`, plus the shell installer) share a transaction lock under the canonical
+installation root. Downloads and extraction use unique directories on the
+installation filesystem. A verified version is installed once and reused;
+switching versions atomically replaces the launcher symlink. Other installers
+wait up to two minutes, then report the lock path and owner.
+
+If an installer is forcibly killed, the existing launcher remains usable and
+its lock is deliberately left in place. There is no automatic stale-lock
+recovery. Inspect `<install-root>/.install-lock/owner` (`PID:unique-token`) and
+confirm that the owning process has exited and no installer is running before
+removing only that lock directory. Orphaned
+`<install-root>/versions/.install-attempt-*` directories may be removed only
+while installers are stopped. Never remove a live or ambiguously owned lock.
+Retry the original command after recovery.
+
+`self prune --keep N` always protects the active and recorded rollback versions,
+even when that retains more than N versions. Other versions are retained by
+numeric major/minor/patch order, with a final release above prereleases of the
+same version. Prerelease identifiers use SemVer ordering: numeric identifiers
+compare numerically; alpha precedes beta, rc, and zap. Zap dates sort by date;
+commit hashes for the same date provide a deterministic lexical tie-break, not
+commit-age ordering. Build metadata does not affect precedence (full version
+text breaks ties). Legacy names outside this version format sort below valid
+versions. Use `--dry-run` to inspect the retained set before deletion.
+
 ## Experimental features
 
 Kotlin/JVM (including KAPT, KSP, and compiler plugins), Groovy main sources,
