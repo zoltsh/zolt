@@ -321,17 +321,6 @@ require_under_root() {
   esac
 }
 
-safe_rm_rf() {
-  root="$1"
-  path="$2"
-  label="$3"
-  require_under_root "$root" "$path" "$label"
-  if [ "$path" = "$root" ]; then
-    fail "$label must not target its root directory."
-  fi
-  rm -rf "$path"
-}
-
 validate_tar_entry_path() {
   entry="$1"
   case "$entry" in
@@ -378,8 +367,63 @@ esac
 validate_url "release channel URL" "$CHANNEL_URL"
 validate_url "native update channel URL" "$UPDATE_CHANNEL_URL"
 
-work_dir="$(mktemp -d "${TMPDIR:-/tmp}/zolt-install.XXXXXX")"
-trap 'rm -rf "$work_dir"' EXIT INT TERM
+# The native updater shares this mkdir lease and PID:token owner protocol. A crashed
+# owner is never guessed dead or displaced; recovery requires explicit operator action.
+install_root="$(real_dir "$INSTALL_ROOT")"
+if [ -L "$install_root/versions" ] || [ -L "$install_root/bin" ]; then
+  fail "native versions and bin directories must not be symbolic links."
+fi
+versions_dir="$(real_dir "$install_root/versions")"
+require_under_root "$install_root" "$versions_dir" "native versions directory"
+work_dir="$(mktemp -d "$versions_dir/.install-attempt-XXXXXX")"
+lock_dir="$install_root/.install-lock"
+owner_id="$$:${work_dir##*/}"
+lock_owned=false
+link_tmp=""
+cleanup_install() {
+  cleanup_status=$?
+  trap - EXIT INT TERM
+  if [ -n "$link_tmp" ]; then rm -f "$link_tmp"; fi
+  rm -f "$install_root/.channel-$owner_id" "$install_root/.channel-url-$owner_id" \
+    "$install_root/.previous-version-$owner_id"
+  rm -rf "$work_dir"
+  if [ "$lock_owned" = true ] && [ ! -L "$lock_dir/owner" ] \
+      && [ "$(cat "$lock_dir/owner" 2>/dev/null || true)" = "$owner_id" ]; then
+    rm -f "$lock_dir/owner"
+    rmdir "$lock_dir" || cleanup_status=1
+  fi
+  exit "$cleanup_status"
+}
+trap cleanup_install EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+lock_wait=0
+while ! mkdir "$lock_dir" 2>/dev/null; do
+  if [ -L "$lock_dir" ]; then
+    fail "native installation lock is not an owned directory: $lock_dir."
+  fi
+  if [ "$lock_wait" -ge 120 ]; then
+    lock_owner=unknown
+    if [ -f "$lock_dir/owner" ] && [ ! -L "$lock_dir/owner" ]; then
+      lock_owner="$(dd if="$lock_dir/owner" bs=1024 count=1 2>/dev/null || printf unknown)"
+    fi
+    fail "timed out waiting for native installation lock $lock_dir (owner $lock_owner). Wait for the installer to finish. If its process exited, confirm no installer is running before removing only this lock directory."
+  fi
+  sleep 1
+  lock_wait=$((lock_wait + 1))
+done
+(umask 077; set -C; printf '%s\n' "$owner_id" >"$lock_dir/owner")
+lock_owned=true
+# All shared installation state is inspected after acquiring the lease.
+if [ -L "$install_root/bin" ]; then fail "native bin directory must not be a symbolic link."; fi
+bin_dir="$(real_dir "$install_root/bin")"
+require_under_root "$install_root" "$bin_dir" "native bin directory"
+if [ -e "$bin_dir/zolt" ] && [ ! -L "$bin_dir/zolt" ]; then
+  fail "refusing to replace an unmanaged launcher at $bin_dir/zolt."
+fi
+if [ -d "$bin_dir/zolt" ]; then
+  fail "native launcher must point to an executable file, not a directory: $bin_dir/zolt."
+fi
 
 manifest="$work_dir/channel.json"
 download "$CHANNEL_URL" "$manifest" "the release channel manifest"
@@ -465,13 +509,9 @@ fi
 verify_checksum "$archive_path" "$expected_sha256"
 validate_tar_entries "$archive_path"
 
-install_root="$(real_dir "$INSTALL_ROOT")"
-versions_dir="$(real_dir "$install_root/versions")"
-bin_dir="$(real_dir "$install_root/bin")"
 install_dir="$versions_dir/$version"
-install_tmp_dir="$versions_dir/$version.tmp"
 extract_dir="$work_dir/extract"
-mkdir -p "$versions_dir" "$bin_dir" "$extract_dir"
+mkdir -p "$extract_dir"
 require_under_root "$work_dir" "$extract_dir" "native archive extraction directory"
 tar -xzf "$archive_path" -C "$extract_dir"
 top_count="$(find "$extract_dir" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
@@ -484,7 +524,6 @@ if [ "$top_count" != "1" ]; then
 fi
 require_under_root "$work_dir" "$top_dir" "native archive top-level directory"
 require_under_root "$versions_dir" "$install_dir" "native install directory"
-require_under_root "$versions_dir" "$install_tmp_dir" "native temporary install directory"
 require_under_root "$versions_dir" "$install_dir/bin/zolt" "native installed binary path"
 
 # Validate the complete extracted layout before replacing an existing install.
@@ -495,15 +534,41 @@ if [ "$installed_version" != "$version" ]; then
 fi
 smoke_dir="$work_dir/smoke"
 "$top_dir/bin/zolt" init --cwd "$smoke_dir" smoke >/dev/null
-safe_rm_rf "$versions_dir" "$install_tmp_dir" "native temporary install directory"
-mv "$top_dir" "$install_tmp_dir"
-safe_rm_rf "$versions_dir" "$install_dir" "native install directory"
-mv "$install_tmp_dir" "$install_dir"
-require_under_root "$bin_dir" "$bin_dir/zolt" "native bin symlink"
-safe_rm_rf "$bin_dir" "$bin_dir/zolt" "native bin symlink"
-ln -s "../versions/$version/bin/zolt" "$bin_dir/zolt"
-printf '%s\n' "${channel:-$CHANNEL}" >"$install_root/channel"
-printf '%s\n' "$UPDATE_CHANNEL_URL" >"$install_root/channel-url"
+# Completed version directories are immutable. Reuse a verified install instead of
+# deleting a directory that may still be running or serving as the rollback target.
+if [ -e "$install_dir" ] || [ -L "$install_dir" ]; then
+  if [ -L "$install_dir" ] || [ ! -d "$install_dir" ] || [ ! -x "$install_dir/bin/zolt" ] \
+      || [ -L "$install_dir/bin" ] || [ -L "$install_dir/bin/zolt" ]; then
+    fail "existing native version is incomplete or unsafe at $install_dir; select a usable version before removing it."
+  fi
+  installed_version="$("$install_dir/bin/zolt" --version)"
+  if [ "$installed_version" != "$version" ]; then
+    fail "existing native version failed version smoke at $install_dir."
+  fi
+else
+  mv "$top_dir" "$install_dir"
+fi
+previous_target="$(readlink "$bin_dir/zolt" 2>/dev/null || true)"
+case "$previous_target" in
+  ../versions/*/bin/zolt)
+    previous_version="${previous_target#../versions/}"
+    previous_version="${previous_version%/bin/zolt}"
+    validate_version "previous installed version" "$previous_version"
+    if [ "$previous_version" != "$version" ]; then
+      printf '%s\n' "$previous_version" >"$install_root/.previous-version-$owner_id"
+      mv -f "$install_root/.previous-version-$owner_id" "$install_root/previous-version"
+    fi
+    ;;
+esac
+printf '%s\n' "${channel:-$CHANNEL}" >"$install_root/.channel-$owner_id"
+printf '%s\n' "$UPDATE_CHANNEL_URL" >"$install_root/.channel-url-$owner_id"
+link_tmp="$bin_dir/.zolt-link-$owner_id"
+ln -s "../versions/$version/bin/zolt" "$link_tmp"
+# Rename an adjacent symlink; never unlink the active launcher before its replacement.
+mv -f "$link_tmp" "$bin_dir/zolt"
+link_tmp=""
+mv -f "$install_root/.channel-$owner_id" "$install_root/channel"
+mv -f "$install_root/.channel-url-$owner_id" "$install_root/channel-url"
 
 info "Installed native Zolt $version for $selected_target from channel ${channel:-unknown}."
 info "Add $bin_dir to PATH to run zolt."

@@ -29,7 +29,7 @@ final class NativeUpdateServiceTest extends NativeUpdateServiceTestCase {
     }
 
     @Test
-    void rejectedCandidatePreservesPreviouslyInstalledTargetAndRollbackState() throws IOException {
+    void completedTargetIsReusedWithoutReplacingItsContents() throws IOException {
         InstalledFixture installed = install("0.1.0");
         Path existingBinary = installed.installRoot().resolve("versions/0.1.1/bin/zolt");
         writeFakeZolt(existingBinary, "0.1.1");
@@ -39,12 +39,11 @@ final class NativeUpdateServiceTest extends NativeUpdateServiceTestCase {
         Path archive = archive("0.1.1", "linux-x64", "wrong-version");
         Path channel = writeChannel("stable", "0.1.1", "linux-x64", archive, archive.getFileName().toString(), "sidecar");
 
-        assertThrows(NativeUpdateException.class,
-                () -> service.update(request(installed, channel, tempDir.resolve("update-work"))));
+        assertTrue(service.update(request(installed, channel, tempDir.resolve("update-work"))).updated());
 
         assertEquals(original, Files.readString(existingBinary));
-        assertEquals("../versions/0.1.0/bin/zolt", Files.readSymbolicLink(installed.binLink()).toString());
-        assertEquals("0.1.1\n", Files.readString(previousVersion));
+        assertEquals("../versions/0.1.1/bin/zolt", Files.readSymbolicLink(installed.binLink()).toString());
+        assertEquals("0.1.0\n", Files.readString(previousVersion));
     }
 
     @Test

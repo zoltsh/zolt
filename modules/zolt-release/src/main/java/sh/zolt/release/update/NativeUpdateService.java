@@ -42,8 +42,8 @@ public final class NativeUpdateService {
     }
 
     public NativeUpdateResult update(NativeUpdateRequest request) {
-        try {
-            NativeInstalledLayout installed = NativeInstalledLayout.detect(request.installRoot(), request.currentExecutable());
+        try (NativeInstallLease lease = NativeInstallLease.acquireManaged(request.installRoot(), request.currentExecutable())) {
+            NativeInstalledLayout installed = NativeInstalledLayout.detect(lease.root(), lease.root().resolve("bin/zolt"));
             ReleaseChannelUriPolicy.validate(request.channelUri(), true);
             byte[] manifestBytes = transport.downloadBytes(
                     request.channelUri(),
@@ -66,37 +66,34 @@ public final class NativeUpdateService {
                         installed.binLink());
             }
 
-            Path workDirectory = request.workDirectory() == null
-                    ? Files.createTempDirectory("zolt-update-")
-                    : request.workDirectory().toAbsolutePath().normalize();
-            Path workRoot = NativeInstallPaths.ownedDirectory(workDirectory, "native update work directory");
             Path versionsRoot = NativeInstallPaths.ownedDirectory(installed.versionsDirectory(), "native versions directory");
             Path binRoot = NativeInstallPaths.ownedDirectory(installed.binLink().getParent(), "native bin directory");
-            Path archive = NativeInstallPaths.resolveUnderRoot(workRoot, artifact.archive(), "native update archive");
-            transport.download(URI.create(artifact.archiveUrl()), archive);
-            verifyChecksum(archive, expectedChecksum(artifact, workRoot));
-
-            Path extractDirectory = NativeInstallPaths.resolveUnderRoot(workRoot, "extract", "native update extraction directory");
-            NativeInstallPaths.deleteIfExists(workRoot, extractDirectory, "native update extraction directory");
-            Files.createDirectories(extractDirectory);
-            ReleaseArchiveSupport.unpack(archive, extractDirectory, artifact);
-            Path candidateRoot = singleDirectory(extractDirectory);
-            NativeInstallPaths.assertUnderRoot(extractDirectory, candidateRoot, "native update extraction candidate");
-            Path candidateBinary = candidateRoot.resolve("bin").resolve(artifact.binaryName()).normalize();
-            NativeInstallPaths.assertUnderRoot(candidateRoot, candidateBinary, "native update candidate binary");
-            if (!Files.isExecutable(candidateBinary)) {
-                throw new NativeUpdateException("Downloaded native Zolt archive does not contain executable bin/" + artifact.binaryName() + ".");
-            }
-
-            // Reject unusable candidates before touching any installed version or rollback target.
-            NativeUpdateVerifier.smokeCandidate(candidateBinary, manifest.version());
-
             Path installDirectory = NativeInstallPaths.resolveUnderRoot(versionsRoot, manifest.version(), "native install directory");
-            Path tempInstallDirectory = NativeInstallPaths.resolveUnderRoot(versionsRoot, manifest.version() + ".tmp", "native temporary install directory");
-            NativeInstallPaths.deleteIfExists(versionsRoot, tempInstallDirectory, "native temporary install directory");
-            Files.move(candidateRoot, tempInstallDirectory);
-            NativeInstallPaths.deleteIfExists(versionsRoot, installDirectory, "native install directory");
-            Files.move(tempInstallDirectory, installDirectory);
+            if (!NativeInstallAttempt.reuseCompleted(installDirectory, artifact.binaryName(), manifest.version())) {
+                try (NativeInstallAttempt attempt = new NativeInstallAttempt(versionsRoot)) {
+                    Path workRoot = attempt.root();
+                    Path archive = NativeInstallPaths.resolveUnderRoot(workRoot, artifact.archive(), "native update archive");
+                    transport.download(URI.create(artifact.archiveUrl()), archive);
+                    verifyChecksum(archive, expectedChecksum(artifact, workRoot));
+
+                    Path extractDirectory = NativeInstallPaths.resolveUnderRoot(workRoot, "extract", "native update extraction directory");
+                    NativeInstallPaths.deleteIfExists(workRoot, extractDirectory, "native update extraction directory");
+                    Files.createDirectories(extractDirectory);
+                    ReleaseArchiveSupport.unpack(archive, extractDirectory, artifact);
+                    Path candidateRoot = singleDirectory(extractDirectory);
+                    NativeInstallPaths.assertUnderRoot(extractDirectory, candidateRoot, "native update extraction candidate");
+                    Path candidateBinary = candidateRoot.resolve("bin").resolve(artifact.binaryName()).normalize();
+                    NativeInstallPaths.assertUnderRoot(candidateRoot, candidateBinary, "native update candidate binary");
+                    if (!Files.isExecutable(candidateBinary)) {
+                        throw new NativeUpdateException("Downloaded native Zolt archive does not contain executable bin/" + artifact.binaryName() + ".");
+                    }
+
+                    // Reject unusable candidates before publishing any version or changing the launcher.
+                    NativeUpdateVerifier.smokeCandidate(candidateBinary, manifest.version());
+
+                    NativeInstallAttempt.publish(candidateRoot, installDirectory);
+                }
+            }
             Path installedBinary = installDirectory.resolve("bin").resolve(artifact.binaryName());
             NativeInstallPaths.assertUnderRoot(installDirectory, installedBinary, "native installed binary");
             Path nextTarget = Path.of("../versions", manifest.version(), "bin", artifact.binaryName());
@@ -106,7 +103,7 @@ public final class NativeUpdateService {
             // bin directory's ancestor is a symlink (e.g. macOS /var -> /private/var).
             Path canonicalBinLink = binRoot.resolve(installed.binLink().getFileName());
             NativeVersionService.writePreviousVersion(installed.installRoot(), installed.version());
-            NativeInstallPaths.switchCurrent(binRoot, canonicalBinLink, installed.linkTarget(), nextTarget);
+            NativeInstallPaths.switchCurrent(binRoot, canonicalBinLink, nextTarget);
 
             return new NativeUpdateResult(
                     manifest.channel(),
