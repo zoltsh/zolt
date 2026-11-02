@@ -62,6 +62,14 @@ final class BuildPlanExecStepNodePlanner {
         // step is reported unlocked and routed to `zolt resolve` rather than a stale global classpath.
         boolean toolLocked = lockedToolGroups.contains(exec.toolName());
         List<PlanBlocker> blockers = new ArrayList<>();
+        if (!supportedLanguage(step)) {
+            blockers.add(new PlanBlocker(
+                    "unsupported-exec-language",
+                    "Exec step " + subject + " uses language `" + step.language()
+                            + "`, which is not supported for " + producesLabel(exec.produces()) + ".",
+                    "Use language = \"java\", or use language = \"kotlin\" only with produces ="
+                            + " \"java-sources\" or \"test-sources\"."));
+        }
         addToolBlockers(blockers, exec, subject);
         if ("jvm".equals(exec.tool().runner()) && !toolLocked) {
             blockers.add(new PlanBlocker(
@@ -162,6 +170,7 @@ final class BuildPlanExecStepNodePlanner {
             boolean toolLocked) {
         List<String> details = new ArrayList<>(List.of(
                 "scope: " + scope,
+                "language: " + evidence.step().language(),
                 "tool: " + exec.toolName(),
                 "runner: " + exec.tool().runner()));
         switch (exec.tool().runner()) {
@@ -197,6 +206,21 @@ final class BuildPlanExecStepNodePlanner {
         details.add("outputExists: " + evidence.outputExists());
         details.add("freshness: " + evidence.freshness());
         return details;
+    }
+
+    private static boolean supportedLanguage(GeneratedSourceStep step) {
+        if ("java".equals(step.language())) {
+            return true;
+        }
+        if (!"kotlin".equals(step.language())) {
+            return false;
+        }
+        return step.exec().produces() == ProducesLane.JAVA_SOURCES
+                || step.exec().produces() == ProducesLane.TEST_SOURCES;
+    }
+
+    private static String producesLabel(ProducesLane produces) {
+        return produces == null ? "an unspecified output lane" : "`" + produces.configValue() + "`";
     }
 
     private static String derivedPosition(ProducesLane produces, boolean postCompile) {

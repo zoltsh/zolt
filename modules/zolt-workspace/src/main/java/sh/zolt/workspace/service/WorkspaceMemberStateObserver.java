@@ -17,31 +17,17 @@ import java.util.Set;
 import java.util.TreeSet;
 
 /**
- * Captures a member's build-input state without constructing a single classpath.
- *
- * <p>The compile key previously folded in a digest over every entry of the member's compile and
- * processor classpaths, which meant the whole workspace had to be projected out of the root lock
- * before anything could be declared clean. The same two things move a member's classpath:
- *
- * <ul>
- *   <li>the external side, which changes only when the root lock changes — one digest for the whole
- *       workspace, taken from the planning bytes the planner already read; and
- *   <li>the workspace side, which changes only when a dependency member's ABI changes — read from
- *       the incremental-compile summaries Zolt already writes next to each member's output.
- * </ul>
- *
- * <p>Both are strictly cheaper than projecting a lock view and hashing its artifacts, and together
- * they cover exactly what the classpath digest covered for the purpose of deciding dirtiness.
- *
- * <p>The external half is asked of {@link WorkspaceMemberLaneClosure}, the same object the classpath
- * factory projects lanes from, so a lock edit that moves any lane of a member necessarily moves that
- * member's key for the lane. Processor-scoped packages are included in that: they sit in the member's
- * own lane bucket, so a processor version bump moves the compile key like any other dependency edit.
+ * Captures member inputs before classpath construction. Resolution lanes supply external artifact
+ * identities; workspace dependencies supply ABI digests for compilation and full content digests
+ * wherever annotation processors execute their code. Sources, resources, generated outputs, and
+ * toolchain identity are tracked separately so the planner can choose the required work.
  */
 final class WorkspaceMemberStateObserver {
     private final WorkspaceExecutionContext context;
     private final Map<String, WorkspaceMember> membersByPath;
     private final String cacheRootDigest;
+    private final Set<String> mainProcessorMembers;
+    private final Set<String> testProcessorMembers;
 
     WorkspaceMemberStateObserver(
             WorkspaceExecutionContext context,
@@ -49,6 +35,10 @@ final class WorkspaceMemberStateObserver {
         this.context = context;
         this.membersByPath = membersByPath;
         this.cacheRootDigest = WorkspaceHash.text(context.cacheRoot().toString());
+        this.mainProcessorMembers = WorkspaceCanonicalBuildPolicy.membersWithProcessorInputs(
+                context.workspace(), context.lockfile());
+        this.testProcessorMembers = WorkspaceCanonicalBuildPolicy.membersWithTestProcessorInputs(
+                context.workspace(), context.lockfile());
     }
 
     private String resolutionInputDigest(WorkspaceMemberLaneClosure.Lane lane) {
@@ -82,7 +72,7 @@ final class WorkspaceMemberStateObserver {
         WorkspaceFileSnapshot snapshot = context.fileSnapshot();
         var build = member.config().build();
         String path = member.path();
-        var mainSources = snapshot.javaSources(
+        var mainSources = snapshot.mainSources(
                 path, WorkspaceFileKind.MAIN_SOURCE, member.directory(), build.sourceRoots());
         var resources = snapshot.resources(
                 path, WorkspaceFileKind.MAIN_RESOURCE, member.directory(), build.resourceRoots());
@@ -139,27 +129,62 @@ final class WorkspaceMemberStateObserver {
     }
 
     /**
-     * The test lane's compile inputs only. Test resources are tracked beside this key rather than
-     * inside it, exactly as the main lane keeps {@code resourceTreeDigest} out of its compile key:
-     * both lanes copy resources after compiling, so a resource edit has to be able to say so on its
-     * own instead of masquerading as a source change.
+     * The test lane's compile inputs and prior annotation-processor output. Test resources are
+     * tracked beside this key rather than inside it, exactly as the main lane keeps
+     * {@code resourceTreeDigest} out of its compile key: both lanes copy resources after compiling,
+     * so a resource edit has to be able to say so on its own instead of masquerading as a source
+     * change. Processor output is different: it is an owned output that becomes an input to the
+     * next freshness decision, so the key must reject a hand edit or deletion before the canonical
+     * compiler fingerprint can be bypassed.
      */
     String testCompileKey(WorkspaceMember member, String mainManifestDigest) {
         var build = member.config().build();
-        var testSources = context.fileSnapshot().javaSources(
-                member.path(), WorkspaceFileKind.TEST_SOURCE, member.directory(), build.testSources());
+        var testSources = context.fileSnapshot().testSources(
+                member.path(),
+                WorkspaceFileKind.TEST_SOURCE,
+                member.directory(),
+                build.testSources(),
+                build.groovyTestSources(),
+                build.kotlinTestSources());
         return WorkspaceHash.text(String.join(
                 "|",
                 CompilationSemantics.VERSION,
                 mainManifestDigest.isEmpty() ? "missing" : mainManifestDigest,
                 testSources.digest(),
+                generatedTestOutputDigest(context.fileSnapshot(), member),
                 resolutionInputDigest(context.laneClosure().test(member.path())),
-                abiDigest(context.memberGraph().test(member.path()))));
+                abiDigest(context.memberGraph().test(member.path())),
+                testProcessorCompileInputs(member)));
+    }
+
+    TestCompilationState successfulTestCompilation(
+            WorkspaceMember member,
+            String mainManifestDigest) {
+        var build = member.config().build();
+        context.fileSnapshot().forget(member.path(), WorkspaceFileKind.GENERATED_TEST_OUTPUT);
+        String resources = context.fileSnapshot()
+                .resources(
+                        member.path(),
+                        WorkspaceFileKind.TEST_RESOURCE,
+                        member.directory(),
+                        build.testResourceRoots())
+                .digest();
+        String manifest = context.abiIndex()
+                .refreshTest(member.directory()
+                        .resolve(build.testOutput())
+                        .toAbsolutePath()
+                        .normalize())
+                .map(IncrementalCompileSummary::outputManifestDigest)
+                .orElse("");
+        return new TestCompilationState(
+                testCompileKey(member, mainManifestDigest),
+                resources,
+                manifest);
     }
 
     int sourceCount(WorkspaceMember member) {
         return context.fileSnapshot()
-                .javaSources(
+                .mainSources(
                         member.path(),
                         WorkspaceFileKind.MAIN_SOURCE,
                         member.directory(),
@@ -168,32 +193,43 @@ final class WorkspaceMemberStateObserver {
     }
 
     /**
-     * The identity of the classes that will run as this member's annotation processors, to the extent
-     * that identity is not already inside the compile lane. External processor jars are inside it —
-     * they are lock packages on the member's own lane bucket. Workspace processor members are not,
-     * because they are deliberately kept out of the compile closure so their classes never leak onto
-     * a compile classpath, so their output is folded in here instead.
-     *
-     * <p>A processor member is folded in by its whole compiled output rather than by its ABI. An ABI
-     * is the right currency for a compile dependency, because javac reads only signatures from one —
-     * but a processor is a program that runs, and an edit confined to a method body can change every
-     * source it emits while leaving its signatures untouched.
-     *
-     * <p>This is recorded beside the compile key rather than inside it so that a processor moving is
-     * reported as a processor change and not as an unexplained lock edit.
+     * Tracks processor execution inputs separately from compile ABI. Classes, resources, and runtime
+     * dependencies must remain visible even when a provider was rebuilt in a separate command.
      */
     private String processorInputDigest(WorkspaceMember member) {
         Set<String> processors = new TreeSet<>(WorkspaceCanonicalBuildPolicy.processorMembers(
                 context.workspace(),
                 member.path(),
                 context.memberGraph().compileDependenciesByMember()));
+        // javac also places the ordinary compile classpath on the processor path. Its code can
+        // execute during processing, so implementation-only edits must reach this outer gate.
+        if (mainProcessorMembers.contains(member.path())) {
+            processors.addAll(context.memberGraph().mainCompile(member.path()));
+        }
+        return processorOutputsDigest(processors);
+    }
+
+    private String testProcessorCompileInputs(WorkspaceMember member) {
+        if (!testProcessorMembers.contains(member.path())) {
+            return "";
+        }
+        Set<String> inputs = new TreeSet<>(context.memberGraph().test(member.path()));
+        inputs.add(member.path());
+        return processorOutputsDigest(inputs);
+    }
+
+    private String processorOutputsDigest(Set<String> processors) {
         StringBuilder content = new StringBuilder();
-        for (String processor : processors) {
+        for (String processor : new TreeSet<>(processors)) {
+            WorkspaceMember provider = membersByPath.get(processor);
             content.append(processor)
                     .append('|')
-                    .append(mainSummary(processor)
-                            .map(IncrementalCompileSummary::outputManifestDigest)
-                            .orElse("missing"))
+                    .append(provider == null ? "missing" : context.fileSnapshot()
+                            .processorOutput(processor, provider.directory()
+                                    .resolve(provider.config().build().output()))
+                            .digest())
+                    .append('|')
+                    .append(context.laneClosure().mainRuntime(processor).digest())
                     .append('\n');
         }
         return WorkspaceHash.text(content.toString());
@@ -213,6 +249,21 @@ final class WorkspaceMemberStateObserver {
                 .toAbsolutePath()
                 .normalize();
         return snapshot.tree(member.path(), WorkspaceFileKind.GENERATED_OUTPUT, generated).digest();
+    }
+
+    /** What test annotation processors emitted, observed separately from their main-lane twins. */
+    private static String generatedTestOutputDigest(
+            WorkspaceFileSnapshot snapshot,
+            WorkspaceMember member) {
+        Path generated = member.directory()
+                .resolve(member.config().compilerSettings().generatedTestSources())
+                .toAbsolutePath()
+                .normalize();
+        return snapshot.tree(
+                        member.path(),
+                        WorkspaceFileKind.GENERATED_TEST_OUTPUT,
+                        generated)
+                .digest();
     }
 
     private String toolchainDigest(
@@ -281,6 +332,12 @@ final class WorkspaceMemberStateObserver {
                                 member.directory(),
                                 inputs)
                         .digest());
+    }
+
+    record TestCompilationState(
+            String compileKey,
+            String resourceTreeDigest,
+            String outputManifestDigest) {
     }
 
 }

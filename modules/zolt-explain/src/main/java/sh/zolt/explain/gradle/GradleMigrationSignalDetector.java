@@ -45,6 +45,9 @@ final class GradleMigrationSignalDetector {
     private static List<ExplainSignal> conventionPluginSignals(String project, List<GradlePluginInspection> plugins) {
         List<ExplainSignal> signals = new ArrayList<>();
         for (GradlePluginInspection plugin : plugins) {
+            if (!plugin.applied()) {
+                continue;
+            }
             if (GradleSignalPatterns.isConventionPlugin(plugin)) {
                 signals.add(ExplainSignals.GRADLE_PLUGIN_CONVENTION.signal(
                         project,
@@ -60,16 +63,29 @@ final class GradleMigrationSignalDetector {
             List<GradlePluginInspection> plugins) {
         List<ExplainSignal> signals = new ArrayList<>();
         for (GradlePluginInspection plugin : plugins) {
+            if (!plugin.applied()) {
+                continue;
+            }
             String id = plugin.id().toLowerCase();
             if (id.startsWith("com.android.") || id.equals("android")) {
                 signals.add(ExplainSignals.GRADLE_ANDROID_UNSUPPORTED.signal(
                         project,
                         "Gradle plugin `" + plugin.id() + "` declares an Android project, which is outside the Zolt public beta."));
             }
-            if (id.startsWith("org.jetbrains.kotlin") || id.equals("kotlin") || id.equals("scala")) {
+            if (id.equals("org.jetbrains.kotlin.jvm") || id.equals("kotlin")) {
+                signals.add(ExplainSignals.GRADLE_KOTLIN_MANUAL_MIGRATION.signal(
+                        project,
+                        "Gradle plugin `" + plugin.id()
+                                + "` declares bounded Kotlin/JVM compilation; `zolt explain --emit-toml`"
+                                + " drafts it only when the complete project matches the strict conventional subset."));
+            } else if (id.equals("org.jetbrains.kotlin")
+                    || id.startsWith("org.jetbrains.kotlin.")
+                    || id.equals("scala")) {
                 signals.add(ExplainSignals.GRADLE_LANGUAGE_UNSUPPORTED.signal(
                         project,
-                        "Gradle plugin `" + plugin.id() + "` declares an unsupported public-beta language."));
+                        "Gradle plugin `" + plugin.id()
+                                + "` declares behavior outside Zolt's bounded Kotlin/JVM and supported"
+                                + " Java/Groovy build surface."));
             }
             if (id.equals("org.graalvm.buildtools.native") || id.equals("io.micronaut.aot")) {
                 signals.add(ExplainSignals.GRADLE_FRAMEWORK_NATIVE_UNSUPPORTED.signal(
@@ -156,12 +172,16 @@ final class GradleMigrationSignalDetector {
     private static List<ExplainSignal> pluginSignals(String project, List<GradlePluginInspection> plugins) {
         List<ExplainSignal> signals = new ArrayList<>();
         boolean enterpriseContext = plugins.stream()
+                .filter(GradlePluginInspection::applied)
                 .map(GradlePluginInspection::id)
                 .anyMatch(GradleMigrationSignalDetector::enterprisePluginContext);
         if (!enterpriseContext) {
             return signals;
         }
         for (GradlePluginInspection plugin : plugins) {
+            if (!plugin.applied()) {
+                continue;
+            }
             String mapping = enterprisePluginMapping(plugin.id());
             if (!mapping.isBlank()) {
                 signals.add(ExplainSignals.GRADLE_ENTERPRISE_PLUGIN_MAPPED.signal(

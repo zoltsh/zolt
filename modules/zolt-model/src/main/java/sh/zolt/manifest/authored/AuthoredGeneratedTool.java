@@ -15,6 +15,7 @@ import sh.zolt.manifest.ManifestModelValues;
 public sealed interface AuthoredGeneratedTool
         permits AuthoredGeneratedTool.OpenApi,
                 AuthoredGeneratedTool.Protobuf,
+                AuthoredGeneratedTool.Ksp,
                 AuthoredGeneratedTool.Jvm,
                 AuthoredGeneratedTool.Process {
     record OpenApi(
@@ -39,6 +40,24 @@ public sealed interface AuthoredGeneratedTool
             grpcCoordinate = Objects.requireNonNull(
                     grpcCoordinate, "gRPC coordinate override must not be null.");
             grpcVersion = fixedOrReference(grpcVersion, "gRPC version override");
+        }
+    }
+
+    /** A standalone KSP2 engine request plus the isolated processor roots it loads. */
+    record Ksp(DependencySelector version, List<GeneratedArtifactRequest> processors)
+            implements AuthoredGeneratedTool {
+        public Ksp {
+            Objects.requireNonNull(version, "KSP tool version selector must not be null.");
+            fixedOrReference(Optional.of(version), "KSP tool version");
+            processors = ManifestModelValues.immutableList(
+                    processors, "KSP processor coordinates");
+            if (processors.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "A KSP tool requires at least one processor coordinate.");
+            }
+            ManifestModelValues.rejectDuplicates(
+                    processors.stream().map(GeneratedArtifactRequest::coordinate).toList(),
+                    "KSP processor coordinates");
         }
     }
 

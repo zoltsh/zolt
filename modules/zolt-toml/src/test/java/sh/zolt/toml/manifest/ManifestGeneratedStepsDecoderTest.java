@@ -140,11 +140,11 @@ final class ManifestGeneratedStepsDecoderTest {
         assertSymbolParity(
                 FinalManifestGeneratedMainFields.GENERATED_MAIN_KIND,
                 FinalManifestGeneratedTestFields.GENERATED_TEST_KIND,
-                List.of("openapi", "protobuf", "exec", "declared-root"));
+                List.of("openapi", "protobuf", "ksp", "exec", "declared-root"));
         assertSymbolParity(
                 FinalManifestGeneratedMainFields.GENERATED_MAIN_LANGUAGE,
                 FinalManifestGeneratedTestFields.GENERATED_TEST_LANGUAGE,
-                List.of("java"));
+                List.of("java", "kotlin"));
         assertSymbolParity(
                 FinalManifestGeneratedMainFields.GENERATED_MAIN_PRODUCES,
                 FinalManifestGeneratedTestFields.GENERATED_TEST_PRODUCES,

@@ -65,6 +65,11 @@ final class ManifestEmptyArrayRejectionTest {
                         java = ["src/test/java"]
                         groovy = []
                         """),
+                Arguments.of("test.sources.kotlin", """
+                        [test.sources]
+                        java = ["src/test/java"]
+                        kotlin = []
+                        """),
                 Arguments.of("test.integration.sources", """
                         [test.integration]
                         sources = []

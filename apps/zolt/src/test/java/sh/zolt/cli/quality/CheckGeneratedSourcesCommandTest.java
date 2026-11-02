@@ -54,7 +54,7 @@ final class CheckGeneratedSourcesCommandTest {
     }
 
     @Test
-    void checkGeneratedSourcesReportsZoltOwnedProtobufRoots() throws IOException {
+    void checkGeneratedSourcesReportsZoltOwnedKotlinProtobufRoots() throws IOException {
         Path projectDir = tempDir.resolve("check-generated-sources-protobuf");
         Files.createDirectories(projectDir.resolve("target/generated/sources/protobuf/com/example/greeter"));
         Files.createDirectories(projectDir.resolve("src/main/proto"));
@@ -63,16 +63,16 @@ final class CheckGeneratedSourcesCommandTest {
                 package com.example.greeter;
                 message HelloRequest {}
                 """);
-        Files.writeString(projectDir.resolve("target/generated/sources/protobuf/com/example/greeter/HelloRequest.java"), """
-                package com.example.greeter;
-                public final class HelloRequest {}
+        Files.writeString(projectDir.resolve("target/generated/sources/protobuf/com/example/greeter/HelloRequest.kt"), """
+                package com.example.greeter
+                class HelloRequest
                 """);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-generated-sources-protobuf")
                 + """
 
                 [generated.main.greeter]
                 kind = "protobuf"
-                language = "java"
+                language = "kotlin"
                 output = "target/generated/sources/protobuf"
                 inputs = ["src/main/proto/greeter.proto"]
                 """);

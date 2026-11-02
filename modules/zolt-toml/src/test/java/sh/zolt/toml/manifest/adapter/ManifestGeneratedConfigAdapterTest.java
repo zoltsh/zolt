@@ -21,6 +21,55 @@ import sh.zolt.project.ProjectConfig;
  */
 final class ManifestGeneratedConfigAdapterTest {
     @Test
+    void preservesKotlinOpenApiLanguage() {
+        ProjectConfig adapted = FinalManifests.load(
+                """
+                [project]
+                name = "kotlin-openapi"
+                version = "1.0.0"
+                group = "com.example"
+                java = 21
+
+                [generated.tools.openapi]
+                version = "7.11.0"
+
+                [generated.main.client]
+                kind = "openapi"
+                language = "kotlin"
+                input = "src/main/openapi/client.yaml"
+                generator = "kotlin"
+                """);
+
+        GeneratedSourceStep openApi = adapted.build().generatedMainSources().getFirst();
+
+        assertEquals(GeneratedSourceKind.OPENAPI, openApi.kind());
+        assertEquals("kotlin", openApi.language());
+        assertEquals(Optional.of("kotlin"), openApi.openApi().generator());
+    }
+
+    @Test
+    void preservesKotlinProtobufLanguage() {
+        ProjectConfig adapted = FinalManifests.load(
+                """
+                [project]
+                name = "kotlin-protobuf"
+                version = "1.0.0"
+                group = "com.example"
+                java = 21
+
+                [generated.main.protocol]
+                kind = "protobuf"
+                language = "kotlin"
+                inputs = ["src/main/proto/service.proto"]
+                """);
+
+        GeneratedSourceStep protobuf = adapted.build().generatedMainSources().getFirst();
+
+        assertEquals(GeneratedSourceKind.PROTOBUF, protobuf.kind());
+        assertEquals("kotlin", protobuf.language());
+    }
+
+    @Test
     void generatedToolsPresetsAndStepsReachTheProjectConfig() {
         ProjectConfig adapted = FinalManifests.load(
                 """
@@ -77,6 +126,7 @@ final class ManifestGeneratedConfigAdapterTest {
 
                 [generated.main.jooq-model]
                 kind = "exec"
+                language = "kotlin"
                 tool = "jooq"
                 args = ["src/main/jooq/config.xml"]
                 inputs = ["src/main/jooq/config.xml"]
@@ -98,6 +148,7 @@ final class ManifestGeneratedConfigAdapterTest {
 
                 [generated.test.fixtures]
                 kind = "declared-root"
+                language = "kotlin"
                 inputs = ["src/test/fixtures"]
                 output = "target/generated/test-sources/fixtures"
                 required = false
@@ -138,7 +189,9 @@ final class ManifestGeneratedConfigAdapterTest {
         assertEquals(Optional.of("com.example.protocol"), protobuf.protobuf().javaPackage());
         assertFalse(protobuf.protobuf().grpc());
 
-        ExecGenerationSettings jooq = step(adapted.build().generatedMainSources(), "jooq-model").exec();
+        GeneratedSourceStep jooqStep = step(adapted.build().generatedMainSources(), "jooq-model");
+        assertEquals("kotlin", jooqStep.language());
+        ExecGenerationSettings jooq = jooqStep.exec();
         assertEquals("jooq", jooq.toolName());
         assertEquals("jvm", jooq.tool().runner());
         assertEquals("org.jooq.codegen.GenerationTool", jooq.tool().mainClass());
@@ -165,6 +218,7 @@ final class ManifestGeneratedConfigAdapterTest {
 
         GeneratedSourceStep fixtures = step(adapted.build().generatedTestSources(), "fixtures");
         assertEquals(GeneratedSourceKind.DECLARED_ROOT, fixtures.kind());
+        assertEquals("kotlin", fixtures.language());
         assertEquals(List.of("src/test/fixtures"), fixtures.inputs());
         assertEquals("target/generated/test-sources/fixtures", fixtures.output());
         assertFalse(fixtures.required());

@@ -16,6 +16,7 @@ import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceBuildRequirements;
 import sh.zolt.workspace.service.WorkspaceBuildService;
 import sh.zolt.workspace.service.WorkspaceJdkCheckerResolver;
+import sh.zolt.workspace.service.WorkspaceKotlinJvmPreviewPolicy;
 import sh.zolt.workspace.service.WorkspaceMember;
 import sh.zolt.workspace.service.WorkspaceMutationLock;
 import sh.zolt.workspace.service.WorkspaceRunFiles;
@@ -160,10 +161,14 @@ public final class WorkspaceRunService {
                         memberBuild.classpaths().runtime().entries()));
                 launches.add(new WorkspaceRunSnapshot.MemberLaunch(
                         member.path(),
+                        member.directory(),
                         memberBuild,
                         jdkStatus.java().orElseThrow(),
                         new Classpath(runtimeEntries),
-                        mainClass));
+                        mainClass,
+                        WorkspaceKotlinJvmPreviewPolicy.mainJvmArguments(
+                                workspace,
+                                member.path())));
             }
             return new WorkspaceRunSnapshot(buildResult, files, launches);
         } catch (RuntimeException exception) {
@@ -182,7 +187,9 @@ public final class WorkspaceRunService {
                     launch.java(),
                     launch.classpath(),
                     launch.mainClass(),
+                    launch.jvmArguments(),
                     arguments,
+                    launch.workingDirectory(),
                     outputConsumer);
             results.add(new WorkspaceRunResult.MemberRunResult(
                     launch.member(),

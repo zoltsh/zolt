@@ -36,6 +36,8 @@ final class JavacRunnerInProcessTest {
         assertEquals(List.of(
                 "-d",
                 tempDir.resolve("target/classes").toString(),
+                "-classpath",
+                inProcessArguments.getFirst().get(inProcessArguments.getFirst().indexOf("-classpath") + 1),
                 "-proc:none",
                 source.normalize().toString()), inProcessArguments.getFirst());
     }

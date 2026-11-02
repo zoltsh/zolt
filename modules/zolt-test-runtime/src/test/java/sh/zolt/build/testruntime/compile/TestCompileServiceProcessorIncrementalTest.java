@@ -147,6 +147,24 @@ final class TestCompileServiceProcessorIncrementalTest {
         return testCompileService.compileTests(projectDir, TestCompileServiceTestSupport.config(), cache());
     }
 
+    @Test
+    void newlyGeneratedResourceCollisionForcesFullOwnershipCapture() throws Exception {
+        setUpProject(AnnotationProcessorFixture.attributingResourceProcessorJar(projectDir.resolve("processor-work")));
+        source("src/test/java/com/example/Widget.java", trackedClass("Widget", "\"plain\"").replace("@Tracked", ""));
+        Path overlay = source("src/test/resources/meta/Widget.properties", "copied resource");
+        compile();
+        assertTrue(compile().testCompilationSkipped());
+        source("src/test/java/com/example/Widget.java", trackedClass("Widget", "\"annotated\""));
+        TestCompileResult changed = compile();
+        assertEquals("full", changed.testCompilationMode());
+        assertEquals("compiler-output-overlays", changed.testIncrementalFallbackReason());
+        assertEquals("copied resource", Files.readString(generatedTestResource("Widget")));
+        Files.delete(overlay);
+        assertFalse(compile().testCompilationSkipped());
+        assertEquals("owner=Widget", Files.readString(generatedTestResource("Widget")));
+        assertTrue(compile().testCompilationSkipped());
+    }
+
     private void setUpProject(Path processorJar) throws IOException {
         Path cached = cache().resolve("com/example/test-processor/1.0.0/test-processor-1.0.0.jar");
         Files.createDirectories(cached.getParent());

@@ -99,6 +99,23 @@ final class BuildServiceFingerprintInvalidationTest {
     }
 
     @Test
+    void deletedResourceIsRemovedWithoutWakingJavac() throws IOException {
+        writeLockfile("version = 7\n");
+        source("src/main/java/com/example/Main.java", "package com.example; public class Main {}\n");
+        Path resource = source("src/main/resources/application.properties", "message=hello\n");
+        buildService.build(projectDir, config(), projectDir.resolve("cache"));
+        Path compiled = projectDir.resolve("target/classes/com/example/Main.class");
+        var modified = Files.getLastModifiedTime(compiled);
+        Files.delete(resource);
+
+        BuildResult result = buildService.build(projectDir, config(), projectDir.resolve("cache"));
+
+        assertTrue(result.mainCompilationSkipped());
+        assertEquals(modified, Files.getLastModifiedTime(compiled));
+        assertFalse(Files.exists(projectDir.resolve("target/classes/application.properties")));
+    }
+
+    @Test
     void resourceChangeCopiesResourceWithoutWakingJavac() throws IOException {
         writeLockfile("version = 7\n");
         source("src/main/java/com/example/Main.java", """
@@ -142,6 +159,72 @@ final class BuildServiceFingerprintInvalidationTest {
                 "missing-expected-class:target/classes/com/example/Main.class",
                 result.mainIncrementalFallbackReason());
         assertTrue(Files.exists(projectDir.resolve("target/classes/com/example/Main.class")));
+    }
+
+    @Test
+    void sameLengthSourceEditWithPreservedTimestampRecompiles() throws Exception {
+        writeLockfile("version = 7\n");
+        Path main = source("src/main/java/com/example/Main.java",
+                "package com.example; public class Main { public static int value() { return 1; } }");
+        buildService.build(projectDir, config(), projectDir.resolve("cache"));
+        var originalTime = Files.getLastModifiedTime(main);
+        Files.writeString(main, Files.readString(main).replace("return 1", "return 2"));
+        Files.setLastModifiedTime(main, originalTime);
+
+        BuildResult result = buildService.build(projectDir, config(), projectDir.resolve("cache"));
+
+        assertFalse(result.mainCompilationSkipped());
+        try (var classes = new java.net.URLClassLoader(
+                new java.net.URL[] {result.outputDirectory().toUri().toURL()}, null)) {
+            assertEquals(2, classes.loadClass("com.example.Main").getMethod("value").invoke(null));
+        }
+    }
+
+    @Test
+    void missingNestedAndAdditionalTopLevelClassesRecompile() throws IOException {
+        writeLockfile("version = 7\n");
+        source("src/main/java/com/example/Main.java", """
+                package com.example;
+                public class Main { static class Nested {} }
+                class Additional {}
+                """);
+        buildService.build(projectDir, config(), projectDir.resolve("cache"));
+        assertTrue(buildService.build(projectDir, config(), projectDir.resolve("cache")).mainCompilationSkipped());
+        for (String name : List.of("Main$Nested.class", "Additional.class")) {
+            Path output = projectDir.resolve("target/classes/com/example/" + name);
+            Files.delete(output);
+            BuildResult result = buildService.build(projectDir, config(), projectDir.resolve("cache"));
+            assertFalse(result.mainCompilationSkipped(), name);
+            assertTrue(Files.isRegularFile(output), name);
+        }
+    }
+
+    @Test
+    void sourceFilenameNeedNotMatchItsPackageOrEmittedClassName() throws IOException {
+        writeLockfile("version = 7\n");
+        source("src/main/java/Types.java", "package com.example; class Actual {}\n");
+        buildService.build(projectDir, config(), projectDir.resolve("cache"));
+
+        assertTrue(buildService.build(projectDir, config(), projectDir.resolve("cache")).mainCompilationSkipped());
+        Files.delete(projectDir.resolve("target/classes/com/example/Actual.class"));
+        assertFalse(buildService.build(projectDir, config(), projectDir.resolve("cache")).mainCompilationSkipped());
+    }
+
+    @Test
+    void corruptedClassOutputForcesRecompilation() throws IOException {
+        writeLockfile("version = 7\n");
+        source("src/main/java/com/example/Main.java", "package com.example; public class Main {}\n");
+        buildService.build(projectDir, config(), projectDir.resolve("cache"));
+        Path output = projectDir.resolve("target/classes/com/example/Main.class");
+        byte[] compiled = Files.readAllBytes(output);
+        var originalTime = Files.getLastModifiedTime(output);
+        Files.write(output, new byte[compiled.length]);
+        Files.setLastModifiedTime(output, originalTime);
+
+        BuildResult result = buildService.build(projectDir, config(), projectDir.resolve("cache"));
+
+        assertFalse(result.mainCompilationSkipped());
+        org.junit.jupiter.api.Assertions.assertArrayEquals(compiled, Files.readAllBytes(output));
     }
 
     private static ProjectConfig config() {

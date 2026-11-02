@@ -1,6 +1,7 @@
 package sh.zolt.build.run;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -41,10 +42,12 @@ final class RunPackageServiceSpringBootWarTest extends RunPackageServiceSpringBo
         Path warPath = projectDir.resolve("target/demo-0.1.0.war");
         assertEquals(sh.zolt.project.PackageMode.SPRING_BOOT_WAR, result.packageResult().mode());
         assertEquals("boot war\n", result.javaRunResult().output());
+        assertTrue(Path.of(commands.getFirst().get(2)).startsWith(projectDir.resolve(".zolt/run")));
+        assertTrue(commands.getFirst().get(2).endsWith("demo-0.1.0.war"));
         assertEquals(List.of(
                 commands.getFirst().get(0),
                 "-jar",
-                warPath.toString(),
+                commands.getFirst().get(2),
                 "one",
                 "two"), commands.getFirst());
     }

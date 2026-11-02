@@ -75,13 +75,18 @@ final class ConfigShowAuthoredView {
 
     static void toolchains(StringBuilder out, AuthoredToolchains toolchains) {
         if (toolchains.zolt().isEmpty() && toolchains.mainJava().isEmpty()
-                && toolchains.testJava().isEmpty()) {
+                && toolchains.testJava().isEmpty() && toolchains.groovy().isEmpty()
+                && toolchains.kotlin().isEmpty()) {
             return;
         }
         section(out, "Toolchains");
         toolchains.zolt().map(ZoltVersionPin::value).ifPresent(value -> field(out, "zolt", value));
         toolchains.mainJava().ifPresent(java -> javaToolchain(out, "java", java));
         toolchains.testJava().ifPresent(java -> testJavaToolchain(out, java));
+        toolchains.groovy().ifPresent(
+                groovy -> field(out, "groovy", "version " + groovy.version().value()));
+        toolchains.kotlin().ifPresent(
+                kotlin -> field(out, "kotlin", "version " + kotlin.version().value()));
     }
 
     static void versions(StringBuilder out, AuthoredVersionAliases versions) {

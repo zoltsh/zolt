@@ -41,8 +41,14 @@ final class IntegrationOutputLayoutValidatorTest {
 
     @Test
     void projectedIntegrationScopeMayUseItsOwnOutput() {
-        BuildSettings build = BuildSettings.defaults().asIntegrationTestBuild();
+        BuildSettings build = BuildSettings.defaults()
+                .withIntegrationTestSettings(
+                        "target/integration-test-classes",
+                        List.of("src/integration-test/java", "src/integration-test/kotlin"),
+                        List.of("src/integration-test/resources"))
+                .asIntegrationTestBuild();
 
+        assertTrue(build.testSources().equals(build.kotlinTestSources()));
         assertDoesNotThrow(() -> CompileOutputLayoutValidator.validateTest(projectDir, config(build)));
     }
 

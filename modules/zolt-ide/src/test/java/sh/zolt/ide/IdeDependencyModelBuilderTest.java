@@ -371,7 +371,8 @@ final class IdeDependencyModelBuilderTest {
                 List.of(),
                 new IdeModel.OutputInfo(null, null, null),
                 dependencies,
-                new IdeModel.ClasspathInfo(List.of(), List.of(), List.of(), List.of(), List.of(), List.of()),
+                new IdeModel.ClasspathInfo(
+                        List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of()),
                 new IdeModel.FrameworkInfo(new IdeModel.QuarkusInfo(
                         false,
                         null,

@@ -1,0 +1,100 @@
+package sh.zolt.build.testruntime.compile;
+
+import java.nio.file.Path;
+import java.util.List;
+import sh.zolt.build.KotlinCompileException;
+import sh.zolt.build.compile.EffectiveCompilerIdentity;
+import sh.zolt.build.compile.GroovyCompilerToolchain;
+import sh.zolt.build.compile.GroovyCompilerToolchainResolver;
+import sh.zolt.build.compile.KotlinCompilationScope;
+import sh.zolt.build.compile.KotlinCompilerOptions;
+import sh.zolt.build.compile.KotlinCompilerToolchain;
+import sh.zolt.build.compile.KotlinCompilerToolchainResolver;
+import sh.zolt.build.compile.kotlin.KotlinCompilerCompatibilityPolicy;
+import sh.zolt.build.compile.kotlin.KotlinCompilerInvocationToolchain;
+import sh.zolt.build.discovery.SourceDiscoveryResult;
+import sh.zolt.classpath.Classpath;
+import sh.zolt.classpath.ClasspathSet;
+import sh.zolt.classpath.ResolvedClasspathPackage;
+import sh.zolt.doctor.JdkStatus;
+import sh.zolt.project.ProjectConfig;
+
+/** Resolves the isolated compiler runtime selected for the test source-set language. */
+record TestCompilerSelection(
+        String identity,
+        Classpath groovyLauncherClasspath,
+        KotlinCompilerInvocationToolchain kotlinToolchain,
+        KotlinCompilerOptions kotlinOptions) {
+    static TestCompilerSelection select(
+            ProjectConfig config,
+            SourceDiscoveryResult sources,
+            ClasspathSet classpaths,
+            List<ResolvedClasspathPackage> classpathPackages,
+            JdkStatus jdkStatus,
+            Path mainOutputDirectory) {
+        KotlinCompilerOptions kotlinOptions = sources.kotlinTestSources().isEmpty()
+                ? null
+                : KotlinTestCompilePolicy.options(
+                        config,
+                        sources,
+                        classpaths,
+                        jdkStatus,
+                        mainOutputDirectory);
+        KotlinCompilerToolchain kotlin = sources.kotlinTestSources().isEmpty()
+                ? null
+                : new KotlinCompilerToolchainResolver().resolve(
+                        classpathPackages,
+                        config.compilerSettings().kotlinVersion(),
+                        KotlinCompilationScope.TEST,
+                        config.compilerSettings().kotlinPlugins());
+        GroovyCompilerToolchain groovy = sources.groovyTestSources().isEmpty()
+                ? null
+                : new GroovyCompilerToolchainResolver().resolve(
+                        classpathPackages,
+                        GroovyCompilerToolchainResolver.SourceSet.TEST,
+                        config.compilerSettings().groovyVersion());
+        if (kotlin != null) {
+            KotlinCompilerCompatibilityPolicy.requireSupportedToolchain(
+                    kotlin.version(), KotlinCompilationScope.TEST);
+        }
+        requireKaptPlugin(classpaths, kotlin);
+        return new TestCompilerSelection(
+                identity(jdkStatus, groovy, kotlin),
+                groovy == null ? emptyClasspath() : groovy.launcherClasspath(),
+                kotlin == null ? null : kotlin.invocationToolchain(),
+                kotlinOptions);
+    }
+
+    private static void requireKaptPlugin(
+            ClasspathSet classpaths,
+            KotlinCompilerToolchain kotlin) {
+        if (kotlin == null || classpaths.testProcessor().entries().isEmpty()) {
+            return;
+        }
+        kotlin.kaptPluginJar().orElseThrow(() -> new KotlinCompileException(
+                "Kotlin test annotation processing requires a checksum-verified "
+                        + "org.jetbrains.kotlin:kotlin-annotation-processing-embeddable tool root before "
+                        + "cached output can be reused or test output can be cleaned. Run `zolt resolve` "
+                        + "with [dependencies.test-processor] configured and retry."));
+    }
+
+    private static String identity(
+            JdkStatus jdkStatus,
+            GroovyCompilerToolchain groovy,
+            KotlinCompilerToolchain kotlin) {
+        if (kotlin != null) {
+            return EffectiveCompilerIdentity.of(
+                    jdkStatus,
+                    "kotlinCompiler",
+                    kotlin.identity(),
+                    "kotlin-test-v2-friend-main");
+        }
+        return groovy == null
+                ? EffectiveCompilerIdentity.of(jdkStatus)
+                : EffectiveCompilerIdentity.of(jdkStatus, groovy);
+    }
+
+    private static Classpath emptyClasspath() {
+        return new Classpath(List.of());
+    }
+}

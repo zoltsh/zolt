@@ -13,7 +13,6 @@ import sh.zolt.project.ResourceFilteringSettings;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -76,6 +75,32 @@ public final class ResourceCopier {
             Optional<ProjectMetadata> project,
             String resourceRootKey,
             boolean testResources) {
+        List<ResourceCopyPlan.Entry> entries = planResources(configuredRoots, outputDirectory,
+                projectDirectory, settings, project, resourceRootKey, testResources);
+        List<Path> copied = new ArrayList<>();
+        List<Path> skipped = new ArrayList<>();
+        ResourceCopyPlan.copy(outputDirectory, entries, copied, skipped);
+        return new ResourceCopyResult(copied, skipped);
+    }
+
+    public Set<Path> plannedOutputPaths(Path projectDirectory, ProjectConfig config, boolean testResources) {
+        BuildSettings settings = config.build();
+        return planResources(testResources ? settings.testResourceRoots() : settings.resourceRoots(),
+                outputDirectory(projectDirectory, testResources ? "[build.output].test" : "[build.output].main",
+                        testResources ? settings.testOutput() : settings.output()),
+                projectDirectory, settings, Optional.of(config.project()),
+                testResources ? "[resources].test" : "[resources].main", testResources)
+                .stream().map(ResourceCopyPlan.Entry::relative).collect(java.util.stream.Collectors.toUnmodifiableSet());
+    }
+
+    private static List<ResourceCopyPlan.Entry> planResources(
+            List<String> configuredRoots,
+            Path outputDirectory,
+            Path projectDirectory,
+            BuildSettings settings,
+            Optional<ProjectMetadata> project,
+            String resourceRootKey,
+            boolean testResources) {
         Path projectRoot = ProjectPaths.root(projectDirectory);
         Path mainOutput = outputPath(projectRoot, "[build.output].main", settings.output());
         Path testOutput = outputPath(projectRoot, "[build.output].test", settings.testOutput());
@@ -83,8 +108,7 @@ public final class ResourceCopier {
         boolean filteringEnabled = filtering.enabled() && (!testResources || filtering.testEnabled());
         ResourceFilteringProcessor filteringProcessor =
                 ResourceFilteringProcessor.create(filteringEnabled, filtering, project);
-        List<Path> copiedResources = new ArrayList<>();
-        List<Path> skippedResources = new ArrayList<>();
+        List<ResourceCopyPlan.Entry> entries = new ArrayList<>();
         Set<Path> targetRelativePaths = new HashSet<>();
         for (String configuredRoot : configuredRoots) {
             Path resourceRoot = resourceRoot(projectRoot, resourceRootKey, configuredRoot);
@@ -96,7 +120,7 @@ public final class ResourceCopier {
                 List<Path> resources = paths
                         .filter(path -> ProjectPaths.isRegularFileInsideProject(projectRoot, resourceRootKey, path))
                         .map(Path::normalize)
-                        .filter(path -> !path.getFileName().toString().endsWith(".java"))
+                        .filter(path -> !isSource(path))
                         .filter(path -> !path.startsWith(mainOutput))
                         .filter(path -> !path.startsWith(testOutput))
                         .filter(path -> !startsWithOutputDirectorySegment(resourceRoot.relativize(path)))
@@ -111,18 +135,8 @@ public final class ResourceCopier {
                                         + relativePath.toString().replace('\\', '/')
                                         + "` from configured resource roots. Remove one copy or choose a distinct output path.");
                     }
-                    Path target = outputDirectory.resolve(relativePath).normalize();
-                    Files.createDirectories(target.getParent());
-                    Optional<byte[]> filtered = filteringProcessor.filteredBytes(resource, relativePath);
-                    if (isCurrent(resource, target, filtered)) {
-                        skippedResources.add(resource);
-                    } else if (filtered.isPresent()) {
-                        Files.write(target, filtered.orElseThrow());
-                        copiedResources.add(resource);
-                    } else {
-                        Files.copy(resource, target, StandardCopyOption.REPLACE_EXISTING);
-                        copiedResources.add(resource);
-                    }
+                    entries.add(new ResourceCopyPlan.Entry(
+                            resource, relativePath, filteringProcessor.filteredBytes(resource, relativePath)));
                 }
             } catch (IOException exception) {
                 throw new ResourceCopyException(
@@ -141,9 +155,15 @@ public final class ResourceCopier {
                 projectRoot,
                 execResourceSteps(settings, testResources),
                 targetRelativePaths,
-                copiedResources,
-                skippedResources);
-        return new ResourceCopyResult(copiedResources, skippedResources);
+                entries);
+        copyKspResources(
+                outputDirectory,
+                projectRoot,
+                kspResourceSteps(settings, testResources),
+                targetRelativePaths,
+                entries,
+                testResources ? "test" : "main");
+        return List.copyOf(entries);
     }
 
     private static List<GeneratedSourceStep> execResourceSteps(BuildSettings settings, boolean testResources) {
@@ -157,13 +177,30 @@ public final class ResourceCopier {
                 .toList();
     }
 
+    private static List<GeneratedSourceStep> kspResourceSteps(
+            BuildSettings settings,
+            boolean testResources) {
+        List<GeneratedSourceStep> steps = testResources
+                ? settings.generatedTestSources()
+                : settings.generatedMainSources();
+        return steps.stream()
+                .filter(step -> step.kind() == GeneratedSourceKind.KSP)
+                .toList();
+    }
+
+    private static boolean isSource(Path path) {
+        String fileName = path.getFileName().toString();
+        return fileName.endsWith(".java")
+                || fileName.endsWith(".groovy")
+                || fileName.endsWith(".kt");
+    }
+
     private static void copyExecResources(
             Path outputDirectory,
             Path projectRoot,
             List<GeneratedSourceStep> steps,
             Set<Path> targetRelativePaths,
-            List<Path> copiedResources,
-            List<Path> skippedResources) {
+            List<ResourceCopyPlan.Entry> entries) {
         for (GeneratedSourceStep step : steps) {
             Path output = outputPath(projectRoot, "[generated." + step.id() + "].output", step.output());
             if (!Files.isDirectory(output)) {
@@ -181,14 +218,7 @@ public final class ResourceCopier {
                                         + "` from exec step [generated." + step.id()
                                         + "]. Choose a distinct into subtree or output path.");
                     }
-                    Path target = outputDirectory.resolve(targetRelativePath).normalize();
-                    Files.createDirectories(target.getParent());
-                    if (isCurrent(file, target, Optional.empty())) {
-                        skippedResources.add(file);
-                    } else {
-                        Files.copy(file, target, StandardCopyOption.REPLACE_EXISTING);
-                        copiedResources.add(file);
-                    }
+                    entries.add(new ResourceCopyPlan.Entry(file, targetRelativePath, Optional.empty()));
                 }
             } catch (IOException exception) {
                 throw new ResourceCopyException(
@@ -199,16 +229,48 @@ public final class ResourceCopier {
         }
     }
 
-    private static boolean isCurrent(Path source, Path target, Optional<byte[]> filteredContent) throws IOException {
-        if (filteredContent.isPresent()) {
-            byte[] content = filteredContent.orElseThrow();
-            return Files.isRegularFile(target)
-                    && Files.size(target) == content.length
-                    && java.util.Arrays.equals(Files.readAllBytes(target), content);
+    private static void copyKspResources(
+            Path outputDirectory,
+            Path projectRoot,
+            List<GeneratedSourceStep> steps,
+            Set<Path> targetRelativePaths,
+            List<ResourceCopyPlan.Entry> entries,
+            String scope) {
+        for (GeneratedSourceStep step : steps) {
+            String subject = "[generated." + scope + "." + step.id() + "]";
+            Path base = outputPath(projectRoot, subject + ".output", step.output());
+            Path resources = base.resolve("resources");
+            if (!Files.isDirectory(resources)) {
+                continue;
+            }
+            try (Stream<Path> paths = Files.walk(resources)) {
+                List<Path> files = paths
+                        .filter(path -> ProjectPaths.isRegularFileInsideProject(
+                                projectRoot,
+                                subject + ".resources",
+                                path))
+                        .map(Path::normalize)
+                        .sorted()
+                        .toList();
+                for (Path file : files) {
+                    Path relative = resources.relativize(file).normalize();
+                    if (!targetRelativePaths.add(relative)) {
+                        throw new ResourceCopyException(
+                                "Duplicate resource path `" + relative.toString().replace('\\', '/')
+                                        + "` from KSP step " + subject
+                                        + ". Change the processor output or remove the conflicting resource.");
+                    }
+                    entries.add(new ResourceCopyPlan.Entry(file, relative, Optional.empty()));
+                }
+            } catch (IOException exception) {
+                throw new ResourceCopyException(
+                        "Could not copy KSP resources from " + resources + " to " + outputDirectory
+                                + ". Check that the project directories are readable and writable.",
+                        exception);
+            } catch (ProjectPathException exception) {
+                throw new ResourceCopyException(exception.getMessage(), exception);
+            }
         }
-        return Files.isRegularFile(target)
-                && Files.size(source) == Files.size(target)
-                && Files.mismatch(source, target) == -1L;
     }
 
     private static Path outputDirectory(Path projectDirectory, String key, String configuredPath) {

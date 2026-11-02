@@ -22,9 +22,9 @@ final class NativeInstalledLayoutTest {
 
         NativeInstalledLayout layout = NativeInstalledLayout.detect(installRoot, binLink);
 
-        assertEquals(binLink.toAbsolutePath().normalize(), layout.binLink());
+        assertEquals(installRoot.toRealPath().resolve("bin/zolt"), layout.binLink());
         assertEquals(Path.of("../versions", "0.1.0", "bin", "zolt"), layout.linkTarget());
-        assertEquals(installRoot.toAbsolutePath().normalize().resolve("versions"), layout.versionsDirectory());
+        assertEquals(installRoot.toRealPath().resolve("versions"), layout.versionsDirectory());
         assertEquals("0.1.0", layout.version());
     }
 
@@ -36,7 +36,7 @@ final class NativeInstalledLayoutTest {
         NativeInstalledLayout layout = NativeInstalledLayout.detect(installRoot, currentExecutable);
 
         assertEquals("0.1.0", layout.version());
-        assertEquals(installRoot.resolve("bin/zolt").toAbsolutePath().normalize(), layout.binLink());
+        assertEquals(installRoot.toRealPath().resolve("bin/zolt"), layout.binLink());
     }
 
     @Test
@@ -55,7 +55,7 @@ final class NativeInstalledLayoutTest {
     }
 
     @Test
-    void rejectsCurrentExecutableThatIsNotTheActiveInstallerBinary() throws IOException {
+    void rejectsExecutableOutsideTheManagedInstallation() throws IOException {
         Path installRoot = install("0.1.0");
         Path otherExecutable = tempDir.resolve("dev/zolt");
         Files.createDirectories(otherExecutable.getParent());
@@ -65,8 +65,8 @@ final class NativeInstalledLayoutTest {
                 NativeUpdateException.class,
                 () -> NativeInstalledLayout.detect(installRoot, otherExecutable));
 
-        assertTrue(exception.getMessage().contains("active executable"));
-        assertTrue(exception.getMessage().contains(installRoot.resolve("bin/zolt").toString()));
+        assertTrue(exception.getMessage().contains("completed managed executable"));
+        assertTrue(exception.getMessage().contains(installRoot.resolve("versions").toString()));
     }
 
     @Test

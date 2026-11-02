@@ -12,7 +12,8 @@ public record GeneratedSourceStep(
         boolean clean,
         OpenApiGenerationSettings openApi,
         ProtobufGenerationSettings protobuf,
-        ExecGenerationSettings exec) {
+        ExecGenerationSettings exec,
+        KspGenerationSettings ksp) {
     public GeneratedSourceStep(
             String id,
             GeneratedSourceKind kind,
@@ -49,6 +50,21 @@ public record GeneratedSourceStep(
         this(id, kind, language, output, inputs, required, clean, openApi, protobuf, ExecGenerationSettings.empty());
     }
 
+    public GeneratedSourceStep(
+            String id,
+            GeneratedSourceKind kind,
+            String language,
+            String output,
+            List<String> inputs,
+            boolean required,
+            boolean clean,
+            OpenApiGenerationSettings openApi,
+            ProtobufGenerationSettings protobuf,
+            ExecGenerationSettings exec) {
+        this(id, kind, language, output, inputs, required, clean, openApi, protobuf, exec,
+                KspGenerationSettings.empty());
+    }
+
     public GeneratedSourceStep {
         id = requireNonBlank(id, "Generated source step id");
         kind = kind == null ? GeneratedSourceKind.DECLARED_ROOT : kind;
@@ -61,6 +77,11 @@ public record GeneratedSourceStep(
         openApi = openApi == null ? OpenApiGenerationSettings.empty() : openApi;
         protobuf = protobuf == null ? ProtobufGenerationSettings.empty() : protobuf;
         exec = exec == null ? ExecGenerationSettings.empty() : exec;
+        ksp = ksp == null ? KspGenerationSettings.empty() : ksp;
+        if (kind == GeneratedSourceKind.KSP && !ksp.configured()) {
+            throw new IllegalArgumentException(
+                    "KSP generated source steps require configured KSP settings.");
+        }
     }
 
     private static String requireNonBlank(String value, String name) {

@@ -25,6 +25,12 @@ final class ClasspathLaneAuditFormatterJsonTest {
         assertTrue(output.contains("\"disposition\": \"protobuf-generator-tooling-only\""));
         assertTrue(output.contains("\"scope\": \"tool-coverage\""));
         assertTrue(output.contains("\"toolCoverage\": true"));
+        assertTrue(output.contains("\"scope\": \"tool-groovy\""));
+        assertTrue(output.contains("\"toolGroovy\": true"));
+        assertTrue(output.contains("\"disposition\": \"groovy-compiler-tooling-only\""));
+        assertTrue(output.contains("\"scope\": \"tool-kotlin\""));
+        assertTrue(output.contains("\"toolKotlin\": true"));
+        assertTrue(output.contains("\"disposition\": \"kotlin-compiler-tooling-only\""));
         assertTrue(output.contains("\"coordinate\": \"com.example:compile-lib:1.0.0\""));
         assertTrue(output.contains("\"lanes\": [\"compile\", \"runtime\", \"test\"]"));
         assertTrue(output.contains("\"coordinate\": \"jakarta.servlet:jakarta.servlet-api:6.1.0\""));

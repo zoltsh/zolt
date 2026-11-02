@@ -1,6 +1,7 @@
 package sh.zolt.toolchain.install;
 
 import sh.zolt.error.ActionableException;
+import sh.zolt.toolchain.store.ToolchainStorePaths;
 import sh.zolt.toolchain.catalog.JavaToolchainArchiveFormat;
 import java.io.IOException;
 import java.io.InputStream;
@@ -123,7 +124,7 @@ final class JavaToolchainArchiveExtractor {
                     "Java toolchain archive contains an unsafe path `" + name + "`.",
                     "Use a trusted toolchain archive and retry `zolt toolchain sync`.");
         }
-        return target;
+        return ToolchainStorePaths.within(root, root.resolve(name), true);
     }
 
     private static boolean readBlock(InputStream input, byte[] block) throws IOException {
@@ -203,8 +204,9 @@ final class JavaToolchainArchiveExtractor {
                     "Java toolchain archive contains an unsafe symlink target `" + rawLinkName + "`.",
                     "Use a trusted toolchain archive and retry `zolt toolchain sync`.");
         }
-        Files.createDirectories(target.getParent());
-        Files.deleteIfExists(target);
+        ToolchainStorePaths.within(root, target.getParent().resolve(linkTarget), true);
+        Files.createDirectories(ToolchainStorePaths.within(root, target.getParent(), true));
+        Files.deleteIfExists(ToolchainStorePaths.within(root, target, false));
         Files.createSymbolicLink(target, linkTarget);
     }
 

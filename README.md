@@ -7,8 +7,7 @@
 </p>
 
 <p align="center">
-  Dependencies, toolchains, builds, tests, workspaces, packaging, publishing,
-  native images, and CI.
+  Build, test, package, and compile Java applications to native executables.
 </p>
 
 <p align="center">
@@ -38,23 +37,29 @@ curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL \
   https://dist.zolt.sh/install.sh | sh
 ```
 
-The stable URL serves a reviewed bootstrap that pins an immutable GitHub-hosted
-installer and its SHA-256. That installer resolves the current zap release, accepts
-only exact `zoltsh/releases` archive and checksum URLs, verifies the archive against
-the SHA-256 pinned in the release channel manifest, and records the signed channel
-used by `zolt self update`.
+The installer verifies the release archive against its pinned SHA-256 and records
+the release channel used by `zolt self update`. Linux and macOS native binaries
+are available for x64 and arm64. The 1.0 release qualification baselines are
+Ubuntu 24.04 (glibc) and macOS 15 on both architectures. Older operating systems
+and Linux musl distributions are outside the qualified platform matrix.
 
 ## Start
 
 ```sh
 zolt init hello
 cd hello
+zolt build
 zolt test
 zolt package
+zolt run-package
 ```
 
 Zolt creates the project, resolves `zolt.lock`, runs its JUnit test, and
 packages it.
+
+For a native executable, install GraalVM Native Image and run `zolt native`.
+Zolt builds the application and its runtime dependencies before invoking
+Native Image.
 
 ## Model
 
@@ -84,7 +89,7 @@ zolt           build, test, package, release
     </td>
     <td width="50%" valign="top">
       <strong>Packages and releases</strong><br>
-      Jar, uber-jar, WAR, Spring Boot, Quarkus, native images, and Maven publishing.
+      Jar, uber-jar, WAR, Spring Boot JVM packaging, native images, and Maven publishing.
     </td>
   </tr>
   <tr>
@@ -102,6 +107,18 @@ zolt           build, test, package, release
 <p align="center">
   <strong><a href="./FEATURES.md">All features</a></strong>
 </p>
+
+## Release scope
+
+Zolt 1.0 supports the Java build lifecycle, dependency-ordered workspaces, JUnit
+and Spock tests, managed JDKs, packaging, and GraalVM Native Image. Changed Java
+sources recompile the affected source set; unchanged verified inputs can reuse
+outputs.
+
+Kotlin, KAPT/KSP, Groovy main sources, Quarkus workflows, and Spring Boot native
+AOT are experimental and disabled by default. Set `ZOLT_EXPERIMENTAL=1` for the
+command that uses them. Their boundaries are documented in
+[Compatibility](./docs/compatibility.md).
 
 ## CLI
 

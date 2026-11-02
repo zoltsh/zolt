@@ -1,6 +1,8 @@
 package sh.zolt.project;
 
 import java.util.List;
+import java.util.Set;
+import sh.zolt.project.toolchain.KotlinCompilerPlugin;
 
 public record CompilerSettings(
         String generatedSources,
@@ -10,7 +12,13 @@ public record CompilerSettings(
         List<String> args,
         List<String> testArgs,
         String platformApi,
-        String testPlatformApi) {
+        String testPlatformApi,
+        String groovyVersion,
+        String kotlinVersion,
+        String kotlinModule,
+        String kotlinTestModule,
+        Set<KotlinCompilerPlugin> kotlinPlugins) {
+    private static final String KOTLIN_JVM_PREVIEW_ARGUMENT = "-Xjvm-enable-preview";
     private static final String DEFAULT_GENERATED_SOURCES = "target/generated/sources/annotations";
     private static final String DEFAULT_GENERATED_TEST_SOURCES = "target/generated/test-sources/annotations";
 
@@ -29,6 +37,95 @@ public record CompilerSettings(
         testArgs = copyArgs(testArgs, "testArgs");
         platformApi = platformApiOrDefault(platformApi);
         testPlatformApi = stringOrEmpty(testPlatformApi);
+        groovyVersion = stringOrEmpty(groovyVersion);
+        kotlinVersion = stringOrEmpty(kotlinVersion);
+        kotlinPlugins = kotlinPlugins == null || kotlinPlugins.isEmpty()
+                ? Set.of()
+                : java.util.Collections.unmodifiableSet(
+                        java.util.EnumSet.copyOf(kotlinPlugins));
+        kotlinModule = stringOrEmpty(kotlinModule);
+        kotlinTestModule = stringOrEmpty(kotlinTestModule);
+    }
+
+    /** Compatibility constructor for callers that predate explicit Kotlin module identity. */
+    public CompilerSettings(
+            String generatedSources,
+            String generatedTestSources,
+            String release,
+            String encoding,
+            List<String> args,
+            List<String> testArgs,
+            String platformApi,
+            String testPlatformApi,
+            String groovyVersion,
+            String kotlinVersion) {
+        this(
+                generatedSources,
+                generatedTestSources,
+                release,
+                encoding,
+                args,
+                testArgs,
+                platformApi,
+                testPlatformApi,
+                groovyVersion,
+                kotlinVersion,
+                "",
+                "",
+                Set.of());
+    }
+
+    /** Compatibility constructor for callers that predate explicit Kotlin compiler selection. */
+    public CompilerSettings(
+            String generatedSources,
+            String generatedTestSources,
+            String release,
+            String encoding,
+            List<String> args,
+            List<String> testArgs,
+            String platformApi,
+            String testPlatformApi,
+            String groovyVersion) {
+        this(
+                generatedSources,
+                generatedTestSources,
+                release,
+                encoding,
+                args,
+                testArgs,
+                platformApi,
+                testPlatformApi,
+                groovyVersion,
+                "",
+                "",
+                "",
+                Set.of());
+    }
+
+    /** Compatibility constructor for callers that predate explicit Groovy compiler selection. */
+    public CompilerSettings(
+            String generatedSources,
+            String generatedTestSources,
+            String release,
+            String encoding,
+            List<String> args,
+            List<String> testArgs,
+            String platformApi,
+            String testPlatformApi) {
+        this(
+                generatedSources,
+                generatedTestSources,
+                release,
+                encoding,
+                args,
+                testArgs,
+                platformApi,
+                testPlatformApi,
+                "",
+                "",
+                "",
+                "",
+                Set.of());
     }
 
     public CompilerSettings(
@@ -74,6 +171,16 @@ public record CompilerSettings(
     /** Whether test compilation should use the host JDK platform API instead of {@code --release}. */
     public boolean testHostPlatformApi() {
         return PLATFORM_API_HOST.equals(effectiveTestPlatformApi());
+    }
+
+    /** Whether main Kotlin compilation emits JVM preview-marked class files. */
+    public boolean mainKotlinJvmPreview() {
+        return args.contains(KOTLIN_JVM_PREVIEW_ARGUMENT);
+    }
+
+    /** Whether main or test Kotlin compilation emits JVM preview-marked class files. */
+    public boolean testKotlinJvmPreview() {
+        return mainKotlinJvmPreview() || testArgs.contains(KOTLIN_JVM_PREVIEW_ARGUMENT);
     }
 
     private static String stringOrDefault(String value, String defaultValue) {

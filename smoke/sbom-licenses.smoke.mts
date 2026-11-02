@@ -12,7 +12,7 @@ import {
 } from "./support/json.mts";
 import { copyFixture, expectTextFile, packagedZolt, runZolt, sha256File } from "./support/zolt-smoke.mts";
 
-const GUAVA_PURL = "pkg:maven/com.google.guava/guava@33.4.0-jre?type=jar";
+const GUAVA_PURL = "pkg:maven/com.google.guava/guava@33.7.2-jre?type=jar";
 const SOURCE_DATE_EPOCH = "1577836800";
 
 smoke.suite("SBOM and license reporting smoke", { tags: ["supply-chain", "enterprise"] }, async (t: SmokeContext) => {
@@ -69,7 +69,7 @@ smoke.suite("SBOM and license reporting smoke", { tags: ["supply-chain", "enterp
       "--no-progress", "licenses", "--cwd", project, "--cache-root", zolt.cacheRoot,
     ]);
     expect.value(text.stdout).toMatch(/^Apache-2\.0 \(\d+\)$/mu);
-    expect.value(text.stdout).toContain("com.google.guava:guava:33.4.0-jre");
+    expect.value(text.stdout).toContain("com.google.guava:guava:33.7.2-jre");
 
     const notices = join(work.path("supply-chain-app"), "target/THIRD_PARTY.txt");
     const json = await runZolt(t, zolt, [
@@ -85,7 +85,7 @@ smoke.suite("SBOM and license reporting smoke", { tags: ["supply-chain", "enterp
     expect.value(licenses).toContain("Apache-2.0");
 
     await expectTextFile(notices, {
-      contains: ["THIRD-PARTY SOFTWARE NOTICES", "com.google.guava:guava:33.4.0-jre", "Apache-2.0"],
+      contains: ["THIRD-PARTY SOFTWARE NOTICES", "com.google.guava:guava:33.7.2-jre", "Apache-2.0"],
     });
   });
 
@@ -103,7 +103,7 @@ smoke.suite("SBOM and license reporting smoke", { tags: ["supply-chain", "enterp
     ]);
     expect.value(annotated.exitCode).toBe(0);
     expect.value(annotated.stdout).toContain(
-      "com.google.guava:guava:33.4.0-jre  [denied] denied by [dependencies.policy.licenses].deny",
+      "com.google.guava:guava:33.7.2-jre  [denied] denied by [dependencies.policy.licenses].deny",
     );
     expect.value(annotated.stdout).toMatch(
       /^License policy: \d+ denied, \d+ unknown of \d+ dependenc(?:y|ies)\. \d+ permitted by exception; \d+ stale exceptions?\.$/mu,
@@ -120,7 +120,7 @@ smoke.suite("SBOM and license reporting smoke", { tags: ["supply-chain", "enterp
       t,
       jsonArray(t, apache, "components", "Apache-2.0 group"),
       "coordinate",
-      "com.google.guava:guava:33.4.0-jre",
+      "com.google.guava:guava:33.7.2-jre",
       "Apache-2.0 components",
     );
     const componentPolicy = expectJsonObject(t, guava["policy"], "guava.policy");
@@ -136,10 +136,10 @@ smoke.suite("SBOM and license reporting smoke", { tags: ["supply-chain", "enterp
     ], { check: false });
     expect.value(failure.exitCode).toBe(1);
     expect.value(failure.stdout).toContain(
-      "error license-policy com.google.guava:guava:33.4.0-jre Apache-2.0 — denied by [dependencies.policy.licenses].deny",
+      "error license-policy com.google.guava:guava:33.7.2-jre Apache-2.0 — denied by [dependencies.policy.licenses].deny",
     );
     expect.value(failure.stdout).toContain(
-      "next: Remove com.google.guava:guava:33.4.0-jre or amend [dependencies.policy.licenses].deny after review; an exception cannot override deny.",
+      "next: Remove com.google.guava:guava:33.7.2-jre or amend [dependencies.policy.licenses].deny after review; an exception cannot override deny.",
     );
 
     // The annotation claims what `zolt check --check license-policy` enforces, and that command
@@ -157,7 +157,7 @@ smoke.suite("SBOM and license reporting smoke", { tags: ["supply-chain", "enterp
     const withTests = await runZolt(t, zolt, [...scopedArgs, "--include-test"]);
     // The compile-scope dependency is still marked in both.
     expect.value(withTests.stdout).toContain(
-      "com.google.guava:guava:33.4.0-jre  [denied] denied by [dependencies.policy.licenses].deny",
+      "com.google.guava:guava:33.7.2-jre  [denied] denied by [dependencies.policy.licenses].deny",
     );
     // The test-scope one is listed as a bare coordinate: no marker, no reason.
     expect.value(required.stdout.includes("org.apiguardian:apiguardian-api")).toBe(false);

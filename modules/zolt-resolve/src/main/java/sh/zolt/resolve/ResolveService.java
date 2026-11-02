@@ -12,6 +12,7 @@ import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.framework.FrameworkDependencyRequestPlanRequestAssembler;
 import sh.zolt.resolve.framework.FrameworkDependencyRequestPlanner;
 import sh.zolt.resolve.graph.ResolutionGraph;
+import sh.zolt.resolve.lockfile.assembly.CompilerToolResolution;
 import sh.zolt.resolve.lockfile.assembly.ExecToolResolution;
 import sh.zolt.resolve.lockfile.assembly.LockfileAssembler;
 import sh.zolt.resolve.lockfile.assembly.AuthoredDependencyRootPlanner;
@@ -191,12 +192,19 @@ public final class ResolveService {
                 options.retryCommand(),
                 snapshotAllowance);
         directRequests = relocateDirectRequests(context, directRequests, options.retryCommand());
-        // Exec tools resolve in isolation (Hole 1): keep TOOL_EXEC out of the shared project graph so a
-        // tool's version line never mediates against another tool's or against compile/runtime, then lock
-        // each tool's closure separately with a per-tool group qualifier.
+        // Compiler and exec tools resolve in isolation, so their versions never mediate against the
+        // project's compile/runtime graph. Exec tools retain their per-tool group qualifier.
         List<DependencyRequest> mainRequests = directRequests.stream()
-                .filter(request -> request.scope() != DependencyScope.TOOL_EXEC)
+                .filter(request -> request.scope() != DependencyScope.TOOL_EXEC
+                        && !CompilerToolResolver.isCompilerToolScope(request.scope()))
                 .toList();
+        List<CompilerToolResolution> compilerToolResolutions = CompilerToolResolver.resolve(
+                graphResolver,
+                context,
+                managedVersionDetails,
+                directRequests,
+                options,
+                snapshotAllowance);
         List<ExecToolResolution> execResolutions = resolveExecTools(
                 context, managedVersionDetails, options, snapshotAllowance);
         DependencyGraphResolution initial = graphResolver.resolve(
@@ -229,8 +237,18 @@ public final class ResolveService {
                         snapshotAllowance,
                         options.versionOverrides());
         List<String> warnings = VersionConflictPolicyEnforcer.enforce(
-                context.config().dependencyPolicy(), resolved.selection(), execResolutions, options.retryCommand());
-        ZoltLockfile lockfile = lockfile(context, resolved.graph(), resolved.selection(), allRequests, execResolutions);
+                context.config().dependencyPolicy(),
+                resolved.selection(),
+                compilerToolResolutions,
+                execResolutions,
+                options.retryCommand());
+        ZoltLockfile lockfile = lockfile(
+                context,
+                resolved.graph(),
+                resolved.selection(),
+                allRequests,
+                compilerToolResolutions,
+                execResolutions);
         return new ResolveOutput(
                 lockfile,
                 context.downloadCount(),
@@ -278,6 +296,7 @@ public final class ResolveService {
         List<DependencyRequest> relocated = new ArrayList<>();
         for (DependencyRequest request : directRequests) {
             DependencyRequest target = relocator.relocate(request);
+            CompilerToolResolver.requireUnrelocatedRoot(request, target, retryCommand);
             roots.requireNoDirectRelocation(
                     context.config(), request, target, retryCommand);
             relocated.add(target);
@@ -290,8 +309,15 @@ public final class ResolveService {
             ResolutionGraph graph,
             VersionSelectionResult selection,
             List<DependencyRequest> directRequests,
+            List<CompilerToolResolution> compilerToolResolutions,
             List<ExecToolResolution> execResolutions) {
-        return lockfileAssembler.assemble(context, graph, selection, directRequests, execResolutions);
+        return lockfileAssembler.assemble(
+                context,
+                graph,
+                selection,
+                directRequests,
+                compilerToolResolutions,
+                execResolutions);
     }
 
     @FunctionalInterface

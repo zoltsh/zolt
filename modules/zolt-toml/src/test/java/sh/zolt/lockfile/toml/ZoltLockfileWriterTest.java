@@ -132,23 +132,34 @@ final class ZoltLockfileWriterTest {
                                 new PackageId("com.example", "shared"),
                                 "1.5.0",
                                 List.of("1.0.0", "1.5.0"),
-                                ConflictSelectionReason.DIRECT_DEPENDENCY)));
+                                ConflictSelectionReason.DIRECT_DEPENDENCY),
+                        new LockConflict(
+                                new PackageId("com.example", "shared"),
+                                "4.0.0",
+                                List.of("1.0.0", "4.0.0"),
+                                ConflictSelectionReason.NEWEST_VERSION,
+                                Optional.of("compiler:tool-kotlin:kotlin-2.2.0"))));
 
         String output = writer.write(lockfile);
 
-        // The same GA mediates in the main graph and in two exec tools; each stays a distinct entry.
+        // The same GA mediates in the main graph, two exec tools, and a compiler closure.
         assertTrue(output.contains("tool = \"alpha\""));
         assertTrue(output.contains("tool = \"beta\""));
+        assertTrue(output.contains("tool = \"compiler:tool-kotlin:kotlin-2.2.0\""));
         // Deterministic order for a shared packageId: main (no tool) first, then tools alphabetically.
         assertTrue(output.indexOf("selected = \"1.5.0\"") < output.indexOf("tool = \"alpha\""));
         assertTrue(output.indexOf("tool = \"alpha\"") < output.indexOf("tool = \"beta\""));
+        assertTrue(output.indexOf("tool = \"beta\"") < output.indexOf("tool = \"compiler:tool-kotlin"));
 
         ZoltLockfile parsed = new ZoltLockfileReader().read(output);
-        assertEquals(3, parsed.conflicts().size());
+        assertEquals(4, parsed.conflicts().size());
         assertTrue(parsed.conflicts().stream().anyMatch(conflict ->
                 conflict.toolGroup().equals(Optional.of("alpha")) && conflict.selectedVersion().equals("3.0.0")));
         assertTrue(parsed.conflicts().stream().anyMatch(conflict ->
                 conflict.toolGroup().isEmpty() && conflict.selectedVersion().equals("1.5.0")));
+        assertTrue(parsed.conflicts().stream().anyMatch(conflict ->
+                conflict.toolGroup().equals(Optional.of("compiler:tool-kotlin:kotlin-2.2.0"))
+                        && conflict.selectedVersion().equals("4.0.0")));
     }
 
     @Test

@@ -1,9 +1,8 @@
 package sh.zolt.build.compile;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 
 final class JavacWorkerClasspath {
@@ -23,7 +22,7 @@ final class JavacWorkerClasspath {
         if (configured.isPresent()) {
             return configured;
         }
-        return bundledCandidates().stream().filter(Files::isRegularFile).findFirst();
+        return ProcessHandle.current().info().command().map(Path::of).flatMap(JavacWorkerClasspath::bundledWorker);
     }
 
     private static Optional<Path> configuredPath(String configured) {
@@ -34,22 +33,20 @@ final class JavacWorkerClasspath {
         return Files.isRegularFile(path) ? Optional.of(path) : Optional.empty();
     }
 
-    private static List<Path> bundledCandidates() {
-        Optional<Path> executable = ProcessHandle.current().info().command().map(Path::of);
-        if (executable.isEmpty()) {
-            return List.of();
+    static Optional<Path> bundledWorker(Path executable) {
+        try {
+            // macOS can report the installed launcher symlink instead of its versioned target.
+            Path command = executable.toRealPath();
+            Path parent = command.getParent();
+            if (parent == null || !Files.isRegularFile(command)) return Optional.empty();
+            Path adjacent = parent.resolve("libexec").resolve(BUNDLED_WORKER_JAR);
+            if (Files.isRegularFile(adjacent)) return Optional.of(adjacent);
+            Path installRoot = parent.getParent();
+            if (installRoot == null || !"bin".equals(parent.getFileName().toString())) return Optional.empty();
+            Path bundled = installRoot.resolve("libexec").resolve(BUNDLED_WORKER_JAR);
+            return Files.isRegularFile(bundled) ? Optional.of(bundled) : Optional.empty();
+        } catch (IOException exception) {
+            return Optional.empty(); // Executable discovery is optional; retain the external javac fallback.
         }
-        Path command = executable.orElseThrow().toAbsolutePath().normalize();
-        Path parent = command.getParent();
-        if (parent == null) {
-            return List.of();
-        }
-        List<Path> candidates = new ArrayList<>();
-        candidates.add(parent.resolve("libexec").resolve(BUNDLED_WORKER_JAR));
-        Path installRoot = parent.getParent();
-        if (installRoot != null && "bin".equals(parent.getFileName().toString())) {
-            candidates.add(installRoot.resolve("libexec").resolve(BUNDLED_WORKER_JAR));
-        }
-        return candidates.stream().map(path -> path.toAbsolutePath().normalize()).distinct().toList();
     }
 }

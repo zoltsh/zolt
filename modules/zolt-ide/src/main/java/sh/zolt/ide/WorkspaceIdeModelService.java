@@ -200,16 +200,19 @@ public final class WorkspaceIdeModelService {
         int compileEntries = 0;
         int runtimeEntries = 0;
         int testEntries = 0;
+        int integrationTestEntries = 0;
         for (IdeModel.ClasspathInfo classpaths : classpathsByMember.values()) {
             compileEntries += classpaths.compile().size();
             runtimeEntries += classpaths.runtime().size();
             testEntries += classpaths.test().size();
+            integrationTestEntries += classpaths.integrationTest().size();
         }
         return Map.of(
                 "members", Integer.toString(classpathsByMember.size()),
                 "compileClasspathEntries", Integer.toString(compileEntries),
                 "runtimeClasspathEntries", Integer.toString(runtimeEntries),
-                "testClasspathEntries", Integer.toString(testEntries));
+                "testClasspathEntries", Integer.toString(testEntries),
+                "integrationTestClasspathEntries", Integer.toString(integrationTestEntries));
     }
 
     private static Map<String, String> workspaceIdeModelAttributes(WorkspaceIdeModel model) {

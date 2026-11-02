@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
+import sh.zolt.manifest.GeneratedLanguage;
 import sh.zolt.manifest.GeneratedStepSettings;
 import sh.zolt.manifest.DependencyCoordinate;
 import sh.zolt.manifest.LocalId;
@@ -16,10 +17,12 @@ import sh.zolt.manifest.authored.AuthoredExecStep;
 import sh.zolt.manifest.authored.AuthoredGeneratedSources;
 import sh.zolt.manifest.authored.AuthoredGeneratedStep;
 import sh.zolt.manifest.authored.AuthoredGeneratedTool;
+import sh.zolt.manifest.authored.AuthoredKspStep;
 import sh.zolt.manifest.authored.AuthoredOpenApiOptions;
 import sh.zolt.manifest.authored.AuthoredOpenApiStep;
 import sh.zolt.manifest.authored.AuthoredProtobufStep;
 import sh.zolt.manifest.effective.EffectiveValue;
+import sh.zolt.project.ExecGenerationSettings;
 import sh.zolt.project.GeneratedSourceKind;
 import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.OpenApiGenerationSettings;
@@ -50,6 +53,8 @@ final class ProjectConfigGenerated {
     private static final String DEFAULT_GRPC_COORDINATE = "io.grpc:protoc-gen-grpc-java";
     private static final String MAIN_OUTPUT_PREFIX = "generated/sources/";
     private static final String TEST_OUTPUT_PREFIX = "generated/test-sources/";
+    private static final String MAIN_KSP_OUTPUT_PREFIX = "generated/ksp/main/";
+    private static final String TEST_KSP_OUTPUT_PREFIX = "generated/ksp/test/";
 
     private ProjectConfigGenerated() {
     }
@@ -96,10 +101,37 @@ final class ProjectConfigGenerated {
                     openApi(id, openApi, sources, outputRoot, versions, mainScope);
             case AuthoredProtobufStep protobuf ->
                     protobuf(id, protobuf, sources, outputRoot, versions, mainScope);
+            case AuthoredKspStep ksp ->
+                    ksp(id, ksp, sources, outputRoot, versions, mainScope);
             case AuthoredExecStep exec ->
                     ProjectConfigGeneratedExec.step(id, exec, sources, versions);
             case AuthoredDeclaredRootStep declaredRoot -> declaredRoot(id, declaredRoot);
         };
+    }
+
+    private static GeneratedSourceStep ksp(
+            LocalId id,
+            AuthoredKspStep step,
+            AuthoredGeneratedSources sources,
+            String outputRoot,
+            Map<LocalId, EffectiveValue<VersionAliasValue>> versions,
+            boolean mainScope) {
+        return new GeneratedSourceStep(
+                id.value(),
+                GeneratedSourceKind.KSP,
+                "kotlin",
+                step.output().map(ManifestRelativePath::value)
+                        .orElseGet(() -> outputRoot + "/"
+                                + (mainScope ? MAIN_KSP_OUTPUT_PREFIX : TEST_KSP_OUTPUT_PREFIX)
+                                + id.value()),
+                List.of(),
+                true,
+                true,
+                OpenApiGenerationSettings.empty(),
+                ProtobufGenerationSettings.empty(),
+                ExecGenerationSettings.empty(),
+                ProjectConfigGeneratedKsp.settings(
+                        step.tool(), sources, versions, step.options()));
     }
 
     private static GeneratedSourceStep openApi(
@@ -116,7 +148,7 @@ final class ProjectConfigGenerated {
         return new GeneratedSourceStep(
                 id.value(),
                 GeneratedSourceKind.OPENAPI,
-                JAVA,
+                step.settings().language().orElse(GeneratedLanguage.JAVA).configValue(),
                 derivedOutput(id, step.output(), outputRoot, mainScope),
                 List.of(step.input().value()),
                 step.settings().required().orElse(true),
@@ -145,7 +177,7 @@ final class ProjectConfigGenerated {
         return new GeneratedSourceStep(
                 id.value(),
                 GeneratedSourceKind.PROTOBUF,
-                JAVA,
+                step.settings().language().orElse(GeneratedLanguage.JAVA).configValue(),
                 derivedOutput(id, step.output(), outputRoot, mainScope),
                 step.inputs().stream().map(ResourceGlob::value).toList(),
                 step.settings().required().orElse(true),
@@ -177,7 +209,7 @@ final class ProjectConfigGenerated {
         return new GeneratedSourceStep(
                 id.value(),
                 GeneratedSourceKind.DECLARED_ROOT,
-                JAVA,
+                settings.language().orElse(GeneratedLanguage.JAVA).configValue(),
                 step.output().value(),
                 step.inputs().stream().map(ResourceGlob::value).toList(),
                 settings.required().orElse(true),

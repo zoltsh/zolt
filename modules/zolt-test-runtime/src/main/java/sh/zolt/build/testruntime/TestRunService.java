@@ -222,19 +222,22 @@ public final class TestRunService extends CompiledTestRunService {
             String suiteName,
             TestShardSpec shard,
             TestProfileSettings profileSettings) {
-        TestCompileResultWithClasspaths compileResult = compileTests(projectDirectory, config, cacheRoot);
-        return runCompiledTests(
-                projectDirectory,
-                config,
-                compileResult.classpaths(),
-                compileResult.testCompileResult(),
-                selection,
-                jvmArguments,
-                reportSettings,
-                cliEvents,
-                suiteName,
-                shard,
-                profileSettings);
+        try (sh.zolt.build.ProjectMutationLock ignored =
+                sh.zolt.build.ProjectMutationLock.acquire(projectDirectory)) {
+            TestCompileResultWithClasspaths compileResult = compileTests(projectDirectory, config, cacheRoot);
+            return runCompiledTests(
+                    projectDirectory,
+                    config,
+                    compileResult.classpaths(),
+                    compileResult.testCompileResult(),
+                    selection,
+                    jvmArguments,
+                    reportSettings,
+                    cliEvents,
+                    suiteName,
+                    shard,
+                    profileSettings);
+        }
     }
 
     public TestCompileResultWithClasspaths compileTests(Path projectDirectory, ProjectConfig config, Path cacheRoot) {

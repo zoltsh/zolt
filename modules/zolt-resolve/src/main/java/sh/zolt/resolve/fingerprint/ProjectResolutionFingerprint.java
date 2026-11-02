@@ -23,6 +23,12 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 public final class ProjectResolutionFingerprint {
+    private static final String GROOVY_TOOLCHAIN_CATEGORY = "toolchain.groovy";
+    private static final String GROOVY_COMPILER_COORDINATE = "org.apache.groovy:groovy";
+    private static final String COMPILER_TOOL_RESOLUTION_SEMANTICS =
+            "conflict-provenance-v1";
+    private static final String COMPILER_TOOL_ROOT_SEMANTICS = "exact-root-v1";
+
     /**
      * The fingerprint schema version, itself a fingerprint input so a bump restates every lock.
      *
@@ -63,6 +69,12 @@ public final class ProjectResolutionFingerprint {
         line(inputs, "schema", SCHEMA);
         line(inputs, "java", "project", config.project().java());
         line(inputs, "java", "compilerRelease", config.compilerSettings().release());
+        compilerToolchainInput(
+                inputs,
+                GROOVY_TOOLCHAIN_CATEGORY,
+                GROOVY_COMPILER_COORDINATE,
+                config.compilerSettings().groovyVersion());
+        KotlinToolchainResolutionInputs.contribute(inputs, config.compilerSettings());
         repositoryInputs(inputs, config.repositorySettings());
         credentialInputs(inputs, config.repositoryCredentials());
         mapInputs(inputs, "versions", config.versionAliases());
@@ -92,6 +104,27 @@ public final class ProjectResolutionFingerprint {
         line(inputs, "package", "mode", resolutionPackageMode(config.packageSettings().mode()));
         inputs.addAll(config.frameworkSettings().resolutionFingerprintInputs());
         return List.copyOf(inputs);
+    }
+
+    /**
+     * Adds lock identity only for projects that select compiler tooling. Keeping each line
+     * conditional avoids restating unrelated locks when a compiler resolution input is introduced.
+     */
+    static void compilerToolchainInput(
+            List<String> inputs,
+            String category,
+            String coordinate,
+            String configuredVersion) {
+        String version = configuredVersion == null ? "" : configuredVersion.strip();
+        if (!version.isEmpty()) {
+            line(
+                    inputs,
+                    category,
+                    coordinate,
+                    version,
+                    COMPILER_TOOL_RESOLUTION_SEMANTICS,
+                    COMPILER_TOOL_ROOT_SEMANTICS);
+        }
     }
 
     /**

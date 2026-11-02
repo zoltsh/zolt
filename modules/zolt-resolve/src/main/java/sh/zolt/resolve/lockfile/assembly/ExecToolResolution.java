@@ -1,5 +1,6 @@
 package sh.zolt.resolve.lockfile.assembly;
 
+import sh.zolt.lockfile.LockConflict;
 import sh.zolt.resolve.graph.ResolutionGraph;
 import sh.zolt.resolve.request.DependencyRequest;
 import sh.zolt.resolve.version.VersionSelectionResult;
@@ -18,6 +19,10 @@ public record ExecToolResolution(
         VersionSelectionResult selection,
         List<DependencyRequest> directRequests) {
     public ExecToolResolution {
+        if (LockConflict.isReservedCompilerToolGroup(toolName)) {
+            throw new IllegalArgumentException(
+                    "Exec tool names must not use the reserved `compiler:` conflict namespace.");
+        }
         directRequests = directRequests == null ? List.of() : List.copyOf(directRequests);
     }
 }

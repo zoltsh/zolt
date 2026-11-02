@@ -83,6 +83,9 @@ final class QuarkusPackagePlanRulesTest {
         expectedRules.put(DependencyScope.TOOL_PROTOBUF, "protobuf-tool-omitted");
         expectedRules.put(DependencyScope.TOOL_EXEC, "exec-tool-omitted");
         expectedRules.put(DependencyScope.TOOL_COVERAGE, "coverage-tool-omitted");
+        expectedRules.put(DependencyScope.TOOL_GROOVY, "groovy-tool-omitted");
+        expectedRules.put(DependencyScope.TOOL_KOTLIN, "kotlin-tool-omitted");
+        assertEquals(DependencyScope.values().length - 3, expectedRules.size());
 
         for (Map.Entry<DependencyScope, String> entry : expectedRules.entrySet()) {
             FrameworkPackagePlanDependency dependency = rules.dependency(

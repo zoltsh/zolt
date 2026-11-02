@@ -127,6 +127,28 @@ final class ManifestGeneratedTypedStepsDecoderTest {
     }
 
     @ParameterizedTest
+    @MethodSource("lanes")
+    void acceptsKotlinTypedAndDeclaredSourceSteps(Lane lane) {
+        AuthoredOpenApiStep openApi = assertInstanceOf(
+                AuthoredOpenApiStep.class,
+                step(lane, "kind = \"openapi\"\nlanguage = \"kotlin\"\ninput = \"api.yaml\"\n"));
+        AuthoredProtobufStep protobuf = assertInstanceOf(
+                AuthoredProtobufStep.class,
+                step(lane, "kind = \"protobuf\"\nlanguage = \"kotlin\"\ninputs = [\"schema.proto\"]\n"));
+        AuthoredDeclaredRootStep declared = assertInstanceOf(
+                AuthoredDeclaredRootStep.class,
+                step(lane, """
+                        kind = "declared-root"
+                        language = "kotlin"
+                        inputs = ["generated/kotlin"]
+                        output = "target/generated/kotlin"
+                        """));
+        assertEquals(Optional.of(GeneratedLanguage.KOTLIN), openApi.settings().language());
+        assertEquals(Optional.of(GeneratedLanguage.KOTLIN), protobuf.settings().language());
+        assertEquals(Optional.of(GeneratedLanguage.KOTLIN), declared.settings().language());
+    }
+
+    @ParameterizedTest
     @MethodSource("requiredFailures")
     void reportsTypedRequiredAndCollectionFailuresAtTheCausalPath(
             Lane lane,

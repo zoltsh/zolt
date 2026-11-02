@@ -12,6 +12,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import sh.zolt.manifest.EnvironmentVariableName;
 import sh.zolt.manifest.GeneratedCachePolicy;
+import sh.zolt.manifest.GeneratedLanguage;
 import sh.zolt.manifest.GeneratedOutputKind;
 import sh.zolt.manifest.GeneratedStepSettings;
 import sh.zolt.manifest.JavaBinaryClassName;
@@ -44,6 +45,44 @@ final class AuthoredGeneratedStepTest {
     }
 
     @Test
+    void kspRetainsItsToolOutputAndCanonicalProcessorOptions() {
+        LinkedHashMap<String, String> options = new LinkedHashMap<>();
+        options.put("room.schemaLocation", "schemas");
+        options.put("alpha", "");
+        AuthoredKspStep ksp = new AuthoredKspStep(
+                GeneratedStepSettings.defaultsOmitted(),
+                Optional.of(new LocalId("symbols")),
+                Optional.of(new ManifestRelativePath("target/generated/ksp/main/symbols")),
+                options);
+        options.clear();
+
+        assertEquals("symbols", ksp.tool().orElseThrow().value());
+        assertEquals(
+                List.of("alpha", "room.schemaLocation"),
+                ksp.options().keySet().stream().toList());
+        assertThrows(UnsupportedOperationException.class, () -> ksp.options().clear());
+    }
+
+    @Test
+    void kspRejectsSettingsItsNonIncrementalMixedOutputCannotHonor() {
+        GeneratedStepSettings language = new GeneratedStepSettings(
+                Optional.of(GeneratedLanguage.KOTLIN), Optional.empty(), Optional.empty());
+        GeneratedStepSettings optional = new GeneratedStepSettings(
+                Optional.empty(), Optional.of(false), Optional.empty());
+        GeneratedStepSettings retained = new GeneratedStepSettings(
+                Optional.empty(), Optional.empty(), Optional.of(false));
+
+        assertThrows(IllegalArgumentException.class, () -> ksp(language));
+        assertThrows(IllegalArgumentException.class, () -> ksp(optional));
+        assertThrows(IllegalArgumentException.class, () -> ksp(retained));
+        assertThrows(IllegalArgumentException.class, () -> new AuthoredKspStep(
+                GeneratedStepSettings.defaultsOmitted(),
+                Optional.empty(),
+                Optional.empty(),
+                Map.of(" ", "value")));
+    }
+
+    @Test
     void protobufAndDeclaredRootKeepAuthoredOrderAndCopyNonemptyInputs() {
         ArrayList<ResourceGlob> inputs = new ArrayList<>(List.of(
                 new ResourceGlob("src/z.proto"),
@@ -62,6 +101,69 @@ final class AuthoredGeneratedStepTest {
                 GeneratedStepSettings.defaultsOmitted(),
                 List.of(),
                 new ManifestRelativePath("target/generated/test-sources/fixtures")));
+    }
+
+    @Test
+    void kotlinLanguageIsAdmittedForTypedAndDeclaredSourceOutputs() {
+        GeneratedStepSettings kotlin = new GeneratedStepSettings(
+                Optional.of(GeneratedLanguage.KOTLIN), Optional.empty(), Optional.empty());
+        AuthoredOpenApiStep openApi = new AuthoredOpenApiStep(
+                kotlin,
+                Optional.empty(),
+                new ResourceGlob("api.yaml"),
+                Optional.empty(),
+                Optional.empty(),
+                AuthoredOpenApiOptions.empty());
+        AuthoredDeclaredRootStep declared = new AuthoredDeclaredRootStep(
+                kotlin,
+                List.of(new ResourceGlob("generated/kotlin")),
+                new ManifestRelativePath("target/generated/kotlin"));
+        AuthoredProtobufStep protobuf = new AuthoredProtobufStep(
+                kotlin,
+                Optional.empty(),
+                List.of(new ResourceGlob("schema.proto")),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+
+        assertEquals(Optional.of(GeneratedLanguage.KOTLIN), openApi.settings().language());
+        assertEquals(Optional.of(GeneratedLanguage.KOTLIN), declared.settings().language());
+        assertEquals(Optional.of(GeneratedLanguage.KOTLIN), protobuf.settings().language());
+        AuthoredExecStep exec = new AuthoredExecStep(
+                kotlin,
+                new LocalId("tool"),
+                Optional.empty(),
+                List.of(),
+                List.of(new ResourceGlob("input")),
+                new ManifestRelativePath("target/generated/exec"),
+                GeneratedOutputKind.JAVA_SOURCES,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Map.of(),
+                Map.of(),
+                List.of(),
+                Optional.empty());
+        assertEquals(Optional.of(GeneratedLanguage.KOTLIN), exec.settings().language());
+        assertEquals(
+                "Exec generated steps may use language `kotlin` only with produces = `java-sources`"
+                        + " or `test-sources`.",
+                assertThrows(IllegalArgumentException.class, () -> new AuthoredExecStep(
+                                kotlin,
+                                new LocalId("tool"),
+                                Optional.empty(),
+                                List.of(),
+                                List.of(new ResourceGlob("input")),
+                                new ManifestRelativePath("target/generated/exec"),
+                                GeneratedOutputKind.RESOURCES,
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Map.of(),
+                                Map.of(),
+                                List.of(),
+                                Optional.empty()))
+                        .getMessage());
     }
 
     @Test
@@ -161,5 +263,9 @@ final class AuthoredGeneratedStepTest {
                 secretEnv,
                 inheritEnv,
                 Optional.of(600));
+    }
+
+    private static AuthoredKspStep ksp(GeneratedStepSettings settings) {
+        return new AuthoredKspStep(settings, Optional.empty(), Optional.empty(), Map.of());
     }
 }

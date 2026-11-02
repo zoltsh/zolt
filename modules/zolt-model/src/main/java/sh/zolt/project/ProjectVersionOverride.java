@@ -10,8 +10,7 @@ import sh.zolt.error.ActionableException;
  * <p>A nightly build exports the value computed by {@code scripts/nightly-native-version} into this
  * env var so the archive filename, the embedded {@code VERSION} file, {@code release-manifest.json},
  * and {@code zolt --version} all stamp the same nightly string instead of the compiled-in
- * {@code 0.1.0-SNAPSHOT}. When the env var is unset, every artifact keeps the compiled default and
- * existing tests are unchanged.
+ * default. When the env var is unset, every artifact keeps its configured version.
  *
  * <p>An invalid override is rejected up front with an actionable {@code next:} remediation so a
  * misconfigured nightly job fails before any archive is written. The accepted shape mirrors the

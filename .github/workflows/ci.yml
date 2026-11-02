@@ -6,29 +6,52 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      qualify_native:
+        description: Build and qualify all four native archives without publishing
+        type: boolean
+        required: false
+        default: false
+      discover_windows:
+        description: Run unsupported Windows JVM discovery (non-blocking; known command-length blocker)
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
+
+# Keep development coverage for preview features. The stable lifecycle job below
+# overrides this so release qualification also exercises the installed defaults.
+env:
+  ZOLT_EXPERIMENTAL: "1"
 
 jobs:
   test:
     name: test ${{ matrix.name }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: ${{ matrix.timeout }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - name: foundation
             members: modules/zolt-model,modules/zolt-framework-api,modules/zolt-toml,modules/zolt-repository,modules/zolt-resolve,modules/zolt-update,modules/zolt-test-model,modules/zolt-junit-client
+            timeout: 30
           - name: build-runtime
             members: modules/zolt-build,modules/zolt-test-runtime,modules/zolt-native-image,modules/zolt-workspace
+            timeout: 30
           - name: quarkus
             members: modules/zolt-ide,modules/zolt-quarkus
+            timeout: 30
           - name: release-quality
             members: modules/zolt-release,modules/zolt-publish,modules/zolt-policy,modules/zolt-quality,modules/zolt-tree,modules/zolt-plan
+            timeout: 30
           - name: cli-apps
             members: modules/zolt-explain,modules/zolt-config,modules/zolt-selfhost,modules/zolt-init,apps/zolt-javac-worker,apps/zolt-junit-worker,apps/zolt
+            # This group includes 1,506 apps/zolt integration tests. It takes
+            # about 19 minutes locally and 41 minutes on ubuntu-latest.
+            timeout: 60
 
     steps:
       - name: Check out repository
@@ -183,16 +206,22 @@ jobs:
         include:
           - name: core
             suite: ""
-            timeout: 30
+            timeout: 45
+            # The core lane installs Temurin 8 for the Kotlin compatibility smoke.
+            # Keep its immutable cache distinct from lanes that only sync the root JDK.
+            toolchain_cache_suffix: -kotlin-java8-v1
           - name: container
             suite: container
             timeout: 30
+            toolchain_cache_suffix: ""
           - name: native
             suite: native
             timeout: 60
+            toolchain_cache_suffix: ""
           - name: native-container
             suite: native-container
             timeout: 60
+            toolchain_cache_suffix: ""
 
     steps:
       - name: Check out repository
@@ -222,7 +251,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: ~/.zolt/toolchains
-          key: zolt-toolchains-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('zolt.lock') }}
+          key: zolt-toolchains-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('zolt.lock') }}${{ matrix.toolchain_cache_suffix }}
           restore-keys: |
             zolt-toolchains-${{ runner.os }}-${{ runner.arch }}-
             zolt-toolchains-${{ runner.os }}-
@@ -261,6 +290,229 @@ jobs:
         env:
           ZOLT_SMOKE_PREBUILT: "1"
         run: scripts/smoke-smoque ${{ matrix.suite }}
+
+  stable-lifecycle:
+    name: stable Java lifecycle
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      ZOLT_EXPERIMENTAL: "0"
+      ZOLT_SMOKE_PREBUILT: "1"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@5298d94fb55a4f185c602eeac5de1b553882abe2
+        with:
+          distribution: graalvm
+          java-version: "21"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "22"
+
+      - name: Cache Zolt artifacts
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: .zolt/cache
+          key: zolt-cache-${{ runner.os }}-${{ hashFiles('zolt.lock') }}
+          restore-keys: |
+            zolt-cache-${{ runner.os }}-
+
+      - name: Cache Zolt managed toolchains
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: ~/.zolt/toolchains
+          key: zolt-toolchains-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('zolt.lock') }}
+          restore-keys: |
+            zolt-toolchains-${{ runner.os }}-${{ runner.arch }}-
+            zolt-toolchains-${{ runner.os }}-
+
+      - name: Cache stable smoke packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: .zolt/npm-cache
+          key: npm-cache-${{ runner.os }}-stable-smoque-0.1.0
+          restore-keys: |
+            npm-cache-${{ runner.os }}-stable-
+
+      - name: Bootstrap sync Zolt-managed Java
+        run: scripts/bootstrap-zolt-jvm --no-progress toolchain sync
+
+      - name: Package stage-0 Zolt
+        run: scripts/bootstrap-zolt-jvm --no-progress package --workspace --member apps/zolt --cache-root .zolt/cache
+
+      - name: Sync Zolt-managed Java
+        run: scripts/run-zolt-built toolchain sync
+
+      - name: Package CLI and workers with managed Java
+        run: |
+          scripts/run-zolt-built package --workspace --member apps/zolt --no-progress --cache-root .zolt/cache
+          scripts/run-zolt-built package --workspace --member apps/zolt-junit-worker --no-progress --cache-root .zolt/cache
+          scripts/run-zolt-built package --workspace --member apps/zolt-javac-worker --no-progress --cache-root .zolt/cache
+
+      - name: Verify experimental feature boundaries with stable defaults
+        run: scripts/run-zolt-built test --workspace --member apps/zolt --test sh.zolt.cli.ExperimentalFeaturesTest --no-progress --cache-root .zolt/cache
+
+      - name: Smoke Java, Spring Boot JVM, and real native workflows
+        run: scripts/smoke-stable
+
+  native-qualification:
+    # Manual qualification can find platform defects before an immutable final tag
+    # is created. Standard CI still runs; the controller's publication gates remain separate.
+    name: qualify native ${{ matrix.target }}
+    if: github.event_name == 'workflow_dispatch' && inputs.qualify_native
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x64
+            runner: ubuntu-24.04
+          - target: linux-arm64
+            runner: ubuntu-24.04-arm
+          - target: macos-arm64
+            runner: macos-15
+          - target: macos-x64
+            runner: macos-15-intel
+    env:
+      ZOLT_EXPERIMENTAL: "0"
+      ZOLT_RELEASE_CHANNEL: stable
+      ZOLT_RELEASE_TARGET: ${{ matrix.target }}
+
+    steps:
+      - name: Check out exact qualification commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Derive and validate stable version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          version="$(awk -F '"' '
+            /^\[/ { section = $0 }
+            section == "[workspace.project]" && /^version = / { print $2; exit }
+          ' zolt.toml)"
+          version="${version%-SNAPSHOT}"
+          [[ "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+          printf 'ZOLT_RELEASE_VERSION=%s\n' "$version" >> "$GITHUB_ENV"
+          mkdir -p build/native-qualification
+
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@5298d94fb55a4f185c602eeac5de1b553882abe2
+        with:
+          distribution: graalvm
+          java-version: "21"
+          github-token: ${{ github.token }}
+
+      - name: Cache qualification artifacts
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: .zolt/cache
+          key: zolt-qualification-cache-${{ matrix.target }}-${{ hashFiles('zolt.lock') }}
+          restore-keys: |
+            zolt-qualification-cache-${{ matrix.target }}-
+
+      - name: Cache qualification toolchains
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: ~/.zolt/toolchains
+          key: zolt-qualification-toolchains-${{ matrix.target }}-${{ hashFiles('zolt.lock') }}
+          restore-keys: |
+            zolt-qualification-toolchains-${{ matrix.target }}-
+
+      - name: Sync source-managed Java
+        id: toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          scripts/bootstrap-zolt-jvm --no-progress toolchain sync \
+            2>&1 | tee build/native-qualification/toolchain.log
+
+      - name: Build and verify exact native archive
+        id: distribution
+        shell: bash
+        run: |
+          set -euo pipefail
+          scripts/zap-distribution --target "$ZOLT_RELEASE_TARGET" \
+            2>&1 | tee build/native-qualification/distribution.log
+          archive="zolt-$ZOLT_RELEASE_VERSION-$ZOLT_RELEASE_TARGET.tar.gz"
+          cd "apps/zolt/target/release/stable/$ZOLT_RELEASE_VERSION"
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum -c "$archive.sha256"
+          else
+            shasum -a 256 -c "$archive.sha256"
+          fi
+
+      - name: Exercise exact native candidate lifecycle
+        id: lifecycle
+        timeout-minutes: 15
+        shell: bash
+        run: |
+          set -euo pipefail
+          scripts/smoke-native-candidate \
+            "apps/zolt/target/release/stable/$ZOLT_RELEASE_VERSION/zolt-$ZOLT_RELEASE_VERSION-$ZOLT_RELEASE_TARGET.tar.gz" \
+            "$ZOLT_RELEASE_VERSION" 2>&1 | tee build/native-qualification/lifecycle.log
+
+      - name: Record qualification outcome
+        if: always()
+        shell: bash
+        env:
+          QUALIFICATION_VERSION: ${{ steps.version.outputs.version }}
+          TOOLCHAIN_OUTCOME: ${{ steps.toolchain.outcome }}
+          DISTRIBUTION_OUTCOME: ${{ steps.distribution.outcome }}
+          LIFECYCLE_OUTCOME: ${{ steps.lifecycle.outcome }}
+        run: |
+          set -euo pipefail
+          mkdir -p build/native-qualification
+          jq -n \
+            --arg sourceRepository "$GITHUB_REPOSITORY" \
+            --arg sourceSha "$GITHUB_SHA" \
+            --arg workflowRef "$GITHUB_WORKFLOW_REF" \
+            --arg runId "$GITHUB_RUN_ID" \
+            --arg runAttempt "$GITHUB_RUN_ATTEMPT" \
+            --arg version "$QUALIFICATION_VERSION" \
+            --arg target "$ZOLT_RELEASE_TARGET" \
+            --arg toolchain "$TOOLCHAIN_OUTCOME" \
+            --arg distribution "$DISTRIBUTION_OUTCOME" \
+            --arg lifecycle "$LIFECYCLE_OUTCOME" \
+            '{sourceRepository: $sourceRepository, sourceSha: $sourceSha,
+              workflowRef: $workflowRef, runId: $runId, runAttempt: $runAttempt,
+              version: $version, target: $target, toolchain: $toolchain,
+              distribution: $distribution, lifecycle: $lifecycle,
+              qualified: ($toolchain == "success" and $distribution == "success" and $lifecycle == "success"),
+              publicationApproved: false}' > build/native-qualification/result.json
+          {
+            printf '### Native qualification: %s\n\n' "$ZOLT_RELEASE_TARGET"
+            printf 'Source: %s; version: %s\n\n' "$GITHUB_SHA" "$QUALIFICATION_VERSION"
+            printf 'Toolchain: %s; archive: %s; lifecycle: %s.\n\n' \
+              "$TOOLCHAIN_OUTCOME" "$DISTRIBUTION_OUTCOME" "$LIFECYCLE_OUTCOME"
+            printf 'Qualification artifacts only; final publication requires the protected controller flow.\n'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Preserve exact archives, checksums, and qualification evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: zolt-qualification-${{ github.sha }}-${{ matrix.target }}-attempt-${{ github.run_attempt }}
+          path: |
+            build/native-qualification/**
+            apps/zolt/target/release/stable/${{ steps.version.outputs.version }}/**
+            apps/zolt/target/native/native-image.log
+          if-no-files-found: error
+          retention-days: 30
 
   managed-toolchain:
     name: managed Java toolchain dogfood ${{ matrix.name }}
@@ -326,13 +578,11 @@ jobs:
         run: scripts/run-zolt-built native --workspace --member apps/zolt --no-progress --cache-root .zolt/cache
 
   windows-smoke:
-    # Discovery lane only, and intentionally non-blocking (continue-on-error).
-    # Zolt has never been compiled or tested on Windows; this runs the bash
-    # bootstrap under the runner's Git Bash to see how far a JVM build plus a
-    # couple of small module test suites get, then uploads the log for triage.
-    # It MUST NOT gate CI: it never builds a Windows native binary and never
-    # publishes to the zap channel. Gate or remove it freely.
+    # Explicit discovery only: Windows is outside the qualified 1.0 matrix.
+    # External javac can exceed Windows' command-line limit; see compatibility.md.
+    # Keep failures and their logs visible without gating supported platforms.
     name: windows smoke (discovery, non-blocking)
+    if: github.event_name == 'workflow_dispatch' && inputs.discover_windows
     needs: test
     runs-on: windows-latest
     continue-on-error: true

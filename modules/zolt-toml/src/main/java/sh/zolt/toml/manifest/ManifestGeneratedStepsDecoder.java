@@ -61,6 +61,7 @@ final class ManifestGeneratedStepsDecoder {
         return switch (kind) {
             case "openapi" -> openApi(row, row.language());
             case "protobuf" -> protobuf(row, row.language());
+            case "ksp" -> ManifestGeneratedKspStepDecoder.decode(row);
             case "exec" -> ManifestGeneratedExecStepDecoder.decode(row, row.language());
             case "declared-root" -> declaredRoot(row, row.language());
             default -> throw new IllegalStateException(
@@ -293,6 +294,14 @@ final class ManifestGeneratedStepsDecoder {
         Optional<GeneratedLanguage> language() {
             return field(ManifestGeneratedStepFields.Slot.LANGUAGE).map(value ->
                     generatedLanguage(value, ManifestTomlValues.string(value)));
+        }
+
+        Optional<GeneratedLanguage> javaLanguage(String stepKind) {
+            return field(ManifestGeneratedStepFields.Slot.LANGUAGE).map(field ->
+                    ManifestSemanticDiagnostics.construct(
+                            field,
+                            () -> generatedLanguage(field, ManifestTomlValues.string(field))
+                                    .requireJavaFor(stepKind)));
         }
 
         GeneratedStepSettings settings(Optional<GeneratedLanguage> language) {

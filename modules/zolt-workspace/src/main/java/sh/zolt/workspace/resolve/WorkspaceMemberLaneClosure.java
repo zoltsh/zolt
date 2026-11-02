@@ -227,7 +227,9 @@ public final class WorkspaceMemberLaneClosure {
                 "|",
                 lockPackage.packageId().toString(),
                 lockPackage.version(),
+                lockPackage.source(),
                 lockPackage.scope().name(),
+                Boolean.toString(lockPackage.direct()),
                 lockPackage.jar().orElse(""),
                 lockPackage.jarSha256().orElse(""),
                 lockPackage.pom().orElse(""),
@@ -240,7 +242,8 @@ public final class WorkspaceMemberLaneClosure {
                 String.join(",", lockPackage.dependencies()),
                 String.join(",", lockPackage.members()),
                 String.join(",", lockPackage.exportedBy()),
-                String.join(",", lockPackage.policies()));
+                String.join(",", lockPackage.policies()),
+                String.join(",", lockPackage.toolGroups()));
     }
 
     /**

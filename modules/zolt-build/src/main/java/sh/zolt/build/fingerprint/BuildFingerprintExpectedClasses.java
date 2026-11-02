@@ -1,26 +1,44 @@
 package sh.zolt.build.fingerprint;
 
+import sh.zolt.build.output.CompilerOutputInventory;
+import java.util.Set;
+import java.util.TreeSet;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Optional;
 
 final class BuildFingerprintExpectedClasses {
-    List<String> entries(
-            Path projectRoot,
-            List<String> sourceRoots,
-            List<Path> sources,
-            Path outputDirectory) {
-        return files(projectRoot, sourceRoots, sources, outputDirectory).stream()
-                .filter(path -> !isPackageInfo(path) || Files.isRegularFile(path))
-                .sorted()
-                .map(path -> relative(projectRoot, path))
-                .toList();
+    List<String> entries(Path projectRoot, Path outputDirectory) {
+        return entries(projectRoot, outputDirectory, storedOverlays(outputDirectory));
     }
 
-    List<Path> missing(Path projectRoot, String fingerprint) {
+    List<String> entries(Path projectRoot, Path outputDirectory, Set<Path> overlays) {
+        return compilerOutputs(outputDirectory, overlays).stream()
+                .map(path -> relative(projectRoot, path)).toList();
+    }
+
+    List<String> hashes(Path projectRoot, Path outputDirectory) {
+        return hashes(projectRoot, outputDirectory, storedOverlays(outputDirectory));
+    }
+
+    List<String> hashes(Path projectRoot, Path outputDirectory, Set<Path> overlays) {
+        var original = CompilerOutputInventory.read(outputDirectory)
+                .map(CompilerOutputInventory.Snapshot::files).orElse(java.util.Map.of());
+        Path root = outputDirectory.toAbsolutePath().normalize();
+        return compilerOutputs(root, overlays).stream().map(path -> {
+            Path relative = root.relativize(path);
+            String hash = overlays.contains(relative) && original.containsKey(relative)
+                    ? original.get(relative) : CompilerOutputInventory.fileHash(path);
+            return relative(projectRoot, path) + "|" + hash;
+        }).toList();
+    }
+
+    private static Set<Path> storedOverlays(Path output) {
+        return CompilerOutputInventory.read(output).map(CompilerOutputInventory.Snapshot::overlays).orElse(Set.of());
+    }
+
+    List<Path> missing(Path projectRoot, Path output, Set<Path> overlays, String fingerprint) {
         List<Path> missing = new ArrayList<>();
         boolean expectedClassesSection = false;
         for (String line : fingerprint.lines().toList()) {
@@ -33,7 +51,8 @@ final class BuildFingerprintExpectedClasses {
                 Path expectedClass = recorded.isAbsolute()
                         ? recorded.normalize()
                         : projectRoot.resolve(recorded).normalize();
-                if (!Files.isRegularFile(expectedClass)) {
+                if (!overlays.contains(output.toAbsolutePath().normalize().relativize(expectedClass))
+                        && !Files.isRegularFile(expectedClass)) {
                     missing.add(expectedClass);
                 }
             }
@@ -41,51 +60,42 @@ final class BuildFingerprintExpectedClasses {
         return List.copyOf(missing);
     }
 
-    List<Path> files(
-            Path projectRoot,
-            List<String> sourceRoots,
-            List<Path> sources,
-            Path outputDirectory) {
-        List<Path> roots = sourceRoots.stream()
-                .map(root -> projectRoot.resolve(root).normalize())
-                .toList();
-        return sources.stream()
-                .map(path -> path.toAbsolutePath().normalize())
-                .map(path -> classFile(sourceRootFor(roots, path), path, outputDirectory))
-                .flatMap(Optional::stream)
-                .sorted()
-                .toList();
+    boolean recordedOutputsCurrent(Path projectRoot, Path outputDirectory, String fingerprint) {
+        return CompilerOutputInventory.read(outputDirectory).isPresent()
+                && fingerprint.lines().anyMatch("[expectedClasses]"::equals)
+                && fingerprint.lines().anyMatch("[compilerOutputHashes]"::equals)
+                && recordedSection(fingerprint, "expectedClasses")
+                        .equals(new java.util.TreeSet<>(entries(projectRoot, outputDirectory)))
+                && recordedSection(fingerprint, "compilerOutputHashes")
+                        .equals(new java.util.TreeSet<>(hashes(projectRoot, outputDirectory)));
     }
 
-    private static Optional<Path> classFile(Optional<Path> sourceRoot, Path source, Path outputDirectory) {
-        if (sourceRoot.isEmpty()) {
-            return Optional.empty();
+    private static java.util.Set<String> recordedSection(String fingerprint, String name) {
+        var recorded = new java.util.TreeSet<String>();
+        boolean included = false;
+        for (String line : fingerprint.lines().toList()) {
+            if (line.startsWith("[") && line.endsWith("]")) {
+                included = ("[" + name + "]").equals(line);
+            } else if (included && !line.isBlank()) {
+                recorded.add(line);
+            }
         }
-        Path relative = sourceRoot.orElseThrow().relativize(source);
-        String fileName = relative.getFileName().toString();
-        String extension;
-        if (fileName.endsWith(".java")) {
-            extension = ".java";
-        } else if (fileName.endsWith(".groovy")) {
-            extension = ".groovy";
-        } else {
-            return Optional.empty();
+        return recorded;
+    }
+
+    private static List<Path> compilerOutputs(Path outputDirectory, Set<Path> overlays) {
+        Path root = outputDirectory.toAbsolutePath().normalize();
+        var inventory = CompilerOutputInventory.read(root);
+        Set<Path> owned = new TreeSet<>();
+        inventory.ifPresent(value -> owned.addAll(value.files().keySet()));
+        Set<Path> masked = new java.util.HashSet<>(overlays);
+        inventory.ifPresent(value -> masked.addAll(value.overlays()));
+        for (Path path : CompilerOutputInventory.outputFiles(root)) {
+            if (!masked.contains(path)) {
+                owned.add(path);
+            }
         }
-        Path classRelative = relative.getParent() == null
-                ? Path.of(fileName.substring(0, fileName.length() - extension.length()) + ".class")
-                : relative.getParent().resolve(fileName.substring(0, fileName.length() - extension.length()) + ".class");
-        return Optional.of(outputDirectory.resolve(classRelative).normalize());
-    }
-
-    private static boolean isPackageInfo(Path classFile) {
-        Path fileName = classFile.getFileName();
-        return fileName != null && "package-info.class".equals(fileName.toString());
-    }
-
-    private static Optional<Path> sourceRootFor(List<Path> sourceRoots, Path source) {
-        return sourceRoots.stream()
-                .filter(source::startsWith)
-                .max(Comparator.comparingInt(Path::getNameCount));
+        return owned.stream().map(root::resolve).toList();
     }
 
     private static String relative(Path projectRoot, Path path) {

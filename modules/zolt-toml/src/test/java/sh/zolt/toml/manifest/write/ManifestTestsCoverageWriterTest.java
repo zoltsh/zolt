@@ -28,7 +28,8 @@ final class ManifestTestsCoverageWriterTest {
         AuthoredTests tests = new AuthoredTests(
                 Optional.of(new AuthoredTests.Sources(
                         List.of(path("src/test/java"), path("src/custom-test/java")),
-                        List.of(path("src/spec/groovy")))),
+                        List.of(path("src/spec/groovy")),
+                        List.of(path("src/test/kotlin")))),
                 Optional.of(new AuthoredTestRuntime(
                         List.of("-Xmx2g", "-Dfile.encoding=UTF-8"),
                         Map.of("zeta", "last", "alpha.key", "first"),
@@ -71,6 +72,7 @@ final class ManifestTestsCoverageWriterTest {
                 [test.sources]
                 java = ["src/test/java", "src/custom-test/java"]
                 groovy = ["src/spec/groovy"]
+                kotlin = ["src/test/kotlin"]
 
                 [test.runtime]
                 jvmArgs = ["-Xmx2g", "-Dfile.encoding=UTF-8"]

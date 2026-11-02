@@ -40,6 +40,14 @@ final class IdeModelCommandJsonDetailsTest {
         assertEquals("", result.stderr());
         String json = result.stdout();
         assertTrue(json.contains("\"classpaths\": {\n    \"compile\": ["));
+        assertTrue(json.contains("\"test\": [\n      \""
+                + jsonPathValue(projectRoot.resolve("target/test-classes"))
+                + "\",\n      \""
+                + jsonPathValue(projectRoot.resolve("target/classes"))));
+        assertTrue(json.contains("\"integrationTest\": [\n      \""
+                + jsonPathValue(projectRoot.resolve("target/integration-test-classes"))
+                + "\",\n      \""
+                + jsonPathValue(projectRoot.resolve("target/classes"))));
         assertTrue(json.contains(jsonPathValue(appJar)));
         assertTrue(json.contains(jsonPathValue(testJar)), json);
         assertTrue(json.contains("\"frameworks\": {\n    \"quarkus\": {"));

@@ -73,8 +73,8 @@ final class WorkspaceProcessorDirtyPlanningTest extends WorkspaceBuildServiceTes
 
         assertEquals(0, result.executionMetrics().memberPipelineInvocations());
         assertEquals(0, result.executionMetrics().membersAdmitted());
-        assertEquals(0, result.executionMetrics().filesHashed());
-        assertTrue(result.executionMetrics().filesReused() > 0);
+        assertTrue(result.executionMetrics().filesHashed() > 0);
+        assertEquals(0, result.executionMetrics().filesReused());
         assertEquals(2, result.mainCompilationSkippedCount());
     }
 

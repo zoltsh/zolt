@@ -1,5 +1,6 @@
 package sh.zolt.workspace.service;
 
+import sh.zolt.build.fingerprint.BuildFingerprintOutputValidator;
 import sh.zolt.build.incremental.IncrementalCompileState;
 import sh.zolt.build.incremental.IncrementalCompileStateCodec;
 import sh.zolt.project.PackageMode;
@@ -24,6 +25,8 @@ final class WorkspaceDirtyPlanner {
     private final WorkspaceStateStore stateStore = new WorkspaceStateStore();
     private final IncrementalCompileStateCodec compileStateCodec =
             new IncrementalCompileStateCodec();
+    private final BuildFingerprintOutputValidator fingerprintOutputs =
+            new BuildFingerprintOutputValidator();
 
     WorkspaceDirtyPlan plan(
             WorkspaceExecutionContext context,
@@ -65,45 +68,12 @@ final class WorkspaceDirtyPlanner {
         context.addFileSnapshotMetrics(
                 Math.max(0L, System.nanoTime() - started),
                 context.fileSnapshot());
-        return new WorkspaceDirtyPlan(previous, withProcessorRebuilds(context, plans));
-    }
-
-    /**
-     * A member whose annotation processor is itself about to be rebuilt has to be rebuilt with it.
-     *
-     * <p>Every other processor input is settled by comparing recorded state to what is on disk now,
-     * but a workspace processor member's classes are what will emit the generated sources, and this
-     * command has not compiled them yet — stage 0 is reading the previous command's output. So the
-     * one thing that cannot be read is inferred instead, from the reasons stage 0 just produced for
-     * the processor itself. A processor rebuild that turns out to emit identical bytes costs the
-     * consumer a pipeline trip and no compilation, because its own fingerprint still matches.
-     */
-    private static Map<String, WorkspaceDirtyPlan.MemberPlan> withProcessorRebuilds(
-            WorkspaceExecutionContext context,
-            Map<String, WorkspaceDirtyPlan.MemberPlan> plans) {
-        Map<String, WorkspaceDirtyPlan.MemberPlan> propagated = new LinkedHashMap<>();
-        plans.forEach((memberPath, memberPlan) -> propagated.put(
-                memberPath,
-                rebuildsAProcessorOf(context, plans, memberPath)
-                        ? memberPlan.with(WorkspaceDirtyReason.PROCESSOR_INPUT_CHANGED)
-                        : memberPlan));
-        return propagated;
-    }
-
-    private static boolean rebuildsAProcessorOf(
-            WorkspaceExecutionContext context,
-            Map<String, WorkspaceDirtyPlan.MemberPlan> plans,
-            String memberPath) {
-        for (String processor : WorkspaceCanonicalBuildPolicy.processorMembers(
-                context.workspace(),
-                memberPath,
-                context.memberGraph().compileDependenciesByMember())) {
-            WorkspaceDirtyPlan.MemberPlan processorPlan = plans.get(processor);
-            if (processorPlan != null && processorPlan.buildRequired()) {
-                return true;
-            }
-        }
-        return false;
+        return new WorkspaceDirtyPlan(
+                previous,
+                WorkspacePendingRebuildPropagator.propagate(
+                        context,
+                        plans,
+                        requirementsByMember));
     }
 
     /**
@@ -117,18 +87,28 @@ final class WorkspaceDirtyPlanner {
             Map<String, WorkspaceBuildRequirements> requirementsByMember,
             Map<String, String> toolchainIdentitiesByMember,
             WorkspaceDirtyPlan plan,
-            Set<String> executedMembers) {
+            Set<String> executedMembers,
+            Set<String> pendingTestCompiles) {
         Map<String, WorkspaceMemberState> current =
                 new LinkedHashMap<>(plan.previousState().members());
         WorkspaceMemberStateObserver observer =
                 new WorkspaceMemberStateObserver(context, membersByPath);
+        for (String executed : executedMembers) {
+            context.fileSnapshot().forget(executed, WorkspaceFileKind.PROCESSOR_OUTPUT);
+            context.fileSnapshot().forget(executed, WorkspaceFileKind.OUTPUT_RESOURCE);
+        }
         for (String memberPath : selection.includedMembers()) {
             WorkspaceMember member = membersByPath.get(memberPath);
             WorkspaceBuildRequirements requirements = requirementsByMember.getOrDefault(
                     memberPath,
                     WorkspaceBuildRequirements.mainBuild());
             if (!executedMembers.contains(memberPath)) {
-                current.put(memberPath, plan.member(memberPath).candidateState());
+                current.put(
+                        memberPath,
+                        preservePendingTestLane(
+                                plan.member(memberPath).candidateState(),
+                                plan.previousState().member(memberPath),
+                                pendingTestCompiles.contains(memberPath)));
                 continue;
             }
             context.fileSnapshot().forget(memberPath, WorkspaceFileKind.GENERATED_OUTPUT);
@@ -138,17 +118,34 @@ final class WorkspaceDirtyPlanner {
                 context.abiIndex().refreshTest(
                         member.directory().resolve(member.config().build().testOutput()));
             }
+            WorkspaceMemberState observed = observer.observe(
+                    member,
+                    requirements,
+                    toolchainIdentitiesByMember.getOrDefault(memberPath, ""),
+                    plan.previousState().member(memberPath));
             current.put(
                     memberPath,
-                    observer.observe(
-                            member,
-                            requirements,
-                            toolchainIdentitiesByMember.getOrDefault(memberPath, ""),
-                            plan.previousState().member(memberPath)));
+                    preservePendingTestLane(
+                            observed,
+                            plan.previousState().member(memberPath),
+                            pendingTestCompiles.contains(memberPath)));
         }
         stateStore.write(
                 context.workspace().root(),
                 new WorkspaceState(current, context.fileSnapshot().state()));
+    }
+
+    private static WorkspaceMemberState preservePendingTestLane(
+            WorkspaceMemberState observed,
+            Optional<WorkspaceMemberState> previous,
+            boolean pending) {
+        if (!pending) {
+            return observed;
+        }
+        return observed.withTestCompilation(
+                previous.map(WorkspaceMemberState::testCompileKey).orElse(""),
+                previous.map(WorkspaceMemberState::testResourceTreeDigest).orElse(""),
+                previous.map(WorkspaceMemberState::testOutputManifestDigest).orElse(""));
     }
 
     private List<WorkspaceDirtyReason> reasons(
@@ -216,6 +213,11 @@ final class WorkspaceDirtyPlanner {
         if (observer.dependencyAbiChanged(member.path(), previousState)) {
             reasons.add(WorkspaceDirtyReason.DEPENDENCY_ABI_CHANGED);
         }
+        if (observedMoved(
+                prior.mainOutputManifestDigest(),
+                candidate.mainOutputManifestDigest())) {
+            reasons.add(WorkspaceDirtyReason.OUTPUT_CHANGED);
+        }
         boolean compileKeyChanged = !prior.mainCompileKey().equals(candidate.mainCompileKey());
         if (compileKeyChanged && reasons.size() == before) {
             // Everything else the compile key covers matched, so the root lock is what moved.
@@ -237,6 +239,15 @@ final class WorkspaceDirtyPlanner {
     }
 
     /**
+     * A missing inner state is reported by the lane's existing output-missing reason. Once an
+     * inner state has an output manifest, however, an empty outer value cannot prove that those
+     * outputs were committed by the workspace transaction. Fail closed and reconcile the lane.
+     */
+    private static boolean observedMoved(String recorded, String observed) {
+        return !observed.isEmpty() && !recorded.equals(observed);
+    }
+
+    /**
      * The test lane's half of stage 0, mirroring the main lane reason for reason: sources and
      * resources are separate inputs, and each has a recorded digest plus an on-disk output check so a
      * lane that was never refreshed cannot claim to be current.
@@ -254,10 +265,22 @@ final class WorkspaceDirtyPlanner {
         if (!previous.orElseThrow().testCompileKey().equals(candidate.testCompileKey())) {
             reasons.add(WorkspaceDirtyReason.TEST_SOURCE_CHANGED);
         }
+        // Generated-test identity includes tool versions, selected environment, glob-expanded
+        // inputs, and the output tree after generation. Stage 0 cannot reproduce that canonical
+        // fingerprint, so admit the test lane and let TestCompileService make the precise no-op
+        // decision. This mirrors the generated-main correctness boundary above.
+        if (!member.config().build().generatedTestSources().isEmpty()) {
+            reasons.add(WorkspaceDirtyReason.CONSERVATIVE_GENERATED_TEST_SOURCE_STEP);
+        }
         if (!previous.orElseThrow()
                 .testResourceTreeDigest()
                 .equals(candidate.testResourceTreeDigest())) {
             reasons.add(WorkspaceDirtyReason.TEST_RESOURCE_CHANGED);
+        }
+        if (observedMoved(
+                previous.orElseThrow().testOutputManifestDigest(),
+                candidate.testOutputManifestDigest())) {
+            reasons.add(WorkspaceDirtyReason.TEST_OUTPUT_CHANGED);
         }
         if (!context.fileSnapshot()
                 .testResourceOutputsCurrent(
@@ -268,7 +291,8 @@ final class WorkspaceDirtyPlanner {
                 .resolve(member.config().build().testOutput())
                 .toAbsolutePath()
                 .normalize();
-        if (!outputsCurrent(testOutput, IncrementalCompileState.testStatePath(testOutput))) {
+        if (!outputsCurrent(testOutput, IncrementalCompileState.testStatePath(testOutput))
+                || !fingerprintOutputs.testOutputsCurrent(member.directory(), testOutput)) {
             reasons.add(WorkspaceDirtyReason.TEST_OUTPUT_MISSING);
         }
     }
@@ -281,7 +305,8 @@ final class WorkspaceDirtyPlanner {
                 .resolve(member.config().build().output())
                 .toAbsolutePath()
                 .normalize();
-        return outputsCurrent(output, IncrementalCompileState.mainStatePath(output));
+        return outputsCurrent(output, IncrementalCompileState.mainStatePath(output))
+                && fingerprintOutputs.mainOutputsCurrent(member.directory(), output);
     }
 
     /** One recorded state read plus a stat per recorded class: the whole output-existence check. */

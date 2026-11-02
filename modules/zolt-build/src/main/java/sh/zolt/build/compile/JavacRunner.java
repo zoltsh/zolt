@@ -135,24 +135,50 @@ public final class JavacRunner {
             return new JavacResult(0, outputDirectory, "");
         }
 
-        List<String> command = commandBuilder.command(
-                javac,
-                sortedSources,
-                classpath,
-                outputDirectory,
-                processorClasspath,
-                effectiveGeneratedSourcesDirectory,
-                effectiveOptions);
-        List<String> arguments = command.subList(1, command.size());
-        ProcessResult result = dispatch(
-                javac, command, arguments, processorClasspath, effectiveOptions, captureAttribution);
-        if (result.exitCode() != 0) {
-            String diagnostics = result.output().stripTrailing();
-            String summary = "javac failed with exit code " + result.exitCode() + "."
-                    + (diagnostics.isEmpty() ? "" : "\n" + diagnostics);
-            throw new JavacException(sh.zolt.error.ActionableError.of(summary, remediation(diagnostics)));
+        // javac treats both a missing -classpath and an empty string as the working directory
+        // (or CLASSPATH). An actual empty directory keeps undeclared classes out of every backend.
+        Path emptyClasspath = null;
+        try {
+            Classpath effectiveClasspath = classpath;
+            List<Path> declaredEntries = JavacCommandBuilder.orderedEntries(classpath);
+            List<Path> moduleEntries = effectiveOptions.modulePath().stream().map(Path::normalize).toList();
+            if (declaredEntries.stream().allMatch(moduleEntries::contains)) {
+                emptyClasspath = Files.createTempDirectory(outputDirectory, ".zolt-empty-classpath-");
+                List<Path> isolatedEntries = new ArrayList<>(declaredEntries);
+                isolatedEntries.add(emptyClasspath);
+                effectiveClasspath = new Classpath(isolatedEntries);
+            }
+            List<String> command = commandBuilder.command(
+                    javac,
+                    sortedSources,
+                    effectiveClasspath,
+                    outputDirectory,
+                    processorClasspath,
+                    effectiveGeneratedSourcesDirectory,
+                    effectiveOptions);
+            List<String> arguments = command.subList(1, command.size());
+            ProcessResult result = dispatch(
+                    javac, command, arguments, processorClasspath, effectiveOptions, captureAttribution);
+            if (result.exitCode() != 0) {
+                String diagnostics = result.output().stripTrailing();
+                String summary = "javac failed with exit code " + result.exitCode() + "."
+                        + (diagnostics.isEmpty() ? "" : "\n" + diagnostics);
+                throw new JavacException(sh.zolt.error.ActionableError.of(summary, remediation(diagnostics)));
+            }
+            return new JavacResult(sortedSources.size(), outputDirectory, result.output(), result.attribution());
+        } catch (IOException exception) {
+            throw new JavacException(sh.zolt.error.ActionableError.of(
+                    "Could not isolate the empty compilation classpath.",
+                    "Check that the compilation output directory is writable.", exception));
+        } finally {
+            if (emptyClasspath != null) {
+                try {
+                    Files.deleteIfExists(emptyClasspath);
+                } catch (IOException ignored) {
+                    // An empty temporary directory is harmless; do not mask compiler diagnostics.
+                }
+            }
         }
-        return new JavacResult(sortedSources.size(), outputDirectory, result.output(), result.attribution());
     }
 
     private ProcessResult dispatch(

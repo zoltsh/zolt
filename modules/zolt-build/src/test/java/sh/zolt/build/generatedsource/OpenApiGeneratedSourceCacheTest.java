@@ -22,11 +22,13 @@ final class OpenApiGeneratedSourceCacheTest {
     private Path projectDir;
 
     @Test
-    void reportsCurrentOutputOnlyWhenFingerprintMatches() throws IOException {
+    void reportsCurrentOutputOnlyWhenProducerAndOutputMatch() throws IOException {
         writeInputs("openapi: 3.1.0\n");
         GeneratedSourceStep step = step();
         Path output = projectDir.resolve(step.output());
         Files.createDirectories(output);
+        Path generated = output.resolve("Generated.java");
+        Files.writeString(generated, "interface Generated {}\n");
         OpenApiGeneratedSourceCache.GenerationCacheState state = cache.state(
                 projectDir,
                 output,
@@ -36,11 +38,27 @@ final class OpenApiGeneratedSourceCacheTest {
 
         assertFalse(cache.isCurrent(output, state));
 
-        cache.writeFingerprint(state);
+        cache.writeFingerprint(output, state);
 
         assertTrue(cache.isCurrent(output, state));
 
-        Files.writeString(state.fingerprint(), "stale");
+        cache.writeLog(state, "updated metadata\n");
+
+        assertTrue(cache.isCurrent(output, state));
+
+        Files.writeString(generated, "interface Changed {}\n");
+
+        assertFalse(cache.isCurrent(output, state));
+
+        Files.writeString(generated, "interface Generated {}\n");
+        cache.writeFingerprint(output, state);
+        Files.delete(generated);
+
+        assertFalse(cache.isCurrent(output, state));
+
+        Files.writeString(generated, "interface Generated {}\n");
+        cache.writeFingerprint(output, state);
+        Files.writeString(state.fingerprint(), state.fingerprintSha256());
 
         assertFalse(cache.isCurrent(output, state));
     }

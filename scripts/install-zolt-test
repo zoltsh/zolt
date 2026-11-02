@@ -230,6 +230,50 @@ ZOLT_INSTALL_TARGET="$stable_target" \
 [[ "$("$stable_root/bin/zolt" --version)" == "$stable_version" ]]
 [[ "$(cat "$stable_root/channel-url")" == "https://dist.zolt.sh/channels/stable.json" ]]
 
+# Reinstalling an active version must not destroy it when the replacement fails smoke.
+stable_binary_digest="$(sha256_file "$stable_root/versions/$stable_version/bin/zolt")"
+for failure in version init; do
+    cat >"$stable_archive_root/bin/zolt" <<FAKE_FAILED_ZOLT
+#!/bin/sh
+if [ "\${1:-}" = "--version" ]; then
+    if [ "$failure" = "version" ]; then
+        printf 'wrong-version\n'
+    else
+        printf '%s\n' "$stable_version"
+    fi
+    exit 0
+fi
+if [ "\${1:-}" = "init" ]; then
+    exit 3
+fi
+exit 2
+FAKE_FAILED_ZOLT
+    chmod +x "$stable_archive_root/bin/zolt"
+    tar -czf "$temporary/$stable_archive" \
+        -C "$(dirname "$stable_archive_root")" "$(basename "$stable_archive_root")"
+    failed_digest="$(sha256_file "$temporary/$stable_archive")"
+    printf '%s  %s\n' "$failed_digest" "$stable_archive" >"$temporary/$stable_archive.sha256"
+    failed_manifest="$temporary/channel-stable-failed-$failure.json"
+    sed "s|$stable_digest|$failed_digest|" "$stable_manifest" >"$failed_manifest"
+    if ZOLT_INSTALL_TEST_ASSET_ROOT="$temporary" \
+        ZOLT_INSTALL_CURL="$fake_curl" \
+        ZOLT_INSTALL_ROOT="$stable_root" \
+        ZOLT_INSTALL_CHANNEL="stable" \
+        ZOLT_INSTALL_CHANNEL_URL="file://$failed_manifest" \
+        ZOLT_INSTALL_TARGET="$stable_target" \
+            scripts/install-zolt >"$temporary/reinstall-$failure.log" 2>&1; then
+        printf 'error: installer accepted replacement failing %s smoke\n' "$failure" >&2
+        exit 1
+    fi
+    if [[ "$(sha256_file "$stable_root/versions/$stable_version/bin/zolt")" != "$stable_binary_digest" ]]; then
+        printf 'error: failed %s replacement destroyed the active install\n' "$failure" >&2
+        exit 1
+    fi
+    [[ "$("$stable_root/bin/zolt" --version)" == "$stable_version" ]]
+    [[ "$(readlink "$stable_root/bin/zolt")" == "../versions/$stable_version/bin/zolt" ]]
+    [[ "$(cat "$stable_root/channel-url")" == "https://dist.zolt.sh/channels/stable.json" ]]
+done
+
 preview_version="0.2.0-rc.1"
 preview_target="linux-x64"
 preview_archive="zolt-$preview_version-$preview_target.tar.gz"

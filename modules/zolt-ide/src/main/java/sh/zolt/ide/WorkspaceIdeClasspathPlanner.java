@@ -58,13 +58,21 @@ final class WorkspaceIdeClasspathPlanner {
             ClasspathSet classpaths = zoltClasspathsByMember.get(member.path());
             Optional<Path> mainOutput = outputPath(member, "[build.output].main", member.config().build().output());
             Optional<Path> testOutput = outputPath(member, "[build.output].test", member.config().build().testOutput());
+            Optional<Path> integrationTestOutput = outputPath(
+                    member,
+                    "[build.output].integration",
+                    member.config().build().integrationTestOutput());
             classpathsByMember.put(
                     member.path(),
                     new IdeModel.ClasspathInfo(
                             absoluteEntries(classpaths.compile()),
                             withOutputs(mainOutput.stream().toList(), classpaths.runtime()),
                             withOutputs(
-                                    java.util.stream.Stream.concat(mainOutput.stream(), testOutput.stream()).toList(),
+                                    java.util.stream.Stream.concat(testOutput.stream(), mainOutput.stream()).toList(),
+                                    classpaths.test()),
+                            withOutputs(
+                                    java.util.stream.Stream.concat(
+                                            integrationTestOutput.stream(), mainOutput.stream()).toList(),
                                     classpaths.test()),
                             absoluteEntries(classpaths.processor()),
                             absoluteEntries(classpaths.testProcessor()),
@@ -74,7 +82,8 @@ final class WorkspaceIdeClasspathPlanner {
     }
 
     private static IdeModel.ClasspathInfo emptyClasspaths() {
-        return new IdeModel.ClasspathInfo(List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
+        return new IdeModel.ClasspathInfo(
+                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
     }
 
     private static Optional<Path> outputPath(WorkspaceMember member, String key, String configuredPath) {
