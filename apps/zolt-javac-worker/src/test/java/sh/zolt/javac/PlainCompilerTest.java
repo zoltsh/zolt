@@ -18,7 +18,7 @@ final class PlainCompilerTest {
     private Path tempDir;
 
     @Test
-    void reusesStandardFileManagerAcrossSequentialRequests() throws Exception {
+    void createsFreshStandardFileManagerAcrossSequentialRequests() throws Exception {
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         AtomicInteger fileManagerCreations = new AtomicInteger();
         PlainCompiler plainCompiler = new PlainCompiler(
@@ -48,7 +48,7 @@ final class PlainCompilerTest {
 
         assertEquals(0, first.exitCode(), first.diagnostics());
         assertEquals(0, second.exitCode(), second.diagnostics());
-        assertEquals(1, fileManagerCreations.get());
+        assertEquals(2, fileManagerCreations.get());
         assertTrue(Files.isRegularFile(firstOutput.resolve("First.class")));
         assertTrue(Files.isRegularFile(secondOutput.resolve("Second.class")));
     }
