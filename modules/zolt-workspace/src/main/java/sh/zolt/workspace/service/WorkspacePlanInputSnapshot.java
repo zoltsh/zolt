@@ -19,4 +19,8 @@ final class WorkspacePlanInputSnapshot {
     void requireCurrent() {
         inputs.requireCurrent();
     }
+
+    boolean current() {
+        return inputs.current();
+    }
 }

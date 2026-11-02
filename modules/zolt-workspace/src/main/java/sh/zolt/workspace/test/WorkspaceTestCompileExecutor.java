@@ -83,11 +83,13 @@ final class WorkspaceTestCompileExecutor {
         Path testOutput = member.directory().resolve(build.testOutput()).toAbsolutePath().normalize();
         int testSourceCount = plan.executionContext()
                 .fileSnapshot()
-                .javaSources(
+                .testSources(
                         member.path(),
                         WorkspaceFileKind.TEST_SOURCE,
                         member.directory(),
-                        build.testSources())
+                        build.testSources(),
+                        build.groovyTestSources(),
+                        build.kotlinTestSources())
                 .fileCount();
         return new WorkspaceTestCompileResult.MemberTestCompileResult(
                 member.path(),
@@ -141,7 +143,7 @@ final class WorkspaceTestCompileExecutor {
         return new BuildResultWithClasspaths(
                 memberBuild.result(),
                 memberBuild.classpaths(),
-                memberBuild.classpathPackages());
+                memberBuild.verifiedCompilerPackages());
     }
 
     private static Map<String, WorkspaceMember> membersByPath(Workspace workspace) {

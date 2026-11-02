@@ -3,6 +3,7 @@ package sh.zolt.workspace.service;
 import sh.zolt.build.BuildResult;
 import sh.zolt.build.BuildService;
 import sh.zolt.build.JavacException;
+import sh.zolt.build.SourceCompileException;
 import sh.zolt.build.cache.BuildCacheService;
 import sh.zolt.build.incremental.IncrementalCompileSummary;
 import sh.zolt.classpath.ClasspathSet;
@@ -67,7 +68,8 @@ final class WorkspaceMemberBuildExecutor {
             WorkspaceSelection selection,
             Map<String, WorkspaceMember> membersByPath,
             WorkspaceMemberClasspaths classpaths,
-            WorkspaceDirtyPlan dirtyPlan) {
+            WorkspaceDirtyPlan dirtyPlan,
+            boolean offline) {
         WorkspaceBuildBatchPlanner.Plan plan =
                 batchPlanner.plan(workspace, selection.includedMembers());
         if (plan.includedMembers().isEmpty()) {
@@ -93,7 +95,8 @@ final class WorkspaceMemberBuildExecutor {
                                     membersByPath,
                                     classpaths,
                                     dirtyPlan,
-                                    context));
+                                    context,
+                                    offline));
             scheduled.putAll(execution.resultsByMember());
             schedulerIdleNanos = execution.schedulerIdleNanos();
             readyQueuePeak = execution.readyQueuePeak();
@@ -139,12 +142,13 @@ final class WorkspaceMemberBuildExecutor {
             Map<String, WorkspaceMember> membersByPath,
             WorkspaceMemberClasspaths classpaths,
             WorkspaceDirtyPlan dirtyPlan,
-            WorkspaceExecutionContext context) {
+            WorkspaceExecutionContext context,
+            boolean offline) {
         WorkspaceDirtyPlan.MemberPlan memberPlan = dirtyPlan.member(memberPath);
         WorkspaceMember member = membersByPath.get(memberPath);
         if (memberPlan.buildRequired() || dependencyInvalidated) {
             WorkspaceBuildResult.MemberBuildResult result =
-                    buildMember(workspace, member, classpaths, context);
+                    buildMember(workspace, member, classpaths, context, offline);
             String currentAbi = compileAbiDigest(context, member);
             return new WorkspaceReadyQueueExecutor.TaskResult<>(
                     new ScheduledMember(result, true, false),
@@ -170,9 +174,10 @@ final class WorkspaceMemberBuildExecutor {
             Workspace workspace,
             WorkspaceMember member,
             WorkspaceMemberClasspaths classpaths,
-            WorkspaceExecutionContext context) {
+            WorkspaceExecutionContext context,
+            boolean offline) {
         ClasspathSet memberClasspaths = classpaths.forMember(member.path());
-        var memberPackages = classpaths.packagesForMember(member.path());
+        var compilerPackages = classpaths.verifiedCompilerPackagesForMember(member.path());
         try {
             return new WorkspaceBuildResult.MemberBuildResult(
                     member.path(),
@@ -185,15 +190,24 @@ final class WorkspaceMemberBuildExecutor {
                                     workspace.memberContext(member),
                                     member.config(),
                                     memberClasspaths,
-                                    memberPackages),
-                    memberClasspaths,
-                    memberPackages);
+                                    compilerPackages,
+                                    offline),
+                    () -> memberClasspaths,
+                    () -> classpaths.packageInputsForMember(member.path()),
+                    () -> compilerPackages);
         } catch (JavacException exception) {
             throw new JavacException(
                     exception.getMessage()
                             + "\nWorkspace member `"
                             + member.path()
                             + "` failed to compile. If the missing type comes from a dependency of another workspace member, declare it directly in this member or move it to [dependencies.api] in the member that exposes it.",
+                    exception);
+        } catch (SourceCompileException exception) {
+            throw new WorkspaceMemberCompileException(
+                    exception.getMessage()
+                            + "\nWorkspace member `"
+                            + member.path()
+                            + "` failed to compile.",
                     exception);
         }
     }
@@ -240,7 +254,8 @@ final class WorkspaceMemberBuildExecutor {
                         "",
                         true),
                 () -> classpaths.forMember(memberPath),
-                () -> classpaths.packagesForMember(memberPath));
+                () -> classpaths.packageInputsForMember(memberPath),
+                () -> classpaths.verifiedCompilerPackagesForMember(memberPath));
     }
 
     private static String compileAbiDigest(

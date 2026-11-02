@@ -9,12 +9,17 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.tomlj.Toml;
 import sh.zolt.manifest.ZoltVersionPin;
+import sh.zolt.manifest.authored.AuthoredGroovyToolchain;
 import sh.zolt.manifest.authored.AuthoredJavaTestToolchain;
 import sh.zolt.manifest.authored.AuthoredJavaToolchain;
+import sh.zolt.manifest.authored.AuthoredKotlinToolchain;
 import sh.zolt.manifest.authored.AuthoredToolchains;
+import sh.zolt.project.toolchain.GroovyToolchainVersion;
 import sh.zolt.project.toolchain.JavaDistribution;
 import sh.zolt.project.toolchain.JavaFeature;
 import sh.zolt.project.toolchain.JavaFeatureRelease;
+import sh.zolt.project.toolchain.KotlinToolchainVersion;
+import sh.zolt.project.toolchain.KotlinCompilerPlugin;
 import sh.zolt.project.toolchain.ToolchainPolicy;
 
 final class ManifestToolchainWriterTest {
@@ -49,7 +54,17 @@ final class ManifestToolchainWriterTest {
                 Optional.of(new AuthoredJavaTestToolchain(
                         Optional.of(new JavaFeatureRelease(17)),
                         Optional.of(JavaDistribution.TEMURIN),
-                        Optional.of(ToolchainPolicy.ALLOW_SYSTEM))));
+                        Optional.of(ToolchainPolicy.ALLOW_SYSTEM))),
+                Optional.of(new AuthoredGroovyToolchain(
+                        new GroovyToolchainVersion("4.0.22"))),
+                Optional.of(new AuthoredKotlinToolchain(
+                        new KotlinToolchainVersion("2.2.0"),
+                        Set.of(
+                                KotlinCompilerPlugin.SERIALIZATION,
+                                KotlinCompilerPlugin.SPRING,
+                                KotlinCompilerPlugin.MICRONAUT,
+                                KotlinCompilerPlugin.JPA,
+                                KotlinCompilerPlugin.POWER_ASSERT))));
 
         String output = write(toolchains);
 
@@ -68,6 +83,13 @@ final class ManifestToolchainWriterTest {
                 version = 17
                 distribution = "temurin"
                 policy = "allow-system"
+
+                [toolchain.groovy]
+                version = "4.0.22"
+
+                [toolchain.kotlin]
+                version = "2.2.0"
+                plugins = ["serialization", "spring", "micronaut", "jpa", "power-assert"]
                 """,
                 output);
         assertFalse(Toml.parse(output).hasErrors());
@@ -131,6 +153,24 @@ final class ManifestToolchainWriterTest {
         assertEquals(
                 Optional.empty(),
                 decodeToolchains(testOnly).mainJava());
+    }
+
+    @Test
+    void omittedKotlinPreservesTheGroovyEraCanonicalBytes() {
+        AuthoredToolchains groovyEra = new AuthoredToolchains(
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(new AuthoredGroovyToolchain(
+                        new GroovyToolchainVersion("4.0.22"))));
+
+        String output = write(groovyEra);
+
+        assertEquals("""
+                [toolchain.groovy]
+                version = "4.0.22"
+                """, output);
+        assertEquals(Optional.empty(), decodeToolchains(output).kotlin());
     }
 
     private static String write(AuthoredToolchains toolchains) {

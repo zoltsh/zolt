@@ -6,10 +6,11 @@ import java.nio.file.Path;
 import java.util.List;
 
 /**
- * Builds the schema-v2 identity of every current input used to choose package bytes and outputs.
+ * Builds the schema-v3 identity of every current input used to choose package bytes and outputs.
  */
 final class PackageInputFingerprint {
-    private static final String SCHEMA = "zolt.package-input.v2";
+    // v3 applies dependency merge policy equally to workspace directories and external JARs.
+    private static final String SCHEMA = "zolt.package-input.v3";
 
     private PackageInputFingerprint() {
     }

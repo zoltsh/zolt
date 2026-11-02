@@ -5,12 +5,8 @@ import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.lockfile.LockConflict;
 import sh.zolt.lockfile.LockDependencyIndex;
 import sh.zolt.lockfile.LockPackage;
-import sh.zolt.lockfile.ZoltLockfile;
 import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -28,13 +24,13 @@ final class DependencyTreeLines {
     }
 
     private final LockDependencyIndex index;
-    private final Map<String, LockConflict> conflicts;
+    private final DependencyConflictIndex conflicts;
     private final View view;
     private final String regenerateCommand;
 
     DependencyTreeLines(
             LockDependencyIndex index,
-            Map<String, LockConflict> conflicts,
+            DependencyConflictIndex conflicts,
             View view,
             String regenerateCommand) {
         this.index = index;
@@ -91,7 +87,7 @@ final class DependencyTreeLines {
         if (!rootAnnotation.isEmpty()) {
             output.append(" (").append(rootAnnotation).append(')');
         }
-        LockConflict conflict = conflicts.get(qualifiedKey(lockPackage));
+        LockConflict conflict = conflicts.first(lockPackage).orElse(null);
         if (conflict != null) {
             output.append(" (conflict: selected ")
                     .append(conflict.selectedVersion())
@@ -139,14 +135,6 @@ final class DependencyTreeLines {
                 .append(')');
     }
 
-    static Map<String, LockConflict> conflictsByPackage(ZoltLockfile lockfile) {
-        Map<String, LockConflict> conflicts = new LinkedHashMap<>();
-        lockfile.conflicts().stream()
-                .sorted(Comparator.comparing(DependencyTreeLines::qualifiedKey))
-                .forEach(conflict -> conflicts.put(qualifiedKey(conflict), conflict));
-        return conflicts;
-    }
-
     /** The {@code groupId:artifactId:version[:variant]} display coordinate of a lock entry. */
     static String coordinate(LockPackage lockPackage) {
         LockArtifactVariant variant = LockArtifactVariant.of(lockPackage);
@@ -154,16 +142,6 @@ final class DependencyTreeLines {
                 + ":"
                 + lockPackage.version()
                 + (variant.isDefault() ? "" : ":" + variant.key());
-    }
-
-    private static String qualifiedKey(LockPackage lockPackage) {
-        return lockPackage.packageId() + ":" + LockArtifactVariant.of(lockPackage).key();
-    }
-
-    private static String qualifiedKey(LockConflict conflict) {
-        return conflict.packageId()
-                + ":"
-                + conflict.variant().map(LockArtifactVariant::key).orElse(LockArtifactVariant.defaultVariant().key());
     }
 
     private static String reason(ConflictSelectionReason reason) {

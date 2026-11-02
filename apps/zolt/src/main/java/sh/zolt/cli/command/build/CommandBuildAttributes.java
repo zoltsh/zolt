@@ -127,7 +127,9 @@ public final class CommandBuildAttributes {
                 Integer.toString(result.executionMetrics().packageCacheHits()));
         addArtifactIntegrityAttributes(attributes, result.executionMetrics().artifactIntegrity());
         attributes.put(CommandAttributeKeys.MAIN_COMPILATIONS_SKIPPED, Integer.toString(result.mainCompilationSkippedCount()));
+        attributes.put(CommandAttributeKeys.MAIN_COMPILATIONS_RESTORED, Integer.toString(result.mainCompilationRestoredCount()));
         attributes.put(CommandAttributeKeys.MAIN_COMPILATIONS_EXECUTED, Integer.toString(result.mainCompilationExecutedCount()));
+        attributes.put(CommandAttributeKeys.MAIN_RESTORED_CLASSES, Integer.toString(result.mainRestoredClassCount()));
         addMainCompileDiagnostics(attributes, result.mainCompileDiagnostics());
         attributes.put(CommandAttributeKeys.WORKSPACE_ABI_INVALIDATIONS, Integer.toString(result.workspaceAbiInvalidationCount()));
         attributes.put(CommandAttributeKeys.RESOLVED_LOCKFILE, Boolean.toString(result.resolvedLockfile()));

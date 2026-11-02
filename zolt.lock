@@ -1,8 +1,8 @@
 version = 7
-aliasFingerprint = "sha256:f358836f8928152208e1e5481b2af580c5aa25f51e70d4fdc4edbf90f3921cf1"
-projectResolutionFingerprint = "sha256:70f99536ef0f26a2c6ecf5e50281db622839dece23ee95bdf244167ce6704092"
-projectResolutionInputFingerprints = ["dependencies.api.workspace=sha256:e278f2c880bafff02f44f9d403dd68e11930a5f8e5c1d8c49e6cb9ae74963d17", "dependencies.api=sha256:953c929a610b1b3747d293b055f7608bb3bc83f524013f9d7b60ffc79b3fff5f", "dependencies.compile.workspace=sha256:5fa3d40686774c104593200c7c73594199c08f78e75617df760f179128c91d86", "dependencies.compile=sha256:dfe177ef5d700fab93f00657eba9e3e319bafc35a4272c981f9d5b97c8822f99", "dependencies.provided=sha256:ee9fd5151af21151e1229a58161679fb2d82e7365fd91fa9b04205c966c8416a", "dependencies.test=sha256:a6c6064397513dfcd01f48ebd6744b52378380fa766d51eb20360a55398c8f38", "dependencyMetadata=sha256:bf26911445197f6d2d15edca3d15f3155867637395d5b28c2b7b576009e2c6ee", "framework.quarkus=sha256:1a03038e3b6c11a6598e959b5526786bc942bd2d0e7cb6aec2401dcd36bafc1b", "framework.springBoot.native=sha256:cf597ee2519b656c8bdeb8a1aaaf81b8c9da20d7b82a94cb0643edd20e98e19f", "java=sha256:c822ebc7e176990dd66771c2496f47b8ee0f6451df7ddfa87c44aebff0a6edf6", "package=sha256:ba2fd61e998d4fab4a9205d2785ca9a48464a401346bebf655e28156a0a304c1", "repositories=sha256:e50e1129945e4af12f6d6b822fe1b5548c9425f8a3f0cfeadfb1fb4a646902e1", "schema=sha256:a08549d13c2f16087cfcaf4458dbe9436970632fe503bb7217f88c16428d2ddd", "versions=sha256:1b437c8c25acec4ac225e0dfe25b92bae4a2d9993151cc407f854f41e4d43c79"]
-workspaceResolutionInputFingerprint = "sha256:5de53a5dd42fbd317c7835f01ead42cdd737eb27c7fc3a6152ba32e8faed45a6"
+aliasFingerprint = "sha256:007a5e184c0ff270d30134fc909702875ee0a1d5967c741f80e39db883bda85c"
+projectResolutionFingerprint = "sha256:ee87e81ced817d8cdcd91a8e4658305a87d702e62a88713808cc1940dbcf571c"
+projectResolutionInputFingerprints = ["dependencies.api.workspace=sha256:e278f2c880bafff02f44f9d403dd68e11930a5f8e5c1d8c49e6cb9ae74963d17", "dependencies.api=sha256:953c929a610b1b3747d293b055f7608bb3bc83f524013f9d7b60ffc79b3fff5f", "dependencies.compile.workspace=sha256:5fa3d40686774c104593200c7c73594199c08f78e75617df760f179128c91d86", "dependencies.compile=sha256:3bd72033ac62807355b3e5b9d8e9f00bafe03257be97eb2c2b609abb66f2add5", "dependencies.provided=sha256:ee9fd5151af21151e1229a58161679fb2d82e7365fd91fa9b04205c966c8416a", "dependencies.test=sha256:e301900a9b59d4db039b4ddf1cb34c20c7fcd13e7200697d6bb8d5b02ef7a376", "dependencyMetadata=sha256:799d208c3184f25fa256c848de247fbb5b55c55e78cc9e12467d6fc55cac10f5", "framework.quarkus=sha256:1a03038e3b6c11a6598e959b5526786bc942bd2d0e7cb6aec2401dcd36bafc1b", "framework.springBoot.native=sha256:cf597ee2519b656c8bdeb8a1aaaf81b8c9da20d7b82a94cb0643edd20e98e19f", "java=sha256:c822ebc7e176990dd66771c2496f47b8ee0f6451df7ddfa87c44aebff0a6edf6", "package=sha256:ba2fd61e998d4fab4a9205d2785ca9a48464a401346bebf655e28156a0a304c1", "repositories=sha256:e50e1129945e4af12f6d6b822fe1b5548c9425f8a3f0cfeadfb1fb4a646902e1", "schema=sha256:a08549d13c2f16087cfcaf4458dbe9436970632fe503bb7217f88c16428d2ddd", "versions=sha256:3b22fbbb8653e6eb00c7ea52b51a87d622a7811f83c381fe8ed479d5cf887cac"]
+workspaceResolutionInputFingerprint = "sha256:2ad436842831a92c44b65f646d1d1a86109f0983e5b185525bca38db04d0ff8d"
 
 [[dependencyRoot]]
 member = "apps/zolt"
@@ -14,177 +14,233 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-build"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-config"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-explain"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-framework-api"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-ide"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-init"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-native-image"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-plan"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-policy"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-publish"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-quality"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-quarkus"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-release"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-repository"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-resolve"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-sbom"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-selfhost"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-test-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-test-runtime"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-toolchain"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-tree"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-update"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "sh.zolt:zolt-workspace"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "com.google.devtools.ksp:symbol-processing-aa"
+version = "2.2.0-2.0.2"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "org.jetbrains.kotlin:kotlin-allopen-compiler-plugin-embeddable"
+version = "2.2.0"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "org.jetbrains.kotlin:kotlin-annotation-processing-embeddable"
+version = "2.2.0"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "org.jetbrains.kotlin:kotlin-compiler-embeddable"
+version = "2.2.0"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "org.jetbrains.kotlin:kotlin-noarg-compiler-plugin-embeddable"
+version = "2.2.0"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "org.jetbrains.kotlin:kotlin-power-assert-compiler-plugin-embeddable"
+version = "2.2.0"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "org.jetbrains.kotlin:kotlin-serialization-compiler-plugin-embeddable"
+version = "2.2.0"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "org.jetbrains.kotlinx:kotlinx-serialization-core-jvm"
+version = "1.9.0"
+lane = "test"
+resolvedScope = "test"
 
 [[dependencyRoot]]
 member = "apps/zolt"
@@ -203,21 +259,21 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "apps/zolt-junit-worker"
 id = "sh.zolt:zolt-junit-client"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt-junit-worker"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "apps/zolt-junit-worker"
 id = "sh.zolt:zolt-test-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -231,51 +287,79 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-build"
 id = "sh.zolt:zolt-junit-client"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-build"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-build"
 id = "sh.zolt:zolt-repository"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-build"
 id = "sh.zolt:zolt-resolve"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-build"
 id = "sh.zolt:zolt-test-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-build"
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-build"
 id = "sh.zolt:zolt-framework-api"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "api"
 resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-build"
+id = "com.google.devtools.ksp:symbol-processing-aa"
+version = "2.2.0-2.0.2"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-build"
+id = "org.apache.groovy:groovy"
+version = "4.0.22"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-build"
+id = "org.jetbrains.kotlin:kotlin-annotation-processing-embeddable"
+version = "2.2.0"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-build"
+id = "org.jetbrains.kotlin:kotlin-compiler-embeddable"
+version = "2.2.0"
+lane = "test"
+resolvedScope = "test"
 
 [[dependencyRoot]]
 member = "modules/zolt-build"
@@ -294,7 +378,7 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "modules/zolt-config"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -315,21 +399,21 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "modules/zolt-explain"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-explain"
 id = "sh.zolt:zolt-repository"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-explain"
 id = "sh.zolt:zolt-resolve"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -343,7 +427,7 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-framework-api"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -357,42 +441,42 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-ide"
 id = "sh.zolt:zolt-build"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-ide"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-ide"
 id = "sh.zolt:zolt-repository"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-ide"
 id = "sh.zolt:zolt-resolve"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-ide"
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-ide"
 id = "sh.zolt:zolt-workspace"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -406,14 +490,14 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-init"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-init"
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -427,7 +511,7 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-junit-client"
 id = "sh.zolt:zolt-test-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -448,28 +532,28 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-native-image"
 id = "sh.zolt:zolt-build"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-native-image"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-native-image"
 id = "sh.zolt:zolt-resolve"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-native-image"
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -483,21 +567,21 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-plan"
 id = "sh.zolt:zolt-build"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-plan"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-plan"
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -511,14 +595,14 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-policy"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-policy"
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -532,28 +616,28 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-publish"
 id = "sh.zolt:zolt-build"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-publish"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-publish"
 id = "sh.zolt:zolt-repository"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-publish"
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -567,63 +651,63 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-quality"
 id = "sh.zolt:zolt-build"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-quality"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-quality"
 id = "sh.zolt:zolt-policy"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-quality"
 id = "sh.zolt:zolt-publish"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-quality"
 id = "sh.zolt:zolt-repository"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-quality"
 id = "sh.zolt:zolt-resolve"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-quality"
 id = "sh.zolt:zolt-sbom"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-quality"
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-quality"
 id = "sh.zolt:zolt-workspace"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -637,56 +721,56 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-quarkus"
 id = "sh.zolt:zolt-build"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-quarkus"
 id = "sh.zolt:zolt-framework-api"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-quarkus"
 id = "sh.zolt:zolt-ide"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-quarkus"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-quarkus"
 id = "sh.zolt:zolt-repository"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-quarkus"
 id = "sh.zolt:zolt-resolve"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-quarkus"
 id = "sh.zolt:zolt-test-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-quarkus"
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -784,7 +868,7 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-release"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -798,7 +882,7 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-repository"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -812,21 +896,21 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-resolve"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-resolve"
 id = "sh.zolt:zolt-repository"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-resolve"
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -840,23 +924,30 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-sbom"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-sbom"
 id = "sh.zolt:zolt-repository"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-sbom"
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-sbom"
+id = "com.fasterxml.jackson.core:jackson-databind"
+version = "2.22.3"
+lane = "test"
+resolvedScope = "test"
 
 [[dependencyRoot]]
 member = "modules/zolt-sbom"
@@ -875,49 +966,49 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-selfhost"
 id = "sh.zolt:zolt-build"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-selfhost"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-selfhost"
 id = "sh.zolt:zolt-native-image"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-selfhost"
 id = "sh.zolt:zolt-resolve"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-selfhost"
 id = "sh.zolt:zolt-test-runtime"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-selfhost"
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-selfhost"
 id = "sh.zolt:zolt-workspace"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -931,7 +1022,7 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-test-model"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -945,49 +1036,49 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-test-runtime"
 id = "sh.zolt:zolt-build"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-test-runtime"
 id = "sh.zolt:zolt-framework-api"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-test-runtime"
 id = "sh.zolt:zolt-junit-client"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-test-runtime"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-test-runtime"
 id = "sh.zolt:zolt-resolve"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-test-runtime"
 id = "sh.zolt:zolt-test-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-test-runtime"
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -1001,7 +1092,7 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-toml"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -1022,21 +1113,21 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-toolchain"
 id = "com.fasterxml.jackson.core:jackson-core"
-version = "2.22.2"
+version = "2.22.3"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-toolchain"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-toolchain"
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -1050,7 +1141,7 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-tree"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -1064,21 +1155,21 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-update"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-update"
 id = "sh.zolt:zolt-repository"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-update"
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
@@ -1092,72 +1183,79 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-workspace"
 id = "sh.zolt:zolt-build"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-workspace"
 id = "sh.zolt:zolt-framework-api"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-workspace"
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-workspace"
 id = "sh.zolt:zolt-native-image"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-workspace"
 id = "sh.zolt:zolt-publish"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-workspace"
 id = "sh.zolt:zolt-repository"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-workspace"
 id = "sh.zolt:zolt-resolve"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-workspace"
 id = "sh.zolt:zolt-test-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-workspace"
 id = "sh.zolt:zolt-test-runtime"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
 
 [[dependencyRoot]]
 member = "modules/zolt-workspace"
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 lane = "implementation"
 resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-workspace"
+id = "org.apache.groovy:groovy"
+version = "4.0.22"
+lane = "test"
+resolvedScope = "test"
 
 [[dependencyRoot]]
 member = "modules/zolt-workspace"
@@ -1207,42 +1305,42 @@ dependencies = []
 
 [[package]]
 id = "com.fasterxml.jackson.core:jackson-core"
-version = "2.22.2"
+version = "2.22.3"
 source = "central"
 scope = "compile"
 direct = true
-jar = "blobs/v2/sha256/ff167a6317be15895706c26668f45b898efe40ab8780970658210fe1393d52a6/jackson-core-2.22.2.jar"
-pom = "blobs/v2/sha256/d2829cfef4c30d200e04d7f65009b4b112a46382aadf4534a30dd7f90cb164e5/jackson-core-2.22.2.pom"
-jarSha256 = "ff167a6317be15895706c26668f45b898efe40ab8780970658210fe1393d52a6"
-pomSha256 = "d2829cfef4c30d200e04d7f65009b4b112a46382aadf4534a30dd7f90cb164e5"
+jar = "blobs/v2/sha256/8a501126a385b25841915d839508f8a66e2a0dbc8a6709d055ef3b3e852b094c/jackson-core-2.22.3.jar"
+pom = "blobs/v2/sha256/bc74c18b24f3ebbfd42741f2b29b37eca9b25e512e6fa7add77f6973cee50bf1/jackson-core-2.22.3.pom"
+jarSha256 = "8a501126a385b25841915d839508f8a66e2a0dbc8a6709d055ef3b3e852b094c"
+pomSha256 = "bc74c18b24f3ebbfd42741f2b29b37eca9b25e512e6fa7add77f6973cee50bf1"
 members = ["modules/zolt-toolchain"]
 dependencies = []
 
 [[package]]
 id = "com.fasterxml.jackson.core:jackson-core"
-version = "2.22.2"
+version = "2.22.3"
 source = "central"
 scope = "test"
 direct = false
-jar = "blobs/v2/sha256/ff167a6317be15895706c26668f45b898efe40ab8780970658210fe1393d52a6/jackson-core-2.22.2.jar"
-pom = "blobs/v2/sha256/d2829cfef4c30d200e04d7f65009b4b112a46382aadf4534a30dd7f90cb164e5/jackson-core-2.22.2.pom"
-jarSha256 = "ff167a6317be15895706c26668f45b898efe40ab8780970658210fe1393d52a6"
-pomSha256 = "d2829cfef4c30d200e04d7f65009b4b112a46382aadf4534a30dd7f90cb164e5"
+jar = "blobs/v2/sha256/8a501126a385b25841915d839508f8a66e2a0dbc8a6709d055ef3b3e852b094c/jackson-core-2.22.3.jar"
+pom = "blobs/v2/sha256/bc74c18b24f3ebbfd42741f2b29b37eca9b25e512e6fa7add77f6973cee50bf1/jackson-core-2.22.3.pom"
+jarSha256 = "8a501126a385b25841915d839508f8a66e2a0dbc8a6709d055ef3b3e852b094c"
+pomSha256 = "bc74c18b24f3ebbfd42741f2b29b37eca9b25e512e6fa7add77f6973cee50bf1"
 members = ["modules/zolt-sbom"]
 dependencies = []
 
 [[package]]
 id = "com.fasterxml.jackson.core:jackson-databind"
-version = "2.22.1"
+version = "2.22.3"
 source = "central"
 scope = "test"
-direct = false
-jar = "blobs/v2/sha256/7dcd7e53bec1f56c7ad278bd1ca0840bebcc595d61ce44d6a8439abb75b965b2/jackson-databind-2.22.1.jar"
-pom = "blobs/v2/sha256/0bc8f98c7bd7232bc90324fc63c2f56f7ae92dee2bf0dc303669f4e2de8c1f69/jackson-databind-2.22.1.pom"
-jarSha256 = "7dcd7e53bec1f56c7ad278bd1ca0840bebcc595d61ce44d6a8439abb75b965b2"
-pomSha256 = "0bc8f98c7bd7232bc90324fc63c2f56f7ae92dee2bf0dc303669f4e2de8c1f69"
+direct = true
+jar = "blobs/v2/sha256/556db5439e206114346043f68d200497dc96a0bca62a360a81784092ebd0e0a9/jackson-databind-2.22.3.jar"
+pom = "blobs/v2/sha256/27a5c6657b955d088daf586f2be9769224e33618ab4f44682a1b36ed98f7b904/jackson-databind-2.22.3.pom"
+jarSha256 = "556db5439e206114346043f68d200497dc96a0bca62a360a81784092ebd0e0a9"
+pomSha256 = "27a5c6657b955d088daf586f2be9769224e33618ab4f44682a1b36ed98f7b904"
 members = ["modules/zolt-sbom"]
-dependencies = ["com.fasterxml.jackson.core:jackson-annotations:2.22:jar:test", "com.fasterxml.jackson.core:jackson-core:2.22.2:jar:test"]
+dependencies = ["com.fasterxml.jackson.core:jackson-annotations:2.22:jar:test", "com.fasterxml.jackson.core:jackson-core:2.22.3:jar:test"]
 
 [[package]]
 id = "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml"
@@ -1255,7 +1353,47 @@ pom = "blobs/v2/sha256/48345abc9f63837e73ef0af83193b268e05d1c0e63e2934fdcbd78e26
 jarSha256 = "cc3a0e540791a9a1cbcd7584767b84572ffda0b72823856558f47dea69ae8ed1"
 pomSha256 = "48345abc9f63837e73ef0af83193b268e05d1c0e63e2934fdcbd78e26e8932ff"
 members = ["modules/zolt-sbom"]
-dependencies = ["com.fasterxml.jackson.core:jackson-core:2.22.2:jar:test", "com.fasterxml.jackson.core:jackson-databind:2.22.1:jar:test", "org.yaml:snakeyaml:2.5:jar:test"]
+dependencies = ["com.fasterxml.jackson.core:jackson-core:2.22.3:jar:test", "com.fasterxml.jackson.core:jackson-databind:2.22.3:jar:test", "org.yaml:snakeyaml:2.5:jar:test"]
+
+[[package]]
+id = "com.google.devtools.ksp:symbol-processing-aa"
+version = "2.2.0-2.0.2"
+source = "central"
+scope = "test"
+direct = true
+jar = "blobs/v2/sha256/1ce69a63d350645f7fccfedc724bb950e42df3d5a68b2e4f3d57eefb13fcc314/symbol-processing-aa-2.2.0-2.0.2.jar"
+pom = "blobs/v2/sha256/8f0bca0124a0112637fc6b9583c746da22961b40aeb9fc1fd5a838a780bf8d56/symbol-processing-aa-2.2.0-2.0.2.pom"
+jarSha256 = "1ce69a63d350645f7fccfedc724bb950e42df3d5a68b2e4f3d57eefb13fcc314"
+pomSha256 = "8f0bca0124a0112637fc6b9583c746da22961b40aeb9fc1fd5a838a780bf8d56"
+members = ["apps/zolt", "modules/zolt-build"]
+policies = ["version-ref: com.google.devtools.ksp:symbol-processing-aa -> 2.2.0-2.0.2 from [versions].ksp"]
+dependencies = ["com.google.devtools.ksp:symbol-processing-api:2.2.0-2.0.2:jar:test", "com.google.devtools.ksp:symbol-processing-common-deps:2.2.0-2.0.2:jar:test", "org.jetbrains.kotlin:kotlin-stdlib:2.2.0:jar:test", "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.8.0:jar:test"]
+
+[[package]]
+id = "com.google.devtools.ksp:symbol-processing-api"
+version = "2.2.0-2.0.2"
+source = "central"
+scope = "test"
+direct = false
+jar = "blobs/v2/sha256/588d17c4ea982b11028c2c82cb1d7300d269023a8068009f9ae9fb2c9c20c6d9/symbol-processing-api-2.2.0-2.0.2.jar"
+pom = "blobs/v2/sha256/2e91c8c4c0f509eaa0caf4c7bc64906f8c53843184b50daf119ce14e69c3539d/symbol-processing-api-2.2.0-2.0.2.pom"
+jarSha256 = "588d17c4ea982b11028c2c82cb1d7300d269023a8068009f9ae9fb2c9c20c6d9"
+pomSha256 = "2e91c8c4c0f509eaa0caf4c7bc64906f8c53843184b50daf119ce14e69c3539d"
+members = ["apps/zolt", "modules/zolt-build"]
+dependencies = ["org.jetbrains.kotlin:kotlin-stdlib:2.2.0:jar:test"]
+
+[[package]]
+id = "com.google.devtools.ksp:symbol-processing-common-deps"
+version = "2.2.0-2.0.2"
+source = "central"
+scope = "test"
+direct = false
+jar = "blobs/v2/sha256/3d642180be184646ece9c6e7184900d92f84f8080dab838a6db69c0f8acdd6e9/symbol-processing-common-deps-2.2.0-2.0.2.jar"
+pom = "blobs/v2/sha256/e4d7dd0a500d4e59227dcb657dce90917b84a8639d2f1fc98bbef1c57aded308/symbol-processing-common-deps-2.2.0-2.0.2.pom"
+jarSha256 = "3d642180be184646ece9c6e7184900d92f84f8080dab838a6db69c0f8acdd6e9"
+pomSha256 = "e4d7dd0a500d4e59227dcb657dce90917b84a8639d2f1fc98bbef1c57aded308"
+members = ["apps/zolt", "modules/zolt-build"]
+dependencies = ["org.jetbrains.kotlin:kotlin-stdlib:2.2.0:jar:test"]
 
 [[package]]
 id = "com.networknt:json-schema-validator"
@@ -1268,7 +1406,7 @@ pom = "blobs/v2/sha256/e0286a6ed4c21958edc64545666385e60501ad2c5aa75164211edb8e3
 jarSha256 = "7d01cefd6f0d656666b94778c7a13ada2941aace48e76830809c0dbf61ad5be2"
 pomSha256 = "e0286a6ed4c21958edc64545666385e60501ad2c5aa75164211edb8e397f8bbd"
 members = ["modules/zolt-sbom"]
-dependencies = ["com.ethlo.time:itu:1.14.0:jar:test", "com.fasterxml.jackson.core:jackson-databind:2.22.1:jar:test", "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.22.1:jar:test", "org.slf4j:slf4j-api:2.0.18:jar:test"]
+dependencies = ["com.ethlo.time:itu:1.14.0:jar:test", "com.fasterxml.jackson.core:jackson-databind:2.22.3:jar:test", "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.22.1:jar:test", "org.slf4j:slf4j-api:2.0.18:jar:test"]
 
 [[package]]
 id = "info.picocli:picocli"
@@ -1799,6 +1937,20 @@ members = ["modules/zolt-config", "modules/zolt-explain", "modules/zolt-toml"]
 dependencies = []
 
 [[package]]
+id = "org.apache.groovy:groovy"
+version = "4.0.22"
+source = "central"
+scope = "test"
+direct = true
+jar = "blobs/v2/sha256/f9d8bd4d65852c18194e353c77f3d2c23e0013856951c5430ba56972d2f67a1e/groovy-4.0.22.jar"
+pom = "blobs/v2/sha256/56ec38ff2a9f95f157ead21cedf3305ac301fb79264014b2cef3e85fb26b34ad/groovy-4.0.22.pom"
+jarSha256 = "f9d8bd4d65852c18194e353c77f3d2c23e0013856951c5430ba56972d2f67a1e"
+pomSha256 = "56ec38ff2a9f95f157ead21cedf3305ac301fb79264014b2cef3e85fb26b34ad"
+members = ["modules/zolt-build", "modules/zolt-workspace"]
+policies = ["version-ref: org.apache.groovy:groovy -> 4.0.22 from [versions].groovy"]
+dependencies = []
+
+[[package]]
 id = "org.checkerframework:checker-qual"
 version = "3.55.1"
 source = "central"
@@ -1968,6 +2120,182 @@ members = ["modules/zolt-quarkus"]
 dependencies = ["io.smallrye.common:smallrye-common-annotation:2.20.0:jar:test", "io.smallrye.common:smallrye-common-constraint:2.20.0:jar:test", "io.smallrye.common:smallrye-common-cpu:2.15.0:jar:test", "io.smallrye.common:smallrye-common-function:2.20.0:jar:test", "org.jboss.logging:jboss-logging:3.6.3.Final:jar:test", "org.wildfly.common:wildfly-common:2.0.1:jar:test"]
 
 [[package]]
+id = "org.jetbrains.kotlin:kotlin-allopen-compiler-plugin-embeddable"
+version = "2.2.0"
+source = "central"
+scope = "test"
+direct = true
+jar = "blobs/v2/sha256/10b9f355746c04130675d219db46c3af6d4057a60217efab36e66c8f2e13e8b5/kotlin-allopen-compiler-plugin-embeddable-2.2.0.jar"
+pom = "blobs/v2/sha256/0391fde2403feb469e68c05a7cd9ec04f061c2e8daaa945b726d30b04a305196/kotlin-allopen-compiler-plugin-embeddable-2.2.0.pom"
+jarSha256 = "10b9f355746c04130675d219db46c3af6d4057a60217efab36e66c8f2e13e8b5"
+pomSha256 = "0391fde2403feb469e68c05a7cd9ec04f061c2e8daaa945b726d30b04a305196"
+members = ["apps/zolt"]
+policies = ["version-ref: org.jetbrains.kotlin:kotlin-allopen-compiler-plugin-embeddable -> 2.2.0 from [versions].kotlin"]
+dependencies = []
+
+[[package]]
+id = "org.jetbrains.kotlin:kotlin-annotation-processing-embeddable"
+version = "2.2.0"
+source = "central"
+scope = "test"
+direct = true
+jar = "blobs/v2/sha256/6532b19ce226a164715121ada86e381c79a7c2a0c8a66311368f545e4af176ea/kotlin-annotation-processing-embeddable-2.2.0.jar"
+pom = "blobs/v2/sha256/f0ece72fea1956cd32fe3b69eb54f2ae45c6ff592dfd56dd206b21eeb473c4d6/kotlin-annotation-processing-embeddable-2.2.0.pom"
+jarSha256 = "6532b19ce226a164715121ada86e381c79a7c2a0c8a66311368f545e4af176ea"
+pomSha256 = "f0ece72fea1956cd32fe3b69eb54f2ae45c6ff592dfd56dd206b21eeb473c4d6"
+members = ["apps/zolt", "modules/zolt-build"]
+policies = ["version-ref: org.jetbrains.kotlin:kotlin-annotation-processing-embeddable -> 2.2.0 from [versions].kotlin"]
+dependencies = []
+
+[[package]]
+id = "org.jetbrains.kotlin:kotlin-compiler-embeddable"
+version = "2.2.0"
+source = "central"
+scope = "test"
+direct = true
+jar = "blobs/v2/sha256/b2f743ea5ba12f69e0f35e5d8d46069d74c8e2861087548a7e0e14a784bc4cf1/kotlin-compiler-embeddable-2.2.0.jar"
+pom = "blobs/v2/sha256/16a15dd197cf2413494f788cb96144d9a146267c3d6f7f1c15b7a3c1e052346a/kotlin-compiler-embeddable-2.2.0.pom"
+jarSha256 = "b2f743ea5ba12f69e0f35e5d8d46069d74c8e2861087548a7e0e14a784bc4cf1"
+pomSha256 = "16a15dd197cf2413494f788cb96144d9a146267c3d6f7f1c15b7a3c1e052346a"
+members = ["apps/zolt", "modules/zolt-build"]
+policies = ["version-ref: org.jetbrains.kotlin:kotlin-compiler-embeddable -> 2.2.0 from [versions].kotlin"]
+dependencies = ["org.jetbrains.kotlin:kotlin-daemon-embeddable:2.2.0:jar:test", "org.jetbrains.kotlin:kotlin-reflect:1.6.10:jar:test", "org.jetbrains.kotlin:kotlin-script-runtime:2.2.0:jar:test", "org.jetbrains.kotlin:kotlin-stdlib:2.2.0:jar:test", "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.8.0:jar:test"]
+
+[[package]]
+id = "org.jetbrains.kotlin:kotlin-daemon-embeddable"
+version = "2.2.0"
+source = "central"
+scope = "test"
+direct = false
+jar = "blobs/v2/sha256/a26cc8e2d8619197cc4d115bea7766e9aa8e0f1e7876ea044ee1b9f305654601/kotlin-daemon-embeddable-2.2.0.jar"
+pom = "blobs/v2/sha256/bd2ae4e2c91605654a8a5527da757f2b2276580d1f5eaebeabd3343af8d5c467/kotlin-daemon-embeddable-2.2.0.pom"
+jarSha256 = "a26cc8e2d8619197cc4d115bea7766e9aa8e0f1e7876ea044ee1b9f305654601"
+pomSha256 = "bd2ae4e2c91605654a8a5527da757f2b2276580d1f5eaebeabd3343af8d5c467"
+members = ["apps/zolt", "modules/zolt-build"]
+dependencies = []
+
+[[package]]
+id = "org.jetbrains.kotlin:kotlin-noarg-compiler-plugin-embeddable"
+version = "2.2.0"
+source = "central"
+scope = "test"
+direct = true
+jar = "blobs/v2/sha256/13349dc1aca68c4e0964c791c92e481f559c11c4289ef37e4647dc551cf31cae/kotlin-noarg-compiler-plugin-embeddable-2.2.0.jar"
+pom = "blobs/v2/sha256/ccb9a4d15613d6828031822b4b4eea569b6acb42044da4797a27bbd1448e3e0c/kotlin-noarg-compiler-plugin-embeddable-2.2.0.pom"
+jarSha256 = "13349dc1aca68c4e0964c791c92e481f559c11c4289ef37e4647dc551cf31cae"
+pomSha256 = "ccb9a4d15613d6828031822b4b4eea569b6acb42044da4797a27bbd1448e3e0c"
+members = ["apps/zolt"]
+policies = ["version-ref: org.jetbrains.kotlin:kotlin-noarg-compiler-plugin-embeddable -> 2.2.0 from [versions].kotlin"]
+dependencies = []
+
+[[package]]
+id = "org.jetbrains.kotlin:kotlin-power-assert-compiler-plugin-embeddable"
+version = "2.2.0"
+source = "central"
+scope = "test"
+direct = true
+jar = "blobs/v2/sha256/7bc9123a9556feb125531ef769fa599910afff6229f6c7734d03d25704debf79/kotlin-power-assert-compiler-plugin-embeddable-2.2.0.jar"
+pom = "blobs/v2/sha256/52be503bde09c07fbdd3225e5f8e56cd2704438b7a78b95d00e9a623743ea8ef/kotlin-power-assert-compiler-plugin-embeddable-2.2.0.pom"
+jarSha256 = "7bc9123a9556feb125531ef769fa599910afff6229f6c7734d03d25704debf79"
+pomSha256 = "52be503bde09c07fbdd3225e5f8e56cd2704438b7a78b95d00e9a623743ea8ef"
+members = ["apps/zolt"]
+policies = ["version-ref: org.jetbrains.kotlin:kotlin-power-assert-compiler-plugin-embeddable -> 2.2.0 from [versions].kotlin"]
+dependencies = []
+
+[[package]]
+id = "org.jetbrains.kotlin:kotlin-reflect"
+version = "1.6.10"
+source = "central"
+scope = "test"
+direct = false
+jar = "blobs/v2/sha256/3277ac102ae17aad10a55abec75ff5696c8d109790396434b496e75087854203/kotlin-reflect-1.6.10.jar"
+pom = "blobs/v2/sha256/57905524274a00ae028aaccc27283f6bc5925a934a046c1cc5d06c8ee4d6d5a9/kotlin-reflect-1.6.10.pom"
+jarSha256 = "3277ac102ae17aad10a55abec75ff5696c8d109790396434b496e75087854203"
+pomSha256 = "57905524274a00ae028aaccc27283f6bc5925a934a046c1cc5d06c8ee4d6d5a9"
+members = ["apps/zolt", "modules/zolt-build"]
+dependencies = []
+
+[[package]]
+id = "org.jetbrains.kotlin:kotlin-script-runtime"
+version = "2.2.0"
+source = "central"
+scope = "test"
+direct = false
+jar = "blobs/v2/sha256/4ed97fd1e0c9bb1d0948ed5e63cc91456313a59518295b92b2c1514aef556150/kotlin-script-runtime-2.2.0.jar"
+pom = "blobs/v2/sha256/e50748bf4674f654603e7b1bb830634ec99ebd9c330deba4cadceec0767cbb56/kotlin-script-runtime-2.2.0.pom"
+jarSha256 = "4ed97fd1e0c9bb1d0948ed5e63cc91456313a59518295b92b2c1514aef556150"
+pomSha256 = "e50748bf4674f654603e7b1bb830634ec99ebd9c330deba4cadceec0767cbb56"
+members = ["apps/zolt", "modules/zolt-build"]
+dependencies = []
+
+[[package]]
+id = "org.jetbrains.kotlin:kotlin-serialization-compiler-plugin-embeddable"
+version = "2.2.0"
+source = "central"
+scope = "test"
+direct = true
+jar = "blobs/v2/sha256/fb542c2d78b9486ad8afdac2e5fe481e2cecd1ff6ac0d5e55517819205fb869d/kotlin-serialization-compiler-plugin-embeddable-2.2.0.jar"
+pom = "blobs/v2/sha256/fcb61d6b5bbbb17e950bdf2b62160bfd7787d464cb9e9f072ed530302c95bb02/kotlin-serialization-compiler-plugin-embeddable-2.2.0.pom"
+jarSha256 = "fb542c2d78b9486ad8afdac2e5fe481e2cecd1ff6ac0d5e55517819205fb869d"
+pomSha256 = "fcb61d6b5bbbb17e950bdf2b62160bfd7787d464cb9e9f072ed530302c95bb02"
+members = ["apps/zolt"]
+policies = ["version-ref: org.jetbrains.kotlin:kotlin-serialization-compiler-plugin-embeddable -> 2.2.0 from [versions].kotlin"]
+dependencies = []
+
+[[package]]
+id = "org.jetbrains.kotlin:kotlin-stdlib"
+version = "2.2.0"
+source = "central"
+scope = "test"
+direct = false
+jar = "blobs/v2/sha256/65d12d85a3b865c160db9147851712a64b10dadd68b22eea22a95bf8a8670dca/kotlin-stdlib-2.2.0.jar"
+pom = "blobs/v2/sha256/8c3c821007c13411558739b9f3d5382eb81551db3895cffb89561e56c0f4dc16/kotlin-stdlib-2.2.0.pom"
+jarSha256 = "65d12d85a3b865c160db9147851712a64b10dadd68b22eea22a95bf8a8670dca"
+pomSha256 = "8c3c821007c13411558739b9f3d5382eb81551db3895cffb89561e56c0f4dc16"
+members = ["apps/zolt", "modules/zolt-build"]
+dependencies = ["org.jetbrains:annotations:23.0.0:jar:test"]
+
+[[package]]
+id = "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm"
+version = "1.8.0"
+source = "central"
+scope = "test"
+direct = false
+jar = "blobs/v2/sha256/9860906a1937490bf5f3b06d2f0e10ef451e65b95b269f22daf68a3d1f5065c5/kotlinx-coroutines-core-jvm-1.8.0.jar"
+pom = "blobs/v2/sha256/a5633abd53467ceb91622d81f2e982080877145e0b76e1b75788715434885d0b/kotlinx-coroutines-core-jvm-1.8.0.pom"
+jarSha256 = "9860906a1937490bf5f3b06d2f0e10ef451e65b95b269f22daf68a3d1f5065c5"
+pomSha256 = "a5633abd53467ceb91622d81f2e982080877145e0b76e1b75788715434885d0b"
+members = ["apps/zolt", "modules/zolt-build"]
+dependencies = ["org.jetbrains.kotlin:kotlin-stdlib:2.2.0:jar:test", "org.jetbrains:annotations:23.0.0:jar:test"]
+
+[[package]]
+id = "org.jetbrains.kotlinx:kotlinx-serialization-core-jvm"
+version = "1.9.0"
+source = "central"
+scope = "test"
+direct = true
+jar = "blobs/v2/sha256/1f0afa172110e45a7231ef1b44ae8fd84c1ebaff96f3fc3ad68ef8c48120b59c/kotlinx-serialization-core-jvm-1.9.0.jar"
+pom = "blobs/v2/sha256/87190d434e6272fed605af0fced15f6bc082d8a55040c5198e6d4b2d6a2fcac2/kotlinx-serialization-core-jvm-1.9.0.pom"
+jarSha256 = "1f0afa172110e45a7231ef1b44ae8fd84c1ebaff96f3fc3ad68ef8c48120b59c"
+pomSha256 = "87190d434e6272fed605af0fced15f6bc082d8a55040c5198e6d4b2d6a2fcac2"
+members = ["apps/zolt"]
+policies = ["version-ref: org.jetbrains.kotlinx:kotlinx-serialization-core-jvm -> 1.9.0 from [versions].kotlinx-serialization"]
+dependencies = ["org.jetbrains.kotlin:kotlin-stdlib:2.2.0:jar:test"]
+
+[[package]]
+id = "org.jetbrains:annotations"
+version = "23.0.0"
+source = "central"
+scope = "test"
+direct = false
+jar = "blobs/v2/sha256/7b0f19724082cbfcbc66e5abea2b9bc92cf08a1ea11e191933ed43801eb3cd05/annotations-23.0.0.jar"
+pom = "blobs/v2/sha256/c9490f655132328df2cfbcfdf743f53fc3916d6c1d10437175a6ca6e3a67771c/annotations-23.0.0.pom"
+jarSha256 = "7b0f19724082cbfcbc66e5abea2b9bc92cf08a1ea11e191933ed43801eb3cd05"
+pomSha256 = "c9490f655132328df2cfbcfdf743f53fc3916d6c1d10437175a6ca6e3a67771c"
+members = ["apps/zolt", "modules/zolt-build"]
+dependencies = []
+
+[[package]]
 id = "org.junit.platform:junit-platform-console-standalone"
 version = "1.14.4"
 source = "central"
@@ -2089,7 +2417,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-build"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2100,7 +2428,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-config"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2111,7 +2439,7 @@ dependencies = ["org.tomlj:tomlj:1.3.1:jar:compile"]
 
 [[package]]
 id = "sh.zolt:zolt-explain"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2122,7 +2450,7 @@ dependencies = ["org.tomlj:tomlj:1.3.1:jar:compile"]
 
 [[package]]
 id = "sh.zolt:zolt-framework-api"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2134,7 +2462,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-ide"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2145,7 +2473,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-init"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2156,7 +2484,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-junit-client"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2167,7 +2495,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2178,7 +2506,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-native-image"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2189,7 +2517,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-plan"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2200,7 +2528,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-policy"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2211,7 +2539,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-publish"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2222,7 +2550,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-quality"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2233,7 +2561,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-quarkus"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2244,7 +2572,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-release"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2255,7 +2583,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-repository"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2266,7 +2594,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-resolve"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2277,7 +2605,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-sbom"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2288,7 +2616,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-selfhost"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2299,7 +2627,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-test-model"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2310,7 +2638,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-test-runtime"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2321,7 +2649,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-toml"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2332,18 +2660,18 @@ dependencies = ["org.tomlj:tomlj:1.3.1:jar:compile"]
 
 [[package]]
 id = "sh.zolt:zolt-toolchain"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
 workspace = "modules/zolt-toolchain"
 workspaceOutput = "target/classes"
 members = ["apps/zolt"]
-dependencies = ["com.fasterxml.jackson.core:jackson-core:2.22.2:jar:compile"]
+dependencies = ["com.fasterxml.jackson.core:jackson-core:2.22.3:jar:compile"]
 
 [[package]]
 id = "sh.zolt:zolt-tree"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2354,7 +2682,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-update"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2365,7 +2693,7 @@ dependencies = []
 
 [[package]]
 id = "sh.zolt:zolt-workspace"
-version = "0.1.0-SNAPSHOT"
+version = "1.0.0"
 source = "workspace"
 scope = "compile"
 direct = true
@@ -2488,31 +2816,31 @@ policy = "dependency edge exclusion from org.jboss.logmanager:jboss-logmanager:3
 
 [[policy]]
 kind = "edge-exclusion"
+id = "org.jetbrains.kotlin:kotlin-stdlib"
+requested = "1.6.10"
+source = "org.jetbrains.kotlin:kotlin-reflect:1.6.10"
+policy = "dependency edge exclusion from org.jetbrains.kotlin:kotlin-reflect:1.6.10 to org.jetbrains.kotlin:kotlin-stdlib"
+
+[[policy]]
+kind = "edge-exclusion"
+id = "org.jetbrains.kotlin:kotlin-stdlib"
+requested = "1.9.21"
+source = "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.8.0"
+policy = "dependency edge exclusion from org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.8.0 to org.jetbrains.kotlin:kotlin-stdlib"
+
+[[policy]]
+kind = "edge-exclusion"
+id = "org.jetbrains:annotations"
+requested = "23.0.0"
+source = "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.8.0"
+policy = "dependency edge exclusion from org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.8.0 to org.jetbrains:annotations"
+
+[[policy]]
+kind = "edge-exclusion"
 id = "org.ow2.asm:asm"
 requested = "9.10.1"
 source = "io.smallrye.config:smallrye-config-core:3.18.2"
 policy = "dependency edge exclusion from io.smallrye.config:smallrye-config-core:3.18.2 to org.ow2.asm:asm"
-
-[[policy]]
-kind = "workspace-mediation"
-id = "com.fasterxml.jackson.core:jackson-core"
-requested = "2.22.1"
-source = "com.fasterxml.jackson.core:jackson-databind:2.22.1"
-policy = "workspace-mediation: com.fasterxml.jackson.core:jackson-core requested 2.22.1 -> 2.22.2"
-
-[[policy]]
-kind = "workspace-mediation"
-id = "com.fasterxml.jackson.core:jackson-core"
-requested = "2.22.1"
-source = "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.22.1"
-policy = "workspace-mediation: com.fasterxml.jackson.core:jackson-core requested 2.22.1 -> 2.22.2"
-
-[[policy]]
-kind = "workspace-mediation"
-id = "com.fasterxml.jackson.core:jackson-core"
-requested = "2.22.1"
-source = "workspace member modules/zolt-sbom"
-policy = "workspace-mediation: com.fasterxml.jackson.core:jackson-core requested 2.22.1 -> 2.22.2"
 
 [[policy]]
 kind = "workspace-mediation"
@@ -2747,10 +3075,17 @@ policy = "workspace-mediation: org.slf4j:slf4j-api requested 2.0.17 -> 2.0.18"
 
 [[conflict]]
 id = "com.fasterxml.jackson.core:jackson-core"
-members = ["modules/zolt-sbom", "modules/zolt-toolchain"]
-selected = "2.22.2"
-requested = ["2.22.1", "2.22.2"]
-reason = "selected materialized graph wins"
+members = ["modules/zolt-sbom"]
+selected = "2.22.3"
+requested = ["2.22.1", "2.22.3"]
+reason = "newest version wins"
+
+[[conflict]]
+id = "com.fasterxml.jackson.core:jackson-databind"
+members = ["modules/zolt-sbom"]
+selected = "2.22.3"
+requested = ["2.22.1", "2.22.3"]
+reason = "direct dependency wins"
 
 [[conflict]]
 id = "io.smallrye.common:smallrye-common-annotation"
@@ -2848,6 +3183,27 @@ id = "org.jboss.logging:jboss-logging"
 members = ["modules/zolt-quarkus"]
 selected = "3.6.3.Final"
 requested = ["3.5.0.Final", "3.6.0.Final", "3.6.1.Final", "3.6.2.Final", "3.6.3.Final"]
+reason = "newest version wins"
+
+[[conflict]]
+id = "org.jetbrains.kotlin:kotlin-stdlib"
+members = ["apps/zolt", "modules/zolt-build"]
+selected = "2.2.0"
+requested = ["1.6.21", "1.9.21", "2.1.20", "2.2.0"]
+reason = "newest version wins"
+
+[[conflict]]
+id = "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm"
+members = ["apps/zolt", "modules/zolt-build"]
+selected = "1.8.0"
+requested = ["1.6.4", "1.8.0"]
+reason = "newest version wins"
+
+[[conflict]]
+id = "org.jetbrains:annotations"
+members = ["apps/zolt", "modules/zolt-build"]
+selected = "23.0.0"
+requested = ["13.0", "23.0.0"]
 reason = "newest version wins"
 
 [[conflict]]

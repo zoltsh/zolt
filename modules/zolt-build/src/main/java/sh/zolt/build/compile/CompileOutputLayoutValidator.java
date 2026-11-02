@@ -18,8 +18,7 @@ import java.util.List;
 
 /** Rejects compile-output layouts that could overwrite or erase project inputs or another scope. */
 public final class CompileOutputLayoutValidator {
-    private CompileOutputLayoutValidator() {
-    }
+    private CompileOutputLayoutValidator() {}
 
     public static void validateMain(Path projectDirectory, ProjectConfig config) {
         Path root = ProjectPaths.root(projectDirectory);
@@ -102,6 +101,8 @@ public final class CompileOutputLayoutValidator {
     private static boolean isIntegrationProjection(BuildSettings build) {
         return build.testOutput().equals(build.integrationTestOutput())
                 && build.testSources().equals(build.integrationTestSources())
+                && build.groovyTestSources().isEmpty()
+                && build.kotlinTestSources().equals(build.integrationTestSources())
                 && build.testResourceRoots().equals(build.integrationTestResourceRoots());
     }
 
@@ -150,14 +151,7 @@ public final class CompileOutputLayoutValidator {
         }
     }
 
-    /**
-     * A project-root input such as {@code [build].sources = ["."]} is intentionally broad. The declared
-     * build output root carves an owned subtree out of that catch-all input, so conventional
-     * {@code target/...} outputs remain valid. Narrower source/resource roots do not confer that ownership:
-     * placing an output below one would make discovery hide files that cleanup can then erase. Neither a
-     * source-root alias back to the project root nor an output-root alias into an authored tree can create
-     * ownership.
-     */
+    /** A literal project-root input permits its declared output subtree; narrower or aliased roots do not. */
     private static boolean isOwnedProjectRootSubtree(
             Path root,
             ConfiguredPath outputRoot,
@@ -193,9 +187,14 @@ public final class CompileOutputLayoutValidator {
                 ProjectLockfile.NAME,
                 root.resolve(ProjectLockfile.NAME),
                 false));
+        for (String lock : List.of(".zolt/project-mutation.lock", ".zolt/workspace-mutation.lock")) {
+            paths.add(new ConfiguredPath("mutation lock", lock, root.resolve(lock), false));
+        }
+        paths.add(new ConfiguredPath("runtime snapshots", ".zolt/run", root.resolve(".zolt/run"), false));
         addInputs(paths, root, "[build].sources", build.sourceRoots());
         addInputs(paths, root, "[test.sources].java", build.testSources());
         addInputs(paths, root, "[test.sources].groovy", build.groovyTestSources());
+        addInputs(paths, root, "[test.sources].kotlin", build.kotlinTestSources());
         addInputs(paths, root, "[test.integration].sources", build.integrationTestSources());
         addInputs(paths, root, "[resources].main", build.resourceRoots());
         addInputs(paths, root, "[resources].test", build.testResourceRoots());

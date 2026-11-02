@@ -1,8 +1,10 @@
 package sh.zolt.build.discovery;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.build.SourceDiscoveryException;
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.GeneratedSourceKind;
 import sh.zolt.project.GeneratedSourceStep;
@@ -42,6 +44,123 @@ final class SourceDiscovererTest {
                 buildSettingsWithSourceRoots(List.of("src/generated/java", "src/main/java")));
 
         assertEquals(List.of(generated, main), result.mainSources());
+    }
+
+    @Test
+    void findsMainGroovySourcesFromConfiguredRootsDeterministically() throws IOException {
+        Path generated = source("src/generated/groovy/com/example/Generated.groovy");
+        Path main = source("src/main/groovy/com/example/Main.groovy");
+        Path java = source("src/main/java/com/example/JavaMain.java");
+
+        SourceDiscoveryResult result = discoverer.discover(
+                projectDir,
+                buildSettingsWithSourceRoots(List.of(
+                        "src/generated/groovy",
+                        "src/main/groovy",
+                        "src/main/java")));
+
+        assertEquals(List.of(generated, main), result.groovyMainSources());
+        assertEquals(List.of(java), result.mainSources());
+        assertEquals(List.of(generated, main, java), result.allMainSources());
+    }
+
+    @Test
+    void findsKotlinInAuthoredMainAndExplicitKotlinTestRootsDeterministically()
+            throws IOException {
+        Path main = source("src/main/java/com/example/Main.kt");
+        Path mainFromSecondRoot = source("src/main/shared/com/example/Second.kt");
+        Path firstTest = source("src/test/kotlin/com/example/MainTest.kt");
+        Path secondTest = source("src/test-support/kotlin/com/example/MainSpec.kt");
+        source("src/main/java/com/example/Script.kts");
+        source("src/test/kotlin/com/example/TestScript.kts");
+        BuildSettings defaults = BuildSettings.defaults();
+        BuildSettings settings = new BuildSettings(
+                defaults.source(),
+                List.of("src/main/shared", "src/main/java"),
+                defaults.test(),
+                defaults.outputRoot(),
+                defaults.output(),
+                defaults.testOutput(),
+                List.of("src/test/java"),
+                List.of("src/test/groovy"),
+                List.of("src/test-support/kotlin", "src/test/kotlin"),
+                defaults.resourceRoots(),
+                defaults.testResourceRoots(),
+                defaults.metadata());
+
+        SourceDiscoveryResult result = discoverer.discover(projectDir, settings);
+
+        assertEquals(List.of(main, mainFromSecondRoot), result.kotlinMainSources());
+        assertEquals(List.of(secondTest, firstTest), result.kotlinTestSources());
+    }
+
+    @Test
+    void rejectsKotlinTestsOutsideExplicitKotlinRoots() throws IOException {
+        source("src/test/java/com/example/MainTest.kt");
+
+        SourceDiscoveryException failure = assertThrows(
+                SourceDiscoveryException.class,
+                () -> discoverer.discover(projectDir, BuildSettings.defaults()));
+
+        assertTrue(failure.getMessage().contains("src/test/java/com/example/MainTest.kt"));
+        assertTrue(failure.getMessage().contains("[test.sources].kotlin"));
+    }
+
+    @Test
+    void rejectsKotlinTestsUnderGroovyRootsUnlessExplicitlyDeclared() throws IOException {
+        source("src/test/groovy/com/example/MainSpec.kt");
+        BuildSettings settings = new BuildSettings(
+                "src/main/java",
+                "src/test/java",
+                "target/classes",
+                "target/test-classes",
+                List.of("src/test/java"),
+                List.of("src/test/groovy"));
+
+        SourceDiscoveryException failure = assertThrows(
+                SourceDiscoveryException.class,
+                () -> discoverer.discover(projectDir, settings));
+
+        assertTrue(failure.getMessage().contains("src/test/groovy/com/example/MainSpec.kt"));
+        assertTrue(failure.getMessage().contains("[test.sources].kotlin"));
+    }
+
+    @Test
+    void discoversJavaAndKotlinFromProjectedPolyglotIntegrationRoots() throws IOException {
+        Path java = source("src/integration-test/java/com/example/JavaIT.java");
+        Path kotlin = source("src/integration-test/java/com/example/KotlinIT.kt");
+        source("src/integration-test/java/com/example/Script.kts");
+
+        SourceDiscoveryResult result = discoverer.discover(
+                projectDir,
+                BuildSettings.defaults().asIntegrationTestBuild());
+
+        assertEquals(List.of(java), result.testSources());
+        assertEquals(List.of(kotlin), result.kotlinTestSources());
+        assertEquals(List.of(java, kotlin), result.allTestSources());
+    }
+
+    @Test
+    void admitsKotlinTestsWhenJavaAndKotlinRootsOverlapExplicitly() throws IOException {
+        Path test = source("src/test/java/com/example/MainTest.kt");
+        BuildSettings defaults = BuildSettings.defaults();
+        BuildSettings settings = new BuildSettings(
+                defaults.source(),
+                defaults.sourceRoots(),
+                defaults.test(),
+                defaults.outputRoot(),
+                defaults.output(),
+                defaults.testOutput(),
+                defaults.testSources(),
+                defaults.groovyTestSources(),
+                List.of("src/test/java"),
+                defaults.resourceRoots(),
+                defaults.testResourceRoots(),
+                defaults.metadata());
+
+        SourceDiscoveryResult result = discoverer.discover(projectDir, settings);
+
+        assertEquals(List.of(test), result.kotlinTestSources());
     }
 
     @Test
@@ -135,6 +254,7 @@ final class SourceDiscovererTest {
 
         assertTrue(result.empty());
         assertTrue(result.mainSources().isEmpty());
+        assertTrue(result.groovyMainSources().isEmpty());
         assertTrue(result.testSources().isEmpty());
     }
 
@@ -158,6 +278,86 @@ final class SourceDiscovererTest {
                         List.of()));
 
         assertEquals(List.of(main, generated), result.mainSources());
+    }
+
+    @Test
+    void mainDiscoveryLeavesRequiredGeneratedTestRootsForTheTestGenerationPhase() throws IOException {
+        Path main = source("src/main/java/com/example/Main.java");
+        source("schema/test.marker");
+        BuildSettings settings = BuildSettings.defaults().withGeneratedSources(
+                List.of(),
+                List.of(new GeneratedSourceStep(
+                        "generated-tests",
+                        GeneratedSourceKind.DECLARED_ROOT,
+                        "kotlin",
+                        "target/generated/test-sources/kotlin",
+                        List.of("schema/test.marker"),
+                        true,
+                        false)));
+
+        SourceDiscoveryResult result = discoverer.discoverMain(projectDir, settings);
+
+        assertEquals(List.of(main), result.mainSources());
+        assertTrue(result.allTestSources().isEmpty());
+        SourceDiscoveryException failure = assertThrows(
+                SourceDiscoveryException.class,
+                () -> discoverer.discover(projectDir, settings));
+        assertTrue(failure.getMessage().contains(
+                "Generated source root `target/generated/test-sources/kotlin` is missing"));
+    }
+
+    @Test
+    void doesNotTreatGroovyFilesInJavaGeneratedRootsAsMainSources() throws IOException {
+        Path main = source("src/main/groovy/com/example/Main.groovy");
+        source("target/generated/sources/openapi/com/example/Unexpected.groovy");
+        source("src/main/openapi/api.yaml");
+
+        SourceDiscoveryResult result = discoverer.discover(
+                projectDir,
+                buildSettingsWithSourceRoots(List.of("src/main/groovy"))
+                        .withGeneratedSources(
+                                List.of(new GeneratedSourceStep(
+                                        "openapi",
+                                        GeneratedSourceKind.DECLARED_ROOT,
+                                        "java",
+                                        "target/generated/sources/openapi",
+                                        List.of("src/main/openapi/api.yaml"),
+                                        true,
+                                        false)),
+                                List.of()));
+
+        assertEquals(List.of(main), result.groovyMainSources());
+    }
+
+    @Test
+    void doesNotTreatKotlinFilesInGeneratedJavaRootsAsSources() throws IOException {
+        source("target/generated/sources/openapi/com/example/Unexpected.kt");
+        source("target/generated/test-sources/fixtures/com/example/UnexpectedTest.kt");
+        source("src/main/openapi/api.yaml");
+        source("src/test/fixtures/schema.json");
+
+        SourceDiscoveryResult result = discoverer.discover(
+                projectDir,
+                BuildSettings.defaults().withGeneratedSources(
+                        List.of(new GeneratedSourceStep(
+                                "openapi",
+                                GeneratedSourceKind.DECLARED_ROOT,
+                                "java",
+                                "target/generated/sources/openapi",
+                                List.of("src/main/openapi/api.yaml"),
+                                true,
+                                false)),
+                        List.of(new GeneratedSourceStep(
+                                "fixtures",
+                                GeneratedSourceKind.DECLARED_ROOT,
+                                "java",
+                                "target/generated/test-sources/fixtures",
+                                List.of("src/test/fixtures/schema.json"),
+                                true,
+                                false))));
+
+        assertEquals(List.of(), result.kotlinMainSources());
+        assertEquals(List.of(), result.kotlinTestSources());
     }
 
     @Test

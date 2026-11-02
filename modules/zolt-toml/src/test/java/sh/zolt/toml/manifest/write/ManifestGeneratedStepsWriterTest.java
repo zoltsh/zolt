@@ -134,6 +134,70 @@ final class ManifestGeneratedStepsWriterTest {
         assertFalse(output.contains("cache ="));
     }
 
+    @ParameterizedTest
+    @MethodSource("lanes")
+    void emitsAndRoundTripsKotlinDeclaredRoots(Lane lane) {
+        AuthoredDeclaredRootStep step = new AuthoredDeclaredRootStep(
+                new GeneratedStepSettings(
+                        Optional.of(GeneratedLanguage.KOTLIN), Optional.empty(), Optional.empty()),
+                List.of(glob("generated/kotlin")),
+                path("target/generated/kotlin"));
+
+        String output = write(lane, Map.of(id("kotlin"), step));
+
+        assertEquals(
+                """
+                [generated.<lane>.kotlin]
+                kind = "declared-root"
+                language = "kotlin"
+                inputs = ["generated/kotlin"]
+                output = "target/generated/kotlin"
+                """.replace("<lane>", lane.segment()),
+                output);
+        assertEquals(output, write(lane, lane.steps(decode(lane, output))));
+    }
+
+    @ParameterizedTest
+    @MethodSource("lanes")
+    void emitsAndRoundTripsKotlinExecSourceSteps(Lane lane) {
+        GeneratedOutputKind produces = lane == Lane.MAIN
+                ? GeneratedOutputKind.JAVA_SOURCES
+                : GeneratedOutputKind.TEST_SOURCES;
+        AuthoredExecStep step = new AuthoredExecStep(
+                new GeneratedStepSettings(
+                        Optional.of(GeneratedLanguage.KOTLIN), Optional.empty(), Optional.empty()),
+                id("process"),
+                Optional.empty(),
+                List.of(),
+                List.of(glob("schema/model.yaml")),
+                path("target/generated/kotlin"),
+                produces,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Map.of(),
+                Map.of(),
+                List.of(),
+                Optional.empty());
+
+        String output = write(lane, Map.of(id("kotlin-exec"), step));
+
+        assertEquals(
+                """
+                [generated.<lane>.kotlin-exec]
+                kind = "exec"
+                language = "kotlin"
+                tool = "process"
+                inputs = ["schema/model.yaml"]
+                output = "target/generated/kotlin"
+                produces = "<produces>"
+                """
+                        .replace("<lane>", lane.segment())
+                        .replace("<produces>", produces.configValue()),
+                output);
+        assertEquals(output, write(lane, lane.steps(decode(lane, output))));
+    }
+
     @Test
     void wrapsEveryLongDirectExecArrayAndKeepsItemsOnOneLine() {
         String argument = "a".repeat(91);

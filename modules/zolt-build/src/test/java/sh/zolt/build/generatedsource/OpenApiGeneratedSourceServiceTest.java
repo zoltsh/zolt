@@ -82,6 +82,39 @@ final class OpenApiGeneratedSourceServiceTest {
     }
 
     @Test
+    void regeneratesAndRepairsChangedOrDeletedOutput() throws IOException {
+        writeProjectFiles(projectDir);
+        List<List<String>> commands = new ArrayList<>();
+        OpenApiGeneratedSourceService service = service(projectDir, (command, directory) -> {
+            commands.add(command);
+            try {
+                writeGeneratedInterface(Path.of(command.get(command.indexOf("--output") + 1)));
+            } catch (IOException exception) {
+                throw new AssertionError(exception);
+            }
+            return new OpenApiGeneratedSourceService.ProcessResult(0, "generated\n");
+        });
+        Path generated = projectDir.resolve(
+                "target/generated/sources/openapi/public-api/com/example/generated/PublicApi.java");
+
+        service.generateMain(projectDir, configWithAdditionalProperties(Map.of("sourceFolder", ".")), packages(projectDir));
+        String expected = Files.readString(generated);
+        Files.writeString(generated, "package com.example.generated; public interface Changed {}\n");
+
+        service.generateMain(projectDir, configWithAdditionalProperties(Map.of("sourceFolder", ".")), packages(projectDir));
+
+        assertEquals(2, commands.size());
+        assertEquals(expected, Files.readString(generated));
+
+        Files.delete(generated);
+
+        service.generateMain(projectDir, configWithAdditionalProperties(Map.of("sourceFolder", ".")), packages(projectDir));
+
+        assertEquals(3, commands.size());
+        assertEquals(expected, Files.readString(generated));
+    }
+
+    @Test
     void runsMultipleSpecsWithSharedPresetAndDeterministicOptionArguments() throws IOException {
         writeProjectFiles(projectDir);
         Files.writeString(projectDir.resolve("src/main/openapi/internal-api.yaml"), "openapi: 3.1.0\n");

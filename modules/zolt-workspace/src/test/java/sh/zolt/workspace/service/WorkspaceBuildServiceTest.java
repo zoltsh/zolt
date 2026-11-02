@@ -63,7 +63,9 @@ final class WorkspaceBuildServiceTest extends WorkspaceBuildServiceTestSupport {
         assertEquals(2, result.sourceCount());
         assertEquals(2, result.buildWaveCount());
         assertEquals(2, result.executionMetrics().classpathCalculations());
-        assertEquals(0, result.executionMetrics().packageCalculations());
+        // Each admitted member now projects its verified package lock and package list for compiler
+        // selection, even when this Java-only fixture's projections are empty.
+        assertEquals(4, result.executionMetrics().packageCalculations());
         assertTrue(result.executionMetrics().graphConstructionNanos() > 0L);
         assertTrue(result.executionMetrics().memberExecutionNanos() > 0L);
         assertTrue(result.executionMetrics().schedulerIdleNanos() >= 0L);

@@ -17,6 +17,8 @@ import java.util.zip.ZipFile;
 public final class SelfHostingParityService {
     private static final String MANIFEST_ENTRY = "META-INF/MANIFEST.MF";
     private static final Set<String> LOCAL_BUILD_FINGERPRINTS = Set.of(
+            ".zolt-compiler-outputs.state",
+            ".zolt-resources.state",
             ".zolt-build-main.fingerprint",
             ".zolt-build-main.fingerprint.state",
             ".zolt-build-test.fingerprint",

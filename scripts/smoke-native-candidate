@@ -1,0 +1,479 @@
+#!/usr/bin/env bash
+# Qualify the exact native archive after release-verify has validated its layout.
+set -euo pipefail
+
+if [[ "$#" -ne 2 || ! -f "$1" ]]; then
+    printf 'usage: scripts/smoke-native-candidate <verified-native-archive.tar.gz> <version>\n' >&2
+    exit 2
+fi
+archive="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
+version="$2"
+repository="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+work="$(mktemp -d "${TMPDIR:-/tmp}/zolt-candidate-smoke.XXXXXX")"
+trap 'rm -rf "$work"' EXIT
+export ZOLT_EXPERIMENTAL=0
+export ZOLT_USER_HOME="$work/user-home"
+# An explicit artifact cache may be reused, but no developer configuration is loaded.
+cache_root="${ZOLT_CANDIDATE_CACHE_ROOT:-$work/cache}"
+mkdir -p "$cache_root"
+cache_root="$(cd "$cache_root" && pwd)"
+# Optional managed cache reuse does not load any user configuration.
+if [[ -n "${ZOLT_CANDIDATE_TOOLCHAIN_ROOT:-}" ]]; then
+    mkdir -p "$ZOLT_CANDIDATE_TOOLCHAIN_ROOT" "$ZOLT_USER_HOME"
+    managed_cache="$(cd "$ZOLT_CANDIDATE_TOOLCHAIN_ROOT" && pwd -P)"
+    ln -s "$managed_cache" "$ZOLT_USER_HOME/toolchains"
+fi
+# Exercise installed worker discovery, independent of developer overrides.
+unset ZOLT_JUNIT_WORKER_CLASSPATH ZOLT_JAVAC_WORKER_CLASSPATH
+unset ZOLT_JUNIT_WORKER_JAR ZOLT_JAVAC_WORKER_JAR
+
+sha256_file() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$1" | awk '{ print $1 }'
+    else
+        shasum -a 256 "$1" | awk '{ print $1 }'
+    fi
+}
+
+fail() {
+    printf 'error: native candidate smoke: %s\n' "$1" >&2
+    exit 1
+}
+
+[[ -f "$archive.sha256" ]] || fail 'archive checksum sidecar is missing'
+[[ "$(sha256_file "$archive")" == "$(awk '{ print $1; exit }' "$archive.sha256")" ]] \
+    || fail 'archive checksum does not match'
+tar -xzf "$archive" -C "$work"
+layout="$work/$(basename "$archive" .tar.gz)"
+zolt="$layout/bin/zolt"
+[[ -x "$zolt" ]] || fail 'archive does not contain the expected executable'
+[[ -f "$layout/libexec/zolt-junit-worker.jar" ]] || fail 'bundled JUnit worker is missing'
+[[ -f "$layout/libexec/zolt-javac-worker.jar" ]] || fail 'bundled javac worker is missing'
+[[ "$("$zolt" --version)" == "$version" ]] || fail 'native CLI version does not match'
+
+# A path containing spaces catches launcher/worker argument quoting regressions.
+project="$work/project with spaces/smoke"
+"$zolt" init --cwd "$(dirname "$project")" --group release.smoke smoke
+main="$project/src/main/java/release/smoke/Main.java"
+test_source="$project/src/test/java/release/smoke/MainTest.java"
+cat >"$main" <<'JAVA'
+package release.smoke;
+public final class Main {
+    public static void main(String[] args) { System.out.println(greeting()); }
+    static String greeting() { return "candidate-v1"; }
+}
+JAVA
+cat >"$test_source" <<'JAVA'
+package release.smoke;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
+final class MainTest {
+    @Test void greetingMatches() { assertEquals("candidate-v1", Main.greeting()); }
+}
+JAVA
+
+run_zolt() {
+    "$zolt" --no-progress --color never "$@" --cwd "$project" --cache-root "$cache_root"
+}
+
+verify_tests() {
+    run_zolt test >"$work/tests.log" 2>&1 || { cat "$work/tests.log"; return 1; }
+    cat "$work/tests.log"
+    grep -Eq '^Tests found: 1$' "$work/tests.log" || fail 'JUnit did not discover the fixture test'
+    grep -Eq '^Tests succeeded: 1$' "$work/tests.log" || fail 'JUnit did not pass the fixture test'
+}
+
+verify_compiled_output() {
+    local expected="$1"
+    local output
+    # Observe this build's output before another Zolt command can rebuild it.
+    output="$(java -cp "$project/target/classes" release.smoke.Main)"
+    [[ "$output" == "$expected" ]] || fail "explicit build produced stale output: $output"
+}
+
+verify_execution() {
+    local expected="$1"
+    local output
+    output="$(run_zolt run --quiet)"
+    [[ "$output" == "$expected" ]] || fail "run produced stale or unexpected output: $output"
+    run_zolt package
+    local jars=("$project"/target/*.jar)
+    [[ "${#jars[@]}" -eq 1 && -f "${jars[0]}" ]] || fail 'expected one packaged application JAR'
+    [[ "$(java -jar "${jars[0]}")" == "$expected" ]] || fail 'packaged JAR produced stale output'
+}
+
+run_zolt resolve
+run_zolt build --offline
+verify_compiled_output candidate-v1
+verify_tests
+verify_execution candidate-v1
+# Repeat without edits, then force a same-size edit with the original timestamp.
+run_zolt build --offline
+verify_compiled_output candidate-v1
+touch -r "$main" "$work/source-timestamp"
+sed 's/candidate-v1/candidate-v2/' "$main" >"$work/next-source"
+cat "$work/next-source" >"$main"
+touch -r "$work/source-timestamp" "$main"
+sed 's/candidate-v1/candidate-v2/' "$test_source" >"$work/next-test"
+cat "$work/next-test" >"$test_source"
+run_zolt build --offline
+verify_compiled_output candidate-v2
+verify_tests
+verify_execution candidate-v2
+
+cp "$main" "$work/good-source"
+jar=("$project"/target/*.jar)
+packaged_digest="$(sha256_file "${jar[0]}")"
+printf '\nthis is not valid Java;\n' >>"$main"
+if run_zolt build --offline >"$work/rejected-build.log" 2>&1; then
+    fail 'invalid Java unexpectedly compiled'
+fi
+grep -F 'javac failed' "$work/rejected-build.log" >/dev/null || {
+    cat "$work/rejected-build.log"
+    fail 'invalid-source check failed for an unrelated reason'
+}
+[[ "$(sha256_file "${jar[0]}")" == "$packaged_digest" ]] || fail 'failed build replaced the packaged application'
+cp "$work/good-source" "$main"
+run_zolt build --offline
+verify_compiled_output candidate-v2
+verify_tests
+verify_execution candidate-v2
+# Library publication must work through the native CLI's selected JDK, including Javadoc.
+library="$work/project with spaces/library"
+mkdir -p "$library/src/main/java/release/smoke"
+cat >"$library/zolt.toml" <<'LIBRARY_CONFIG'
+[project]
+name = "candidate-library"
+version = "1.0.0"
+group = "release.smoke"
+java = 21
+[toolchain.java]
+version = 21
+distribution = "temurin"
+policy = "require-managed"
+[package]
+sources = true
+javadoc = true
+[publish]
+release = "candidate"
+[publish.repositories.candidate]
+url = "https://repo.example.test/releases"
+LIBRARY_CONFIG
+cat >"$library/src/main/java/release/smoke/Library.java" <<'JAVA'
+package release.smoke;
+/** Public API documented by the selected project JDK. */
+public final class Library {}
+JAVA
+# Keep ambient GraalVM for the CLI/native-image lane; library tooling must select Temurin.
+ambient_java_home="$(cd "${JAVA_HOME:?candidate qualification requires ambient GraalVM 21}" && pwd -P)"
+"$ambient_java_home/bin/java" -XshowSettings:properties -version >"$work/ambient-java.log" 2>&1
+cat "$work/ambient-java.log"
+grep -F 'java.specification.version = 21' "$work/ambient-java.log" >/dev/null || fail 'ambient Java is not 21'
+grep -i 'GraalVM' "$work/ambient-java.log" >/dev/null || fail 'ambient Java is not GraalVM'
+"$zolt" --no-progress --color never toolchain sync --directory "$library"
+"$zolt" --no-progress --color never resolve --directory "$library" --cache-root "$cache_root"
+"$zolt" --no-progress --color never toolchain status --directory "$library" --format json >"$work/library-toolchain.json"
+cat "$work/library-toolchain.json"
+jq -e '.ok and .request.distribution == "temurin" and .request.policy == "require-managed"
+    and .resolved.source == "managed" and (.resolved.version | startswith("21"))' "$work/library-toolchain.json" >/dev/null \
+    || fail 'library did not select managed Temurin 21'
+selected_java_home="$(jq -er '.resolved.javaHome' "$work/library-toolchain.json")"
+selected_java_home="$(cd "$selected_java_home" && pwd -P)"
+[[ "$selected_java_home" != "$ambient_java_home" ]] || fail 'selected library JDK equals the launcher JDK'
+[[ "$(jq -er '.resolved.javac' "$work/library-toolchain.json")" == "$selected_java_home/bin/javac" ]] \
+    || fail 'selected javac is outside the selected library JDK'
+[[ -x "$selected_java_home/bin/javadoc" ]] || fail 'selected JDK has no Javadoc tool'
+printf 'Library Javadoc tool: %s; ambient GraalVM: %s\n' "$selected_java_home/bin/javadoc" "$ambient_java_home"
+# A private GraalVM facade keeps java/javac/jar available but rejects ambient Javadoc.
+# Successful package/publish must therefore use the selected managed documentation tool.
+ambient_facade="$work/ambient-graal"
+mkdir -p "$ambient_facade/bin"
+for tool in java javac jar; do ln -sf "$ambient_java_home/bin/$tool" "$ambient_facade/bin/$tool"; done
+cat >"$ambient_facade/bin/javadoc" <<'AMBIENT_JAVADOC'
+#!/bin/sh
+echo 'error: candidate library used ambient Javadoc instead of selected Temurin' >&2
+exit 97
+AMBIENT_JAVADOC
+chmod +x "$ambient_facade/bin/javadoc"
+library_zolt() {
+    JAVA_HOME="$ambient_facade" PATH="$ambient_facade/bin:$PATH" "$zolt" --no-progress --color never "$@"
+}
+library_zolt package --directory "$library" --cache-root "$cache_root"
+jar tf "$library/target/candidate-library-1.0.0-sources.jar" >"$work/sources-entries.txt"
+jar tf "$library/target/candidate-library-1.0.0-javadoc.jar" >"$work/javadoc-entries.txt"
+grep -Fx 'release/smoke/Library.java' "$work/sources-entries.txt" >/dev/null || fail 'sources JAR omitted library source'
+grep -Fx 'release/smoke/Library.html' "$work/javadoc-entries.txt" >/dev/null || fail 'Javadoc JAR omitted library documentation'
+library_zolt publish --dry-run --directory "$library" >"$work/publish-dry-run.log" 2>&1 \
+    || { cat "$work/publish-dry-run.log"; fail 'library publication dry run failed'; }
+cat "$work/publish-dry-run.log"
+for classifier in sources javadoc; do
+    artifact="release/smoke/candidate-library/1.0.0/candidate-library-1.0.0-$classifier.jar"
+    grep -F "upload path: $artifact" "$work/publish-dry-run.log" >/dev/null || fail "publication omitted $classifier JAR"
+    grep -F "$artifact.sha256: " "$work/publish-dry-run.log" >/dev/null || fail "publication omitted $classifier checksum"
+done
+
+# Relative application I/O belongs to the selected project/member, independent of caller cwd.
+caller="$work/unrelated caller"
+cwd_workspace="$work/cwd workspace"
+cwd_project="$cwd_workspace/apps/demo"
+mkdir -p "$caller" "$cwd_project/src/main/java/release/smoke"
+printf caller >"$caller/candidate-input.txt"
+printf project >"$cwd_project/candidate-input.txt"
+printf workspace >"$cwd_workspace/candidate-input.txt"
+cat >"$cwd_project/zolt.toml" <<'CWD_CONFIG'
+[project]
+name = "cwd-proof"
+version = "1.0.0"
+group = "release.smoke"
+java = 21
+main = "release.smoke.RelativeIo"
+CWD_CONFIG
+cat >"$cwd_project/src/main/java/release/smoke/RelativeIo.java" <<'JAVA'
+package release.smoke;
+public final class RelativeIo {
+    public static void main(String[] args) throws Exception {
+        String value = java.nio.file.Files.readString(java.nio.file.Path.of("candidate-input.txt"));
+        java.nio.file.Files.writeString(java.nio.file.Path.of("candidate-output.txt"), value);
+        System.out.println("relative-io=" + value);
+    }
+}
+JAVA
+for scope in standalone workspace; do
+    selection=(--directory "$cwd_project")
+    if [[ "$scope" == workspace ]]; then
+        cat >"$cwd_workspace/zolt.toml" <<'WORKSPACE_CONFIG'
+[workspace]
+name = "cwd-workspace"
+[workspace.members]
+include = ["apps/demo"]
+WORKSPACE_CONFIG
+        selection=(--directory "$cwd_workspace" --workspace --member apps/demo)
+    fi
+    for command in run run-package; do
+        rm -f "$cwd_project/candidate-output.txt"
+        (cd "$caller"; "$zolt" --no-progress --color never "$command" "${selection[@]}" --cache-root "$cache_root")
+        [[ "$(cat "$cwd_project/candidate-output.txt")" == project ]] || fail "$scope $command used the wrong directory"
+        [[ ! -e "$caller/candidate-output.txt" && ! -e "$cwd_workspace/candidate-output.txt" ]] \
+            || fail "$scope $command wrote outside the selected project"
+    done
+done
+
+# File links are supported inputs. Warm target edits/retargets must agree with a clean build.
+linked_workspace="$work/linked workspace"
+linked_project="$linked_workspace/app"
+mkdir -p "$linked_project/src/main/java" "$linked_project/src/test/java" "$linked_project/src/main/resources"
+cat >"$linked_workspace/zolt.toml" <<'LINK_WORKSPACE'
+[workspace]
+name = "linked-workspace"
+[workspace.members]
+include = ["app"]
+[workspace.project]
+group = "release.smoke"
+version = "1.0.0"
+java = 21
+LINK_WORKSPACE
+cat >"$linked_project/zolt.toml" <<'LINK_PROJECT'
+[project]
+name = "linked-app"
+main = "release.smoke.LinkedMain"
+[dependencies.test]
+"org.junit.platform:junit-platform-console-standalone" = "1.11.4"
+LINK_PROJECT
+linked_inputs() {
+    local directory="$1" value="$2"
+    mkdir -p "$linked_project/$directory"
+    cat >"$linked_project/$directory/LinkedMain.java" <<JAVA
+package release.smoke;
+public final class LinkedMain {
+    static String value() { return "$value"; }
+    public static void main(String[] args) throws Exception {
+        try (var input = LinkedMain.class.getResourceAsStream("/message.txt")) {
+            System.out.println(value() + "|" + new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8));
+        }
+    }
+}
+JAVA
+    cat >"$linked_project/$directory/LinkedTest.java" <<JAVA
+package release.smoke;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+final class LinkedTest { @Test void currentValue() { assertEquals("$value", LinkedMain.value()); } }
+JAVA
+    printf '%s' "$value" >"$linked_project/$directory/message.txt"
+    ln -sf "../../../$directory/LinkedMain.java" "$linked_project/src/main/java/LinkedMain.java"
+    ln -sf "../../../$directory/LinkedTest.java" "$linked_project/src/test/java/LinkedTest.java"
+    ln -sf "../../../$directory/message.txt" "$linked_project/src/main/resources/message.txt"
+}
+linked_zolt() {
+    "$zolt" --no-progress --color never "$@" --directory "$linked_workspace" --workspace --cache-root "$cache_root"
+}
+linked_verify() {
+    local expected="$1" actual
+    linked_zolt build --no-build-cache
+    actual="$(java -cp "$linked_project/target/classes" release.smoke.LinkedMain)"
+    [[ "$actual" == "$expected|$expected" ]] || fail "linked workspace build produced stale inputs: $actual"
+    linked_zolt test --all --no-build-cache >"$work/linked-tests.log" 2>&1 \
+        || { cat "$work/linked-tests.log"; fail 'linked test source did not match current main input'; }
+    cat "$work/linked-tests.log"
+    grep -Eq '^Tests succeeded: 1$' "$work/linked-tests.log" || fail 'linked fixture test did not run'
+}
+linked_inputs linked before
+linked_verify before
+linked_inputs linked after
+linked_verify after
+linked_inputs retarget next
+linked_verify next
+cp "$linked_project/target/classes/release/smoke/LinkedMain.class" "$work/linked-warm.class"
+cp "$linked_project/target/test-classes/release/smoke/LinkedTest.class" "$work/linked-test-warm.class"
+cp "$linked_project/target/classes/message.txt" "$work/linked-resource-warm.txt"
+"$zolt" --no-progress --color never clean --directory "$linked_workspace" --workspace
+linked_verify next
+cmp "$work/linked-warm.class" "$linked_project/target/classes/release/smoke/LinkedMain.class" \
+    || fail 'warm and clean linked main outputs differ'
+cmp "$work/linked-test-warm.class" "$linked_project/target/test-classes/release/smoke/LinkedTest.class" \
+    || fail 'warm and clean linked test outputs differ'
+cmp "$work/linked-resource-warm.txt" "$linked_project/target/classes/message.txt" \
+    || fail 'warm and clean linked resource outputs differ'
+
+# Build a real application native image with bounded memory/parallelism.
+mkdir -p "$work/native-tmp"
+native_tmp="${work//\\/\\\\}/native-tmp"
+native_tmp="${native_tmp//\"/\\\"}"
+cat >>"$project/zolt.toml" <<NATIVE_CONFIG
+
+[native]
+args = ["-J-Xmx2g", "--parallelism=2", "-J-Djava.io.tmpdir=$native_tmp"]
+NATIVE_CONFIG
+run_zolt native
+[[ -x "$project/target/native/smoke" ]] || fail 'application native executable is missing'
+[[ "$("$project/target/native/smoke")" == candidate-v2 ]] || fail 'application native executable produced stale output'
+# Exercise Spring Boot JVM packaging and snapshot launch through this exact native CLI.
+spring_project="$work/project with spaces/spring-boot"
+mkdir -p "$spring_project"
+cp "$repository/examples/spring-boot-webmvc/zolt.toml" "$spring_project/zolt.toml"
+cp -R "$repository/examples/spring-boot-webmvc/src" "$spring_project/src"
+cat >"$spring_project/src/main/java/com/example/springboot/CandidateRelativeIo.java" <<'JAVA'
+package com.example.springboot;
+@org.springframework.stereotype.Component
+public final class CandidateRelativeIo implements org.springframework.boot.CommandLineRunner {
+    @Override public void run(String... args) throws Exception {
+        String value = java.nio.file.Files.readString(java.nio.file.Path.of("candidate-input.txt"));
+        java.nio.file.Files.writeString(java.nio.file.Path.of("candidate-output.txt"), value);
+        System.out.println("spring-relative-io=" + value);
+    }
+}
+JAVA
+printf spring-project >"$spring_project/candidate-input.txt"
+for launch in cold warm; do
+    spring_log="$work/spring-$launch.log"
+    rm -f "$spring_project/candidate-output.txt"
+    (cd "$caller"; "$zolt" --no-progress --color never run-package \
+        --cwd "$spring_project" --cache-root "$cache_root" \
+        -- --spring.main.web-application-type=none) >"$spring_log" 2>&1 \
+        || { cat "$spring_log"; fail "Spring Boot $launch launch failed"; }
+    cat "$spring_log"
+    grep -F 'Started DemoApplication' "$spring_log" >/dev/null \
+        || fail "Spring Boot $launch launch did not start the application"
+    [[ "$(cat "$spring_project/candidate-output.txt")" == spring-project ]] \
+        || fail "Spring Boot $launch launch used the wrong directory"
+    [[ ! -e "$caller/candidate-output.txt" ]] || fail "Spring Boot $launch launch wrote into caller directory"
+    shopt -s nullglob
+    snapshots=("$spring_project"/.zolt/run/*)
+    shopt -u nullglob
+    [[ "${#snapshots[@]}" -eq 0 ]] || fail "Spring Boot $launch launch left runtime snapshots"
+done
+# Exercise installation services in this exact native CLI. The prior versions below are
+# local shell fixtures, not released archives; file:// fixtures do not change remote trust policy.
+install_target="${archive##*/zolt-"$version"-}"
+install_target="${install_target%.tar.gz}"
+archive_uri="$(jq -nr --arg path "$archive" '"file://" + ($path | split("/") | map(@uri) | join("/"))')"
+manifest="$work/install-channel.json"
+index="$work/install-index.json"
+source_sha="$(git -C "$repository" rev-parse HEAD)"
+jq -n --arg version "$version" --arg target "$install_target" --arg archive "$(basename "$archive")" \
+    --arg url "$archive_uri" --arg sha256 "$(sha256_file "$archive")" --arg commit "$source_sha" \
+    '{schemaVersion:1,channel:"stable",version:$version,commit:$commit,createdAt:"2026-01-01T00:00:00Z",
+      artifacts:[{target:$target,archive:$archive,archiveUrl:$url,sha256:$sha256,format:"tar.gz",binaryName:"zolt"}]}' >"$manifest"
+jq '{schemaVersion:1,channel,updatedAt:.createdAt,versions:[{version,commit,createdAt,artifacts}]}' "$manifest" >"$index"
+manifest_uri="$(jq -nr --arg path "$manifest" '"file://" + ($path | split("/") | map(@uri) | join("/"))')"
+index_uri="$(jq -nr --arg path "$index" '"file://" + ($path | split("/") | map(@uri) | join("/"))')"
+fixture_version() {
+    local root="$1" fixture="$2"
+    mkdir -p "$root/versions/$fixture/bin"
+    printf '#!/bin/sh\nprintf "%%s\\n" "%s"\n' "$fixture" >"$root/versions/$fixture/bin/zolt"
+    chmod +x "$root/versions/$fixture/bin/zolt"
+}
+fixture_install_root() {
+    local root="$1"
+    fixture_version "$root" 0.0.0
+    mkdir -p "$root/bin"
+    ln -s ../versions/0.0.0/bin/zolt "$root/bin/zolt"
+    printf 'stable\n' >"$root/channel"
+    printf '%s\n' "$manifest_uri" >"$root/channel-url"
+}
+self_fixture() {
+    local root="$1"; shift
+    "$zolt" --no-progress --color never self "$@" --install-root "$root" --current-executable "$root/bin/zolt"
+}
+install_root="$work/native install"
+fixture_install_root "$install_root"
+self_fixture "$install_root" install "$version" --release-index-url "$index_uri" --target "$install_target"
+[[ "$("$install_root/bin/zolt" --version)" == 0.0.0 ]] || fail 'self install unexpectedly switched the active version'
+cmp "$zolt" "$install_root/versions/$version/bin/zolt" || fail 'self install changed exact candidate binary bytes'
+printf preserved >"$install_root/versions/$version/completed-sentinel"
+self_fixture "$install_root" install "$version" --release-index-url "$index_uri" --target "$install_target"
+[[ "$(cat "$install_root/versions/$version/completed-sentinel")" == preserved ]] || fail 'repeat install replaced a completed version'
+
+update_root="$work/native update"
+fixture_install_root "$update_root"
+self_fixture "$update_root" update --channel-url "$manifest_uri" --target "$install_target"
+[[ "$("$update_root/bin/zolt" --version)" == "$version" ]] || fail 'self update did not activate candidate'
+cmp "$zolt" "$update_root/versions/$version/bin/zolt" || fail 'self update changed exact candidate binary bytes'
+[[ "$(cat "$update_root/previous-version")" == 0.0.0 ]] || fail 'self update lost the rollback version'
+# Real installed discovery is exercised without path overrides while the native candidate is active.
+"$update_root/bin/zolt" --no-progress --color never self rollback
+[[ "$("$update_root/bin/zolt" --version)" == 0.0.0 ]] || fail 'rollback did not restore the local prior-version fixture'
+self_fixture "$update_root" use "$version"
+fixture_version "$update_root" 0.0.9
+fixture_version "$update_root" 0.0.10
+"$update_root/bin/zolt" --no-progress --color never self prune --keep 3
+[[ ! -e "$update_root/versions/0.0.9" && -x "$update_root/versions/0.0.10/bin/zolt" ]] \
+    || fail 'prune did not retain the numerically newer unprotected version'
+[[ "$("$update_root/versions/0.0.0/bin/zolt" --version)" == 0.0.0 ]] || fail 'prune removed the rollback fixture'
+[[ "$("$update_root/bin/zolt" --version)" == "$version" ]] || fail 'prune broke the active candidate'
+"$update_root/bin/zolt" --no-progress --color never self update
+
+shell_root="$work/shell install"
+ZOLT_INSTALL_ROOT="$shell_root" ZOLT_INSTALL_CHANNEL=stable ZOLT_INSTALL_TARGET="$install_target" \
+    ZOLT_INSTALL_CHANNEL_URL="$manifest_uri" ZOLT_INSTALL_UPDATE_CHANNEL_URL="$manifest_uri" \
+    sh "$repository/scripts/install-zolt"
+[[ "$("$shell_root/bin/zolt" --version)" == "$version" ]] || fail 'shell installer did not activate exact candidate'
+cmp "$zolt" "$shell_root/versions/$version/bin/zolt" || fail 'shell installer changed exact candidate binary bytes'
+for installed_root in "$install_root" "$update_root" "$shell_root"; do
+    for worker in zolt-junit-worker.jar zolt-javac-worker.jar; do
+        cmp "$layout/libexec/$worker" "$installed_root/versions/$version/libexec/$worker" \
+            || fail "installation omitted or changed bundled $worker"
+    done
+    [[ ! -e "$installed_root/.install-lock" ]] || fail 'successful installation left its transaction lock'
+    shopt -s nullglob
+    attempts=("$installed_root"/versions/.install-attempt-*)
+    shopt -u nullglob
+    [[ "${#attempts[@]}" -eq 0 ]] || fail 'successful installation left attempt directories'
+done
+# Use a fresh worker home so an already-running broker cannot mask installed discovery.
+# No worker path overrides or inherited Java property injection are allowed in this check.
+(
+    unset ZOLT_JUNIT_WORKER_CLASSPATH ZOLT_JAVAC_WORKER_CLASSPATH
+    unset ZOLT_JUNIT_WORKER_JAR ZOLT_JAVAC_WORKER_JAR
+    unset ZOLT_JAVA_OPTS JAVA_TOOL_OPTIONS JDK_JAVA_OPTIONS _JAVA_OPTIONS
+    export ZOLT_USER_HOME="$work/installed-worker-home"
+    "$shell_root/bin/zolt" --no-progress --color never clean --directory "$linked_workspace" --workspace
+    "$shell_root/bin/zolt" --no-progress --color never test --directory "$linked_workspace" \
+        --workspace --all --no-build-cache --cache-root "$cache_root"
+) >"$work/installed-worker-test.log" 2>&1 \
+    || { cat "$work/installed-worker-test.log"; fail 'installed launcher could not compile and test with its bundled workers'; }
+cat "$work/installed-worker-test.log"
+grep -Eq '^Tests found: 1$' "$work/installed-worker-test.log" || fail 'installed launcher did not discover the fixture test'
+grep -Eq '^Tests succeeded: 1$' "$work/installed-worker-test.log" || fail 'installed launcher did not pass the fixture test'
+printf 'Exact candidate installation passed; prior versions were local fixtures and remote signature trust was unchanged.\n'
+printf 'Native candidate lifecycle passed for %s: bundled workers, package/run, recompile, failure recovery, managed JDK sources/Javadoc, publish dry run, project/member relative I/O, symlink rebuilds, native image, Spring Boot JVM, native installation lifecycle.\n' "$archive"

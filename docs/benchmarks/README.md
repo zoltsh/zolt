@@ -1,5 +1,13 @@
 # Benchmarks
 
+The correctness-gated `scripts/benchmark-kotlin-preview` lane measures complete
+build-command latency across Java-only, Kotlin-only, mixed Java/Kotlin, KAPT,
+and KSP fixtures. It reports cold builds, warm no-ops, source edits, and local
+output-cache restoration separately. In particular, it counts controlled KSP
+processor launches so a skipped compile cannot be mistaken for a cheap KSP
+no-op. Run `scripts/benchmark-kotlin-preview --help` for its isolated work-root
+and sampling options.
+
 Zolt benchmark claims should be backed by repeatable evidence, not a single
 headline number.
 

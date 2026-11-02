@@ -25,6 +25,24 @@ final class MavenRootInspection {
             String defaultRoot,
             MavenPomProperties properties,
             List<String> additionalRoots) {
+        return sourceRoots(
+                project,
+                projectDirectory,
+                elementName,
+                defaultRoot,
+                properties,
+                List.of(),
+                additionalRoots);
+    }
+
+    static List<String> sourceRoots(
+            Element project,
+            Path projectDirectory,
+            String elementName,
+            String defaultRoot,
+            MavenPomProperties properties,
+            List<String> additionalConventionRoots,
+            List<String> additionalRoots) {
         List<String> roots = new ArrayList<>();
         Optional<Element> build = child(project, "build");
         build.flatMap(element -> text(element, elementName))
@@ -34,6 +52,9 @@ final class MavenRootInspection {
                 .ifPresentOrElse(
                         roots::add,
                         () -> addExistingConventionRoot(roots, projectDirectory, defaultRoot));
+        for (String conventionRoot : additionalConventionRoots) {
+            addExistingConventionRoot(roots, projectDirectory, conventionRoot);
+        }
         roots.addAll(additionalRoots);
         return distinct(roots);
     }

@@ -35,6 +35,16 @@ final class OpenApiGeneratedSourceValidatorTest {
     }
 
     @Test
+    void acceptsKotlinOutput() throws IOException {
+        write("src/main/openapi/public-api.yaml");
+
+        assertDoesNotThrow(() -> OpenApiGeneratedSourceValidator.validateStep(
+                projectDir,
+                "main",
+                step("kotlin", validSettings(Optional.empty(), Optional.empty()))));
+    }
+
+    @Test
     void rejectsUnsupportedLanguage() throws IOException {
         write("src/main/openapi/public-api.yaml");
 
@@ -43,17 +53,10 @@ final class OpenApiGeneratedSourceValidatorTest {
                 () -> OpenApiGeneratedSourceValidator.validateStep(
                         projectDir,
                         "main",
-                        new GeneratedSourceStep(
-                                "public-api",
-                                GeneratedSourceKind.OPENAPI,
-                                "kotlin",
-                                "target/generated/sources/openapi/public-api",
-                                java.util.List.of("src/main/openapi/public-api.yaml"),
-                                true,
-                                false,
-                                validSettings(Optional.empty(), Optional.empty()))));
+                        step("scala", validSettings(Optional.empty(), Optional.empty()))));
 
-        assertTrue(exception.getMessage().contains("uses unsupported language `kotlin`"));
+        assertTrue(exception.getMessage().contains("uses unsupported language `scala`"));
+        assertTrue(exception.getMessage().contains("supports java and kotlin"));
         assertTrue(exception.getMessage().contains("[generated.main.public-api]"));
     }
 
@@ -130,10 +133,14 @@ final class OpenApiGeneratedSourceValidatorTest {
     }
 
     private GeneratedSourceStep step(OpenApiGenerationSettings settings) {
+        return step("java", settings);
+    }
+
+    private GeneratedSourceStep step(String language, OpenApiGenerationSettings settings) {
         return new GeneratedSourceStep(
                 "public-api",
                 GeneratedSourceKind.OPENAPI,
-                "java",
+                language,
                 "target/generated/sources/openapi/public-api",
                 java.util.List.of("src/main/openapi/public-api.yaml"),
                 true,

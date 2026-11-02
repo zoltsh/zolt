@@ -13,7 +13,15 @@ name = "zolt-build"
 "sh.zolt:zolt-framework-api" = { workspace = true }
 
 [dependencies.test]
+"org.apache.groovy:groovy" = { versionRef = "groovy" }
+"com.google.devtools.ksp:symbol-processing-aa" = { versionRef = "ksp" }
+"org.jetbrains.kotlin:kotlin-annotation-processing-embeddable" = { versionRef = "kotlin" }
+"org.jetbrains.kotlin:kotlin-compiler-embeddable" = { versionRef = "kotlin" }
 "org.junit.platform:junit-platform-console-standalone" = { versionRef = "junit-platform" }
+
+[test.runtime]
+# KSP's fixture JAR advertises an absent Aalto provider; use the JDK writer for JUnit reports.
+jvmArgs = ["-Djavax.xml.stream.XMLOutputFactory=com.sun.xml.internal.stream.XMLOutputFactoryImpl"]
 
 [test.suites.test-execution]
 classes = [

@@ -10,6 +10,7 @@ public enum OutdatedSurface {
     BOM_VERSION("bomVersion"),
     BOM_IMPORT("bomImport"),
     EXEC_TOOL_COORDINATE("execToolCoordinate"),
+    KSP_TOOL("kspTool"),
     PROTOBUF_TOOL("protobufTool"),
     OPENAPI_TOOL("openapiTool");
 

@@ -22,6 +22,7 @@ import sh.zolt.project.PackageMode;
 import sh.zolt.project.ResourceFilteringSettings;
 import sh.zolt.project.ResourceMissingTokenPolicy;
 import sh.zolt.project.ResourceTokenSettings;
+import sh.zolt.project.TestSourceRoots;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.provenance.BuildProvenance;
 import sh.zolt.provenance.BuildProvenanceSource;
@@ -166,8 +167,10 @@ final class PackageServiceEvidenceManifestTest {
                 build.outputRoot(),
                 build.output(),
                 build.testOutput(),
-                build.testSources(),
-                build.groovyTestSources(),
+                new TestSourceRoots(
+                        build.testSources(),
+                        build.groovyTestSources(),
+                        build.kotlinTestSources()),
                 build.integrationTestOutput(),
                 build.integrationTestSources(),
                 build.integrationTestResourceRoots(),

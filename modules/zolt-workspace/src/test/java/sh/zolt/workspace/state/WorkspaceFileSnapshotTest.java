@@ -17,8 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * The fence rules, stated as behaviour: what must be re-read, what may be trusted, and the fact that
- * a reused hash and a fresh one produce the same digest.
+ * Mutable content is verified on each command, including edits that preserve filesystem metadata.
  */
 final class WorkspaceFileSnapshotTest {
     private static final String MEMBER = "modules/core";
@@ -35,7 +34,7 @@ final class WorkspaceFileSnapshotTest {
     }
 
     @Test
-    void anUnchangedFileBehindTheFenceIsStattedButNotRead() throws IOException {
+    void anUnchangedFileIsVerifiedAgainWithoutMovingItsDigest() throws IOException {
         WorkspaceFileSnapshot first = snapshot(WorkspaceFileState.empty(), false);
         String digest = sources(first);
         assertEquals(1, first.filesHashed());
@@ -43,10 +42,12 @@ final class WorkspaceFileSnapshotTest {
         WorkspaceFileSnapshot second = snapshot(settled(first), false);
 
         assertEquals(digest, sources(second));
-        assertEquals(0, second.filesHashed());
-        assertEquals(0L, second.bytesHashed());
+        assertEquals(1, second.filesHashed());
+        assertEquals(Files.size(source), second.bytesHashed());
         assertEquals(1, second.filesStatted());
-        assertEquals(1, second.filesReused());
+        assertEquals(0, second.filesReused());
+        assertEquals(digest, sources(second));
+        assertEquals(1, second.filesHashed(), "the same command reuses its verified hash");
     }
 
     @Test
@@ -76,6 +77,103 @@ final class WorkspaceFileSnapshotTest {
         assertEquals(1, second.filesHashed());
     }
 
+    @Test
+    void aGroovyMainSourceMovesTheMainSourceDigest() throws IOException {
+        Path groovy = root.resolve("modules/core/src/main/groovy/Main.groovy");
+        Files.createDirectories(groovy.getParent());
+        Files.writeString(groovy, "class MainGroovy {}\n");
+        WorkspaceFileSnapshot first = snapshot(WorkspaceFileState.empty(), false);
+        String digest = mainSources(first, List.of("src/main/java", "src/main/groovy"));
+        assertEquals(2, first.state().files().size());
+
+        WorkspaceFileState previous = settled(first);
+        Files.writeString(groovy, "class MainGroovy { int value }\n");
+        WorkspaceFileSnapshot second = snapshot(previous, false);
+
+        assertNotEquals(digest, mainSources(second, List.of("src/main/java", "src/main/groovy")));
+        assertEquals(2, second.filesHashed());
+    }
+
+    @Test
+    void aKotlinMainSourceMovesTheMainSourceDigest() throws IOException {
+        Path kotlin = root.resolve("modules/core/src/main/shared/Main.kt");
+        Files.createDirectories(kotlin.getParent());
+        Files.writeString(kotlin, "class MainKotlin\n");
+        WorkspaceFileSnapshot first = snapshot(WorkspaceFileState.empty(), false);
+        String digest = mainSources(first, List.of("src/main/java", "src/main/shared"));
+        assertEquals(2, first.state().files().size());
+
+        WorkspaceFileState previous = settled(first);
+        Files.writeString(kotlin, "class MainKotlin(val value: Int)\n");
+        WorkspaceFileSnapshot second = snapshot(previous, false);
+
+        assertNotEquals(digest, mainSources(second, List.of("src/main/java", "src/main/shared")));
+        assertEquals(2, second.filesHashed());
+    }
+
+    @Test
+    void testSourcesObserveMisplacedKotlinForFailClosedDiscovery() throws IOException {
+        Path project = root.resolve("modules/core");
+        write(project.resolve("src/test/java/JavaTest.java"), "class JavaTest {}\n");
+        write(project.resolve("src/test/java/Ignored.kt"), "class IgnoredKotlin\n");
+        write(project.resolve("src/test/java/Ignored.groovy"), "class IgnoredGroovy {}\n");
+        write(project.resolve("src/test/groovy/GroovySpec.groovy"), "class GroovySpec {}\n");
+        write(project.resolve("src/test/groovy/Ignored.kt"), "class IgnoredKotlin\n");
+        write(project.resolve("src/test/groovy/Ignored.java"), "class IgnoredJava {}\n");
+        write(project.resolve("src/test/groovy/Ignored.kts"), "println(\"ignored\")\n");
+        write(project.resolve("src/test/kotlin/KotlinTest.kt"), "class KotlinTest\n");
+        write(project.resolve("src/test/kotlin/Ignored.java"), "class IgnoredJava {}\n");
+        write(project.resolve("src/test/kotlin/Ignored.groovy"), "class IgnoredGroovy {}\n");
+        write(project.resolve("src/test/kotlin/Ignored.kts"), "println(\"ignored\")\n");
+
+        WorkspaceFileSnapshot snapshot = snapshot(WorkspaceFileState.empty(), false);
+        WorkspaceFileSnapshot.TreeDigest digest = snapshot.testSources(
+                MEMBER,
+                WorkspaceFileKind.TEST_SOURCE,
+                project,
+                List.of("src/test/java"),
+                List.of("src/test/groovy"),
+                List.of("src/test/kotlin"));
+
+        assertEquals(5, digest.fileCount());
+        assertEquals(5, snapshot.state().files().size());
+        assertTrue(snapshot.state().file("modules/core/src/test/java/JavaTest.java").isPresent());
+        assertTrue(snapshot.state().file("modules/core/src/test/groovy/GroovySpec.groovy").isPresent());
+        assertTrue(snapshot.state().file("modules/core/src/test/kotlin/KotlinTest.kt").isPresent());
+        assertTrue(snapshot.state().file("modules/core/src/test/java/Ignored.kt").isPresent());
+        assertTrue(snapshot.state().file("modules/core/src/test/java/Ignored.groovy").isEmpty());
+        assertTrue(snapshot.state().file("modules/core/src/test/groovy/Ignored.kt").isPresent());
+        assertTrue(snapshot.state().file("modules/core/src/test/groovy/Ignored.java").isEmpty());
+        assertTrue(snapshot.state().file("modules/core/src/test/groovy/Ignored.kts").isEmpty());
+        assertTrue(snapshot.state().file("modules/core/src/test/kotlin/Ignored.java").isEmpty());
+        assertTrue(snapshot.state().file("modules/core/src/test/kotlin/Ignored.groovy").isEmpty());
+        assertTrue(snapshot.state().file("modules/core/src/test/kotlin/Ignored.kts").isEmpty());
+    }
+
+    @Test
+    void resourcesExcludeJavaGroovyAndKotlinSourcesButKeepKotlinScripts() throws IOException {
+        Path project = root.resolve("modules/core");
+        write(project.resolve("src/main/resources/application.properties"), "name=core\n");
+        write(project.resolve("src/main/resources/Ignored.java"), "class IgnoredJava {}\n");
+        write(project.resolve("src/main/resources/Ignored.groovy"), "class IgnoredGroovy {}\n");
+        write(project.resolve("src/main/resources/Ignored.kt"), "class IgnoredKotlin\n");
+        write(project.resolve("src/main/resources/setup.kts"), "println(\"setup\")\n");
+
+        WorkspaceFileSnapshot snapshot = snapshot(WorkspaceFileState.empty(), false);
+        WorkspaceFileSnapshot.TreeDigest digest = snapshot.resources(
+                MEMBER,
+                WorkspaceFileKind.MAIN_RESOURCE,
+                project,
+                List.of("src/main/resources"));
+
+        assertEquals(2, digest.fileCount());
+        assertTrue(snapshot.state().file("modules/core/src/main/resources/application.properties").isPresent());
+        assertTrue(snapshot.state().file("modules/core/src/main/resources/setup.kts").isPresent());
+        assertTrue(snapshot.state().file("modules/core/src/main/resources/Ignored.java").isEmpty());
+        assertTrue(snapshot.state().file("modules/core/src/main/resources/Ignored.groovy").isEmpty());
+        assertTrue(snapshot.state().file("modules/core/src/main/resources/Ignored.kt").isEmpty());
+    }
+
     /**
      * The same-size same-timestamp edit: only the fence can catch it, because nothing the filesystem
      * reports has moved. A row whose file is not strictly older than the state it was written beside
@@ -97,12 +195,11 @@ final class WorkspaceFileSnapshotTest {
     }
 
     /**
-     * The negative control for the rule above, and the residual this design carries: an edit that
-     * keeps the size and back-dates the timestamp behind the fence leaves nothing for a metadata
-     * comparison to see. Paranoid mode is the answer, and this pins that it is the only one.
+     * A cache restore may preserve size, inode, and modification time. Content still has to move
+     * the digest in the default mode, even when the old file was behind the state-file fence.
      */
     @Test
-    void aBackDatedSameSizeEditIsInvisibleUntilParanoidMode() throws IOException {
+    void aBackDatedSameSizeEditIsDetectedByDefault() throws IOException {
         WorkspaceFileSnapshot first = snapshot(WorkspaceFileState.empty(), false);
         String digest = sources(first);
         WorkspaceFileState previous = settled(first);
@@ -112,7 +209,7 @@ final class WorkspaceFileSnapshotTest {
                 FileTime.from(previous.files().values().iterator().next().modifiedNanos(),
                         TimeUnit.NANOSECONDS));
 
-        assertEquals(digest, sources(snapshot(previous, false)));
+        assertNotEquals(digest, sources(snapshot(previous, false)));
         assertNotEquals(digest, sources(snapshot(previous, true)));
     }
 
@@ -126,14 +223,14 @@ final class WorkspaceFileSnapshotTest {
         WorkspaceFileSnapshot second = snapshot(settled(first), false);
         String withAdded = sources(second);
         assertNotEquals(digest, withAdded);
-        assertEquals(1, second.filesHashed());
+        assertEquals(2, second.filesHashed());
         assertEquals(2, second.state().files().size());
 
         Files.delete(added);
         WorkspaceFileSnapshot third = snapshot(settled(second), false);
 
         assertEquals(digest, sources(third));
-        assertEquals(0, third.filesHashed());
+        assertEquals(1, third.filesHashed());
         assertEquals(1, third.state().files().size());
     }
 
@@ -172,12 +269,21 @@ final class WorkspaceFileSnapshotTest {
     }
 
     private String sources(WorkspaceFileSnapshot snapshot) {
-        return snapshot.javaSources(
+        return mainSources(snapshot, List.of("src/main/java"));
+    }
+
+    private String mainSources(WorkspaceFileSnapshot snapshot, List<String> roots) {
+        return snapshot.mainSources(
                         MEMBER,
                         WorkspaceFileKind.MAIN_SOURCE,
                         root.resolve("modules/core"),
-                        List.of("src/main/java"))
+                        roots)
                 .digest();
+    }
+
+    private static void write(Path path, String content) throws IOException {
+        Files.createDirectories(path.getParent());
+        Files.writeString(path, content);
     }
 
     /** The table as a later command would read it: fenced behind a state written just now. */

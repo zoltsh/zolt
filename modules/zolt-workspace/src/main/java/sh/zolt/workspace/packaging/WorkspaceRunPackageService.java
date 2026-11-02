@@ -19,6 +19,7 @@ import sh.zolt.workspace.service.WorkspacePlanTarget;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceMember;
+import sh.zolt.workspace.service.WorkspaceKotlinJvmPreviewPolicy;
 import sh.zolt.workspace.service.WorkspaceMutationLock;
 import sh.zolt.workspace.service.WorkspaceRunFiles;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
@@ -234,12 +235,16 @@ public final class WorkspaceRunPackageService {
                 }
                 launches.add(new WorkspaceRunPackageSnapshot.MemberLaunch(
                         memberPackage.member(),
+                        member.directory(),
                         memberBuild,
                         original,
                         captured,
                         runtimeEntries,
                         jdkStatus.java().orElseThrow(),
-                        mainClass));
+                        mainClass,
+                        WorkspaceKotlinJvmPreviewPolicy.mainJvmArguments(
+                                workspace,
+                                member.path())));
             }
             return new WorkspaceRunPackageSnapshot(
                     packageResult,
@@ -261,7 +266,9 @@ public final class WorkspaceRunPackageService {
                     launch.snapshotPackage(),
                     launch.runtimeEntries(),
                     launch.mainClass(),
-                    arguments);
+                    launch.jvmArguments(),
+                    arguments,
+                    launch.workingDirectory());
             results.add(new WorkspaceRunPackageResult.MemberRunPackageResult(
                     launch.member(),
                     new RunPackageResult(launch.originalPackage(), javaRunResult)));

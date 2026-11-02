@@ -16,6 +16,9 @@ import sh.zolt.project.LicensePolicySettings;
 import sh.zolt.project.VersionConflictPolicy;
 import sh.zolt.resolve.request.DependencyRequest;
 import sh.zolt.resolve.request.RequestOrigin;
+import sh.zolt.resolve.graph.ResolutionGraph;
+import sh.zolt.resolve.lockfile.assembly.CompilerToolResolution;
+import sh.zolt.resolve.lockfile.assembly.GroovyToolResolution;
 import sh.zolt.resolve.version.VersionConflict;
 import sh.zolt.resolve.version.VersionSelectionResult;
 import org.junit.jupiter.api.Test;
@@ -75,6 +78,64 @@ final class VersionConflictPolicyEnforcerTest {
                         policy(VersionConflictPolicy.FAIL), selection, List.of(), "zolt resolve"));
     }
 
+    @Test
+    void enforcesGroovyCompilerClosureConflictsWithExplicitDiagnostics() {
+        VersionSelectionResult selection =
+                new VersionSelectionResult(List.of(), List.of(groovyConflict()));
+        GroovyToolResolution resolution = new GroovyToolResolution(
+                new ResolutionGraph(List.of(), List.of(), List.of(groovyConflict())),
+                selection,
+                List.of());
+
+        List<String> warnings = VersionConflictPolicyEnforcer.enforce(
+                policy(VersionConflictPolicy.WARN),
+                new VersionSelectionResult(List.of(), List.of()),
+                List.of(resolution.asCompilerToolResolution()),
+                List.of(),
+                "zolt resolve");
+
+        assertEquals(1, warnings.size());
+        assertTrue(warnings.getFirst().contains("Groovy compiler toolchain closure"), warnings.toString());
+
+        ResolveException failure = assertThrows(
+                ResolveException.class,
+                () -> VersionConflictPolicyEnforcer.enforce(
+                        policy(VersionConflictPolicy.FAIL),
+                        new VersionSelectionResult(List.of(), List.of()),
+                        List.of(resolution.asCompilerToolResolution()),
+                        List.of(),
+                        "zolt resolve"));
+        assertTrue(failure.getMessage().contains("Groovy compiler toolchain closure"), failure.getMessage());
+        assertTrue(
+                failure.getMessage().contains("in the Groovy compiler toolchain"),
+                failure.getMessage());
+    }
+
+    @Test
+    void labelsKotlinCompilerClosureConflictsExplicitly() {
+        VersionConflict conflict = kotlinConflict();
+        CompilerToolResolution resolution = new CompilerToolResolution(
+                DependencyScope.TOOL_KOTLIN,
+                "Kotlin",
+                new ResolutionGraph(List.of(), List.of(), List.of(conflict)),
+                new VersionSelectionResult(List.of(), List.of(conflict)),
+                List.of());
+
+        ResolveException failure = assertThrows(
+                ResolveException.class,
+                () -> VersionConflictPolicyEnforcer.enforce(
+                        policy(VersionConflictPolicy.FAIL),
+                        new VersionSelectionResult(List.of(), List.of()),
+                        List.of(resolution),
+                        List.of(),
+                        "zolt resolve"));
+
+        assertTrue(failure.getMessage().contains("Kotlin compiler toolchain closure"), failure.getMessage());
+        assertTrue(
+                failure.getMessage().contains("in the Kotlin compiler toolchain"),
+                failure.getMessage());
+    }
+
     private static DependencyPolicySettings policy(VersionConflictPolicy conflicts) {
         return new DependencyPolicySettings(List.of(), Map.of(), conflicts, LicensePolicySettings.defaults());
     }
@@ -88,6 +149,48 @@ final class VersionConflictPolicyEnforcerTest {
                         new DependencyRequest(driver, "1.0.0", DependencyScope.COMPILE, RequestOrigin.TRANSITIVE),
                         new DependencyRequest(driver, "3.0.0", DependencyScope.COMPILE, RequestOrigin.DIRECT)),
                 "3.0.0",
+                ConflictSelectionReason.DIRECT_DEPENDENCY,
+                true);
+    }
+
+    private static VersionConflict groovyConflict() {
+        PackageId groovy = new PackageId("org.apache.groovy", "groovy-helper");
+        return new VersionConflict(
+                groovy,
+                LockArtifactVariant.defaultVariant(),
+                List.of(
+                        new DependencyRequest(
+                                groovy,
+                                "4.0.21",
+                                DependencyScope.TOOL_GROOVY,
+                                RequestOrigin.TRANSITIVE),
+                        new DependencyRequest(
+                                groovy,
+                                "4.0.23",
+                                DependencyScope.TOOL_GROOVY,
+                                RequestOrigin.DIRECT)),
+                "4.0.23",
+                ConflictSelectionReason.DIRECT_DEPENDENCY,
+                true);
+    }
+
+    private static VersionConflict kotlinConflict() {
+        PackageId stdlib = new PackageId("org.jetbrains.kotlin", "kotlin-stdlib");
+        return new VersionConflict(
+                stdlib,
+                LockArtifactVariant.defaultVariant(),
+                List.of(
+                        new DependencyRequest(
+                                stdlib,
+                                "2.1.0",
+                                DependencyScope.TOOL_KOTLIN,
+                                RequestOrigin.TRANSITIVE),
+                        new DependencyRequest(
+                                stdlib,
+                                "2.2.0",
+                                DependencyScope.TOOL_KOTLIN,
+                                RequestOrigin.DIRECT)),
+                "2.2.0",
                 ConflictSelectionReason.DIRECT_DEPENDENCY,
                 true);
     }

@@ -30,7 +30,9 @@ final class CommandRunAttributes {
         attributes.put(CommandAttributeKeys.MEMBERS, Integer.toString(result.members().size()));
         attributes.put(CommandAttributeKeys.MAIN_SOURCE_FILES, Integer.toString(workspaceRunSourceCount(result)));
         attributes.put(CommandAttributeKeys.MAIN_COMPILATIONS_SKIPPED, Integer.toString(workspaceRunMainCompilationSkippedCount(result)));
+        attributes.put(CommandAttributeKeys.MAIN_COMPILATIONS_RESTORED, Integer.toString(workspaceRunMainCompilationRestoredCount(result)));
         attributes.put(CommandAttributeKeys.MAIN_COMPILATIONS_EXECUTED, Integer.toString(workspaceRunMainCompilationExecutedCount(result)));
+        attributes.put(CommandAttributeKeys.MAIN_RESTORED_CLASSES, Integer.toString(workspaceRunMainRestoredClassCount(result)));
         attributes.put(CommandAttributeKeys.RESOLVED_LOCKFILE, Boolean.toString(result.resolvedLockfile()));
         attributes.put(CommandAttributeKeys.OUTPUT_BYTES, Integer.toString(workspaceRunOutputBytes(result)));
         return attributes;
@@ -65,7 +67,21 @@ final class CommandRunAttributes {
     }
 
     private static int workspaceRunMainCompilationExecutedCount(WorkspaceRunResult result) {
-        return result.builtMembers().size() - workspaceRunMainCompilationSkippedCount(result);
+        return result.builtMembers().size()
+                - workspaceRunMainCompilationSkippedCount(result)
+                - workspaceRunMainCompilationRestoredCount(result);
+    }
+
+    private static int workspaceRunMainCompilationRestoredCount(WorkspaceRunResult result) {
+        return (int) result.builtMembers().stream()
+                .filter(member -> member.result().mainCompilationRestored())
+                .count();
+    }
+
+    private static int workspaceRunMainRestoredClassCount(WorkspaceRunResult result) {
+        return result.builtMembers().stream()
+                .mapToInt(member -> member.result().mainRestoredClassCount())
+                .sum();
     }
 
     private static int workspaceRunOutputBytes(WorkspaceRunResult result) {

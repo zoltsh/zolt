@@ -42,10 +42,20 @@ final class WorkspaceCanonicalBuildPolicy {
     static Set<String> membersWithProcessorInputs(
             Workspace workspace,
             ZoltLockfile lockfile) {
+        return membersWithProcessorInputs(workspace, lockfile, false);
+    }
+
+    static Set<String> membersWithTestProcessorInputs(Workspace workspace, ZoltLockfile lockfile) {
+        return membersWithProcessorInputs(workspace, lockfile, true);
+    }
+
+    private static Set<String> membersWithProcessorInputs(
+            Workspace workspace, ZoltLockfile lockfile, boolean test) {
         Set<String> members = new LinkedHashSet<>();
         for (LockPackage lockPackage : lockfile.packages()) {
             if (lockPackage.workspace().isPresent()
-                    || !lockPackage.scope().entersMainProcessorClasspath()) {
+                    || !(test ? lockPackage.scope().entersTestProcessorClasspath()
+                            : lockPackage.scope().entersMainProcessorClasspath())) {
                 continue;
             }
             if (lockPackage.members().isEmpty()) {
@@ -54,7 +64,7 @@ final class WorkspaceCanonicalBuildPolicy {
             members.addAll(lockPackage.members());
         }
         for (WorkspaceProjectEdge edge : workspace.edges()) {
-            if (edge.scope().equals("processor")) {
+            if (edge.scope().equals(test ? "test-processor" : "processor")) {
                 members.add(edge.from());
             }
         }

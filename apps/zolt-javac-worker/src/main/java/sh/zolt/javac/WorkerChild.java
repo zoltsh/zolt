@@ -11,7 +11,7 @@ import java.util.concurrent.TimeUnit;
  *
  * <p>The child is the unit of cancellation: {@link #destroy()} kills the process, which is the only
  * way to guarantee that a cancelled compile stops writing class files. A child is reused across
- * requests and across commands, so its JIT profile and file-manager JAR indexes stay warm.
+ * requests and across commands, so its compiler classes and JIT profile stay warm.
  */
 final class WorkerChild {
     private static final int DESTROY_TIMEOUT_MILLIS = 500;
@@ -55,7 +55,7 @@ final class WorkerChild {
 
     /**
      * Whether this lease is the child's first compile. A child that has already compiled is warm —
-     * its JIT profile and file-manager indexes are the reason the broker exists — so only the first
+     * its loaded compiler and JIT profile avoid repeated startup costs — so only the first
      * use is counted as a worker start, whether the child was started on demand or prewarmed.
      */
     boolean claimFirstUse() {

@@ -1,7 +1,6 @@
 package sh.zolt.build;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.project.BuildSettings;
@@ -88,7 +87,7 @@ final class BuildServiceExecGeneratedSourceTest {
     }
 
     @Test
-    void execOutputByteChangeInvalidatesMainBuildFingerprint() throws IOException {
+    void execOutputByteChangeIsRepairedBeforeMainBuildFingerprinting() throws IOException {
         seedToolAndLock();
         source("src/main/gen/config.txt", "generate\n");
         source("src/main/java/com/example/Main.java", """
@@ -109,12 +108,14 @@ final class BuildServiceExecGeneratedSourceTest {
         BuildResult unchanged = buildService.build(projectDir, config, projectDir.resolve("cache"));
         assertTrue(unchanged.mainCompilationSkipped());
 
-        // change the exec output bytes only; inputs are unchanged so the producer cache skips re-running,
-        // but the consumer fence must still invalidate the module fingerprint.
-        Files.writeString(projectDir.resolve("target/generated/resources/gen/app.properties"), "generated=changed");
+        Path generated = projectDir.resolve("target/generated/resources/gen/app.properties");
+        Path copied = projectDir.resolve("target/classes/config/app.properties");
+        Files.writeString(generated, "generated=changed");
         BuildResult afterOutputChange = buildService.build(projectDir, config, projectDir.resolve("cache"));
 
-        assertFalse(afterOutputChange.mainCompilationSkipped());
+        assertTrue(afterOutputChange.mainCompilationSkipped());
+        assertEquals("generated=true", Files.readString(generated));
+        assertEquals("generated=true", Files.readString(copied));
     }
 
     @Test

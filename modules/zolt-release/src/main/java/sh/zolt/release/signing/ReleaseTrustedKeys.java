@@ -5,6 +5,9 @@ import java.util.List;
 public final class ReleaseTrustedKeys {
     public static final String ZOLT_RELEASE_2026_KEY_ID = "zolt-release-2026";
     public static final String ZOLT_PREVIEW_2026_KEY_ID = "zolt-preview-2026";
+    public static final String ZOLT_STABLE_2026_KEY_ID = "zolt-stable-2026";
+    private static final String ZOLT_STABLE_2026_PUBLIC_KEY =
+            "MCowBQYDK2VwAyEArEqJVwCSx3eNB8LAc6Pi1vmJMw/MbW6dUEX3K2sKK8M=";
     private static final String ZOLT_RELEASE_2026_PUBLIC_KEY =
             "MCowBQYDK2VwAyEAn6cIrOCATTABSbWHl34vlZlP6xu/sFN8rxKga+/M/ZU=";
     private static final String ZOLT_PREVIEW_2026_PUBLIC_KEY =
@@ -22,6 +25,10 @@ public final class ReleaseTrustedKeys {
                 new ReleaseSigningKey(
                         ZOLT_PREVIEW_2026_KEY_ID,
                         "Ed25519",
-                        ZOLT_PREVIEW_2026_PUBLIC_KEY));
+                        ZOLT_PREVIEW_2026_PUBLIC_KEY),
+                new ReleaseSigningKey(
+                        ZOLT_STABLE_2026_KEY_ID,
+                        "Ed25519",
+                        ZOLT_STABLE_2026_PUBLIC_KEY));
     }
 }

@@ -35,6 +35,7 @@ import java.util.function.UnaryOperator;
 
 public final class WorkspacePackageService {
     private final WorkspaceBuildService workspaceBuildService;
+    private final WorkspaceJdkCheckerResolver jdkCheckers;
     private final PackageService packageService;
     private final PackagePlanService packagePlanService;
     private final WorkspaceClasspathService workspaceClasspathService;
@@ -94,7 +95,8 @@ public final class WorkspacePackageService {
                 new PackageService(resolveService, frameworkPackageAugmenter, packagePlanService, provenanceSource),
                 packagePlanService,
                 new WorkspaceClasspathService(),
-                new WorkspaceBomPackager(packagePlanService));
+                new WorkspaceBomPackager(packagePlanService),
+                WorkspaceJdkCheckerResolver.fixed(jdkDetector));
     }
 
     WorkspacePackageService(
@@ -126,6 +128,18 @@ public final class WorkspacePackageService {
             PackagePlanService packagePlanService,
             WorkspaceClasspathService workspaceClasspathService,
             WorkspaceBomPackager bomPackager) {
+        this(workspaceBuildService, packageService, packagePlanService, workspaceClasspathService,
+                bomPackager, WorkspaceJdkCheckerResolver.fixed(new JdkDetector()));
+    }
+
+    private WorkspacePackageService(
+            WorkspaceBuildService workspaceBuildService,
+            PackageService packageService,
+            PackagePlanService packagePlanService,
+            WorkspaceClasspathService workspaceClasspathService,
+            WorkspaceBomPackager bomPackager,
+            WorkspaceJdkCheckerResolver jdkCheckers) {
+        this.jdkCheckers = jdkCheckers;
         this.workspaceBuildService = workspaceBuildService;
         this.packageService = packageService;
         this.packagePlanService = packagePlanService;
@@ -140,7 +154,8 @@ public final class WorkspacePackageService {
                 packageService,
                 packagePlanService,
                 workspaceClasspathService,
-                bomPackager);
+                bomPackager,
+                jdkCheckers);
     }
 
     public WorkspacePackageResult packageJars(
@@ -170,6 +185,7 @@ public final class WorkspacePackageService {
     }
 
     public WorkspaceBuildResult buildPackageInputs(WorkspaceBuildPlan plan, Path cacheRoot) {
+        WorkspacePackageToolchains.preflight(plan, packageService, jdkCheckers);
         return workspaceBuildService.build(plan, cacheRoot, WorkspaceBuildRequirements.mainBuild());
     }
 
@@ -287,7 +303,7 @@ public final class WorkspacePackageService {
         return new PackagedMember(
                 new WorkspacePackageResult.MemberPackageResult(
                         member.path(),
-                        packageService.packageJar(
+                        packageService.withJdkChecker(jdkCheckers.forMember(workspace, member)).packageJar(
                                 workspace.memberContext(member),
                                 memberConfig,
                                 memberBuild.result(),

@@ -32,6 +32,12 @@ final class DependencyTransitiveScopeSelector {
         if (parentScope == DependencyScope.TOOL_COVERAGE) {
             return Optional.of(DependencyScope.TOOL_COVERAGE);
         }
+        if (parentScope == DependencyScope.TOOL_GROOVY) {
+            return Optional.of(DependencyScope.TOOL_GROOVY);
+        }
+        if (parentScope == DependencyScope.TOOL_KOTLIN) {
+            return Optional.of(DependencyScope.TOOL_KOTLIN);
+        }
         if (parentScope == DependencyScope.TEST) {
             return Optional.of(DependencyScope.TEST);
         }

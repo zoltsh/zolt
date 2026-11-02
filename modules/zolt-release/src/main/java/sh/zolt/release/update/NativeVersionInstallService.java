@@ -28,8 +28,8 @@ public final class NativeVersionInstallService {
     }
 
     public NativeVersionInstallResult install(NativeVersionInstallRequest request) {
-        try {
-            NativeInstalledLayout installed = NativeInstalledLayout.detect(request.installRoot(), request.currentExecutable());
+        try (NativeInstallLease lease = NativeInstallLease.acquireManaged(request.installRoot(), request.currentExecutable())) {
+            NativeInstalledLayout installed = NativeInstalledLayout.detect(lease.root(), lease.root().resolve("bin/zolt"));
             String version = safeVersion(request.version());
             Path versionsRoot = NativeInstallPaths.ownedDirectory(installed.versionsDirectory(), "native versions directory");
             ReleaseIndexManifest index = releaseIndexService.read(new NativeReleaseListRequest(request.releaseIndexUri()));
@@ -39,39 +39,35 @@ public final class NativeVersionInstallService {
             Path installDirectory = NativeInstallPaths.resolveUnderRoot(versionsRoot, version, "native install directory");
             Path installedBinary = installDirectory.resolve("bin").resolve(artifact.binaryName()).normalize();
             NativeInstallPaths.assertUnderRoot(installDirectory, installedBinary, "native installed binary");
-            if (Files.isExecutable(installedBinary)) {
-                NativeUpdateVerifier.smokeCandidate(installedBinary, version);
+            if (NativeInstallAttempt.reuseCompleted(installDirectory, artifact.binaryName(), version)) {
                 return new NativeVersionInstallResult(index.channel(), version, request.target(), false, installedBinary);
             }
 
-            Path workDirectory = request.workDirectory() == null
-                    ? Files.createTempDirectory("zolt-install-")
-                    : request.workDirectory().toAbsolutePath().normalize();
-            Path workRoot = NativeInstallPaths.ownedDirectory(workDirectory, "native install work directory");
-            Path archive = NativeInstallPaths.resolveUnderRoot(workRoot, artifact.archive(), "native install archive");
-            transport.download(URI.create(artifact.archiveUrl()), archive);
-            verifyChecksum(archive, expectedChecksum(artifact, workRoot));
+            try (NativeInstallAttempt attempt = new NativeInstallAttempt(versionsRoot)) {
+                Path workRoot = attempt.root();
+                Path archive = NativeInstallPaths.resolveUnderRoot(workRoot, artifact.archive(), "native install archive");
+                transport.download(URI.create(artifact.archiveUrl()), archive);
+                verifyChecksum(archive, expectedChecksum(artifact, workRoot));
 
-            Path extractDirectory = NativeInstallPaths.resolveUnderRoot(workRoot, "extract", "native install extraction directory");
-            NativeInstallPaths.deleteIfExists(workRoot, extractDirectory, "native install extraction directory");
-            Files.createDirectories(extractDirectory);
-            ReleaseArchiveSupport.unpack(archive, extractDirectory, artifact);
-            Path candidateRoot = singleDirectory(extractDirectory);
-            NativeInstallPaths.assertUnderRoot(extractDirectory, candidateRoot, "native install extraction candidate");
-            Path candidateBinary = candidateRoot.resolve("bin").resolve(artifact.binaryName()).normalize();
-            NativeInstallPaths.assertUnderRoot(candidateRoot, candidateBinary, "native install candidate binary");
-            if (!Files.isExecutable(candidateBinary)) {
-                throw new NativeUpdateException("Downloaded native Zolt archive does not contain executable bin/" + artifact.binaryName() + ".");
+                Path extractDirectory = NativeInstallPaths.resolveUnderRoot(workRoot, "extract", "native install extraction directory");
+                NativeInstallPaths.deleteIfExists(workRoot, extractDirectory, "native install extraction directory");
+                Files.createDirectories(extractDirectory);
+                ReleaseArchiveSupport.unpack(archive, extractDirectory, artifact);
+                Path candidateRoot = singleDirectory(extractDirectory);
+                NativeInstallPaths.assertUnderRoot(extractDirectory, candidateRoot, "native install extraction candidate");
+                Path candidateBinary = candidateRoot.resolve("bin").resolve(artifact.binaryName()).normalize();
+                NativeInstallPaths.assertUnderRoot(candidateRoot, candidateBinary, "native install candidate binary");
+                if (!Files.isExecutable(candidateBinary)) {
+                    throw new NativeUpdateException("Downloaded native Zolt archive does not contain executable bin/" + artifact.binaryName() + ".");
+                }
+
+                // Reject unusable candidates before touching any installed version or rollback target.
+                NativeUpdateVerifier.smokeCandidate(candidateBinary, version);
+
+                NativeInstallAttempt.publish(candidateRoot, installDirectory);
             }
-
-            Path tempInstallDirectory = NativeInstallPaths.resolveUnderRoot(versionsRoot, version + ".tmp", "native temporary install directory");
-            NativeInstallPaths.deleteIfExists(versionsRoot, tempInstallDirectory, "native temporary install directory");
-            Files.move(candidateRoot, tempInstallDirectory);
-            NativeInstallPaths.deleteIfExists(versionsRoot, installDirectory, "native install directory");
-            Files.move(tempInstallDirectory, installDirectory);
             Path finalBinary = installDirectory.resolve("bin").resolve(artifact.binaryName());
             NativeInstallPaths.assertUnderRoot(installDirectory, finalBinary, "native installed binary");
-            NativeUpdateVerifier.smokeCandidate(finalBinary, version);
             return new NativeVersionInstallResult(index.channel(), version, request.target(), true, finalBinary);
         } catch (IOException exception) {
             throw new NativeUpdateException("Could not install native Zolt version: " + exception.getMessage(), exception);

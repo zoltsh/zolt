@@ -14,6 +14,8 @@ final class CompilerSettingsPlatformApiTest {
 
         assertEquals(CompilerSettings.PLATFORM_API_RELEASE, settings.platformApi());
         assertEquals("", settings.testPlatformApi());
+        assertEquals("", settings.groovyVersion());
+        assertEquals("", settings.kotlinVersion());
         assertFalse(settings.mainHostPlatformApi());
         assertFalse(settings.testHostPlatformApi());
     }
@@ -24,7 +26,61 @@ final class CompilerSettingsPlatformApiTest {
                 "gen", "gentest", "8", "UTF-8", List.of(), List.of());
 
         assertEquals(CompilerSettings.PLATFORM_API_RELEASE, settings.platformApi());
+        assertEquals("", settings.groovyVersion());
+        assertEquals("", settings.kotlinVersion());
         assertFalse(settings.mainHostPlatformApi());
+    }
+
+    @Test
+    void explicitGroovyVersionDoesNotChangeLegacyJavaOnlyEquality() {
+        CompilerSettings legacy = new CompilerSettings(
+                "gen", "gentest", "21", "UTF-8", List.of("-parameters"), List.of(), "host", "");
+        CompilerSettings explicitBlank = new CompilerSettings(
+                "gen",
+                "gentest",
+                "21",
+                "UTF-8",
+                List.of("-parameters"),
+                List.of(),
+                "host",
+                "",
+                " ");
+        CompilerSettings groovy = new CompilerSettings(
+                "gen",
+                "gentest",
+                "21",
+                "UTF-8",
+                List.of("-parameters"),
+                List.of(),
+                "host",
+                "",
+                "4.0.22");
+
+        assertEquals(legacy, explicitBlank);
+        assertEquals("", legacy.groovyVersion());
+        assertEquals("4.0.22", groovy.groovyVersion());
+        assertEquals("", groovy.kotlinVersion());
+    }
+
+    @Test
+    void explicitKotlinVersionPreservesGroovyEraConstructorDefaults() {
+        CompilerSettings groovyEra = new CompilerSettings(
+                "gen", "gentest", "21", "UTF-8", List.of(), List.of(), "release", "", "4.0.22");
+        CompilerSettings kotlin = new CompilerSettings(
+                "gen",
+                "gentest",
+                "21",
+                "UTF-8",
+                List.of(),
+                List.of(),
+                "release",
+                "",
+                "4.0.22",
+                "2.2.0");
+
+        assertEquals("", groovyEra.kotlinVersion());
+        assertEquals("4.0.22", kotlin.groovyVersion());
+        assertEquals("2.2.0", kotlin.kotlinVersion());
     }
 
     @Test
@@ -53,5 +109,32 @@ final class CompilerSettingsPlatformApiTest {
         assertEquals("host", settings.effectiveTestPlatformApi());
         assertFalse(settings.mainHostPlatformApi());
         assertTrue(settings.testHostPlatformApi());
+    }
+
+    @Test
+    void kotlinJvmPreviewTracksMainAndTestCompilerArguments() {
+        CompilerSettings ordinary = new CompilerSettings(
+                "gen", "gentest", "21", "", List.of(), List.of());
+        CompilerSettings mainPreview = new CompilerSettings(
+                "gen",
+                "gentest",
+                "21",
+                "",
+                List.of("-Xjvm-enable-preview"),
+                List.of());
+        CompilerSettings testPreview = new CompilerSettings(
+                "gen",
+                "gentest",
+                "21",
+                "",
+                List.of(),
+                List.of("-Xjvm-enable-preview"));
+
+        assertFalse(ordinary.mainKotlinJvmPreview());
+        assertFalse(ordinary.testKotlinJvmPreview());
+        assertTrue(mainPreview.mainKotlinJvmPreview());
+        assertTrue(mainPreview.testKotlinJvmPreview());
+        assertFalse(testPreview.mainKotlinJvmPreview());
+        assertTrue(testPreview.testKotlinJvmPreview());
     }
 }

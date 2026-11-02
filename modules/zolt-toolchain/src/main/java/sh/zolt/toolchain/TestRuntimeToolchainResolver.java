@@ -48,7 +48,7 @@ public final class TestRuntimeToolchainResolver {
                 ProjectLockfile.in(lockRoot),
                 effectivePlatform,
                 effectiveStore);
-        return Optional.of(new TestRuntimeToolchain(request.orElseThrow(), status, config.project().java()));
+        return Optional.of(TestRuntimeToolchain.forProject(request.orElseThrow(), status, config));
     }
 
     public TestRuntimeToolchain resolveCaptured(
@@ -68,9 +68,6 @@ public final class TestRuntimeToolchainResolver {
                 locked,
                 effectivePlatform,
                 effectiveStore);
-        return new TestRuntimeToolchain(
-                request,
-                status,
-                config.project().java());
+        return TestRuntimeToolchain.forProject(request, status, config);
     }
 }

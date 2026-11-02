@@ -9,11 +9,8 @@ package sh.zolt.build;
  * earlier version unsafe to reuse.
  */
 public final class CompilationSemantics {
-    /**
-     * Version 3 establishes conservative full-scope recompilation as the stable source-change
-     * strategy.
-     */
-    public static final String VERSION = "3";
+    /** Version 12 inventories compiler-owned resources before resource and metadata overlays. */
+    public static final String VERSION = "12";
 
     private CompilationSemantics() {}
 }

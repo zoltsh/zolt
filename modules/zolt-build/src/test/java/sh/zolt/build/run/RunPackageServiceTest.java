@@ -45,7 +45,8 @@ final class RunPackageServiceTest extends RunPackageServiceTestSupport {
         assertEquals("hello\n", result.javaRunResult().output());
         assertTrue(Files.exists(jarPath));
         assertFalse(commands.getFirst().get(2).contains("processor-1.0.0.jar"));
-        assertTrue(commands.getFirst().get(2).contains(jarPath.toString()));
+        assertTrue(commands.getFirst().get(2).contains(projectDir.resolve(".zolt/run").toString()));
+        assertTrue(commands.getFirst().get(2).contains("demo-0.1.0.jar"));
         assertTrue(commands.getFirst().get(2).contains("runtime-lib-1.0.0.jar"));
         assertEquals("com.example.Main", commands.getFirst().get(3));
         assertEquals(List.of("one", "two"), commands.getFirst().subList(4, 6));
@@ -82,10 +83,12 @@ final class RunPackageServiceTest extends RunPackageServiceTestSupport {
         assertEquals(jarPath, result.packageResult().jarPath());
         assertEquals(sh.zolt.project.PackageMode.UBER, result.packageResult().mode());
         assertEquals("hello\n", result.javaRunResult().output());
+        assertTrue(Path.of(commands.getFirst().get(2)).startsWith(projectDir.resolve(".zolt/run")));
+        assertTrue(commands.getFirst().get(2).endsWith("demo-0.1.0.jar"));
         assertEquals(List.of(
                 commands.getFirst().get(0),
                 "-jar",
-                jarPath.toString(),
+                commands.getFirst().get(2),
                 "one",
                 "two"), commands.getFirst());
     }

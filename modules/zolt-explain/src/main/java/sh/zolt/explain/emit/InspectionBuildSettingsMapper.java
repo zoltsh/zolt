@@ -5,6 +5,7 @@ import sh.zolt.manifest.SourceRootLanguage;
 import sh.zolt.manifest.authored.AuthoredBuild;
 import sh.zolt.manifest.authored.AuthoredBuildConfiguration;
 import sh.zolt.manifest.authored.AuthoredResources;
+import sh.zolt.manifest.authored.AuthoredTests;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -35,7 +36,14 @@ final class InspectionBuildSettingsMapper {
             List<String> resourceRoots,
             List<String> testResourceRoots,
             List<String> notes) {
-        return fromRoots(sourceRoots, testSourceRoots, List.of(), resourceRoots, testResourceRoots, notes);
+        return fromRoots(
+                sourceRoots,
+                testSourceRoots,
+                List.of(),
+                resourceRoots,
+                testResourceRoots,
+                Optional.empty(),
+                notes);
     }
 
     static AuthoredBuildConfiguration fromRoots(
@@ -45,29 +53,69 @@ final class InspectionBuildSettingsMapper {
             List<String> resourceRoots,
             List<String> testResourceRoots,
             List<String> notes) {
-        List<ManifestRelativePath> mainRoots = paths(sourceRoots, "a main source root", notes);
-        List<ManifestRelativePath> testRoots = new ArrayList<>(
-                paths(testSourceRoots, "a test source root", notes));
+        return fromRoots(
+                sourceRoots,
+                testSourceRoots,
+                groovyTestSourceRoots,
+                resourceRoots,
+                testResourceRoots,
+                Optional.empty(),
+                notes);
+    }
+
+    static AuthoredBuildConfiguration fromKotlinRoots(
+            List<String> sourceRoots,
+            List<String> testSourceRoots,
+            List<String> resourceRoots,
+            List<String> testResourceRoots,
+            KotlinJvmDraftEligibility.Decision.Eligible kotlin,
+            List<String> notes) {
+        return fromRoots(
+                sourceRoots,
+                testSourceRoots,
+                List.of(),
+                resourceRoots,
+                testResourceRoots,
+                Optional.of(kotlin),
+                notes);
+    }
+
+    private static AuthoredBuildConfiguration fromRoots(
+            List<String> sourceRoots,
+            List<String> testSourceRoots,
+            List<String> groovyTestSourceRoots,
+            List<String> resourceRoots,
+            List<String> testResourceRoots,
+            Optional<KotlinJvmDraftEligibility.Decision.Eligible> kotlin,
+            List<String> notes) {
+        boolean kotlinMain = kotlin.map(KotlinJvmDraftEligibility.Decision.Eligible::main).orElse(false);
+        boolean kotlinTest = kotlin.map(KotlinJvmDraftEligibility.Decision.Eligible::test).orElse(false);
+        List<ManifestRelativePath> mainRoots = kotlinMain
+                ? pathsAllowingKotlin(sourceRoots, "a main source root", true, notes)
+                : paths(sourceRoots, "a main source root", notes);
+        List<ManifestRelativePath> testRoots = new ArrayList<>(kotlinTest
+                ? pathsAllowingKotlin(testSourceRoots, "a test source root", false, notes)
+                : paths(testSourceRoots, "a test source root", notes));
         testRoots.addAll(paths(groovyTestSourceRoots, "a test source root", notes));
         testRoots = distinct(testRoots);
         if (mainRoots.isEmpty()) {
             notes.add(unsupported(sourceRoots)
-                    ? "Every audited main source root names a language Zolt cannot build; the draft"
-                            + " keeps the Zolt convention `src/main/java`. Migrate a plain Java module"
-                            + " first, then set [build].sources to its real source root."
+                    ? "Every audited main source root requires manual migration review; the draft"
+                            + " keeps the Zolt convention `src/main/java`. Follow the language-specific"
+                            + " guidance above before setting [build].sources."
                     : "No main source root was found by the static audit; the draft keeps the Zolt"
                             + " convention `src/main/java`. Set [build].sources to the real source root"
                             + " before building.");
         }
-        if (!testRoots.isEmpty() && !List.of(TEST_SOURCE).equals(testRoots)) {
+        if (!kotlinTest && !testRoots.isEmpty() && !List.of(TEST_SOURCE).equals(testRoots)) {
             notes.add(
                     "Test sources live outside the Zolt convention `src/test/java` (" + join(testRoots)
                             + "); Zolt derives the test root from the build convention, so move them or"
                             + " add a [tests] override by hand.");
         }
-        Optional<AuthoredBuild> build = conventional(mainRoots, MAIN_SOURCE)
-                ? Optional.empty()
-                : Optional.of(new AuthoredBuild(mainRoots, Optional.empty(), Optional.empty()));
+        Optional<AuthoredBuild> build = kotlinMain || !conventional(mainRoots, MAIN_SOURCE)
+                ? Optional.of(new AuthoredBuild(mainRoots, Optional.empty(), Optional.empty()))
+                : Optional.empty();
 
         List<ManifestRelativePath> mainResources =
                 authored(resourceRootsFor(resourceRoots, "main", notes), MAIN_RESOURCES);
@@ -77,8 +125,28 @@ final class InspectionBuildSettingsMapper {
                 ? Optional.empty()
                 : Optional.of(new AuthoredResources(
                         mainResources, testResources, Optional.empty(), Map.of()));
+        Optional<AuthoredTests> tests = kotlinTest
+                ? Optional.of(kotlinTests(testRoots))
+                : Optional.empty();
         return new AuthoredBuildConfiguration(
-                build, Optional.empty(), resources, Optional.empty(), Optional.empty());
+                build, Optional.empty(), resources, tests, Optional.empty());
+    }
+
+    private static AuthoredTests kotlinTests(List<ManifestRelativePath> roots) {
+        List<ManifestRelativePath> kotlin = roots.stream()
+                .filter(InspectionBuildSettingsMapper::kotlinRoot)
+                .toList();
+        List<ManifestRelativePath> javaRoots = roots.stream()
+                .filter(root -> !kotlinRoot(root))
+                .toList();
+        List<ManifestRelativePath> java = List.of(TEST_SOURCE).equals(javaRoots)
+                ? List.of()
+                : javaRoots;
+        return new AuthoredTests(
+                Optional.of(new AuthoredTests.Sources(java, List.of(), kotlin)),
+                Optional.empty(),
+                Optional.empty(),
+                Map.of());
     }
 
     /**
@@ -119,7 +187,7 @@ final class InspectionBuildSettingsMapper {
         return conventional(roots, convention) ? List.of() : roots;
     }
 
-    /** Whether the audit found roots, but only for languages Zolt cannot build. */
+    /** Whether the audit found roots that automatic migration is not ready to author. */
     private static boolean unsupported(List<String> roots) {
         return roots != null && roots.stream()
                 .filter(root -> root != null && !root.isBlank())
@@ -144,10 +212,9 @@ final class InspectionBuildSettingsMapper {
             String root = value.strip();
             Optional<SourceRootLanguage> unsupported = SourceRootLanguage.unsupported(root);
             if (unsupported.isPresent()) {
-                // Emitting the root would produce a manifest the parser rejects (design §10.1), so the
-                // audited reality is carried as review data instead.
+                // Migration remains conservative even where an explicitly authored main root is legal.
                 notes.add("The static audit reported " + subject + " at `" + root + "`, which Zolt"
-                        + " cannot build: " + unsupported.orElseThrow().remedy());
+                        + " cannot migrate automatically: " + unsupported.orElseThrow().remedy());
                 continue;
             }
             try {
@@ -159,6 +226,44 @@ final class InspectionBuildSettingsMapper {
             }
         }
         return distinct(paths);
+    }
+
+    private static List<ManifestRelativePath> pathsAllowingKotlin(
+            List<String> values,
+            String subject,
+            boolean main,
+            List<String> notes) {
+        List<ManifestRelativePath> paths = new ArrayList<>();
+        for (String value : values == null ? List.<String>of() : values) {
+            if (value == null || value.isBlank()) {
+                continue;
+            }
+            String root = value.strip();
+            Optional<SourceRootLanguage> language = SourceRootLanguage.unsupported(root);
+            if (language.isPresent() && language.orElseThrow() != SourceRootLanguage.KOTLIN) {
+                notes.add("The static audit reported " + subject + " at `" + root + "`, which Zolt"
+                        + " cannot migrate automatically: " + language.orElseThrow().remedy());
+                continue;
+            }
+            try {
+                ManifestRelativePath path = new ManifestRelativePath(root);
+                if (language.isPresent()) {
+                    path = main
+                            ? SourceRootLanguage.requireMainSupported(path)
+                            : SourceRootLanguage.requireKotlinTestSupported(path);
+                }
+                paths.add(path);
+            } catch (IllegalArgumentException exception) {
+                notes.add("The static audit reported " + subject + " at `" + root
+                        + "`, which is not a project-relative manifest path: " + exception.getMessage()
+                        + " Add it by hand after moving it beneath the project.");
+            }
+        }
+        return distinct(paths);
+    }
+
+    private static boolean kotlinRoot(ManifestRelativePath root) {
+        return SourceRootLanguage.unsupported(root.value()).orElse(null) == SourceRootLanguage.KOTLIN;
     }
 
     private static List<ManifestRelativePath> distinct(List<ManifestRelativePath> values) {

@@ -38,13 +38,13 @@ final class BuildFingerprintFileHasherTest {
     }
 
     @Test
-    void cachedStateAvoidsReadingCurrentFileContent() throws IOException {
+    void persistedMetadataDoesNotReplaceContentVerification() throws IOException {
         Path source = tempDir.resolve("source.txt");
         Files.writeString(source, "content");
         BuildFingerprintCachedFileHash cached = BuildFingerprintCachedFileHash.read(source, "cached-hash");
         BuildFingerprintState state = new BuildFingerprintState("fingerprint", Map.of(source.toAbsolutePath().normalize(), cached));
 
-        assertEquals("cached-hash", hasher.fileHash(source, state, null));
+        assertEquals(hasher.fileHash(source, null, null), hasher.fileHash(source, state, null));
     }
 
     @Test
@@ -63,7 +63,7 @@ final class BuildFingerprintFileHasherTest {
     }
 
     @Test
-    void collectedStateCarriesForwardCurrentCachedHashes() throws IOException {
+    void collectedStateReplacesUnverifiedPersistedHashes() throws IOException {
         Path source = tempDir.resolve("source.txt");
         Files.writeString(source, "content");
         BuildFingerprintCachedFileHash cached = BuildFingerprintCachedFileHash.read(source, "cached-hash");
@@ -72,8 +72,9 @@ final class BuildFingerprintFileHasherTest {
                 Map.of(source.toAbsolutePath().normalize(), cached));
         Map<Path, BuildFingerprintCachedFileHash> collected = new HashMap<>();
 
-        assertEquals("cached-hash", hasher.fileHash(source, state, collected));
-        assertEquals(cached, collected.get(source.toAbsolutePath().normalize()));
+        String verified = hasher.fileHash(source, null, null);
+        assertEquals(verified, hasher.fileHash(source, state, collected));
+        assertEquals(verified, collected.get(source.toAbsolutePath().normalize()).hash());
     }
 
     @Test
@@ -127,7 +128,7 @@ final class BuildFingerprintFileHasherTest {
 
     private String incrementalState(Path outputDirectory) {
         Path project = tempDir.toAbsolutePath().normalize();
-        return "version=7\n"
+        return "version=8\n"
                 + "scope=main\n"
                 + encodedLine("projectDirectory", project.toString())
                 + encodedLine("outputDirectory", outputDirectory.toAbsolutePath().normalize().toString())

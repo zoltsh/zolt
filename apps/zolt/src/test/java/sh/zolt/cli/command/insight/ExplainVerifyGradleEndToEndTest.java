@@ -102,7 +102,7 @@ final class ExplainVerifyGradleEndToEndTest {
                 central = "https://repo.maven.apache.org/maven2"
 
                 [dependencies]
-                "com.google.guava:guava" = "33.4.8-jre"
+                "com.google.guava:guava" = "33.7.2-jre"
 
                 [dependencies.test]
                 "org.junit.jupiter:junit-jupiter" = "5.11.4"

@@ -26,9 +26,12 @@ final class PackageResourceEvidenceTest {
     private Path projectDir;
 
     @Test
-    void collectsNonJavaResourceInputsInDeterministicOrder() throws IOException {
+    void collectsNonSourceResourceInputsInDeterministicOrder() throws IOException {
         write("src/main/resources/app.properties", "name=demo\n");
         write("src/main/resources/Ignored.java", "class Ignored {}\n");
+        write("src/main/resources/Ignored.groovy", "class Ignored {}\n");
+        write("src/main/resources/Ignored.kt", "class Ignored\n");
+        write("src/main/resources/setup.kts", "println(\"setup\")\n");
         write("resources-extra/config.yml", "server: true\n");
 
         PackageResourceEvidence.ResourceEvidence result = evidence.collect(
@@ -37,7 +40,8 @@ final class PackageResourceEvidenceTest {
 
         assertEquals(List.of(
                 projectDir.resolve("resources-extra/config.yml"),
-                projectDir.resolve("src/main/resources/app.properties")), result.inputs());
+                projectDir.resolve("src/main/resources/app.properties"),
+                projectDir.resolve("src/main/resources/setup.kts")), result.inputs());
         assertTrue(result.fingerprint().startsWith("sha256:"));
     }
 

@@ -95,6 +95,8 @@ final class BuildOutputFinalizer {
                 resourceCopier.copyMainResources(projectDirectory, config);
         BuildMetadataResult metadata =
                 metadataGenerator.generate(projectDirectory, config, outputDirectory);
+        sh.zolt.build.output.CompilerOutputInventory.recordOverlays(outputDirectory,
+                sh.zolt.build.output.CompilerOutputOverlays.written(projectDirectory, config, metadata.generatedFiles()));
         return new Result(resources.resourceCount() + metadata.generatedCount());
     }
 

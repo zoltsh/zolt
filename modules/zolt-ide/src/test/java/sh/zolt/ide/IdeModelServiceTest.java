@@ -112,12 +112,13 @@ final class IdeModelServiceTest {
                 Map.of(
                         "compileClasspathEntries", "0",
                         "runtimeClasspathEntries", "1",
-                        "testClasspathEntries", "2"),
+                        "testClasspathEntries", "2",
+                        "integrationTestClasspathEntries", "2"),
                 recorder.attributesByPhase().get("build ide classpaths"));
         assertEquals(
                 Map.of(
-                        "sourceRoots", "4",
-                        "resourceRoots", "2",
+                        "sourceRoots", "5",
+                        "resourceRoots", "3",
                         "diagnostics", "0"),
                 recorder.attributesByPhase().get("assemble ide model"));
     }

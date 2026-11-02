@@ -210,6 +210,24 @@ final class BuildServiceProcessorIncrementalTest {
         assertEquals("processor-unattributed-output", second.mainIncrementalFallbackReason());
     }
 
+    @Test
+    void newlyGeneratedResourceCollisionForcesFullOwnershipCapture() throws Exception {
+        setUpProject(AnnotationProcessorFixture.attributingResourceProcessorJar(projectDir.resolve("processor-work")));
+        source("src/main/java/com/example/Widget.java", trackedClass("Widget", "\"plain\"").replace("@Tracked", ""));
+        Path overlay = source("src/main/resources/meta/Widget.properties", "copied resource");
+        buildService.build(projectDir, config(), cache());
+        assertTrue(buildService.build(projectDir, config(), cache()).mainCompilationSkipped());
+        source("src/main/java/com/example/Widget.java", trackedClass("Widget", "\"annotated\""));
+        BuildResult changed = buildService.build(projectDir, config(), cache());
+        assertEquals("full", changed.mainCompilationMode());
+        assertEquals("compiler-output-overlays", changed.mainIncrementalFallbackReason());
+        assertEquals("copied resource", Files.readString(generatedResource("Widget")));
+        Files.delete(overlay);
+        assertFalse(buildService.build(projectDir, config(), cache()).mainCompilationSkipped());
+        assertEquals("owner=Widget", Files.readString(generatedResource("Widget")));
+        assertTrue(buildService.build(projectDir, config(), cache()).mainCompilationSkipped());
+    }
+
     private void setUpProject(Path processorJar) throws IOException {
         Path cached = cache().resolve("com/example/processor/1.0.0/processor-1.0.0.jar");
         Files.createDirectories(cached.getParent());

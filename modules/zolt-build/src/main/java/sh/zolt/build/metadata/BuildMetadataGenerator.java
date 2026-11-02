@@ -47,6 +47,23 @@ public final class BuildMetadataGenerator {
         this.environment = environment == null ? Map.of() : Map.copyOf(environment);
     }
 
+    /** Destinations that this generator will actually write, including conditional Git provenance. */
+    public java.util.Set<Path> plannedOutputPaths(Path projectDirectory, ProjectConfig config) {
+        BuildMetadataSettings settings = config.build().metadata();
+        java.util.Set<Path> outputs = new java.util.HashSet<>();
+        if (settings.buildInfo()) {
+            outputs.add(BUILD_INFO_PATH);
+        }
+        if (settings.git()) {
+            BuildProvenance provenance = provenanceSource.read(
+                    projectDirectory, effectiveEnvironment(settings.reproducible()), clock);
+            if (gitProperties(provenance.git()).isPresent()) {
+                outputs.add(GIT_PROPERTIES_PATH);
+            }
+        }
+        return java.util.Set.copyOf(outputs);
+    }
+
     public BuildMetadataResult generate(Path projectDirectory, ProjectConfig config, Path outputDirectory) {
         BuildMetadataSettings settings = config.build().metadata();
         if (!settings.buildInfo() && !settings.git()) {

@@ -182,7 +182,14 @@ public record IdeModel(
     public record OutputInfo(
             Path mainClasses,
             Path testClasses,
+            Path integrationTestClasses,
             Path packagePath) {
+        public OutputInfo(
+                Path mainClasses,
+                Path testClasses,
+                Path packagePath) {
+            this(mainClasses, testClasses, null, packagePath);
+        }
     }
 
     public record DependencyInfo(
@@ -266,6 +273,7 @@ public record IdeModel(
             List<Path> compile,
             List<Path> runtime,
             List<Path> test,
+            List<Path> integrationTest,
             List<Path> processor,
             List<Path> testProcessor,
             List<Path> quarkusDeployment) {
@@ -273,6 +281,7 @@ public record IdeModel(
             compile = List.copyOf(compile);
             runtime = List.copyOf(runtime);
             test = List.copyOf(test);
+            integrationTest = List.copyOf(integrationTest);
             processor = List.copyOf(processor);
             testProcessor = List.copyOf(testProcessor);
             quarkusDeployment = List.copyOf(quarkusDeployment);

@@ -262,6 +262,10 @@ final class WorkspaceLockfileAggregator {
                 + ":" + conflict.variant()
                         .filter(variant -> !variant.isDefault())
                         .map(LockArtifactVariant::key)
+                        .orElse("")
+                + conflict.toolGroup()
+                        .filter(LockConflict::isReservedCompilerToolGroup)
+                        .map(ignored -> ":" + conflict.selectedVersion() + ":" + conflict.reason())
                         .orElse("");
     }
 

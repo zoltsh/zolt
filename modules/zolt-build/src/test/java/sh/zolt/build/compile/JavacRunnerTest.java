@@ -143,6 +143,8 @@ final class JavacRunnerTest {
                 "17",
                 "-encoding",
                 "UTF-8",
+                "-classpath",
+                commands.getFirst().get(commands.getFirst().indexOf("-classpath") + 1),
                 "-proc:none",
                 "-Xlint:deprecation",
                 "-parameters",
@@ -170,7 +172,9 @@ final class JavacRunnerTest {
         List<String> command = commands.getFirst();
         assertTrue(command.contains("--module-path"), "modular compile must emit --module-path");
         assertEquals("zeta.jar:alpha.jar", command.get(command.indexOf("--module-path") + 1));
-        assertFalse(command.contains("-classpath"), "module dependencies must not also appear on -classpath");
+        String isolatedClasspath = command.get(command.indexOf("-classpath") + 1);
+        assertTrue(Path.of(isolatedClasspath).getFileName().toString().startsWith(".zolt-empty-classpath-"));
+        assertFalse(Files.exists(Path.of(isolatedClasspath)), "temporary empty classpath must be removed");
     }
 
     @Test

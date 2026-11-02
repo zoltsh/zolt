@@ -16,9 +16,9 @@ import org.junit.jupiter.api.Test;
 
 final class ReleaseSignatureVerifierTest {
     @Test
-    void bundlesSeparateZapAndPreviewTrustKeys() {
+    void bundlesSeparateChannelTrustKeys() {
         assertEquals(
-                List.of("zolt-release-2026", "zolt-preview-2026"),
+                List.of("zolt-release-2026", "zolt-preview-2026", "zolt-stable-2026"),
                 ReleaseTrustedKeys.bundled().stream()
                         .map(ReleaseSigningKey::keyId)
                         .toList());

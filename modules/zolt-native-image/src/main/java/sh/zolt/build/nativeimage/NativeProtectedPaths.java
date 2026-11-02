@@ -43,6 +43,7 @@ final class NativeProtectedPaths {
         addInputs(paths, root, "main source root", "[build].sources", build.sourceRoots());
         addInputs(paths, root, "test source root", "[test.sources].java", build.testSources());
         addInputs(paths, root, "Groovy test source root", "[test.sources].groovy", build.groovyTestSources());
+        addInputs(paths, root, "Kotlin test source root", "[test.sources].kotlin", build.kotlinTestSources());
         addInputs(paths, root, "integration-test source root", "[test.integration].sources", build.integrationTestSources());
         addInputs(paths, root, "main resource root", "[resources].main", build.resourceRoots());
         addInputs(paths, root, "test resource root", "[resources].test", build.testResourceRoots());

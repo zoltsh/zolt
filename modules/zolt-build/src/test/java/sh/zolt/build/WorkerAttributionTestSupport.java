@@ -59,7 +59,8 @@ final class WorkerAttributionTestSupport implements AutoCloseable {
         }
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         ByteArrayOutputStream diagnostics = new ByteArrayOutputStream();
-        List<String> arguments = new java.util.ArrayList<>(List.of("--release", "21", "-d", classes.toString()));
+        List<String> arguments = new java.util.ArrayList<>(
+                List.of("--release", "21", "-proc:none", "-d", classes.toString()));
         arguments.addAll(sources);
         int exitCode = compiler.run(null, diagnostics, diagnostics, arguments.toArray(String[]::new));
         if (exitCode != 0) {
