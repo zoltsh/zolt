@@ -23,14 +23,15 @@ public record LockedJavaToolchain(
     private static final Pattern SHA256 = Pattern.compile("[0-9a-fA-F]{64}");
 
     public LockedJavaToolchain {
-        id = clean(id, "Java toolchain lock id is required.");
+        id = ToolchainLockPaths.component(clean(id, "Java toolchain lock id is required."), "lock id");
         if (request == null) {
             throw new IllegalArgumentException("Java toolchain request is required.");
         }
         if (platform == null) {
             throw new IllegalArgumentException("Java toolchain platform is required.");
         }
-        resolvedVersion = clean(resolvedVersion, "Java toolchain resolved version is required.");
+        resolvedVersion = ToolchainLockPaths.component(
+                clean(resolvedVersion, "Java toolchain resolved version is required."), "resolved version");
         if (resolvedDistribution == null) {
             throw new IllegalArgumentException("Java toolchain resolved distribution is required.");
         }

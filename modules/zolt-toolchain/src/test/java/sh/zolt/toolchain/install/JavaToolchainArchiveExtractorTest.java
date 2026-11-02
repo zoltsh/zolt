@@ -94,6 +94,51 @@ final class JavaToolchainArchiveExtractorTest {
         assertTrue(exception.getMessage().contains("unsafe symlink"));
     }
 
+    @Test
+    void rejectsWritesThroughExistingEscapingSymlinkAncestors() throws IOException {
+        Path outside = Files.createDirectory(tempDir.resolve("outside"));
+        Files.writeString(outside.resolve("java"), "preserve me");
+        Path destination = Files.createDirectory(tempDir.resolve("out"));
+        Files.createSymbolicLink(destination.resolve("bin"), outside);
+        Path archive = tempDir.resolve("symlink-parent.tar.gz");
+        writeTarGz(archive, entry("jdk/bin/java", "overwrite", 0755));
+
+        assertThrows(ActionableException.class, () ->
+                extractor.extract(archive, JavaToolchainArchiveFormat.TAR_GZ, destination, true));
+
+        org.junit.jupiter.api.Assertions.assertEquals("preserve me", Files.readString(outside.resolve("java")));
+    }
+
+    @Test
+    void rejectsParentTraversalAfterAnEarlierConfinedSymlink() throws IOException {
+        Path outside = Files.createDirectory(tempDir.resolve("outside"));
+        Files.writeString(outside.resolve("sentinel"), "preserve me");
+        Path archive = tempDir.resolve("symlink-parent-traversal.tar.gz");
+        writeTarGz(archive,
+                symlink("jdk/root-alias", "."),
+                symlink("jdk/escape", "root-alias/../outside"),
+                entry("jdk/escape/sentinel", "overwrite", 0644));
+
+        assertThrows(ActionableException.class, () ->
+                extractor.extract(archive, JavaToolchainArchiveFormat.TAR_GZ, tempDir.resolve("out"), true));
+
+        org.junit.jupiter.api.Assertions.assertEquals("preserve me", Files.readString(outside.resolve("sentinel")));
+    }
+
+    @Test
+    void acceptsConfinedSymlinksWhoseTargetsOccurLaterInTheArchive() throws IOException {
+        Path archive = tempDir.resolve("forward-symlink.tar.gz");
+        writeTarGz(archive,
+                symlink("jdk/bin/native-image", "../lib/svm/bin/native-image"),
+                entry("jdk/lib/svm/bin/native-image", "native-image", 0755));
+        Path destination = tempDir.resolve("out");
+
+        extractor.extract(archive, JavaToolchainArchiveFormat.TAR_GZ, destination, true);
+
+        assertTrue(Files.isSymbolicLink(destination.resolve("bin/native-image")));
+        assertTrue(Files.isExecutable(destination.resolve("bin/native-image")));
+    }
+
     private static TarEntry entry(String name, String content, int mode) {
         return new TarEntry(
                 name,

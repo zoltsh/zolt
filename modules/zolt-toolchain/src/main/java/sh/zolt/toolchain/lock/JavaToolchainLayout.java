@@ -7,11 +7,14 @@ public record JavaToolchainLayout(
         String jar,
         String nativeImage) {
     public JavaToolchainLayout {
-        javaHome = clean(javaHome, ".");
-        java = clean(java, "bin/java");
-        javac = clean(javac, "bin/javac");
-        jar = clean(jar, "bin/jar");
+        javaHome = ToolchainLockPaths.layout(clean(javaHome, "."), "layout.javaHome", true);
+        java = ToolchainLockPaths.layout(clean(java, "bin/java"), "layout.executables.java", false);
+        javac = ToolchainLockPaths.layout(clean(javac, "bin/javac"), "layout.executables.javac", false);
+        jar = ToolchainLockPaths.layout(clean(jar, "bin/jar"), "layout.executables.jar", false);
         nativeImage = clean(nativeImage, "");
+        if (!nativeImage.isEmpty()) {
+            nativeImage = ToolchainLockPaths.layout(nativeImage, "layout.executables.nativeImage", false);
+        }
     }
 
     public static JavaToolchainLayout standard(boolean nativeImage) {
