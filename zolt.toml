@@ -17,7 +17,7 @@ kotlin = "2.2.0"
 kotlinx-serialization = "1.9.0"
 ksp = "2.2.0-2.0.2"
 junit-platform = "1.14.4"
-quarkus = "3.40.1.1"
+quarkus = "3.40.1.2"
 tomlj = "1.1.1"
 
 [toolchain.java]
